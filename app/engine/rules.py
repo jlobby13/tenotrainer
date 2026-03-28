@@ -642,6 +642,160 @@ def select_relevant_kb_tags(stage: int, irritability: str) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
+# Session Tolerance Rule Engine
+# ---------------------------------------------------------------------------
+
+def evaluate_session_tolerance(report: dict) -> dict:
+    """
+    Evaluate how the tendon responded to the prescribed session load.
+    Returns a session tolerance signal: go | stay | caution | stop.
+
+    Rules evaluated in strict priority order — first match wins:
+      1. STOP    (safety threshold breached)
+      2. CAUTION (load or symptom response exceeded acceptable threshold)
+      3. GO      (all optimal tolerance criteria met)
+      4. STAY    (unconditional default)
+
+    report keys: prescribed, completed, symptoms, baseline
+    Spec: /specs/session-rule-engine.md
+    """
+    prescribed = report["prescribed"]
+    completed  = report["completed"]
+    symptoms   = report["symptoms"]
+    baseline   = report["baseline"]
+
+    # Derived variables — computed once, used directly in all rule conditions
+    prescribed_sets = prescribed.get("sets", 1) or 1
+    dose_match = completed.get("sets", 0) / prescribed_sets
+    next_morning_pain_change = symptoms.get("nextMorningPain", 0) - baseline.get("usualMorningPain", 0)
+    next_morning_stiffness_change = symptoms.get("nextMorningStiffness", 0) - baseline.get("usualMorningStiffness", 0)
+    overdosed  = dose_match > 1.2
+    underdosed = dose_match < 0.8
+
+    allowed_pain = prescribed.get("allowedPain", 4)
+
+    # --- STOP rules ---
+
+    if symptoms.get("sharpPain"):
+        return {
+            "signal": "stop",
+            "reason": "Sharp pain reported during session — possible acute injury or structural irritation.",
+            "action": "Stop all loading immediately. Do not train. Seek clinical review before continuing.",
+        }
+
+    if completed.get("abandonedDueToPain"):
+        return {
+            "signal": "stop",
+            "reason": "Session was abandoned due to pain — the tendon did not tolerate the prescribed load.",
+            "action": "Do not repeat this session at the same dose. Reduce load significantly or seek clinical review before the next attempt.",
+        }
+
+    if symptoms.get("limpOrFunctionLoss"):
+        return {
+            "signal": "stop",
+            "reason": "Limping or functional loss reported — tendon load capacity compromised.",
+            "action": "Cease loading. Rest and monitor. If limp persists beyond 24 hours, seek clinical review.",
+        }
+
+    if symptoms.get("swellingIncrease"):
+        return {
+            "signal": "stop",
+            "reason": "Swelling increase reported — inflammatory response exceeds acceptable threshold.",
+            "action": "Rest and apply ice. Do not load until swelling has resolved. Seek review if swelling persists.",
+        }
+
+    if next_morning_pain_change >= 4:
+        return {
+            "signal": "stop",
+            "reason": (
+                f"Next morning pain increased by {next_morning_pain_change} points above baseline "
+                f"(baseline: {baseline.get('usualMorningPain', 0)}/10, reported: {symptoms.get('nextMorningPain', 0)}/10) "
+                "— severe adverse response."
+            ),
+            "action": "Stop loading immediately. Do not progress. Seek clinical review.",
+        }
+
+    # --- CAUTION rules ---
+
+    if symptoms.get("painDuring", 0) > allowed_pain + 2:
+        return {
+            "signal": "caution",
+            "reason": (
+                f"Pain during session ({symptoms.get('painDuring', 0)}/10) exceeded the allowed pain threshold "
+                f"by more than 2 points (allowed: {allowed_pain}/10, limit: {allowed_pain + 2}/10)."
+            ),
+            "action": "Reduce load by 20% next session. Do not increase volume or intensity until pain during exercise is consistently within the allowed limit.",
+        }
+
+    if next_morning_pain_change >= 2:
+        return {
+            "signal": "caution",
+            "reason": (
+                f"Next morning pain increased by {next_morning_pain_change} points above baseline "
+                f"(baseline: {baseline.get('usualMorningPain', 0)}/10, reported: {symptoms.get('nextMorningPain', 0)}/10)."
+            ),
+            "action": "Repeat session at current or reduced load. Monitor next-morning response before progressing.",
+        }
+
+    if next_morning_stiffness_change >= 2:
+        return {
+            "signal": "caution",
+            "reason": (
+                f"Next morning stiffness increased by {next_morning_stiffness_change} points above baseline "
+                f"(baseline: {baseline.get('usualMorningStiffness', 0)}/10, reported: {symptoms.get('nextMorningStiffness', 0)}/10)."
+            ),
+            "action": "Maintain current load. Allow full warm-up before loading. Review if stiffness persists across multiple sessions.",
+        }
+
+    if underdosed:
+        return {
+            "signal": "caution",
+            "reason": (
+                f"Completed sets ({completed.get('sets', 0)}) were less than 80% of the prescribed dose "
+                f"({prescribed_sets} sets). Dose match: {round(dose_match * 100)}%."
+            ),
+            "action": "Investigate reason for under-dosing. If due to fatigue or discomfort, repeat session at the prescribed dose before progressing.",
+        }
+
+    if overdosed:
+        return {
+            "signal": "caution",
+            "reason": (
+                f"Completed sets ({completed.get('sets', 0)}) exceeded 120% of the prescribed dose "
+                f"({prescribed_sets} sets). Overdosing risks a delayed adverse tendon response even when immediate symptoms appear minimal."
+            ),
+            "action": "Return to the prescribed dose next session. Do not exceed the prescription — tendon adaptation requires consistent, controlled loading.",
+        }
+
+    # --- GO — all five conditions must be true ---
+
+    if (
+        dose_match >= 0.9
+        and symptoms.get("painDuring", 0) <= allowed_pain
+        and next_morning_pain_change <= 1
+        and next_morning_stiffness_change <= 1
+        and not symptoms.get("swellingIncrease")
+    ):
+        return {
+            "signal": "go",
+            "reason": (
+                f"Session well-tolerated. Prescribed dose completed within pain limits with minimal next-day response. "
+                f"Pain during session was {symptoms.get('painDuring', 0)}/10 (allowed: {allowed_pain}/10). "
+                "Next morning pain and stiffness were within 1 point of baseline."
+            ),
+            "action": "Proceed with next session as prescribed. Progress load according to plan if all sessions remain consistent.",
+        }
+
+    # --- STAY (default) ---
+
+    return {
+        "signal": "stay",
+        "reason": "Session completed with acceptable response but not within optimal tolerance parameters. No caution-level thresholds were breached.",
+        "action": "Repeat the current session at the same prescribed dose before considering progression.",
+    }
+
+
+# ---------------------------------------------------------------------------
 # Recovery Timeline
 # ---------------------------------------------------------------------------
 

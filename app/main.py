@@ -35,6 +35,7 @@ from app.engine.rules import (
     update_irritability_from_log,
     has_conservative_bias,
     compute_recovery_timeline,
+    evaluate_session_tolerance,
     Irritability,
     Decision,
 )
@@ -186,7 +187,7 @@ def compute_exercise_compliance(exercises: list[dict], form_data) -> dict:
             sets_done = None
 
         if isinstance(prescribed_sets, (int, float)) and prescribed_sets > 0 and sets_done is not None:
-            sets_compliance = min(100, round(sets_done / prescribed_sets * 100))
+            sets_compliance = round(sets_done / prescribed_sets * 100)
         else:
             sets_compliance = None
 
@@ -878,6 +879,15 @@ async def daily_log_get(
         if plan_row:
             plan = parse_json_fields(row_to_dict(plan_row), ["exercises"])
             current_exercises = plan.get("exercises", [])
+
+        # Baseline from most recent onboarding assessment
+        cursor = await db.execute(
+            "SELECT morning_stiffness, next_day_pain FROM onboarding_assessments WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
+            (user["id"],),
+        )
+        ob_row = await cursor.fetchone()
+        baseline_morning_pain = ob_row["next_day_pain"] if ob_row else 0
+        baseline_morning_stiffness = ob_row["morning_stiffness"] if ob_row else 0
     finally:
         await db.close()
 
@@ -886,6 +896,8 @@ async def daily_log_get(
         context={
             "user": user,
             "current_exercises": current_exercises,
+            "baseline_morning_pain": baseline_morning_pain,
+            "baseline_morning_stiffness": baseline_morning_stiffness,
         },
     )
 
@@ -901,11 +913,17 @@ async def daily_log_post(
     teno_session: Optional[str] = Cookie(default=None),
     pain_during: int = Form(...),
     pain_after: int = Form(...),
+    pain_later_same_day: int = Form(default=0),
     next_day_pain: int = Form(...),
+    next_morning_stiffness: int = Form(default=0),
     difficulty: int = Form(...),
     confidence: int = Form(...),
     notes: Optional[str] = Form(default=""),
     red_flag_notes: Optional[str] = Form(default=""),
+    sharp_pain: Optional[str] = Form(default=None),
+    swelling_increase: Optional[str] = Form(default=None),
+    limp_or_function_loss: Optional[str] = Form(default=None),
+    abandoned_due_to_pain: Optional[str] = Form(default=None),
     change_sport: Optional[str] = Form(default=None),
     change_surface: Optional[str] = Form(default=None),
     change_footwear: Optional[str] = Form(default=None),
@@ -1004,6 +1022,44 @@ async def daily_log_post(
         exercise_compliance = compute_exercise_compliance(current_exercises, form_data)
         exercise_log_json = json.dumps(exercise_compliance)
 
+        # Build and run session tolerance engine
+        allowed_pain_map = {Irritability.HIGH: 3, Irritability.MODERATE: 4, Irritability.LOW: 5}
+        allowed_pain = allowed_pain_map.get(current_irritability, 4)
+        total_prescribed_sets = sum(
+            ex.get("sets", 0) for ex in current_exercises
+            if isinstance(ex.get("sets"), (int, float))
+        )
+        total_completed_sets = sum(
+            (ex.get("sets_done") or 0) for ex in exercise_compliance.get("exercises", [])
+        )
+        # Fall back to 1 prescribed set if no plan yet (avoids division by zero)
+        session_report = {
+            "prescribed": {
+                "sets": max(total_prescribed_sets, 1),
+                "allowedPain": allowed_pain,
+            },
+            "completed": {
+                "sets": total_completed_sets,
+                "completed": not bool(abandoned_due_to_pain),
+                "abandonedDueToPain": bool(abandoned_due_to_pain),
+            },
+            "symptoms": {
+                "painDuring": pain_during,
+                "painAfter": pain_after,
+                "painLaterSameDay": pain_later_same_day,
+                "nextMorningPain": next_day_pain,
+                "nextMorningStiffness": next_morning_stiffness,
+                "swellingIncrease": bool(swelling_increase),
+                "sharpPain": bool(sharp_pain),
+                "limpOrFunctionLoss": bool(limp_or_function_loss),
+            },
+            "baseline": {
+                "usualMorningPain": o.get("next_day_pain", 0) if onboarding_row else 0,
+                "usualMorningStiffness": o.get("morning_stiffness", 0) if onboarding_row else 0,
+            },
+        }
+        session_tolerance = evaluate_session_tolerance(session_report)
+
         # Run progression decision engine
         progression = run_decision_engine(
             recent_logs=all_logs[-8:],
@@ -1075,6 +1131,8 @@ async def daily_log_post(
         context={
             "user": user,
             "submitted": True,
+            "session_tolerance": session_tolerance,
+            "session_report": session_report,
             "progression": progression,
             "new_irritability": new_irritability,
             "pain_during": pain_during,
@@ -1082,6 +1140,80 @@ async def daily_log_post(
             "next_day_pain": next_day_pain,
             "loading_context_changes": loading_context_changes,
             "exercise_compliance": exercise_compliance,
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# GET /exercise-log
+# ---------------------------------------------------------------------------
+
+@app.get("/exercise-log", response_class=HTMLResponse)
+async def exercise_log_get(
+    request: Request,
+    teno_session: Optional[str] = Cookie(default=None),
+):
+    user = await get_authenticated_user(teno_session)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    db = await get_db()
+    try:
+        cursor = await db.execute(
+            "SELECT id, pain_during, pain_after, next_day_pain, exercise_log, created_at "
+            "FROM daily_logs WHERE user_id = ? ORDER BY created_at DESC LIMIT 30",
+            (user["id"],),
+        )
+        log_rows = await cursor.fetchall()
+        logs = [row_to_dict(r) for r in log_rows]
+    finally:
+        await db.close()
+
+    # Group sessions by exercise name so each exercise gets its own history table.
+    # exercise_history: OrderedDict preserving first-seen order (most recent first).
+    exercise_history: dict = {}
+
+    for log in logs:
+        try:
+            ex_log = json.loads(log.get("exercise_log") or "{}")
+        except (json.JSONDecodeError, TypeError):
+            continue
+
+        exercises = ex_log.get("exercises", [])
+        if not exercises:
+            continue
+
+        date_str = log["created_at"][:10]
+
+        for ex in exercises:
+            name = ex.get("name", "Unknown")
+            if name not in exercise_history:
+                exercise_history[name] = {
+                    "name": name,
+                    "type": ex.get("type", ""),
+                    "prescribed_sets": ex.get("prescribed_sets"),
+                    "prescribed_reps": ex.get("prescribed_reps", ""),
+                    "sessions": [],
+                }
+            exercise_history[name]["sessions"].append({
+                "date": date_str,
+                "sets_done": ex.get("sets_done"),
+                "reps_done": ex.get("reps_done"),
+                "load_kg": ex.get("load_kg"),
+                "sets_compliance": ex.get("sets_compliance"),
+                "pain_during": log["pain_during"],
+                "pain_after": log["pain_after"],
+                "next_day_pain": log["next_day_pain"],
+            })
+
+    total_logged = sum(1 for l in logs if json.loads(l.get("exercise_log") or "{}").get("exercises"))
+
+    return templates.TemplateResponse(
+        request, "exercise_log.html",
+        context={
+            "user": user,
+            "exercise_history": list(exercise_history.values()),
+            "total_sessions": total_logged,
         },
     )
 

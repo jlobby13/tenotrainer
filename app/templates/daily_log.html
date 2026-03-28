@@ -25,30 +25,123 @@
 
   {% elif submitted %}
   <!-- Result Panel -->
-  {% set dec_colour = {'GO': 'green', 'STAY': 'blue', 'CAUTION': 'yellow', 'STOP': 'red'} %}
-  {% set dc = dec_colour.get(progression.decision, 'gray') %}
-  {% set irr_colour = {'high': 'red', 'moderate': 'yellow', 'low': 'green'} %}
-  {% set ic = irr_colour.get(new_irritability, 'gray') %}
+
+  {# ── Signal config ── #}
+  {% set sig_cfg = {
+    'go':      {'label': 'GO',      'icon': '✓', 'hdr': 'bg-green-600',  'bg': 'bg-green-50',  'border': 'border-green-300',  'title': 'text-green-800',  'sub': 'text-green-700'},
+    'stay':    {'label': 'STAY',    'icon': '→', 'hdr': 'bg-blue-600',   'bg': 'bg-blue-50',   'border': 'border-blue-300',   'title': 'text-blue-800',   'sub': 'text-blue-700'},
+    'caution': {'label': 'CAUTION', 'icon': '⚠', 'hdr': 'bg-yellow-500', 'bg': 'bg-yellow-50', 'border': 'border-yellow-400', 'title': 'text-yellow-800', 'sub': 'text-yellow-700'},
+    'stop':    {'label': 'STOP',    'icon': '✕', 'hdr': 'bg-red-600',    'bg': 'bg-red-50',    'border': 'border-red-400',    'title': 'text-red-800',    'sub': 'text-red-700'},
+  } %}
+  {% set sc = sig_cfg[session_tolerance.signal] %}
+
+  {# ── Dose bar values ── #}
+  {% set p_sets = session_report.prescribed.sets %}
+  {% set c_sets = session_report.completed.sets %}
+  {% set dose_pct = [((c_sets / p_sets * 100) | round | int), 150] | min if p_sets > 0 else 0 %}
+  {% set bar_pct  = [dose_pct, 100] | min %}
+  {% set bar_color = 'bg-yellow-400' if dose_pct > 120 else ('bg-red-400' if dose_pct < 80 else 'bg-green-400') %}
+
+  {# ── Symptom delta values ── #}
+  {% set pain_change  = session_report.symptoms.nextMorningPain - session_report.baseline.usualMorningPain %}
+  {% set stiff_change = session_report.symptoms.nextMorningStiffness - session_report.baseline.usualMorningStiffness %}
 
   <div class="space-y-4 mb-6">
-    <!-- Decision badge -->
-    <div class="bg-{{ dc }}-50 border-2 border-{{ dc }}-300 rounded-xl p-5">
-      <div class="flex items-center gap-4 mb-3">
-        <div class="text-4xl font-black text-{{ dc }}-700">{{ progression.decision }}</div>
+
+    {# ── Session Tolerance Card ── #}
+    <div class="rounded-2xl border-2 {{ sc.border }} {{ sc.bg }} overflow-hidden shadow-sm">
+
+      {# Coloured header #}
+      <div class="{{ sc.hdr }} px-5 py-4 flex items-center justify-between">
         <div>
-          <div class="font-bold text-{{ dc }}-800 text-lg">
-            {% if progression.decision == 'GO' %}Progress Loading
-            {% elif progression.decision == 'STAY' %}Maintain Current Plan
-            {% elif progression.decision == 'CAUTION' %}Reduce Dose — Caution
-            {% else %}STOP — Reduce Load Immediately{% endif %}
-          </div>
-          <div class="text-sm text-{{ dc }}-700">Engine Decision (deterministic)</div>
+          <p class="text-xs font-semibold text-white/60 uppercase tracking-wider mb-0.5">Session Tolerance</p>
+          <h2 class="text-xl font-black text-white">
+            {% if session_tolerance.signal == 'go' %}Well Tolerated
+            {% elif session_tolerance.signal == 'stay' %}Acceptable Response
+            {% elif session_tolerance.signal == 'caution' %}Caution — Modify Next Session
+            {% else %}Stop — Safety Threshold Breached{% endif %}
+          </h2>
+        </div>
+        <div class="flex items-center gap-2 bg-white/20 text-white px-4 py-2 rounded-full font-black text-lg shadow-inner shrink-0">
+          <span>{{ sc.icon }}</span>
+          <span>{{ sc.label }}</span>
         </div>
       </div>
-      <p class="text-sm text-{{ dc }}-800">{{ progression.rationale }}</p>
+
+      <div class="p-5 space-y-4">
+
+        {# Dose bar #}
+        <div>
+          <div class="flex justify-between text-xs text-gray-500 mb-1">
+            <span>Dose: <strong>{{ c_sets }}</strong> / {{ p_sets }} sets</span>
+            <span class="{{ 'font-bold text-yellow-700' if (dose_pct > 120 or dose_pct < 80) else 'text-gray-500' }}">{{ dose_pct }}%</span>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-2.5 relative overflow-hidden">
+            <div class="h-2.5 rounded-full {{ bar_color }}" style="width:{{ bar_pct }}%"></div>
+            <div class="absolute top-0 h-full w-0.5 bg-gray-400 opacity-50" style="left:80%"></div>
+            <div class="absolute top-0 h-full w-0.5 bg-gray-400 opacity-50" style="left:100%"></div>
+          </div>
+          <div class="flex text-[10px] text-gray-400 mt-0.5">
+            <span>0%</span>
+            <span class="ml-auto">80% &nbsp; 100% &nbsp; 120%+</span>
+          </div>
+        </div>
+
+        {# Symptom pills #}
+        <div class="flex flex-wrap gap-2 items-center">
+          {% macro pain_pill(label, val) %}
+            {% set c = 'bg-red-100 text-red-700' if val >= 6 else ('bg-yellow-100 text-yellow-700' if val >= 4 else 'bg-green-100 text-green-700') %}
+            <div class="flex items-center gap-1 px-2 py-1 rounded-lg text-xs {{ c }}">
+              <span class="text-gray-500 font-normal">{{ label }}</span>
+              <span class="font-bold">{{ val }}/10</span>
+            </div>
+          {% endmacro %}
+          {% macro delta_pill(label, val) %}
+            {% set c = 'bg-red-100 text-red-700' if val >= 2 else ('bg-yellow-100 text-yellow-700' if val >= 1 else 'bg-green-100 text-green-700') %}
+            <div class="flex items-center gap-1 px-2 py-1 rounded-lg text-xs {{ c }}">
+              <span class="text-gray-500 font-normal">{{ label }}</span>
+              <span class="font-bold">{{ '+' if val > 0 else '' }}{{ val }}</span>
+            </div>
+          {% endmacro %}
+          {{ pain_pill('During', session_report.symptoms.painDuring) }}
+          {{ pain_pill('After', session_report.symptoms.painAfter) }}
+          {{ pain_pill('Next AM', session_report.symptoms.nextMorningPain) }}
+          {{ delta_pill('Pain Δ', pain_change) }}
+          {{ delta_pill('Stiff Δ', stiff_change) }}
+          {% if session_report.symptoms.sharpPain %}
+          <span class="px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700 rounded-full">Sharp pain</span>
+          {% endif %}
+          {% if session_report.completed.abandonedDueToPain %}
+          <span class="px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700 rounded-full">Abandoned</span>
+          {% endif %}
+          {% if session_report.symptoms.limpOrFunctionLoss %}
+          <span class="px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700 rounded-full">Limp</span>
+          {% endif %}
+          {% if session_report.symptoms.swellingIncrease %}
+          <span class="px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700 rounded-full">Swelling</span>
+          {% endif %}
+        </div>
+
+        <hr class="border-gray-200" />
+
+        {# Reason + action #}
+        <div class="space-y-3">
+          <div>
+            <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Why this signal</p>
+            <p class="text-sm font-medium {{ sc.title }} leading-snug">{{ session_tolerance.reason }}</p>
+          </div>
+          <div class="bg-white/70 rounded-xl px-4 py-3">
+            <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Next session action</p>
+            <p class="text-sm text-gray-700 leading-snug">{{ session_tolerance.action }}</p>
+          </div>
+        </div>
+
+      </div>
     </div>
 
-    <!-- Irritability update -->
+    {# ── Irritability re-classification ── #}
+    {% set irr_colour = {'high': 'red', 'moderate': 'yellow', 'low': 'green'} %}
+    {% set ic = irr_colour.get(new_irritability, 'gray') %}
     <div class="bg-{{ ic }}-50 border border-{{ ic }}-200 rounded-xl p-4">
       <div class="font-semibold text-{{ ic }}-800 mb-1">
         Irritability re-classified: <span class="uppercase font-black">{{ new_irritability }}</span>
@@ -68,10 +161,11 @@
         <div class="font-bold text-gray-800 text-lg">Exercise Dosage Compliance</div>
         {% if oc is not none %}
         <span class="px-3 py-1 text-sm font-bold rounded-full
-          {% if oc >= 90 %}bg-green-100 text-green-700
+          {% if oc > 120 %}bg-yellow-100 text-yellow-700
+          {% elif oc >= 90 %}bg-green-100 text-green-700
           {% elif oc >= 70 %}bg-yellow-100 text-yellow-700
           {% else %}bg-red-100 text-red-700{% endif %}">
-          {{ oc }}% overall
+          {{ oc }}% overall{% if oc > 100 %} ↑{% endif %}
         </span>
         {% endif %}
       </div>
@@ -107,10 +201,11 @@
               <td class="text-center py-2 pl-2">
                 {% if ex.sets_compliance is not none %}
                 <span class="px-2 py-0.5 rounded text-xs font-bold
-                  {% if ex.sets_compliance >= 90 %}bg-green-100 text-green-700
+                  {% if ex.sets_compliance > 120 %}bg-yellow-100 text-yellow-700
+                  {% elif ex.sets_compliance >= 90 %}bg-green-100 text-green-700
                   {% elif ex.sets_compliance >= 70 %}bg-yellow-100 text-yellow-700
                   {% else %}bg-red-100 text-red-700{% endif %}">
-                  {{ ex.sets_compliance }}%
+                  {{ ex.sets_compliance }}%{% if ex.sets_compliance > 100 %} ↑{% endif %}
                 </span>
                 {% else %}
                 <span class="text-gray-400 text-xs">—</span>
@@ -123,7 +218,11 @@
       </div>
 
       {% if oc is not none %}
-      {% if oc < 70 %}
+      {% if oc > 120 %}
+      <p class="text-xs text-yellow-700 mt-3 bg-yellow-50 rounded-lg px-3 py-2">
+        Overdose recorded — {{ oc }}% of prescribed sets completed ({{ oc - 100 }}% above prescription). Excess loading risks a delayed adverse tendon response. Return to the prescribed dose next session.
+      </p>
+      {% elif oc < 70 %}
       <p class="text-xs text-red-600 mt-3 bg-red-50 rounded-lg px-3 py-2">
         Significant under-dosing recorded. Consistent under-dosing may slow tendon adaptation. If due to pain or fatigue, this is captured in your pain scores above — otherwise, aim to complete the full prescription next session.
       </p>
@@ -242,13 +341,15 @@
 
     <!-- Pain Scores -->
     <div class="bg-white rounded-xl shadow p-6 border border-gray-100">
-      <h2 class="text-xl font-bold text-gray-800 mb-1">Pain Scores</h2>
-      <p class="text-sm text-gray-500 mb-4">Rate pain 0 (none) to 10 (worst imaginable).</p>
+      <h2 class="text-xl font-bold text-gray-800 mb-1">Pain &amp; Symptom Scores</h2>
+      <p class="text-sm text-gray-500 mb-4">Rate pain 0 (none) to 10 (worst imaginable). These scores are fed directly into the session tolerance engine.</p>
 
       {% set pain_items = [
-        ("pain_during", "Pain DURING today's exercise session"),
-        ("pain_after", "Pain in the hour AFTER exercise"),
-        ("next_day_pain", "Pain / stiffness this MORNING (next-day response)"),
+        ("pain_during",        "Pain DURING today's exercise session"),
+        ("pain_after",         "Pain in the hour AFTER exercise"),
+        ("pain_later_same_day","Pain later the SAME day (evening)"),
+        ("next_day_pain",      "Pain this MORNING — next-day response"),
+        ("next_morning_stiffness", "Stiffness this MORNING — next-day response"),
       ] %}
 
       {% for field, label in pain_items %}
@@ -256,15 +357,69 @@
         <label class="block text-sm font-medium text-gray-700 mb-2">{{ label }}</label>
         <div class="flex items-center gap-3">
           <span class="text-xs text-gray-500 w-12 text-right">0</span>
-          <input type="range" name="{{ field }}" min="0" max="10" value="2"
+          <input type="range" name="{{ field }}" min="0" max="10" value="0"
                  class="flex-1 accent-brand-600"
                  oninput="document.getElementById('{{ field }}_val').textContent = this.value" />
           <span class="text-xs text-gray-500 w-12">10</span>
           <span id="{{ field }}_val"
-                class="w-8 text-center font-bold text-brand-700 bg-brand-50 rounded px-1 py-0.5 text-sm">2</span>
+                class="w-8 text-center font-bold text-brand-700 bg-brand-50 rounded px-1 py-0.5 text-sm">0</span>
         </div>
       </div>
       {% endfor %}
+
+      {% if baseline_morning_pain is defined or baseline_morning_stiffness is defined %}
+      <p class="text-xs text-gray-400 mt-1">
+        Your baseline (from assessment): morning pain {{ baseline_morning_pain }}/10, morning stiffness {{ baseline_morning_stiffness }}/10.
+        The engine compares your next-morning scores against these values.
+      </p>
+      {% endif %}
+    </div>
+
+    <!-- Symptom Flags -->
+    <div class="bg-white rounded-xl shadow p-6 border border-gray-100">
+      <h2 class="text-xl font-bold text-gray-800 mb-1">Symptom Flags</h2>
+      <p class="text-sm text-gray-500 mb-4">
+        Tick any that apply to today's session. These flags are evaluated by the safety rules before the tolerance signal is assigned.
+      </p>
+      <div class="space-y-3">
+
+        <label class="flex items-start gap-3 cursor-pointer">
+          <input type="checkbox" name="abandoned_due_to_pain" value="1"
+                 class="mt-0.5 accent-brand-600 w-4 h-4 shrink-0" />
+          <div>
+            <span class="text-sm font-medium text-gray-700">I stopped the session early due to pain</span>
+            <p class="text-xs text-gray-400 mt-0.5">Session was abandoned before completing the prescribed sets</p>
+          </div>
+        </label>
+
+        <label class="flex items-start gap-3 cursor-pointer">
+          <input type="checkbox" name="sharp_pain" value="1"
+                 class="mt-0.5 accent-brand-600 w-4 h-4 shrink-0" />
+          <div>
+            <span class="text-sm font-medium text-gray-700">I experienced sharp pain during the session</span>
+            <p class="text-xs text-gray-400 mt-0.5">Sudden or stabbing pain, distinct from the usual exercise discomfort</p>
+          </div>
+        </label>
+
+        <label class="flex items-start gap-3 cursor-pointer">
+          <input type="checkbox" name="swelling_increase" value="1"
+                 class="mt-0.5 accent-brand-600 w-4 h-4 shrink-0" />
+          <div>
+            <span class="text-sm font-medium text-gray-700">Swelling increased after the session</span>
+            <p class="text-xs text-gray-400 mt-0.5">Noticeable puffiness or swelling around the tendon or ankle</p>
+          </div>
+        </label>
+
+        <label class="flex items-start gap-3 cursor-pointer">
+          <input type="checkbox" name="limp_or_function_loss" value="1"
+                 class="mt-0.5 accent-brand-600 w-4 h-4 shrink-0" />
+          <div>
+            <span class="text-sm font-medium text-gray-700">I was limping or had difficulty walking after</span>
+            <p class="text-xs text-gray-400 mt-0.5">Altered gait or reduced ability to weight-bear normally</p>
+          </div>
+        </label>
+
+      </div>
     </div>
 
     <!-- Session Feel -->

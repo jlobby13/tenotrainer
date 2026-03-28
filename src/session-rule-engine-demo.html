@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Session Tolerance Rule Engine — TenoTrainer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ["Inter", "ui-sans-serif", "system-ui"] }
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+</head>
+<body class="bg-gray-50 min-h-screen font-sans">
+
+<div class="max-w-5xl mx-auto py-10 px-4" id="app"></div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Engine — sessionRuleEngine (ported from TypeScript)
+// ---------------------------------------------------------------------------
+
+function evaluateSessionTolerance(report) {
+  const { prescribed, completed, symptoms, baseline } = report;
+
+  const doseMatch = completed.sets / prescribed.sets;
+  const nextMorningPainChange = symptoms.nextMorningPain - baseline.usualMorningPain;
+  const nextMorningStiffnessChange = symptoms.nextMorningStiffness - baseline.usualMorningStiffness;
+  const overdosed = doseMatch > 1.2;
+  const underdosed = doseMatch < 0.8;
+
+  // STOP
+  if (symptoms.sharpPain)
+    return { signal: "stop", reason: "Sharp pain reported during session — possible acute injury or structural irritation.", action: "Stop all loading immediately. Do not train. Seek clinical review before continuing." };
+  if (completed.abandonedDueToPain)
+    return { signal: "stop", reason: "Session was abandoned due to pain — the tendon did not tolerate the prescribed load.", action: "Do not repeat this session at the same dose. Reduce load significantly or seek clinical review before the next attempt." };
+  if (symptoms.limpOrFunctionLoss)
+    return { signal: "stop", reason: "Limping or functional loss reported — tendon load capacity compromised.", action: "Cease loading. Rest and monitor. If limp persists beyond 24 hours, seek clinical review." };
+  if (symptoms.swellingIncrease)
+    return { signal: "stop", reason: "Swelling increase reported — inflammatory response exceeds acceptable threshold.", action: "Rest and apply ice. Do not load until swelling has resolved. Seek review if swelling persists." };
+  if (nextMorningPainChange >= 4)
+    return { signal: "stop", reason: `Next morning pain increased by ${nextMorningPainChange} points above baseline (baseline: ${baseline.usualMorningPain}/10, reported: ${symptoms.nextMorningPain}/10) — severe adverse response.`, action: "Stop loading immediately. Do not progress. Seek clinical review." };
+
+  // CAUTION
+  if (symptoms.painDuring > prescribed.allowedPain + 2)
+    return { signal: "caution", reason: `Pain during session (${symptoms.painDuring}/10) exceeded the allowed pain threshold by more than 2 points (allowed: ${prescribed.allowedPain}/10, limit: ${prescribed.allowedPain + 2}/10).`, action: "Reduce load by 20% next session. Do not increase volume or intensity until pain during exercise is consistently within the allowed limit." };
+  if (nextMorningPainChange >= 2)
+    return { signal: "caution", reason: `Next morning pain increased by ${nextMorningPainChange} points above baseline (baseline: ${baseline.usualMorningPain}/10, reported: ${symptoms.nextMorningPain}/10).`, action: "Repeat session at current or reduced load. Monitor next-morning response before progressing." };
+  if (nextMorningStiffnessChange >= 2)
+    return { signal: "caution", reason: `Next morning stiffness increased by ${nextMorningStiffnessChange} points above baseline (baseline: ${baseline.usualMorningStiffness}/10, reported: ${symptoms.nextMorningStiffness}/10).`, action: "Maintain current load. Allow full warm-up before loading. Review if stiffness persists across multiple sessions." };
+  if (underdosed)
+    return { signal: "caution", reason: `Completed sets (${completed.sets}) were less than 80% of the prescribed dose (${prescribed.sets} sets). Dose match: ${Math.round(doseMatch * 100)}%.`, action: "Investigate reason for under-dosing. If due to fatigue or discomfort, repeat session at the prescribed dose before progressing." };
+  if (overdosed)
+    return { signal: "caution", reason: `Completed sets (${completed.sets}) exceeded 120% of the prescribed dose (${prescribed.sets} sets). Overdosing risks a delayed adverse tendon response even when immediate symptoms appear minimal.`, action: "Return to the prescribed dose next session. Do not exceed the prescription — tendon adaptation requires consistent, controlled loading." };
+
+  // GO
+  if (doseMatch >= 0.9 && symptoms.painDuring <= prescribed.allowedPain && nextMorningPainChange <= 1 && nextMorningStiffnessChange <= 1 && !symptoms.swellingIncrease)
+    return { signal: "go", reason: `Session well-tolerated. Prescribed dose completed within pain limits with minimal next-day response. Pain during session was ${symptoms.painDuring}/10 (allowed: ${prescribed.allowedPain}/10). Next morning pain and stiffness were within 1 point of baseline.`, action: "Proceed with next session as prescribed. Progress load according to plan if all sessions remain consistent." };
+
+  // STAY (default)
+  return { signal: "stay", reason: "Session completed with acceptable response but not within optimal tolerance parameters. No caution-level thresholds were breached.", action: "Repeat the current session at the same prescribed dose before considering progression." };
+}
+
+// ---------------------------------------------------------------------------
+// Test cases — from /specs/session-rule-engine.md
+// ---------------------------------------------------------------------------
+
+const TEST_CASES = [
+  {
+    label: "Test 1", description: "Perfect Tolerance",
+    report: {
+      prescribed: { sets: 4, allowedPain: 3 },
+      completed: { sets: 4, completed: true, abandonedDueToPain: false },
+      symptoms: { painDuring: 2, painAfter: 1, painLaterSameDay: 1, nextMorningPain: 1, nextMorningStiffness: 2, swellingIncrease: false, sharpPain: false, limpOrFunctionLoss: false },
+      baseline: { usualMorningPain: 1, usualMorningStiffness: 2 }
+    }
+  },
+  {
+    label: "Test 2", description: "Mild Increase Next Day",
+    report: {
+      prescribed: { sets: 4, allowedPain: 3 },
+      completed: { sets: 4, completed: true, abandonedDueToPain: false },
+      symptoms: { painDuring: 4, painAfter: 3, painLaterSameDay: 3, nextMorningPain: 2, nextMorningStiffness: 2, swellingIncrease: false, sharpPain: false, limpOrFunctionLoss: false },
+      baseline: { usualMorningPain: 1, usualMorningStiffness: 1 }
+    }
+  },
+  {
+    label: "Test 3", description: "Overload With Symptoms",
+    report: {
+      prescribed: { sets: 4, allowedPain: 3 },
+      completed: { sets: 4, completed: true, abandonedDueToPain: false },
+      symptoms: { painDuring: 6, painAfter: 5, painLaterSameDay: 4, nextMorningPain: 2, nextMorningStiffness: 2, swellingIncrease: false, sharpPain: false, limpOrFunctionLoss: false },
+      baseline: { usualMorningPain: 1, usualMorningStiffness: 1 }
+    }
+  },
+  {
+    label: "Test 4", description: "Aborted Due to Pain",
+    report: {
+      prescribed: { sets: 4, allowedPain: 3 },
+      completed: { sets: 2, completed: false, abandonedDueToPain: true },
+      symptoms: { painDuring: 7, painAfter: 6, painLaterSameDay: 5, nextMorningPain: 3, nextMorningStiffness: 3, swellingIncrease: false, sharpPain: false, limpOrFunctionLoss: false },
+      baseline: { usualMorningPain: 1, usualMorningStiffness: 1 }
+    }
+  },
+  {
+    label: "Test 5", description: "Overdosed, Minimal Symptoms",
+    report: {
+      prescribed: { sets: 4, allowedPain: 3 },
+      completed: { sets: 6, completed: true, abandonedDueToPain: false },
+      symptoms: { painDuring: 2, painAfter: 1, painLaterSameDay: 1, nextMorningPain: 1, nextMorningStiffness: 2, swellingIncrease: false, sharpPain: false, limpOrFunctionLoss: false },
+      baseline: { usualMorningPain: 1, usualMorningStiffness: 2 }
+    }
+  }
+];
+
+// ---------------------------------------------------------------------------
+// Signal config
+// ---------------------------------------------------------------------------
+
+const SIGNAL_CONFIG = {
+  go:      { label: "GO",      icon: "✓", headerBg: "bg-green-600",  cardBg: "bg-green-50",  border: "border-green-300",  titleText: "text-green-800",  badgeRing: "ring-green-300"  },
+  stay:    { label: "STAY",    icon: "→", headerBg: "bg-blue-600",   cardBg: "bg-blue-50",   border: "border-blue-300",   titleText: "text-blue-800",   badgeRing: "ring-blue-300"   },
+  caution: { label: "CAUTION", icon: "⚠", headerBg: "bg-yellow-500", cardBg: "bg-yellow-50", border: "border-yellow-400", titleText: "text-yellow-800", badgeRing: "ring-yellow-300" },
+  stop:    { label: "STOP",    icon: "✕", headerBg: "bg-red-600",    cardBg: "bg-red-50",    border: "border-red-400",    titleText: "text-red-800",    badgeRing: "ring-red-300"    },
+};
+
+const SUMMARY_COUNTS = { go: 0, stay: 0, caution: 0, stop: 0 };
+
+// ---------------------------------------------------------------------------
+// Render helpers
+// ---------------------------------------------------------------------------
+
+function painColor(value) {
+  if (value >= 6) return "bg-red-100 text-red-700";
+  if (value >= 4) return "bg-yellow-100 text-yellow-700";
+  return "bg-green-100 text-green-700";
+}
+
+function deltaColor(value) {
+  if (value >= 2) return "bg-red-100 text-red-700";
+  if (value >= 1) return "bg-yellow-100 text-yellow-700";
+  return "bg-green-100 text-green-700";
+}
+
+function pill(label, value, colorFn) {
+  return `<div class="flex items-center gap-1 px-2 py-1 rounded-lg text-xs ${colorFn(value)}">
+    <span class="text-gray-500 font-normal">${label}</span>
+    <span class="font-bold">${value}/10</span>
+  </div>`;
+}
+
+function flagPill(label, active) {
+  if (!active) return "";
+  return `<span class="px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700 rounded-full">${label}</span>`;
+}
+
+function doseBar(prescribed, completed) {
+  const pct = Math.min(Math.round((completed / prescribed) * 100), 150);
+  const displayPct = Math.min(pct, 100);
+  const over = pct > 120, under = pct < 80;
+  const barColor = over ? "bg-yellow-400" : under ? "bg-red-400" : "bg-green-400";
+  return `
+    <div>
+      <div class="flex justify-between text-xs text-gray-500 mb-1">
+        <span>Dose: <strong>${completed}</strong> / ${prescribed} sets</span>
+        <span class="${over || under ? 'font-bold text-yellow-700' : 'text-gray-500'}">${pct}%</span>
+      </div>
+      <div class="w-full bg-gray-200 rounded-full h-2.5 relative overflow-hidden">
+        <div class="h-2.5 rounded-full ${barColor}" style="width:${displayPct}%"></div>
+        <div class="absolute top-0 h-full w-0.5 bg-gray-400 opacity-50" style="left:80%"></div>
+        <div class="absolute top-0 h-full w-0.5 bg-gray-400 opacity-50" style="left:100%"></div>
+      </div>
+      <div class="flex text-[10px] text-gray-400 mt-0.5">
+        <span>0%</span>
+        <span style="margin-left:calc(80% - 12px)">80%</span>
+        <span style="margin-left:calc(20% - 10px)">100%</span>
+        <span class="ml-auto">120%+</span>
+      </div>
+    </div>`;
+}
+
+function renderCard(tc, result) {
+  const cfg = SIGNAL_CONFIG[result.signal];
+  const { prescribed, completed, symptoms, baseline } = tc.report;
+  const nmPainChange = symptoms.nextMorningPain - baseline.usualMorningPain;
+  const nmStiffChange = symptoms.nextMorningStiffness - baseline.usualMorningStiffness;
+
+  return `
+    <div class="rounded-2xl border-2 ${cfg.border} ${cfg.cardBg} overflow-hidden shadow-sm">
+
+      <!-- Card header -->
+      <div class="${cfg.headerBg} px-5 py-4 flex items-center justify-between">
+        <div>
+          <p class="text-xs font-semibold text-white/60 uppercase tracking-wider">${tc.label}</p>
+          <h3 class="text-lg font-black text-white">${tc.description}</h3>
+        </div>
+        <div class="flex items-center gap-2 bg-white/20 text-white px-4 py-2 rounded-full font-black text-lg shadow-inner">
+          <span>${cfg.icon}</span>
+          <span>${cfg.label}</span>
+        </div>
+      </div>
+
+      <div class="p-5 space-y-4">
+
+        <!-- Dose bar -->
+        ${doseBar(prescribed.sets, completed.sets)}
+
+        <!-- Symptom row -->
+        <div class="flex flex-wrap gap-2 items-center">
+          ${pill("During", symptoms.painDuring, painColor)}
+          ${pill("After", symptoms.painAfter, painColor)}
+          ${pill("Next AM", symptoms.nextMorningPain, painColor)}
+          ${pill("Pain Δ", nmPainChange, deltaColor)}
+          ${pill("Stiff Δ", nmStiffChange, deltaColor)}
+          ${flagPill("Sharp pain", symptoms.sharpPain)}
+          ${flagPill("Abandoned", completed.abandonedDueToPain)}
+          ${flagPill("Limp", symptoms.limpOrFunctionLoss)}
+          ${flagPill("Swelling", symptoms.swellingIncrease)}
+        </div>
+
+        <hr class="border-gray-200" />
+
+        <!-- Engine output -->
+        <div class="space-y-3">
+          <div>
+            <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Why this signal</p>
+            <p class="text-sm font-medium ${cfg.titleText} leading-snug">${result.reason}</p>
+          </div>
+          <div class="bg-white/70 rounded-xl px-4 py-3">
+            <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Next session action</p>
+            <p class="text-sm text-gray-700 leading-snug">${result.action}</p>
+          </div>
+        </div>
+
+      </div>
+    </div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Run engine + render
+// ---------------------------------------------------------------------------
+
+const results = TEST_CASES.map(tc => {
+  const result = evaluateSessionTolerance(tc.report);
+  SUMMARY_COUNTS[result.signal]++;
+  return { tc, result };
+});
+
+const summaryBg  = { go: "bg-green-50 border-green-300", stay: "bg-blue-50 border-blue-300", caution: "bg-yellow-50 border-yellow-400", stop: "bg-red-50 border-red-400" };
+const summaryText = { go: "text-green-800", stay: "text-blue-800", caution: "text-yellow-800", stop: "text-red-800" };
+const summaryIcons = { go: "✓", stay: "→", caution: "⚠", stop: "✕" };
+
+const summaryHTML = ["go","stay","caution","stop"].map(sig => `
+  <div class="rounded-xl border ${summaryBg[sig]} px-4 py-3 flex items-center gap-3">
+    <span class="text-2xl font-black ${summaryText[sig]}">${summaryIcons[sig]}</span>
+    <div>
+      <p class="text-xs font-bold uppercase ${summaryText[sig]}">${SIGNAL_CONFIG[sig].label}</p>
+      <p class="text-3xl font-black text-gray-800">${SUMMARY_COUNTS[sig]}</p>
+    </div>
+  </div>`).join("");
+
+document.getElementById("app").innerHTML = `
+
+  <!-- Page header -->
+  <div class="mb-8">
+    <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">TenoTrainer — Deterministic Rule Engine</p>
+    <h1 class="text-4xl font-black text-gray-900 mb-2">Session Tolerance Engine</h1>
+    <p class="text-sm text-gray-500 max-w-2xl">
+      Five mock sessions fed into <code class="bg-gray-100 px-1.5 py-0.5 rounded text-xs font-mono">evaluateSessionTolerance()</code>.
+      All decisions are deterministic — rule-based only, no AI inference.
+    </p>
+  </div>
+
+  <!-- Summary counts -->
+  <div class="grid grid-cols-4 gap-3 mb-6">${summaryHTML}</div>
+
+  <!-- Rule order note -->
+  <div class="bg-white border border-gray-200 rounded-xl px-5 py-3 mb-8 text-sm text-gray-600 flex flex-wrap items-center gap-1">
+    <span class="font-semibold text-gray-800 mr-1">Evaluation order:</span>
+    <span class="text-red-600 font-bold">STOP</span>
+    <span class="text-gray-300 mx-1">→</span>
+    <span class="text-yellow-600 font-bold">CAUTION</span>
+    <span class="text-gray-300 mx-1">→</span>
+    <span class="text-green-600 font-bold">GO</span>
+    <span class="text-gray-300 mx-1">→</span>
+    <span class="text-blue-600 font-bold">STAY</span>
+    <span class="text-gray-400 ml-1">(default) — first match wins, no aggregation.</span>
+  </div>
+
+  <!-- Cards grid -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+    ${results.map(({ tc, result }) => renderCard(tc, result)).join("")}
+  </div>
+
+  <!-- Footer -->
+  <p class="mt-10 text-xs text-center text-gray-400">
+    Session tolerance signal only. Does not represent a progression decision.
+    All clinical decisions must be reviewed by a qualified physiotherapist.
+  </p>
+`;
+</script>
+</body>
+</html>
