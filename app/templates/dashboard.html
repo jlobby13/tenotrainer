@@ -3,6 +3,7 @@
 
 {% block head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
 {% endblock %}
 
 {% block content %}
@@ -103,6 +104,94 @@
 
 </div>
 
+<!-- Functional Capacity Tracking -->
+{% if has_onboarding %}
+<div class="bg-white rounded-xl shadow p-6 border border-gray-100 mb-6">
+  <div class="flex items-center justify-between mb-1">
+    <h2 class="text-lg font-bold text-gray-800">Functional Capacity Over Time</h2>
+    <a href="/onboarding" class="text-xs text-brand-600 hover:underline">Re-assess</a>
+  </div>
+  <p class="text-xs text-gray-400 mb-5">Reassess every 6–8 weeks to track adaptation. Each point represents a full assessment.</p>
+
+  <div class="grid md:grid-cols-2 gap-6">
+
+    <!-- Calf Raise -->
+    <div>
+      <h3 class="text-sm font-semibold text-gray-700 mb-2">Single-Leg Calf Raise (reps)</h3>
+      <div id="snapCr" class="mb-3"></div>
+      <canvas id="crChart" height="200"></canvas>
+    </div>
+
+    <!-- WBLT -->
+    <div>
+      <h3 class="text-sm font-semibold text-gray-700 mb-2">Weight Bearing Lunge Test (cm)</h3>
+      <div id="snapWblt" class="mb-3"></div>
+      <canvas id="wbltChart" height="200"></canvas>
+    </div>
+
+    <!-- Hop Distance -->
+    <div>
+      <h3 class="text-sm font-semibold text-gray-700 mb-2">Hop Distance — best of 3 (cm)</h3>
+      <div id="snapHopDist" class="mb-3"></div>
+      <canvas id="hopDistChart" height="200"></canvas>
+    </div>
+
+    <!-- Hop Endurance -->
+    <div>
+      <h3 class="text-sm font-semibold text-gray-700 mb-2">In-Place Hop Endurance (reps)</h3>
+      <div id="snapHopEnd" class="mb-3"></div>
+      <canvas id="hopEndChart" height="200"></canvas>
+    </div>
+
+  </div>
+</div>
+
+<!-- LSI Charts -->
+<div class="bg-white rounded-xl shadow p-6 border border-gray-100 mb-6">
+  <div class="mb-1">
+    <h2 class="text-lg font-bold text-gray-800">Limb Symmetry Index (LSI) Over Time</h2>
+  </div>
+  <p class="text-xs text-gray-400 mb-5">
+    LSI = (affected ÷ unaffected) × 100. Requires bilateral measurements at each assessment.
+    The dashed line marks the 90% clinical threshold — values below indicate a meaningful asymmetry.
+  </p>
+
+  <div class="grid md:grid-cols-3 gap-6">
+
+    <div>
+      <h3 class="text-sm font-semibold text-gray-700 mb-1">Calf Raise LSI</h3>
+      <p class="text-xs text-gray-400 mb-2">Single-leg raise reps (affected ÷ unaffected)</p>
+      <div id="snapLsiCr" class="mb-3"></div>
+      <canvas id="lsiCrChart" height="220"></canvas>
+      <p id="lsiCrEmpty" class="hidden text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 mt-2">
+        No bilateral calf raise data yet. Enter both affected and unaffected reps during your next assessment to see LSI.
+      </p>
+    </div>
+
+    <div>
+      <h3 class="text-sm font-semibold text-gray-700 mb-1">WBLT LSI</h3>
+      <p class="text-xs text-gray-400 mb-2">Dorsiflexion range (affected ÷ unaffected)</p>
+      <div id="snapLsiWblt" class="mb-3"></div>
+      <canvas id="lsiWbltChart" height="220"></canvas>
+      <p id="lsiWbltEmpty" class="hidden text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 mt-2">
+        No bilateral WBLT data yet. Enter both sides during your next assessment to see LSI.
+      </p>
+    </div>
+
+    <div>
+      <h3 class="text-sm font-semibold text-gray-700 mb-1">Hop Distance LSI</h3>
+      <p class="text-xs text-gray-400 mb-2">Single-leg hop ÷ double-leg hop distance</p>
+      <div id="snapLsiHop" class="mb-3"></div>
+      <canvas id="lsiHopChart" height="220"></canvas>
+      <p id="lsiHopEmpty" class="hidden text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 mt-2">
+        No bilateral hop data yet. Enter both double-leg and single-leg hop distances during your next assessment to see LSI.
+      </p>
+    </div>
+
+  </div>
+</div>
+{% endif %}
+
 <!-- Current Plan Summary -->
 {% if current_plan %}
 <div class="bg-white rounded-xl shadow p-6 border border-gray-100 mb-6">
@@ -129,6 +218,84 @@
     </div>
     {% endfor %}
   </div>
+</div>
+{% endif %}
+
+<!-- Recovery Roadmap -->
+{% if timeline and goals %}
+{% set goal_level_labels = {
+  'daily_function': 'Daily function — walking, stairs, everyday activity',
+  'recreational':   'Recreational — jogging, gym, casual sport',
+  'competitive':    'Competitive sport — regular structured competition',
+  'elite':          'Elite / professional sport',
+} %}
+{% set conf_colour = {'high': 'green', 'moderate': 'yellow', 'low': 'orange'} %}
+{% set cc = conf_colour.get(timeline.confidence, 'gray') %}
+<div class="bg-white rounded-xl shadow p-6 border border-gray-100 mb-6">
+  <div class="flex items-center justify-between mb-1">
+    <h2 class="text-lg font-bold text-gray-800">Recovery Roadmap</h2>
+    <span class="px-2 py-0.5 rounded-full text-xs font-semibold
+      {% if timeline.confidence == 'high' %}bg-green-100 text-green-700
+      {% elif timeline.confidence == 'moderate' %}bg-yellow-100 text-yellow-700
+      {% else %}bg-orange-100 text-orange-700{% endif %}">
+      {{ timeline.confidence | capitalize }} confidence
+    </span>
+  </div>
+  {% if goals.activity %}
+  <p class="text-sm text-gray-500 mb-1">{{ goals.activity }}</p>
+  {% endif %}
+  <p class="text-sm text-gray-600 mb-4">
+    <span class="font-medium">Target:</span>
+    {{ goal_level_labels.get(timeline.goal_level, timeline.goal_level) }}
+  </p>
+
+  <!-- Phase steps -->
+  <div class="flex flex-col md:flex-row gap-3 mb-5">
+    {% for phase in timeline.phases %}
+    {% set is_current = (phase.stage == current_plan.stage) %}
+    <div class="flex-1 rounded-lg border p-4
+      {% if is_current %}bg-brand-50 border-brand-300{% else %}bg-gray-50 border-gray-200{% endif %}">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
+          {% if is_current %}bg-brand-600 text-white{% else %}bg-gray-300 text-gray-600{% endif %}">
+          {{ phase.stage }}
+        </span>
+        <span class="font-semibold text-sm
+          {% if is_current %}text-brand-800{% else %}text-gray-700{% endif %}">
+          {{ phase.name }}
+        </span>
+        {% if is_current %}
+        <span class="ml-auto text-xs bg-brand-600 text-white px-2 py-0.5 rounded-full">Current</span>
+        {% endif %}
+      </div>
+      <p class="text-xs font-medium mb-1
+        {% if is_current %}text-brand-600{% else %}text-gray-500{% endif %}">
+        {{ phase.duration_weeks_min }}–{{ phase.duration_weeks_max }} weeks
+      </p>
+      <p class="text-xs text-gray-500 leading-relaxed">{{ phase.description }}</p>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Total duration -->
+  <p class="text-sm text-gray-700 font-medium mb-3">
+    Estimated total: <span class="text-brand-700">{{ timeline.total_min_weeks }}–{{ timeline.total_max_weeks }} weeks</span>
+    from your starting stage
+  </p>
+
+  <!-- Caveats -->
+  {% if timeline.caveats %}
+  <div class="space-y-1">
+    {% for caveat in timeline.caveats %}
+    <p class="text-xs text-gray-500 italic">{{ caveat }}</p>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% elif not (goals and goals.level) %}
+<div class="bg-gray-50 rounded-xl border border-gray-200 p-5 mb-6 text-sm text-gray-600">
+  Add your goals during onboarding to see a personalised recovery timeline.
+  <a href="/onboarding" class="ml-1 text-brand-600 hover:underline font-medium">Update assessment</a>
 </div>
 {% endif %}
 
@@ -316,5 +483,266 @@ if (visaCtx) {
   });
 }
 {% endif %}
+
+// ── Functional Capacity Charts ──────────────────────────────────────────────
+const fc = {{ functional_chart_data | safe }};
+
+// ── Snapshot helpers ─────────────────────────────────────────────────────────
+function snapVal(arr) {
+  // last non-null value and the non-null value before it
+  const vals = arr.map((v, i) => v !== null ? { v, i } : null).filter(Boolean);
+  const current = vals.length > 0 ? vals[vals.length - 1] : null;
+  const previous = vals.length > 1 ? vals[vals.length - 2] : null;
+  return { current, previous };
+}
+
+function snapArrow(prev, curr) {
+  if (prev === null || curr === null) return '';
+  if (curr > prev) return '<span class="text-green-600">↑</span>';
+  if (curr < prev) return '<span class="text-red-500">↓</span>';
+  return '<span class="text-gray-400">→</span>';
+}
+
+function snapHTML(rows) {
+  // rows: [{label, arr, unit, higherIsBetter}]
+  return rows.map(({ label, arr, unit, higherIsBetter = true }) => {
+    const { current, previous } = snapVal(arr);
+    if (!current) return '';
+    const curr = current.v;
+    const prev = previous ? previous.v : null;
+    const date = fc.labels[current.i];
+    let arrow = '';
+    if (prev !== null) {
+      const improved = higherIsBetter ? curr > prev : curr < prev;
+      const same = curr === prev;
+      arrow = same
+        ? '<span class="text-gray-400 ml-1">→</span>'
+        : improved
+          ? '<span class="text-green-600 ml-1">↑</span>'
+          : '<span class="text-red-500 ml-1">↓</span>';
+    }
+    const prevHtml = prev !== null
+      ? `<span class="text-gray-400">Prev: <span class="font-medium text-gray-600">${prev}${unit}</span></span>`
+      : `<span class="text-gray-300 text-xs">No prior data</span>`;
+    return `
+      <div class="flex items-center justify-between bg-gray-50 rounded px-3 py-1.5 border border-gray-200">
+        <span class="text-xs text-gray-500 w-28 shrink-0">${label}</span>
+        <span class="text-xs flex items-center gap-3">
+          ${prevHtml}
+          <span class="text-gray-300">→</span>
+          <span class="font-semibold text-gray-800">${curr}${unit}${arrow}</span>
+          <span class="text-gray-400 text-xs">${date}</span>
+        </span>
+      </div>`;
+  }).filter(Boolean).join('');
+}
+
+function setSnap(id, rows) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const html = snapHTML(rows);
+  if (html) el.innerHTML = `<div class="space-y-1">${html}</div>`;
+}
+
+// Populate snapshots
+setSnap('snapCr', [
+  { label: 'Affected',   arr: fc.calf_raise.affected,   unit: ' reps' },
+  { label: 'Unaffected', arr: fc.calf_raise.unaffected, unit: ' reps' },
+]);
+setSnap('snapWblt', [
+  { label: 'Affected',   arr: fc.wblt.affected,   unit: ' cm', higherIsBetter: true },
+  { label: 'Unaffected', arr: fc.wblt.unaffected, unit: ' cm', higherIsBetter: true },
+]);
+setSnap('snapHopDist', [
+  { label: 'Double-leg',          arr: fc.hop_distance.double, unit: ' cm' },
+  { label: 'Single-leg (affect.)', arr: fc.hop_distance.single, unit: ' cm' },
+]);
+setSnap('snapHopEnd', [
+  { label: 'Double-leg',          arr: fc.hop_endurance.double, unit: ' reps' },
+  { label: 'Single-leg (affect.)', arr: fc.hop_endurance.single, unit: ' reps' },
+]);
+setSnap('snapLsiCr',   [{ label: 'LSI', arr: fc.calf_raise.lsi,   unit: '%', higherIsBetter: true }]);
+setSnap('snapLsiWblt', [{ label: 'LSI', arr: fc.wblt.lsi,         unit: '%', higherIsBetter: true }]);
+setSnap('snapLsiHop',  [{ label: 'LSI', arr: fc.hop_distance.lsi, unit: '%', higherIsBetter: true }]);
+
+function fcLineOpts(yLabel, yMax) {
+  return {
+    responsive: true,
+    scales: {
+      y: {
+        min: 0,
+        suggestedMax: yMax,
+        title: { display: true, text: yLabel },
+      }
+    },
+    plugins: { legend: { position: 'bottom' } },
+  };
+}
+
+function lsiDataset(data) {
+  return {
+    label: 'LSI %',
+    data: data,
+    borderColor: '#6b7280',
+    backgroundColor: 'transparent',
+    borderDash: [5, 4],
+    borderWidth: 1.5,
+    pointRadius: 4,
+    yAxisID: 'lsi',
+    tension: 0.2,
+  };
+}
+
+function withLsiAxis(opts) {
+  opts.scales.lsi = {
+    position: 'right',
+    min: 0, suggestedMax: 120,
+    title: { display: true, text: 'LSI %' },
+    grid: { drawOnChartArea: false },
+  };
+  return opts;
+}
+
+// Calf Raise
+(function() {
+  const ctx = document.getElementById('crChart');
+  if (!ctx || !fc.labels.length) return;
+  const datasets = [
+    { label: 'Affected', data: fc.calf_raise.affected, borderColor: '#dc2626', backgroundColor: 'rgba(220,38,38,0.08)', pointRadius: 5, tension: 0.2, fill: false },
+    { label: 'Unaffected', data: fc.calf_raise.unaffected, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,0.08)', pointRadius: 5, tension: 0.2, fill: false },
+  ];
+  const hasBoth = fc.calf_raise.lsi.some(v => v !== null);
+  if (hasBoth) datasets.push({ ...lsiDataset(fc.calf_raise.lsi) });
+  const opts = fcLineOpts('Repetitions', 40);
+  if (hasBoth) withLsiAxis(opts);
+  new Chart(ctx, { type: 'line', data: { labels: fc.labels, datasets }, options: opts });
+})();
+
+// WBLT
+(function() {
+  const ctx = document.getElementById('wbltChart');
+  if (!ctx || !fc.labels.length) return;
+  const datasets = [
+    { label: 'Affected', data: fc.wblt.affected, borderColor: '#7c3aed', backgroundColor: 'rgba(124,58,237,0.08)', pointRadius: 5, tension: 0.2, fill: false },
+    { label: 'Unaffected', data: fc.wblt.unaffected, borderColor: '#0ea5e9', backgroundColor: 'rgba(14,165,233,0.08)', pointRadius: 5, tension: 0.2, fill: false },
+  ];
+  const hasBoth = fc.wblt.lsi.some(v => v !== null);
+  if (hasBoth) datasets.push({ ...lsiDataset(fc.wblt.lsi) });
+  const opts = fcLineOpts('Distance (cm)', 25);
+  if (hasBoth) withLsiAxis(opts);
+  // Reference line at 10 cm (clinical threshold)
+  opts.plugins.annotation = { annotations: { threshold: { type: 'line', yMin: 10, yMax: 10, borderColor: '#f59e0b', borderWidth: 1.5, borderDash: [4,3], label: { content: '10 cm threshold', display: true, position: 'start', font: { size: 10 } } } } };
+  new Chart(ctx, { type: 'line', data: { labels: fc.labels, datasets }, options: opts });
+})();
+
+// Hop Distance
+(function() {
+  const ctx = document.getElementById('hopDistChart');
+  if (!ctx || !fc.labels.length) return;
+  const datasets = [
+    { label: 'Double-leg', data: fc.hop_distance.double, borderColor: '#0284c7', backgroundColor: 'rgba(2,132,199,0.08)', pointRadius: 5, tension: 0.2, fill: false },
+    { label: 'Single-leg (affected)', data: fc.hop_distance.single, borderColor: '#ea580c', backgroundColor: 'rgba(234,88,12,0.08)', pointRadius: 5, tension: 0.2, fill: false },
+  ];
+  const hasBoth = fc.hop_distance.lsi.some(v => v !== null);
+  if (hasBoth) datasets.push({ ...lsiDataset(fc.hop_distance.lsi) });
+  const opts = fcLineOpts('Distance (cm)', 200);
+  if (hasBoth) withLsiAxis(opts);
+  // LSI 90% reference
+  if (hasBoth) opts.plugins.annotation = { annotations: { lsi90: { type: 'line', yScaleID: 'lsi', yMin: 90, yMax: 90, borderColor: '#16a34a', borderWidth: 1.5, borderDash: [4,3], label: { content: 'LSI 90%', display: true, position: 'end', font: { size: 10 } } } } };
+  new Chart(ctx, { type: 'line', data: { labels: fc.labels, datasets }, options: opts });
+})();
+
+// Hop Endurance
+(function() {
+  const ctx = document.getElementById('hopEndChart');
+  if (!ctx || !fc.labels.length) return;
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: fc.labels,
+      datasets: [
+        { label: 'Double-leg', data: fc.hop_endurance.double, borderColor: '#0284c7', backgroundColor: 'rgba(2,132,199,0.08)', pointRadius: 5, tension: 0.2, fill: false },
+        { label: 'Single-leg (affected)', data: fc.hop_endurance.single, borderColor: '#ea580c', backgroundColor: 'rgba(234,88,12,0.08)', pointRadius: 5, tension: 0.2, fill: false },
+      ]
+    },
+    options: fcLineOpts('Repetitions', 100),
+  });
+})();
+
+// ── LSI Charts ───────────────────────────────────────────────────────────────
+function lsiChartOpts() {
+  return {
+    responsive: true,
+    scales: {
+      y: {
+        min: 0,
+        suggestedMax: 120,
+        title: { display: true, text: 'LSI (%)' },
+        ticks: { callback: v => v + '%' },
+      }
+    },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: { label: ctx => (ctx.parsed.y !== null ? ctx.parsed.y + '%' : '—') }
+      },
+      annotation: {
+        annotations: {
+          threshold90: {
+            type: 'line',
+            yMin: 90, yMax: 90,
+            borderColor: '#dc2626',
+            borderWidth: 1.5,
+            borderDash: [6, 4],
+            label: { content: '90% threshold', display: true, position: 'end', color: '#dc2626', font: { size: 10 } },
+          },
+          full: {
+            type: 'line',
+            yMin: 100, yMax: 100,
+            borderColor: '#16a34a',
+            borderWidth: 1,
+            borderDash: [3, 3],
+            label: { content: '100%', display: true, position: 'end', color: '#16a34a', font: { size: 10 } },
+          },
+        }
+      }
+    }
+  };
+}
+
+function lsiDatasetStyle(data, colour) {
+  return {
+    label: 'LSI %',
+    data,
+    borderColor: colour,
+    backgroundColor: colour.replace(')', ', 0.1)').replace('rgb', 'rgba'),
+    pointRadius: 6,
+    pointHoverRadius: 8,
+    tension: 0.25,
+    fill: true,
+    spanGaps: true,
+  };
+}
+
+function renderLsiChart(canvasId, emptyId, data, colour) {
+  const ctx = document.getElementById(canvasId);
+  const emptyMsg = document.getElementById(emptyId);
+  if (!ctx) return;
+  const hasData = data && data.some(v => v !== null);
+  if (!hasData) {
+    ctx.style.display = 'none';
+    if (emptyMsg) emptyMsg.classList.remove('hidden');
+    return;
+  }
+  new Chart(ctx, {
+    type: 'line',
+    data: { labels: fc.labels, datasets: [lsiDatasetStyle(data, colour)] },
+    options: lsiChartOpts(),
+  });
+}
+
+renderLsiChart('lsiCrChart',   'lsiCrEmpty',   fc.calf_raise.lsi,    'rgb(220, 38, 38)');
+renderLsiChart('lsiWbltChart', 'lsiWbltEmpty', fc.wblt.lsi,          'rgb(124, 58, 237)');
+renderLsiChart('lsiHopChart',  'lsiHopEmpty',  fc.hop_distance.lsi,  'rgb(2, 132, 199)');
 </script>
 {% endblock %}

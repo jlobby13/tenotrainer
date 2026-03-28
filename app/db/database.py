@@ -38,6 +38,21 @@ async def init_db() -> None:
                 await db.execute(stmt)
         await db.commit()
 
+        # Migrations — add columns that didn't exist in earlier schema versions
+        migrations = [
+            "ALTER TABLE users ADD COLUMN password_hash TEXT",
+            "ALTER TABLE users ADD COLUMN email TEXT",
+            "ALTER TABLE onboarding_assessments ADD COLUMN functional_tests TEXT NOT NULL DEFAULT '{}'",
+            "ALTER TABLE onboarding_assessments ADD COLUMN goals TEXT NOT NULL DEFAULT '{}'",
+            "ALTER TABLE daily_logs ADD COLUMN load_context TEXT NOT NULL DEFAULT '{}'",
+        ]
+        for migration in migrations:
+            try:
+                await db.execute(migration)
+                await db.commit()
+            except Exception:
+                pass  # Column already exists
+
     # Seed knowledge base entries if empty
     await seed_knowledge_base()
 

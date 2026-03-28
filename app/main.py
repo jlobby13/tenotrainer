@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Optional
 
 import aiosqlite
+import bcrypt as _bcrypt
 from fastapi import Cookie, FastAPI, Form, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -33,6 +34,7 @@ from app.engine.rules import (
     select_relevant_kb_tags,
     update_irritability_from_log,
     has_conservative_bias,
+    compute_recovery_timeline,
     Irritability,
     Decision,
 )
@@ -66,44 +68,80 @@ async def startup_event():
 
 
 # ---------------------------------------------------------------------------
+# Auth
+# ---------------------------------------------------------------------------
+
+def hash_password(password: str) -> str:
+    return _bcrypt.hashpw(password.encode(), _bcrypt.gensalt()).decode()
+
+
+def verify_password(plain: str, hashed: str) -> bool:
+    try:
+        return _bcrypt.checkpw(plain.encode(), hashed.encode())
+    except Exception:
+        return False
+
+
+# ---------------------------------------------------------------------------
 # Session helpers
 # ---------------------------------------------------------------------------
 
 SESSION_COOKIE = "teno_session"
-DEMO_USER_NAME = "Demo User"
 
 
-async def get_or_create_user(session_token: Optional[str], response: Response) -> dict:
-    """
-    Return the user dict for the session token.
-    If no valid session, create a demo user and set cookie.
-    """
+def _set_session_cookie(response, token: str) -> None:
+    response.set_cookie(
+        SESSION_COOKIE, token,
+        httponly=True,
+        samesite="lax",
+        max_age=60 * 60 * 24 * 365,
+    )
+
+
+async def get_user_from_session(session_token: Optional[str]) -> Optional[dict]:
+    """Return user dict if the session token is valid, else None."""
+    if not session_token:
+        return None
     db = await get_db()
     try:
-        user = None
-        if session_token:
-            cursor = await db.execute(
-                "SELECT * FROM users WHERE session_token = ?", (session_token,)
-            )
-            row = await cursor.fetchone()
-            if row:
-                user = row_to_dict(row)
+        cursor = await db.execute(
+            "SELECT * FROM users WHERE session_token = ?", (session_token,)
+        )
+        row = await cursor.fetchone()
+        return row_to_dict(row) if row else None
+    finally:
+        await db.close()
 
-        if not user:
-            # Create new demo user
-            token = secrets.token_urlsafe(32)
-            await db.execute(
-                "INSERT INTO users (name, email, role, session_token) VALUES (?, ?, ?, ?)",
-                (DEMO_USER_NAME, None, "patient", token),
-            )
-            await db.commit()
-            cursor = await db.execute(
-                "SELECT * FROM users WHERE session_token = ?", (token,)
-            )
-            row = await cursor.fetchone()
-            user = row_to_dict(row)
-            response.set_cookie(SESSION_COOKIE, token, httponly=True, samesite="lax")
 
+async def get_authenticated_user(session_token: Optional[str]) -> Optional[dict]:
+    """Return user only if they have a registered account (password set)."""
+    user = await get_user_from_session(session_token)
+    if user and user.get("password_hash"):
+        return user
+    return None
+
+
+# Keep for backwards compatibility with routes that don't require login
+async def get_or_create_user(session_token: Optional[str], response: Response) -> dict:
+    """Return existing session user or create a guest account."""
+    user = await get_user_from_session(session_token)
+    if user:
+        return user
+
+    db = await get_db()
+    try:
+        token = secrets.token_urlsafe(32)
+        await db.execute(
+            "INSERT INTO users (name, role, session_token) VALUES (?, ?, ?)",
+            ("Guest", "patient", token),
+        )
+        await db.commit()
+        cursor = await db.execute(
+            "SELECT * FROM users WHERE session_token = ?", (token,)
+        )
+        row = await cursor.fetchone()
+        user = row_to_dict(row)
+        _set_session_cookie(response, token)
         return user
     finally:
         await db.close()
@@ -159,6 +197,125 @@ async def get_all_kb_entries() -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Auth routes — register / login / logout
+# ---------------------------------------------------------------------------
+
+@app.get("/register", response_class=HTMLResponse)
+async def register_get(request: Request, teno_session: Optional[str] = Cookie(default=None)):
+    user = await get_user_from_session(teno_session)
+    if user and user.get("password_hash"):
+        return RedirectResponse("/dashboard", status_code=302)
+    return templates.TemplateResponse(request, "register.html", {"user": user, "error": None})
+
+
+@app.post("/register", response_class=HTMLResponse)
+async def register_post(
+    request: Request,
+    response: Response,
+    teno_session: Optional[str] = Cookie(default=None),
+    name: str = Form(...),
+    email: str = Form(...),
+    password: str = Form(...),
+    password_confirm: str = Form(...),
+):
+    user = await get_user_from_session(teno_session)
+
+    def fail(msg):
+        return templates.TemplateResponse(
+            request, "register.html", {"user": user, "error": msg,
+                                        "name": name, "email": email},
+        )
+
+    if password != password_confirm:
+        return fail("Passwords do not match.")
+    if len(password) < 8:
+        return fail("Password must be at least 8 characters.")
+    if not email or "@" not in email:
+        return fail("Please enter a valid email address.")
+
+    db = await get_db()
+    try:
+        # Check email not already taken
+        cursor = await db.execute("SELECT id FROM users WHERE email = ?", (email.lower().strip(),))
+        if await cursor.fetchone():
+            return fail("An account with that email already exists.")
+
+        password_hash = hash_password(password)
+        new_token = secrets.token_urlsafe(32)
+
+        if user and not user.get("password_hash"):
+            # Upgrade existing guest/demo session to full account
+            await db.execute(
+                "UPDATE users SET name = ?, email = ?, password_hash = ?, session_token = ? WHERE id = ?",
+                (name.strip(), email.lower().strip(), password_hash, new_token, user["id"]),
+            )
+        else:
+            # Create a brand-new account
+            await db.execute(
+                "INSERT INTO users (name, email, password_hash, role, session_token) VALUES (?, ?, ?, ?, ?)",
+                (name.strip(), email.lower().strip(), password_hash, "patient", new_token),
+            )
+        await db.commit()
+    finally:
+        await db.close()
+
+    redirect = RedirectResponse("/dashboard", status_code=302)
+    _set_session_cookie(redirect, new_token)
+    return redirect
+
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_get(request: Request, teno_session: Optional[str] = Cookie(default=None)):
+    user = await get_user_from_session(teno_session)
+    if user and user.get("password_hash"):
+        return RedirectResponse("/dashboard", status_code=302)
+    return templates.TemplateResponse(request, "login.html", {"user": None, "error": None})
+
+
+@app.post("/login", response_class=HTMLResponse)
+async def login_post(
+    request: Request,
+    response: Response,
+    email: str = Form(...),
+    password: str = Form(...),
+):
+    db = await get_db()
+    try:
+        cursor = await db.execute(
+            "SELECT * FROM users WHERE email = ?", (email.lower().strip(),)
+        )
+        row = await cursor.fetchone()
+        account = row_to_dict(row) if row else None
+    finally:
+        await db.close()
+
+    if not account or not account.get("password_hash") or not verify_password(password, account["password_hash"]):
+        return templates.TemplateResponse(
+            request, "login.html",
+            {"user": None, "error": "Invalid email or password.", "email": email},
+        )
+
+    # Issue a fresh session token on login
+    new_token = secrets.token_urlsafe(32)
+    db = await get_db()
+    try:
+        await db.execute("UPDATE users SET session_token = ? WHERE id = ?", (new_token, account["id"]))
+        await db.commit()
+    finally:
+        await db.close()
+
+    redirect = RedirectResponse("/dashboard", status_code=302)
+    _set_session_cookie(redirect, new_token)
+    return redirect
+
+
+@app.get("/logout")
+async def logout(response: Response):
+    response.delete_cookie(SESSION_COOKIE)
+    return RedirectResponse("/login", status_code=302)
+
+
+# ---------------------------------------------------------------------------
 # GET /  — Homepage
 # ---------------------------------------------------------------------------
 
@@ -187,7 +344,9 @@ async def onboarding_get(
     response: Response,
     teno_session: Optional[str] = Cookie(default=None),
 ):
-    user = await get_or_create_user(teno_session, response)
+    user = await get_authenticated_user(teno_session)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
     return templates.TemplateResponse(
         request, "onboarding.html",
         context={
@@ -213,6 +372,13 @@ async def onboarding_post(
     next_day_pain: int = Form(...),
     # Capacity
     calf_raise_reps: int = Form(...),
+    calf_raise_reps_unaffected: Optional[int] = Form(default=None),
+    wblt_cm: Optional[int] = Form(default=None),
+    wblt_cm_unaffected: Optional[int] = Form(default=None),
+    double_leg_hop_cm: Optional[int] = Form(default=None),
+    single_leg_hop_cm: Optional[int] = Form(default=None),
+    double_leg_hop_endurance_reps: Optional[int] = Form(default=None),
+    single_leg_hop_endurance_reps: Optional[int] = Form(default=None),
     # History
     injury_duration: str = Form(...),
     recent_load_change: str = Form(default="0"),
@@ -223,12 +389,22 @@ async def onboarding_post(
     risk_steroids: Optional[str] = Form(default=None),
     risk_load_spikes: Optional[str] = Form(default=None),
     risk_family_history: Optional[str] = Form(default=None),
+    # Onset loading context
+    onset_change_sport: str = Form(default="0"),
+    onset_change_surface: str = Form(default="0"),
+    onset_change_footwear: str = Form(default="0"),
+    # Goals
+    goal_activity: Optional[str] = Form(default=""),
+    goal_level: Optional[str] = Form(default=""),
+    goal_notes: Optional[str] = Form(default=""),
     # Red flags
     red_flags: Optional[str] = Form(default=""),
     # User name update
     user_name: Optional[str] = Form(default=None),
 ):
-    user = await get_or_create_user(teno_session, response)
+    user = await get_authenticated_user(teno_session)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
 
     # Build risk factors list
     risk_factors = []
@@ -273,9 +449,21 @@ async def onboarding_post(
         pain_at_rest=pain_at_rest,
         calf_raise_reps=calf_raise_reps,
         injury_duration=injury_duration,
-        recent_load_change=bool(int(recent_load_change)),
+        recent_load_change=(
+            bool(int(recent_load_change))
+            or bool(int(onset_change_sport))
+            or bool(int(onset_change_surface))
+            or bool(int(onset_change_footwear))
+        ),
         risk_factors=risk_factors,
         red_flags=red_flag_list,
+        calf_raise_reps_unaffected=calf_raise_reps_unaffected,
+        wblt_cm=wblt_cm,
+        wblt_cm_unaffected=wblt_cm_unaffected,
+        double_leg_hop_cm=double_leg_hop_cm,
+        single_leg_hop_cm=single_leg_hop_cm,
+        double_leg_hop_endurance_reps=double_leg_hop_endurance_reps,
+        single_leg_hop_endurance_reps=single_leg_hop_endurance_reps,
     )
 
     # Run rule engine — clinical decisions happen HERE
@@ -315,17 +503,36 @@ async def onboarding_post(
             await db.execute("UPDATE users SET name = ? WHERE id = ?", (user_name.strip(), user["id"]))
 
         # Save onboarding assessment
+        functional_tests_json = json.dumps({
+            k: v for k, v in {
+                "calf_raise_reps_unaffected": calf_raise_reps_unaffected,
+                "wblt_cm": wblt_cm,
+                "wblt_cm_unaffected": wblt_cm_unaffected,
+                "double_leg_hop_cm": double_leg_hop_cm,
+                "single_leg_hop_cm": single_leg_hop_cm,
+                "double_leg_hop_endurance_reps": double_leg_hop_endurance_reps,
+                "single_leg_hop_endurance_reps": single_leg_hop_endurance_reps,
+            }.items() if v is not None
+        })
+        goals_json = json.dumps({
+            "activity": goal_activity or "",
+            "level": goal_level or "",
+            "notes": goal_notes or "",
+            "onset_change_sport": bool(int(onset_change_sport)),
+            "onset_change_surface": bool(int(onset_change_surface)),
+            "onset_change_footwear": bool(int(onset_change_footwear)),
+        })
         await db.execute(
             """INSERT INTO onboarding_assessments
                (user_id, morning_stiffness, pain_at_rest, pain_with_activity, pain_after_activity,
-                next_day_pain, calf_raise_reps, injury_duration, recent_load_change,
-                risk_factors, stage, irritability)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                next_day_pain, calf_raise_reps, functional_tests, goals, injury_duration,
+                recent_load_change, risk_factors, stage, irritability)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 user["id"], morning_stiffness, pain_at_rest, pain_with_activity,
-                pain_after_activity, next_day_pain, calf_raise_reps, injury_duration,
-                int(bool(int(recent_load_change))), json.dumps(risk_factors),
-                classification.stage, classification.irritability,
+                pain_after_activity, next_day_pain, calf_raise_reps, functional_tests_json,
+                goals_json, injury_duration, int(bool(int(recent_load_change))),
+                json.dumps(risk_factors), classification.stage, classification.irritability,
             ),
         )
 
@@ -442,7 +649,9 @@ async def dashboard(
     response: Response,
     teno_session: Optional[str] = Cookie(default=None),
 ):
-    user = await get_or_create_user(teno_session, response)
+    user = await get_authenticated_user(teno_session)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
 
     db = await get_db()
     try:
@@ -474,7 +683,7 @@ async def dashboard(
         visa_rows = await cursor.fetchall()
         visa_history = [row_to_dict(r) for r in visa_rows]
 
-        # Onboarding data (most recent)
+        # Onboarding data — most recent for current state
         cursor = await db.execute(
             "SELECT * FROM onboarding_assessments WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
             (user["id"],),
@@ -483,6 +692,68 @@ async def dashboard(
         onboarding = None
         if onboarding_row:
             onboarding = parse_json_fields(row_to_dict(onboarding_row), ["risk_factors"])
+            raw_goals = onboarding.get("goals", "{}")
+            onboarding["goals_parsed"] = json.loads(raw_goals or "{}")
+
+        # All onboarding assessments — for longitudinal functional capacity charts
+        cursor = await db.execute(
+            "SELECT created_at, calf_raise_reps, functional_tests FROM onboarding_assessments"
+            " WHERE user_id = ? ORDER BY created_at ASC",
+            (user["id"],),
+        )
+        all_onboarding_rows = await cursor.fetchall()
+
+        def _safe_ft(row_dict: dict) -> dict:
+            try:
+                return json.loads(row_dict.get("functional_tests") or "{}")
+            except (json.JSONDecodeError, TypeError):
+                return {}
+
+        def _lsi(affected, unaffected):
+            """Return LSI % or None if either value is missing."""
+            if affected is not None and unaffected and unaffected > 0:
+                return round(affected / unaffected * 100, 1)
+            return None
+
+        fc_labels, cr_affected, cr_unaffected, cr_lsi = [], [], [], []
+        wblt_aff, wblt_unaff, wblt_lsi = [], [], []
+        hop_d, hop_s, hop_lsi = [], [], []
+        hop_end_d, hop_end_s = [], []
+
+        for row in all_onboarding_rows:
+            rd = row_to_dict(row)
+            ft = _safe_ft(rd)
+            date_str = rd["created_at"][:10]
+            fc_labels.append(date_str)
+
+            ca = rd.get("calf_raise_reps")
+            cu = ft.get("calf_raise_reps_unaffected")
+            cr_affected.append(ca)
+            cr_unaffected.append(cu)
+            cr_lsi.append(_lsi(ca, cu))
+
+            wa = ft.get("wblt_cm")
+            wu = ft.get("wblt_cm_unaffected")
+            wblt_aff.append(wa)
+            wblt_unaff.append(wu)
+            wblt_lsi.append(_lsi(wa, wu))
+
+            hd = ft.get("double_leg_hop_cm")
+            hs = ft.get("single_leg_hop_cm")
+            hop_d.append(hd)
+            hop_s.append(hs)
+            hop_lsi.append(_lsi(hs, hd))
+
+            hop_end_d.append(ft.get("double_leg_hop_endurance_reps"))
+            hop_end_s.append(ft.get("single_leg_hop_endurance_reps"))
+
+        functional_chart_data = {
+            "labels": fc_labels,
+            "calf_raise": {"affected": cr_affected, "unaffected": cr_unaffected, "lsi": cr_lsi},
+            "wblt": {"affected": wblt_aff, "unaffected": wblt_unaff, "lsi": wblt_lsi},
+            "hop_distance": {"double": hop_d, "single": hop_s, "lsi": hop_lsi},
+            "hop_endurance": {"double": hop_end_d, "single": hop_end_s},
+        }
 
         # Progression decisions
         cursor = await db.execute(
@@ -504,6 +775,21 @@ async def dashboard(
     finally:
         await db.close()
 
+    # Compute recovery timeline if we have both onboarding and a plan
+    goals: dict = {}
+    timeline = None
+    if onboarding is not None and current_plan is not None:
+        goals = onboarding.get("goals_parsed", {})
+        conservative_bias_flag = bool(onboarding.get("risk_factors", []))
+        timeline = compute_recovery_timeline(
+            stage=current_plan["stage"],
+            irritability=current_plan["irritability"],
+            conservative_bias=conservative_bias_flag,
+            injury_duration=onboarding.get("injury_duration", "chronic"),
+            goal_level=goals.get("level", ""),
+            risk_factors=onboarding.get("risk_factors", []),
+        )
+
     return templates.TemplateResponse(
         request, "dashboard.html",
         context={
@@ -514,7 +800,10 @@ async def dashboard(
             "onboarding": onboarding,
             "progression_history": progression_history,
             "pain_chart_data": json.dumps(pain_chart_data),
-            "has_onboarding": onboarding is not None
+            "functional_chart_data": json.dumps(functional_chart_data),
+            "has_onboarding": onboarding is not None,
+            "goals": goals,
+            "timeline": timeline,
         },
     )
 
@@ -529,7 +818,9 @@ async def daily_log_get(
     response: Response,
     teno_session: Optional[str] = Cookie(default=None),
 ):
-    user = await get_or_create_user(teno_session, response)
+    user = await get_authenticated_user(teno_session)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
     return templates.TemplateResponse(
         request, "daily_log.html",
         context={
@@ -554,8 +845,14 @@ async def daily_log_post(
     confidence: int = Form(...),
     notes: Optional[str] = Form(default=""),
     red_flag_notes: Optional[str] = Form(default=""),
+    change_sport: Optional[str] = Form(default=None),
+    change_surface: Optional[str] = Form(default=None),
+    change_footwear: Optional[str] = Form(default=None),
+    load_context_notes: Optional[str] = Form(default=""),
 ):
-    user = await get_or_create_user(teno_session, response)
+    user = await get_authenticated_user(teno_session)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
 
     # RED FLAG CHECK on every submission
     has_rf, rf_detail = check_red_flags([], notes=red_flag_notes or notes or "")
@@ -625,6 +922,19 @@ async def daily_log_post(
         # Update irritability from new log
         new_irritability = update_irritability_from_log(pain_during, pain_after, next_day_pain)
 
+        # Build loading context changes list
+        loading_context_changes = [
+            key for key, val in [
+                ("sport", change_sport),
+                ("surface", change_surface),
+                ("footwear", change_footwear),
+            ] if val
+        ]
+        load_context_json = json.dumps({
+            "changes": loading_context_changes,
+            "notes": load_context_notes or "",
+        })
+
         # Run progression decision engine
         progression = run_decision_engine(
             recent_logs=all_logs[-8:],
@@ -633,14 +943,15 @@ async def daily_log_post(
             calf_raise_reps_baseline=baseline_reps,
             calf_raise_reps_current=baseline_reps,  # Updated at reassessment
             conservative_bias=conservative_bias,
+            loading_context_changes=loading_context_changes,
         )
 
         # Save log
         await db.execute(
             """INSERT INTO daily_logs
-               (user_id, session_id, pain_during, pain_after, next_day_pain, difficulty, confidence, notes)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            (user["id"], plan_id, pain_during, pain_after, next_day_pain, difficulty, confidence, notes),
+               (user_id, session_id, pain_during, pain_after, next_day_pain, difficulty, confidence, notes, load_context)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (user["id"], plan_id, pain_during, pain_after, next_day_pain, difficulty, confidence, notes, load_context_json),
         )
 
         # If stage progression is warranted, create new plan
@@ -699,7 +1010,8 @@ async def daily_log_post(
             "new_irritability": new_irritability,
             "pain_during": pain_during,
             "pain_after": pain_after,
-            "next_day_pain": next_day_pain
+            "next_day_pain": next_day_pain,
+            "loading_context_changes": loading_context_changes,
         },
     )
 

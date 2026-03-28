@@ -39,15 +39,19 @@
         <span class="text-brand-200">Teno</span><span>Trainer</span>
       </a>
       <div class="flex items-center gap-4 text-sm">
+        {% if user and user.password_hash %}
         <a href="/dashboard" class="hover:text-brand-200 transition-colors">Dashboard</a>
-        <a href="/daily-log" class="hover:text-brand-200 transition-colors">Log Session</a>
+        <a href="/daily-log" class="hover:text-brand-200 transition-colors">Track Session</a>
         <a href="/visa-a" class="hover:text-brand-200 transition-colors">VISA-A</a>
         <a href="/onboarding" class="hover:text-brand-200 transition-colors">Assessment</a>
         <a href="/admin/knowledge" class="hover:text-brand-200 transition-colors">Knowledge Base</a>
-        {% if user %}
-        <span class="ml-2 px-3 py-1 bg-brand-800 rounded-full text-brand-200 text-xs">
-          {{ user.name }}
-        </span>
+        <span class="px-3 py-1 bg-brand-800 rounded-full text-brand-200 text-xs">{{ user.name }}</span>
+        <a href="/logout" class="hover:text-red-300 transition-colors text-xs">Log out</a>
+        {% else %}
+        <a href="/login" class="hover:text-brand-200 transition-colors">Log in</a>
+        <a href="/register" class="px-3 py-1.5 bg-white text-brand-700 font-semibold rounded-lg hover:bg-brand-50 transition-colors text-xs">
+          Register
+        </a>
         {% endif %}
       </div>
     </div>

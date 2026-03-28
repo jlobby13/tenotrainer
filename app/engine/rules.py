@@ -88,6 +88,13 @@ class OnboardingData:
     recent_load_change: bool
     risk_factors: list[str] = field(default_factory=list)
     red_flags: list[str] = field(default_factory=list)
+    calf_raise_reps_unaffected: Optional[int] = None    # Unaffected side calf raise (for LSI)
+    wblt_cm: Optional[int] = None                       # Weight Bearing Lunge Test, affected (cm)
+    wblt_cm_unaffected: Optional[int] = None            # Weight Bearing Lunge Test, unaffected (cm)
+    double_leg_hop_cm: Optional[int] = None             # Double-leg hop distance (cm)
+    single_leg_hop_cm: Optional[int] = None             # Single-leg hop distance (cm)
+    double_leg_hop_endurance_reps: Optional[int] = None # Double-leg in-place endurance hop (reps)
+    single_leg_hop_endurance_reps: Optional[int] = None # Single-leg in-place endurance hop (reps)
 
 
 @dataclass
@@ -375,13 +382,16 @@ def run_decision_engine(
     calf_raise_reps_baseline: int,
     calf_raise_reps_current: int,
     conservative_bias: bool = False,
+    loading_context_changes: Optional[list[str]] = None,
 ) -> ProgressionAssessment:
     """
     Determines GO/STAY/CAUTION/STOP and whether stage progression is warranted.
 
     recent_logs: list of dicts with keys: pain_during, pain_after, next_day_pain, difficulty, confidence
+    loading_context_changes: list of changed factors this session (e.g. ['sport', 'surface', 'footwear'])
     Requires ≥4 recent logs for a GO decision (sufficient exposure).
     """
+    context_changes = loading_context_changes or []
     if not recent_logs:
         return ProgressionAssessment(
             decision=Decision.STAY,
@@ -422,6 +432,41 @@ def run_decision_engine(
                 f"Pain level {worst_recent_pain}/10 is in the caution range (4–5). "
                 "Maintain current dosing. Do not progress until pain stabilises below 4/10."
             ),
+            can_progress_stage=False,
+        )
+
+    # Loading context change check — novel mechanical demands require caution
+    if context_changes:
+        change_labels = {"sport": "sport/activity", "surface": "training surface", "footwear": "footwear"}
+        changed_str = ", ".join(change_labels.get(c, c) for c in context_changes)
+        multi_change = len(context_changes) >= 2
+
+        # Multiple simultaneous changes or any change with elevated pain → CAUTION
+        if multi_change or worst_recent_pain >= 4:
+            return ProgressionAssessment(
+                decision=Decision.CAUTION,
+                current_stage=current_stage,
+                proposed_stage=current_stage,
+                rationale=(
+                    f"Loading profile change detected ({changed_str}). "
+                    + ("Multiple simultaneous changes represent a significant novel load. " if multi_change else "")
+                    + "Do not progress this session. Monitor response over the next 24–48 hours before resuming normal loading."
+                ),
+                override_applied="loading_context_change",
+                can_progress_stage=False,
+            )
+
+        # Single change with low pain → STAY with advisory
+        return ProgressionAssessment(
+            decision=Decision.STAY,
+            current_stage=current_stage,
+            proposed_stage=current_stage,
+            rationale=(
+                f"Loading profile change detected ({changed_str}). "
+                "Novel mechanical demands require an adaptation window before progression. "
+                "Maintain current stage and dosing for at least 2 further sessions to confirm tolerance."
+            ),
+            override_applied="loading_context_change",
             can_progress_stage=False,
         )
 
@@ -594,3 +639,161 @@ def select_relevant_kb_tags(stage: int, irritability: str) -> list[str]:
     if irritability == Irritability.HIGH:
         tags.append("irritability")
     return tags
+
+
+# ---------------------------------------------------------------------------
+# Recovery Timeline
+# ---------------------------------------------------------------------------
+
+import math as _math
+
+
+def compute_recovery_timeline(
+    stage: int,
+    irritability: str,
+    conservative_bias: bool,
+    injury_duration: str,
+    goal_level: str,
+    risk_factors,
+) -> dict:
+    """
+    Compute an evidence-based recovery timeline for the user.
+
+    Parameters
+    ----------
+    stage            : current rehab stage (1, 2, or 3)
+    irritability     : "high" / "moderate" / "low"
+    conservative_bias: whether conservative bias is applied
+    injury_duration  : "acute" / "subacute" / "chronic"
+    goal_level       : "daily_function" / "recreational" / "competitive" / "elite"
+    risk_factors     : list of risk factor strings (or bool — truthy means conservative)
+
+    Returns a dict with keys: phases, total_min_weeks, total_max_weeks,
+    goal_level, confidence, caveats.
+    """
+    # Normalise goal_level
+    valid_goal_levels = {"daily_function", "recreational", "competitive", "elite"}
+    if goal_level not in valid_goal_levels:
+        goal_level = "recreational"
+
+    # --- Base phase durations by irritability ---
+    stage1_ranges = {
+        Irritability.HIGH:     (4, 6),
+        Irritability.MODERATE: (3, 4),
+        Irritability.LOW:      (2, 3),
+    }
+    stage2_ranges = {
+        Irritability.HIGH:     (10, 12),
+        Irritability.MODERATE: (8, 10),
+        Irritability.LOW:      (6, 8),
+    }
+    stage3_ranges = {
+        "recreational": (6, 10),
+        "competitive":  (10, 14),
+        "elite":        (14, 20),
+    }
+
+    irr = irritability if irritability in stage1_ranges else Irritability.MODERATE
+
+    # --- Build phases list ---
+    phases = []
+
+    # Stage 1 — included unless user is already at stage 2 or 3
+    if stage <= 1 and goal_level in ("daily_function", "recreational", "competitive", "elite"):
+        mn, mx = stage1_ranges[irr]
+        if conservative_bias:
+            mx = _math.ceil(mx * 1.25)
+        phases.append({
+            "stage": 1,
+            "name": "Capacity Initiation",
+            "duration_weeks_min": mn,
+            "duration_weeks_max": mx,
+            "description": "Isometrics and slow isotonic loading to reduce irritability and restore basic tendon capacity.",
+        })
+
+    # Stage 2 — included unless user is already at stage 3, and goal requires it
+    if stage <= 2 and goal_level in ("recreational", "competitive", "elite"):
+        mn, mx = stage2_ranges[irr]
+        if conservative_bias:
+            mx = _math.ceil(mx * 1.25)
+        phases.append({
+            "stage": 2,
+            "name": "Strength Development",
+            "duration_weeks_min": mn,
+            "duration_weeks_max": mx,
+            "description": "Heavy slow resistance and eccentric loading to build tensile strength and tendon stiffness.",
+        })
+
+    # Stage 3 — only for recreational / competitive / elite
+    if goal_level in ("recreational", "competitive", "elite"):
+        mn, mx = stage3_ranges.get(goal_level, stage3_ranges["recreational"])
+        if conservative_bias:
+            mx = _math.ceil(mx * 1.25)
+        phases.append({
+            "stage": 3,
+            "name": "Energy Storage & Release",
+            "duration_weeks_min": mn,
+            "duration_weeks_max": mx,
+            "description": "Plyometric and reactive strength training to restore the tendon's capacity for running, jumping, and sport-specific demands.",
+        })
+
+    # If user is at stage 2, they have already passed stage 1 — remove it
+    if stage == 2:
+        phases = [p for p in phases if p["stage"] != 1]
+    # If user is at stage 3, they have already passed stages 1 & 2 — remove them
+    elif stage == 3:
+        phases = [p for p in phases if p["stage"] == 3]
+
+    # Handle daily_function — only Stage 1 (or up to user's current stage), no Stage 3
+    if goal_level == "daily_function":
+        phases = [p for p in phases if p["stage"] != 3]
+        # If stage 1 is included but user is past it, nothing remains — just show current stage
+        if not phases and stage == 1:
+            mn, mx = stage1_ranges[irr]
+            if conservative_bias:
+                mx = _math.ceil(mx * 1.25)
+            phases.append({
+                "stage": 1,
+                "name": "Capacity Initiation",
+                "duration_weeks_min": mn,
+                "duration_weeks_max": mx,
+                "description": "Isometrics and slow isotonic loading to reduce irritability and restore basic tendon capacity.",
+            })
+
+    # Totals
+    total_min = sum(p["duration_weeks_min"] for p in phases)
+    total_max = sum(p["duration_weeks_max"] for p in phases)
+
+    # Confidence
+    if irritability == Irritability.LOW and injury_duration == "chronic":
+        confidence = "high"
+    elif injury_duration == "acute":
+        confidence = "low"
+    else:
+        confidence = "moderate"
+
+    # Caveats
+    caveats = [
+        "Timeline assumes consistent adherence to the prescribed loading programme."
+    ]
+    if injury_duration == "acute":
+        caveats.append(
+            "Acute injuries are less predictable — the timeline may extend if irritability does not reduce as expected."
+        )
+    if conservative_bias:
+        caveats.append(
+            "One or more risk factors are present — recovery may take longer and progression should be conservative."
+        )
+    if goal_level in ("competitive", "elite"):
+        caveats.append(
+            "Return to competitive sport requires formal clearance from a physiotherapist or sports medicine physician."
+        )
+
+    return {
+        "phases": phases,
+        "total_min_weeks": total_min,
+        "total_max_weeks": total_max,
+        "goal_level": goal_level,
+        "confidence": confidence,
+        "caveats": caveats,
+    }

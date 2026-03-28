@@ -61,6 +61,36 @@
             <option value="1">Yes — significant increase in training volume or intensity</option>
           </select>
         </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Have you recently changed your sport or activity type?
+          </label>
+          <select name="onset_change_sport"
+                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none">
+            <option value="0">No</option>
+            <option value="1">Yes — e.g. started a new sport, changed from gym to field sport</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Have you recently changed your training surface?
+          </label>
+          <select name="onset_change_surface"
+                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none">
+            <option value="0">No</option>
+            <option value="1">Yes — e.g. moved from soft to hard surface, added hill or incline work</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Have you recently changed your footwear?
+          </label>
+          <select name="onset_change_footwear"
+                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none">
+            <option value="0">No</option>
+            <option value="1">Yes — e.g. new shoes, lower heel drop, added or removed orthotics</option>
+          </select>
+        </div>
       </div>
     </div>
 
@@ -96,21 +126,155 @@
     <!-- Section 3: Functional Capacity -->
     <div class="bg-white rounded-xl shadow p-6 border border-gray-100">
       <h2 class="text-xl font-bold text-gray-800 mb-1">Functional Capacity</h2>
-      <p class="text-sm text-gray-500 mb-4">
-        Perform the test on a flat surface. Rise onto tiptoe on the affected leg and lower slowly.
-        Count until you cannot continue due to pain or fatigue.
+      <p class="text-sm text-gray-500 mb-5">
+        These tests measure how your Achilles tendon tolerates load. Complete only what is currently pain-free or within tolerable pain (&le;3/10).
       </p>
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">
-          Single-leg calf raise repetitions (affected side)
-        </label>
-        <input type="number" name="calf_raise_reps" min="0" max="100" value="10" required
-               class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
-        <span class="ml-2 text-sm text-gray-500">repetitions</span>
+
+      <!-- Calf Raise -->
+      <div class="mb-6">
+        <h3 class="text-sm font-semibold text-gray-700 mb-0.5">Single-Leg Calf Raise</h3>
+        <p class="text-xs text-gray-500 mb-2">
+          On a flat surface, rise onto tiptoe on each leg separately and lower slowly. Count reps until you cannot continue due to pain or fatigue. This is the primary loading test for Achilles tendinopathy and directly informs your rehab stage and starting dosage. Recording both sides allows a Limb Symmetry Index (LSI) to be calculated — an LSI &lt;90% indicates a meaningful strength deficit on the affected side.
+        </p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Affected side (required)</label>
+            <div class="flex items-center gap-2">
+              <input type="number" name="calf_raise_reps" min="0" max="100" value="10" required
+                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+              <span class="text-sm text-gray-500">reps</span>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Unaffected side <span class="text-gray-400 font-normal">— optional, for LSI</span></label>
+            <div class="flex items-center gap-2">
+              <input type="number" name="calf_raise_reps_unaffected" min="0" max="100" placeholder="—"
+                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+              <span class="text-sm text-gray-500">reps</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- WBLT -->
+      <div class="mb-6">
+        <h3 class="text-sm font-semibold text-gray-700 mb-0.5">Weight Bearing Lunge Test (WBLT) <span class="text-gray-400 font-normal">— optional</span></h3>
+        <p class="text-xs text-gray-500 mb-2">
+          Stand facing a wall with your foot flat on the floor. Lunge your knee toward the wall while keeping your heel grounded. Measure the maximum distance (cm) your toe can be from the wall while still allowing the knee to touch it. The WBLT measures ankle dorsiflexion range — reduced mobility (&lt;10 cm) increases load on the Achilles during walking and running and is a key modifiable risk factor. Recording both sides allows an LSI comparison — a side-to-side difference &gt;10% suggests asymmetric dorsiflexion restriction that may be contributing to tendon overload.
+        </p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Affected side (cm)</label>
+            <div class="flex items-center gap-2">
+              <input type="number" name="wblt_cm" min="0" max="30" placeholder="—"
+                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+              <span class="text-sm text-gray-500">cm</span>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Unaffected side (cm) <span class="text-gray-400 font-normal">— for LSI</span></label>
+            <div class="flex items-center gap-2">
+              <input type="number" name="wblt_cm_unaffected" min="0" max="30" placeholder="—"
+                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+              <span class="text-sm text-gray-500">cm</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hopping — only relevant if pain allows -->
+      <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+        <h3 class="text-sm font-semibold text-gray-700 mb-1">Hopping Capacity <span class="text-gray-400 font-normal">— optional, complete only if pain &le;3/10 during activity</span></h3>
+        <p class="text-xs text-gray-500 mb-4">
+          Hopping tests assess the Achilles tendon's ability to store and release energy under higher-speed load — a capacity required for running, jumping, and sport. These are relevant if you are targeting a return to running or sport, and are used to benchmark progress across rehab stages. Skip these if you are in acute pain or cannot walk comfortably.
+        </p>
+        <!-- Distance hop -->
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Distance Hop</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Double-leg hop — best of 3 (cm)</label>
+            <p class="text-xs text-gray-400 mb-2">Stand on both feet, hop forward as far as possible, land on both feet. Measure from take-off line to nearest heel.</p>
+            <div class="flex items-center gap-2">
+              <input type="number" name="double_leg_hop_cm" min="0" max="400" placeholder="—"
+                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+              <span class="text-sm text-gray-500">cm</span>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Single-leg hop — best of 3, affected side (cm)</label>
+            <p class="text-xs text-gray-400 mb-2">Same as above on the affected leg only. A limb symmetry index &lt;90% (vs. unaffected side) indicates meaningful deficit.</p>
+            <div class="flex items-center gap-2">
+              <input type="number" name="single_leg_hop_cm" min="0" max="300" placeholder="—"
+                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+              <span class="text-sm text-gray-500">cm</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- In-place endurance hop -->
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">In-Place Endurance Hop</p>
+        <p class="text-xs text-gray-400 mb-3">Hop continuously on the spot at a comfortable pace. Count total hops until pain, fatigue, or form breaks down. Measures tendon endurance under repeated elastic loading — a higher-demand capacity than distance hopping, relevant for running and sport return.</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Double-leg in-place hop (reps)</label>
+            <p class="text-xs text-gray-400 mb-2">Both feet, hopping on the spot.</p>
+            <div class="flex items-center gap-2">
+              <input type="number" name="double_leg_hop_endurance_reps" min="0" max="500" placeholder="—"
+                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+              <span class="text-sm text-gray-500">reps</span>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Single-leg in-place hop — affected side (reps)</label>
+            <p class="text-xs text-gray-400 mb-2">Affected leg only, hopping on the spot.</p>
+            <div class="flex items-center gap-2">
+              <input type="number" name="single_leg_hop_endurance_reps" min="0" max="300" placeholder="—"
+                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+              <span class="text-sm text-gray-500">reps</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- Section 4: Risk Factors -->
+    <!-- Section 4: Goals & Activity -->
+    <div class="bg-white rounded-xl shadow p-6 border border-gray-100">
+      <h2 class="text-xl font-bold text-gray-800 mb-1">Goals &amp; Activity</h2>
+      <p class="text-sm text-gray-500 mb-4">
+        Tell us what you're working towards. This is used to generate a personalised recovery roadmap and timeline.
+      </p>
+      <div class="grid gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Activity or sport you want to return to
+          </label>
+          <input type="text" name="goal_activity"
+                 placeholder="e.g. Running, Basketball, Hiking, General fitness"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Goal level</label>
+          <select name="goal_level"
+                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none">
+            <option value="" disabled selected>Select a goal level</option>
+            <option value="daily_function">Daily function — walking, stairs, everyday activity</option>
+            <option value="recreational">Recreational — jogging, gym, casual sport</option>
+            <option value="competitive">Competitive sport — regular structured competition</option>
+            <option value="elite">Elite / professional sport</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Additional goal notes <span class="text-gray-400 font-normal">— optional</span>
+          </label>
+          <textarea name="goal_notes" rows="2"
+                    placeholder="e.g. 'Run a 5km in 6 months', 'Return to weekly basketball training'"
+                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 5: Risk Factors -->
     <div class="bg-white rounded-xl shadow p-6 border border-gray-100">
       <h2 class="text-xl font-bold text-gray-800 mb-1">Risk Factors</h2>
       <p class="text-sm text-gray-500 mb-4">
@@ -135,7 +299,7 @@
       </div>
     </div>
 
-    <!-- Section 5: Red Flags (Safety) -->
+    <!-- Section 6: Red Flags (Safety) -->
     <div class="bg-red-50 rounded-xl border border-red-200 p-6">
       <h2 class="text-xl font-bold text-red-800 mb-2">Safety Check — Red Flags</h2>
       <p class="text-sm text-red-700 mb-3">

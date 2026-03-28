@@ -7,7 +7,8 @@ CREATE_TABLES_SQL = """
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    email TEXT,
+    email TEXT UNIQUE,
+    password_hash TEXT,
     role TEXT NOT NULL DEFAULT 'patient',
     session_token TEXT UNIQUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -22,6 +23,8 @@ CREATE TABLE IF NOT EXISTS onboarding_assessments (
     pain_after_activity INTEGER NOT NULL,
     next_day_pain INTEGER NOT NULL,
     calf_raise_reps INTEGER NOT NULL,
+    functional_tests TEXT NOT NULL DEFAULT '{}',
+    goals TEXT NOT NULL DEFAULT '{}',
     injury_duration TEXT NOT NULL,
     recent_load_change INTEGER NOT NULL DEFAULT 0,
     risk_factors TEXT NOT NULL DEFAULT '[]',
@@ -57,6 +60,7 @@ CREATE TABLE IF NOT EXISTS daily_logs (
     difficulty INTEGER NOT NULL,
     confidence INTEGER NOT NULL,
     notes TEXT,
+    load_context TEXT NOT NULL DEFAULT '{}',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
