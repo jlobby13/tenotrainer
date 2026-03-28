@@ -163,6 +163,51 @@ async def get_current_user(session_token: Optional[str]) -> Optional[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Exercise dosage compliance
+# ---------------------------------------------------------------------------
+
+def compute_exercise_compliance(exercises: list[dict], form_data) -> dict:
+    """
+    Compare prescribed vs completed exercise dosage.
+    form_data is an ImmutableMultiDict from request.form().
+    """
+    results = []
+    for i, ex in enumerate(exercises):
+        prescribed_sets = ex.get("sets", 0)
+        prescribed_reps = str(ex.get("reps", ""))
+
+        sets_done_raw = form_data.get(f"ex_{i}_sets_done", "")
+        reps_done = str(form_data.get(f"ex_{i}_reps_done", "") or "").strip()
+        load_kg = str(form_data.get(f"ex_{i}_load_kg", "") or "").strip()
+
+        try:
+            sets_done = int(sets_done_raw) if sets_done_raw else None
+        except (ValueError, TypeError):
+            sets_done = None
+
+        if isinstance(prescribed_sets, (int, float)) and prescribed_sets > 0 and sets_done is not None:
+            sets_compliance = min(100, round(sets_done / prescribed_sets * 100))
+        else:
+            sets_compliance = None
+
+        results.append({
+            "name": ex["name"],
+            "type": ex.get("type", ""),
+            "prescribed_sets": prescribed_sets,
+            "prescribed_reps": prescribed_reps,
+            "sets_done": sets_done,
+            "reps_done": reps_done or None,
+            "load_kg": load_kg or None,
+            "sets_compliance": sets_compliance,
+        })
+
+    compliances = [r["sets_compliance"] for r in results if r["sets_compliance"] is not None]
+    overall = round(sum(compliances) / len(compliances)) if compliances else None
+
+    return {"exercises": results, "overall_compliance": overall}
+
+
+# ---------------------------------------------------------------------------
 # Knowledge Base helpers
 # ---------------------------------------------------------------------------
 
@@ -821,10 +866,26 @@ async def daily_log_get(
     user = await get_authenticated_user(teno_session)
     if not user:
         return RedirectResponse("/login", status_code=302)
+
+    db = await get_db()
+    try:
+        cursor = await db.execute(
+            "SELECT * FROM rehab_plans WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
+            (user["id"],),
+        )
+        plan_row = await cursor.fetchone()
+        current_exercises = []
+        if plan_row:
+            plan = parse_json_fields(row_to_dict(plan_row), ["exercises"])
+            current_exercises = plan.get("exercises", [])
+    finally:
+        await db.close()
+
     return templates.TemplateResponse(
         request, "daily_log.html",
         context={
-            "user": user
+            "user": user,
+            "current_exercises": current_exercises,
         },
     )
 
@@ -850,6 +911,8 @@ async def daily_log_post(
     change_footwear: Optional[str] = Form(default=None),
     load_context_notes: Optional[str] = Form(default=""),
 ):
+    # Capture full form data for dynamic exercise fields
+    form_data = await request.form()
     user = await get_authenticated_user(teno_session)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -908,11 +971,13 @@ async def daily_log_post(
         conservative_bias = False
         plan_id = None
 
+        current_exercises = []
         if plan_row:
-            p = row_to_dict(plan_row)
+            p = parse_json_fields(row_to_dict(plan_row), ["exercises"])
             current_stage = p["stage"]
             current_irritability = p["irritability"]
             plan_id = p["id"]
+            current_exercises = p.get("exercises", [])
 
         if onboarding_row:
             o = parse_json_fields(row_to_dict(onboarding_row), ["risk_factors"])
@@ -935,6 +1000,10 @@ async def daily_log_post(
             "notes": load_context_notes or "",
         })
 
+        # Compute exercise dosage compliance
+        exercise_compliance = compute_exercise_compliance(current_exercises, form_data)
+        exercise_log_json = json.dumps(exercise_compliance)
+
         # Run progression decision engine
         progression = run_decision_engine(
             recent_logs=all_logs[-8:],
@@ -949,9 +1018,9 @@ async def daily_log_post(
         # Save log
         await db.execute(
             """INSERT INTO daily_logs
-               (user_id, session_id, pain_during, pain_after, next_day_pain, difficulty, confidence, notes, load_context)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (user["id"], plan_id, pain_during, pain_after, next_day_pain, difficulty, confidence, notes, load_context_json),
+               (user_id, session_id, pain_during, pain_after, next_day_pain, difficulty, confidence, notes, load_context, exercise_log)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (user["id"], plan_id, pain_during, pain_after, next_day_pain, difficulty, confidence, notes, load_context_json, exercise_log_json),
         )
 
         # If stage progression is warranted, create new plan
@@ -1012,6 +1081,7 @@ async def daily_log_post(
             "pain_after": pain_after,
             "next_day_pain": next_day_pain,
             "loading_context_changes": loading_context_changes,
+            "exercise_compliance": exercise_compliance,
         },
     )
 

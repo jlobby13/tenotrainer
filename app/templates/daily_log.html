@@ -60,6 +60,86 @@
       </p>
     </div>
 
+    <!-- Dosage Compliance -->
+    {% if exercise_compliance and exercise_compliance.exercises %}
+    {% set oc = exercise_compliance.overall_compliance %}
+    <div class="bg-white border border-gray-200 rounded-xl p-5">
+      <div class="flex items-center justify-between mb-4">
+        <div class="font-bold text-gray-800 text-lg">Exercise Dosage Compliance</div>
+        {% if oc is not none %}
+        <span class="px-3 py-1 text-sm font-bold rounded-full
+          {% if oc >= 90 %}bg-green-100 text-green-700
+          {% elif oc >= 70 %}bg-yellow-100 text-yellow-700
+          {% else %}bg-red-100 text-red-700{% endif %}">
+          {{ oc }}% overall
+        </span>
+        {% endif %}
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-xs text-gray-500 border-b border-gray-200">
+              <th class="text-left pb-2 pr-3">Exercise</th>
+              <th class="text-center pb-2 px-2">Prescribed</th>
+              <th class="text-center pb-2 px-2">Completed</th>
+              <th class="text-center pb-2 px-2">Load</th>
+              <th class="text-center pb-2 pl-2">Sets %</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ex in exercise_compliance.exercises %}
+            <tr class="border-b border-gray-50">
+              <td class="py-2 pr-3 text-gray-800 font-medium">{{ ex.name }}</td>
+              <td class="text-center py-2 px-2 text-gray-500 text-xs">
+                {{ ex.prescribed_sets }}&times;{{ ex.prescribed_reps }}
+              </td>
+              <td class="text-center py-2 px-2 text-gray-700 text-xs">
+                {% if ex.sets_done is not none or ex.reps_done %}
+                  {{ ex.sets_done if ex.sets_done is not none else '—' }}&times;{{ ex.reps_done or '—' }}
+                {% else %}
+                  <span class="text-gray-400">not logged</span>
+                {% endif %}
+              </td>
+              <td class="text-center py-2 px-2 text-gray-500 text-xs">
+                {{ ex.load_kg ~ ' kg' if ex.load_kg else '—' }}
+              </td>
+              <td class="text-center py-2 pl-2">
+                {% if ex.sets_compliance is not none %}
+                <span class="px-2 py-0.5 rounded text-xs font-bold
+                  {% if ex.sets_compliance >= 90 %}bg-green-100 text-green-700
+                  {% elif ex.sets_compliance >= 70 %}bg-yellow-100 text-yellow-700
+                  {% else %}bg-red-100 text-red-700{% endif %}">
+                  {{ ex.sets_compliance }}%
+                </span>
+                {% else %}
+                <span class="text-gray-400 text-xs">—</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if oc is not none %}
+      {% if oc < 70 %}
+      <p class="text-xs text-red-600 mt-3 bg-red-50 rounded-lg px-3 py-2">
+        Significant under-dosing recorded. Consistent under-dosing may slow tendon adaptation. If due to pain or fatigue, this is captured in your pain scores above — otherwise, aim to complete the full prescription next session.
+      </p>
+      {% elif oc < 90 %}
+      <p class="text-xs text-amber-600 mt-3 bg-amber-50 rounded-lg px-3 py-2">
+        Partial session completed. Continue with the full prescribed dose next session if symptoms allow.
+      </p>
+      {% else %}
+      <p class="text-xs text-green-600 mt-3 bg-green-50 rounded-lg px-3 py-2">
+        Full prescribed dosage completed. Consistent adherence supports optimal tendon adaptation.
+      </p>
+      {% endif %}
+      {% endif %}
+    </div>
+    {% endif %}
+
     {% if loading_context_changes %}
     {% set change_labels = {"sport": "sport/activity", "surface": "training surface", "footwear": "footwear"} %}
     <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
@@ -94,6 +174,71 @@
   {% else %}
   <!-- Log Form -->
   <form method="POST" action="/daily-log" class="space-y-6">
+
+    <!-- Exercise Dosage -->
+    {% if current_exercises %}
+    <div class="bg-white rounded-xl shadow p-6 border border-gray-100">
+      <h2 class="text-xl font-bold text-gray-800 mb-1">Exercise Dosage</h2>
+      <p class="text-sm text-gray-500 mb-5">
+        Log what you actually completed for each exercise. This is compared against your prescribed dosage to track adherence and inform future loading decisions.
+      </p>
+
+      <div class="space-y-5">
+        {% for ex in current_exercises %}
+        <div class="border border-gray-200 rounded-xl p-4 bg-gray-50">
+          <!-- Exercise header -->
+          <div class="flex items-center gap-2 mb-1">
+            <span class="font-semibold text-gray-900">{{ ex.name }}</span>
+            <span class="text-xs px-2 py-0.5 bg-brand-100 text-brand-700 rounded-full capitalize">
+              {{ ex.type | replace("_", " ") }}
+            </span>
+          </div>
+          <!-- Prescribed dose -->
+          <p class="text-xs text-gray-500 mb-4">
+            <strong>Prescribed:</strong>
+            {{ ex.sets }} sets &times; {{ ex.reps }}
+            {% if ex.tempo and ex.tempo not in ["hold", "reactive"] %}
+            &mdash; tempo {{ ex.tempo }}
+            {% endif %}
+            {% if ex.dosing_note %}
+            &mdash; <span class="italic">{{ ex.dosing_note }}</span>
+            {% endif %}
+          </p>
+
+          <!-- Input grid -->
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">
+                Sets completed <span class="text-gray-400 font-normal">(prescribed: {{ ex.sets }})</span>
+              </label>
+              <input type="number" name="ex_{{ loop.index0 }}_sets_done"
+                     min="0" max="20" placeholder="{{ ex.sets }}"
+                     class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none bg-white" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">
+                Reps / duration <span class="text-gray-400 font-normal">(prescribed: {{ ex.reps }})</span>
+              </label>
+              <input type="text" name="ex_{{ loop.index0 }}_reps_done"
+                     placeholder="{{ ex.reps }}"
+                     class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none bg-white" />
+            </div>
+            {% if ex.type in ["heavy_slow_resistance", "eccentric"] %}
+            <div class="col-span-2">
+              <label class="block text-xs font-medium text-gray-600 mb-1">
+                Load used <span class="text-gray-400 font-normal">— kg (optional)</span>
+              </label>
+              <input type="number" name="ex_{{ loop.index0 }}_load_kg"
+                     min="0" step="0.5" placeholder="e.g. 10"
+                     class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none bg-white" />
+            </div>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
 
     <!-- Pain Scores -->
     <div class="bg-white rounded-xl shadow p-6 border border-gray-100">

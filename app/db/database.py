@@ -45,6 +45,7 @@ async def init_db() -> None:
             "ALTER TABLE onboarding_assessments ADD COLUMN functional_tests TEXT NOT NULL DEFAULT '{}'",
             "ALTER TABLE onboarding_assessments ADD COLUMN goals TEXT NOT NULL DEFAULT '{}'",
             "ALTER TABLE daily_logs ADD COLUMN load_context TEXT NOT NULL DEFAULT '{}'",
+            "ALTER TABLE daily_logs ADD COLUMN exercise_log TEXT NOT NULL DEFAULT '{}'",
         ]
         for migration in migrations:
             try:
