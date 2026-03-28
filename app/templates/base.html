@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}TenoTrainer{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50:  '#f0f9ff',
+              100: '#e0f2fe',
+              200: '#bae6fd',
+              300: '#7dd3fc',
+              400: '#38bdf8',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1',
+              800: '#075985',
+              900: '#0c4a6e',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="/static/style.css" />
+  {% block head %}{% endblock %}
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col">
+
+  <!-- Navigation -->
+  <nav class="bg-brand-700 text-white shadow-lg">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2 font-bold text-xl tracking-tight">
+        <span class="text-brand-200">Teno</span><span>Trainer</span>
+      </a>
+      <div class="flex items-center gap-4 text-sm">
+        <a href="/dashboard" class="hover:text-brand-200 transition-colors">Dashboard</a>
+        <a href="/daily-log" class="hover:text-brand-200 transition-colors">Log Session</a>
+        <a href="/visa-a" class="hover:text-brand-200 transition-colors">VISA-A</a>
+        <a href="/onboarding" class="hover:text-brand-200 transition-colors">Assessment</a>
+        <a href="/admin/knowledge" class="hover:text-brand-200 transition-colors">Knowledge Base</a>
+        {% if user %}
+        <span class="ml-2 px-3 py-1 bg-brand-800 rounded-full text-brand-200 text-xs">
+          {{ user.name }}
+        </span>
+        {% endif %}
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main content -->
+  <main class="flex-1 max-w-5xl mx-auto w-full px-4 py-8">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-gray-100 border-t border-gray-200 text-center py-4 text-xs text-gray-500">
+    <p class="max-w-3xl mx-auto px-4">
+      <strong>Clinical Disclaimer:</strong> TenoTrainer is a decision support and coaching tool.
+      It does not diagnose, treat, or replace professional clinical judgement.
+      All clinical decisions must be reviewed by a qualified physiotherapist or clinician.
+      If you experience sudden severe pain, a popping sensation, or inability to move your foot,
+      seek emergency care immediately.
+    </p>
+  </footer>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

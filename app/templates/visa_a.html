@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}VISA-A Questionnaire — TenoTrainer{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <h1 class="text-3xl font-bold text-gray-900 mb-2">VISA-A Questionnaire</h1>
+  <p class="text-gray-600 mb-2">
+    The VISA-A (Victorian Institute of Sport Assessment — Achilles) is a validated outcome measure
+    for Achilles tendinopathy. Complete this every 2–4 weeks to track your recovery.
+  </p>
+  <p class="text-sm text-gray-500 mb-6">
+    This simplified version scores 0–80 (higher = better function). Scoring is fully deterministic
+    — not influenced by AI.
+  </p>
+
+  {% if show_result %}
+  <!-- Result panel -->
+  {% set severity_colours = {'mild': 'green', 'moderate': 'yellow', 'severe': 'red'} %}
+  {% set col = severity_colours.get(result.severity, 'blue') %}
+
+  <div class="bg-{{ col }}-50 border-2 border-{{ col }}-300 rounded-xl p-6 mb-8">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-xl font-bold text-{{ col }}-800">Your VISA-A Result</h2>
+      <span class="text-3xl font-black text-{{ col }}-700">{{ result.total_score }}<span class="text-base font-normal">/80</span></span>
+    </div>
+    <p class="text-{{ col }}-800 text-sm mb-3">{{ result.interpretation }}</p>
+
+    <div class="grid grid-cols-4 gap-2 text-center text-xs mt-4">
+      {% set answers = [result.q1, result.q2, result.q3, result.q4, result.q5, result.q6, result.q7_score, result.q8_score] %}
+      {% for i in range(8) %}
+      <div class="bg-white rounded p-2 border border-{{ col }}-200">
+        <div class="text-{{ col }}-600 font-semibold">Q{{ i+1 }}</div>
+        <div class="text-xl font-bold text-{{ col }}-800">{{ answers[i] }}</div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="mt-4 text-xs text-{{ col }}-700">
+      <strong>Interpret:</strong> Score 64–80 = Mild impairment &nbsp;|&nbsp;
+      40–63 = Moderate impairment &nbsp;|&nbsp; Below 40 = Severe impairment
+    </div>
+  </div>
+
+  <div class="flex gap-3 mb-8">
+    <a href="/dashboard" class="px-5 py-2 bg-brand-600 text-white rounded-lg text-sm font-semibold hover:bg-brand-700 transition-colors">
+      View Dashboard
+    </a>
+    <a href="/visa-a" class="px-5 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+      Retake Questionnaire
+    </a>
+  </div>
+
+  {% else %}
+  <!-- Questionnaire form -->
+  <form method="POST" action="/visa-a" class="space-y-6">
+
+    {% for q in questions %}
+    <div class="bg-white rounded-xl shadow p-5 border border-gray-100">
+      <div class="flex items-start gap-3 mb-3">
+        <span class="flex-shrink-0 w-7 h-7 bg-brand-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
+          {{ q.number }}
+        </span>
+        <p class="text-sm font-medium text-gray-800 pt-0.5">{{ q.text }}</p>
+      </div>
+
+      {% if q.type == 'scale' %}
+      <div class="flex items-center gap-3 pl-10">
+        <span class="text-xs text-gray-500 w-24 text-right leading-tight">{{ q.min_label }}</span>
+        <input type="range" name="{{ q.id }}" min="{{ q.min }}" max="{{ q.max }}" value="{{ (q.max // 2) }}"
+               class="flex-1 accent-brand-600"
+               oninput="document.getElementById('{{ q.id }}_val').textContent = this.value" />
+        <span class="text-xs text-gray-500 w-24 leading-tight">{{ q.max_label }}</span>
+        <span id="{{ q.id }}_val"
+              class="w-8 text-center font-bold text-brand-700 bg-brand-50 rounded px-1 py-0.5 text-sm">
+          {{ (q.max // 2) }}
+        </span>
+      </div>
+      <div class="flex justify-between text-xs text-gray-400 pl-10 mt-1 pr-24">
+        <span>0</span><span>5</span><span>10</span>
+      </div>
+
+      {% elif q.type == 'select' %}
+      <div class="pl-10 space-y-2">
+        {% for opt in q.options %}
+        <label class="flex items-center gap-3 cursor-pointer group">
+          <input type="radio" name="{{ q.id }}" value="{{ opt.value }}" required
+                 class="accent-brand-600 w-4 h-4" />
+          <span class="text-sm text-gray-700 group-hover:text-brand-700 transition-colors">
+            {{ opt.label }}
+            <span class="text-xs text-gray-400 ml-1">(score: {{ opt.score }})</span>
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+
+    <div class="flex justify-end">
+      <button type="submit"
+              class="px-8 py-3 bg-brand-600 text-white font-semibold rounded-lg hover:bg-brand-700 transition-colors shadow-md">
+        Calculate VISA-A Score
+      </button>
+    </div>
+
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

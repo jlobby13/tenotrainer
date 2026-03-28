@@ -1,0 +1,103 @@
+"""
+Database connection and query helpers for TenoTrainer.
+Uses Python's built-in sqlite3 with a lightweight async wrapper via aiosqlite.
+"""
+
+import json
+import sqlite3
+import os
+from pathlib import Path
+from typing import Any, Optional
+
+import aiosqlite
+
+from app.db.schema import CREATE_TABLES_SQL
+
+DB_PATH = os.environ.get("TENO_DB_PATH", str(Path(__file__).parent.parent / "tenotrainer.db"))
+
+
+async def get_db() -> aiosqlite.Connection:
+    """Return an open aiosqlite connection with row_factory set."""
+    db = await aiosqlite.connect(DB_PATH)
+    db.row_factory = aiosqlite.Row
+    await db.execute("PRAGMA journal_mode=WAL")
+    await db.execute("PRAGMA foreign_keys=ON")
+    return db
+
+
+async def init_db() -> None:
+    """Create all tables if they do not exist and seed knowledge base."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        await db.execute("PRAGMA journal_mode=WAL")
+        await db.execute("PRAGMA foreign_keys=ON")
+        # Execute each statement separately
+        for statement in CREATE_TABLES_SQL.strip().split(";"):
+            stmt = statement.strip()
+            if stmt:
+                await db.execute(stmt)
+        await db.commit()
+
+    # Seed knowledge base entries if empty
+    await seed_knowledge_base()
+
+
+async def seed_knowledge_base() -> None:
+    """Seed the knowledge_entries table from knowledge_base.json if empty."""
+    kb_path = Path(__file__).parent.parent / "data" / "knowledge_base.json"
+    if not kb_path.exists():
+        return
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute("SELECT COUNT(*) as cnt FROM knowledge_entries")
+        row = await cursor.fetchone()
+        if row and row["cnt"] > 0:
+            return  # Already seeded
+
+        with open(kb_path, "r") as f:
+            entries = json.load(f)
+
+        for entry in entries:
+            await db.execute(
+                """
+                INSERT OR IGNORE INTO knowledge_entries
+                    (kb_id, title, authors, year, source, summary, key_points, tags,
+                     clinical_question, applicability, recommended_loading_parameters,
+                     progression_criteria, regression_criteria, contraindications)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    entry.get("id"),
+                    entry["title"],
+                    entry["authors"],
+                    entry["year"],
+                    entry["source"],
+                    entry["summary"],
+                    json.dumps(entry.get("key_points", [])),
+                    json.dumps(entry.get("tags", [])),
+                    entry.get("clinical_question"),
+                    entry.get("applicability"),
+                    json.dumps(entry.get("recommended_loading_parameters", {})),
+                    entry.get("progression_criteria"),
+                    entry.get("regression_criteria"),
+                    entry.get("contraindications"),
+                ),
+            )
+        await db.commit()
+
+
+def row_to_dict(row: aiosqlite.Row) -> dict:
+    """Convert an aiosqlite Row to a plain dict."""
+    return dict(row)
+
+
+def parse_json_fields(d: dict, fields: list[str]) -> dict:
+    """Parse JSON string fields in a dict in-place and return it."""
+    for field in fields:
+        if field in d and isinstance(d[field], str):
+            try:
+                d[field] = json.loads(d[field])
+            except (json.JSONDecodeError, TypeError):
+                d[field] = []
+    return d

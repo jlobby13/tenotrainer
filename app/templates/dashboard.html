@@ -1,0 +1,320 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — TenoTrainer{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<h1 class="text-3xl font-bold text-gray-900 mb-6">Dashboard</h1>
+
+{% if not has_onboarding %}
+<!-- Prompt for onboarding -->
+<div class="bg-brand-50 border border-brand-200 rounded-xl p-6 mb-6 text-center">
+  <p class="text-brand-800 font-medium mb-3">
+    You haven't completed an onboarding assessment yet. Start here to generate your rehab plan.
+  </p>
+  <a href="/onboarding"
+     class="inline-block px-6 py-2 bg-brand-600 text-white rounded-lg font-semibold hover:bg-brand-700 transition-colors">
+    Start Assessment
+  </a>
+</div>
+{% endif %}
+
+<!-- Top stats row -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+
+  {% if current_plan %}
+  <!-- Stage badge -->
+  {% set stage_colour = {1: 'blue', 2: 'green', 3: 'orange'} %}
+  {% set sc = stage_colour.get(current_plan.stage, 'gray') %}
+  <div class="bg-white rounded-xl shadow p-4 border border-gray-100 text-center">
+    <div class="text-xs text-gray-500 mb-1">Current Stage</div>
+    <div class="text-2xl font-black text-{{ sc }}-600">{{ current_plan.stage }}</div>
+    <div class="text-xs text-{{ sc }}-700 font-medium mt-1">
+      {% if current_plan.stage == 1 %}Capacity Initiation
+      {% elif current_plan.stage == 2 %}Strength Development
+      {% else %}Energy Storage{% endif %}
+    </div>
+  </div>
+
+  <!-- Irritability badge -->
+  {% set irr_colour = {'high': 'red', 'moderate': 'yellow', 'low': 'green'} %}
+  {% set ic = irr_colour.get(current_plan.irritability, 'gray') %}
+  <div class="bg-white rounded-xl shadow p-4 border border-gray-100 text-center">
+    <div class="text-xs text-gray-500 mb-1">Irritability</div>
+    <div class="text-2xl font-black text-{{ ic }}-600 capitalize">{{ current_plan.irritability }}</div>
+    <div class="text-xs text-{{ ic }}-700 font-medium mt-1">Load Tolerance</div>
+  </div>
+
+  <!-- Decision badge -->
+  {% set dec_colour = {'GO': 'green', 'STAY': 'blue', 'CAUTION': 'yellow', 'STOP': 'red'} %}
+  {% set dc = dec_colour.get(current_plan.decision, 'gray') %}
+  <div class="bg-white rounded-xl shadow p-4 border border-gray-100 text-center">
+    <div class="text-xs text-gray-500 mb-1">Engine Decision</div>
+    <div class="text-2xl font-black text-{{ dc }}-600">{{ current_plan.decision }}</div>
+    <div class="text-xs text-{{ dc }}-700 font-medium mt-1">
+      {% if current_plan.decision == 'GO' %}Progress loading
+      {% elif current_plan.decision == 'STAY' %}Maintain current
+      {% elif current_plan.decision == 'CAUTION' %}Reduce dose
+      {% else %}Halt — reassess{% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Sessions logged -->
+  <div class="bg-white rounded-xl shadow p-4 border border-gray-100 text-center">
+    <div class="text-xs text-gray-500 mb-1">Sessions Logged</div>
+    <div class="text-2xl font-black text-brand-600">{{ recent_logs|length }}</div>
+    <div class="text-xs text-gray-500 mt-1">Recent entries</div>
+  </div>
+
+</div>
+
+<!-- Main 2-column layout -->
+<div class="grid md:grid-cols-2 gap-6 mb-6">
+
+  <!-- Pain Trend Chart -->
+  <div class="bg-white rounded-xl shadow p-5 border border-gray-100">
+    <h2 class="text-lg font-bold text-gray-800 mb-4">Pain Trend</h2>
+    {% if recent_logs %}
+    <canvas id="painChart" height="180"></canvas>
+    {% else %}
+    <div class="h-40 flex items-center justify-center text-gray-400 text-sm">
+      No session data yet. Log your first session to see trends.
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- VISA-A History -->
+  <div class="bg-white rounded-xl shadow p-5 border border-gray-100">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-bold text-gray-800">VISA-A Progress</h2>
+      <a href="/visa-a" class="text-xs text-brand-600 hover:underline">Take now</a>
+    </div>
+    {% if visa_history %}
+    <canvas id="visaChart" height="180"></canvas>
+    {% else %}
+    <div class="h-40 flex items-center justify-center text-gray-400 text-sm">
+      No VISA-A scores yet. <a href="/visa-a" class="ml-1 text-brand-600 hover:underline">Complete now.</a>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- Current Plan Summary -->
+{% if current_plan %}
+<div class="bg-white rounded-xl shadow p-6 border border-gray-100 mb-6">
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="text-lg font-bold text-gray-800">Current Rehab Plan</h2>
+    <a href="/plan/{{ current_plan.id }}" class="text-xs text-brand-600 hover:underline">View full plan</a>
+  </div>
+
+  {% if current_plan.rationale %}
+  <p class="text-sm text-gray-600 mb-4 italic">{{ current_plan.rationale }}</p>
+  {% endif %}
+
+  <div class="space-y-3">
+    {% for ex in current_plan.exercises %}
+    <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+      <div class="flex items-center justify-between mb-1">
+        <span class="font-semibold text-sm text-gray-800">{{ ex.name }}</span>
+        <span class="text-xs bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full">{{ ex.type }}</span>
+      </div>
+      <div class="text-xs text-gray-600">
+        {{ ex.sets }} sets &times; {{ ex.reps }}
+        {% if ex.tempo and ex.tempo != 'hold' %} &bull; Tempo: {{ ex.tempo }}{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Recent Logs Table -->
+{% if recent_logs %}
+<div class="bg-white rounded-xl shadow p-6 border border-gray-100 mb-6">
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="text-lg font-bold text-gray-800">Recent Session Logs</h2>
+    <a href="/daily-log" class="text-xs text-brand-600 hover:underline">Log session</a>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-left text-xs text-gray-500 border-b border-gray-200">
+          <th class="pb-2 pr-3">Date</th>
+          <th class="pb-2 pr-3">During</th>
+          <th class="pb-2 pr-3">After</th>
+          <th class="pb-2 pr-3">Next Day</th>
+          <th class="pb-2 pr-3">Difficulty</th>
+          <th class="pb-2">Confidence</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for log in recent_logs[:6] %}
+        <tr class="text-gray-700">
+          <td class="py-2 pr-3 text-xs text-gray-500">{{ log.created_at[:10] }}</td>
+          <td class="py-2 pr-3">
+            <span class="{% if log.pain_during >= 6 %}text-red-600 font-bold{% elif log.pain_during >= 4 %}text-yellow-600{% else %}text-green-600{% endif %}">
+              {{ log.pain_during }}/10
+            </span>
+          </td>
+          <td class="py-2 pr-3">
+            <span class="{% if log.pain_after >= 6 %}text-red-600 font-bold{% elif log.pain_after >= 4 %}text-yellow-600{% else %}text-green-600{% endif %}">
+              {{ log.pain_after }}/10
+            </span>
+          </td>
+          <td class="py-2 pr-3">
+            <span class="{% if log.next_day_pain >= 6 %}text-red-600 font-bold{% elif log.next_day_pain >= 4 %}text-yellow-600{% else %}text-green-600{% endif %}">
+              {{ log.next_day_pain }}/10
+            </span>
+          </td>
+          <td class="py-2 pr-3 text-gray-600">{{ log.difficulty }}/10</td>
+          <td class="py-2 text-gray-600">{{ log.confidence }}/10</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Progression History -->
+{% if progression_history %}
+<div class="bg-white rounded-xl shadow p-6 border border-gray-100 mb-6">
+  <h2 class="text-lg font-bold text-gray-800 mb-4">Progression History</h2>
+  <div class="space-y-2">
+    {% for prog in progression_history %}
+    {% set dc = {'GO': 'green', 'STAY': 'blue', 'CAUTION': 'yellow', 'STOP': 'red'}.get(prog.decision, 'gray') %}
+    <div class="flex items-center gap-3 text-sm">
+      <span class="px-2 py-0.5 bg-{{ dc }}-100 text-{{ dc }}-700 rounded font-bold text-xs">{{ prog.decision }}</span>
+      <span class="text-gray-600">Stage {{ prog.from_stage }} → Stage {{ prog.to_stage }}</span>
+      <span class="text-xs text-gray-400">{{ prog.created_at[:10] }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Quick actions -->
+<div class="flex flex-wrap gap-3">
+  <a href="/daily-log" class="px-5 py-2 bg-brand-600 text-white rounded-lg text-sm font-semibold hover:bg-brand-700 transition-colors">
+    Log Today's Session
+  </a>
+  <a href="/visa-a" class="px-5 py-2 border border-brand-300 text-brand-700 rounded-lg text-sm font-semibold hover:bg-brand-50 transition-colors">
+    VISA-A Questionnaire
+  </a>
+  <a href="/onboarding" class="px-5 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 transition-colors">
+    Re-run Assessment
+  </a>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const chartData = {{ pain_chart_data | safe }};
+
+if (chartData.labels.length > 0) {
+  const painCtx = document.getElementById('painChart');
+  if (painCtx) {
+    new Chart(painCtx, {
+      type: 'line',
+      data: {
+        labels: chartData.labels,
+        datasets: [
+          {
+            label: 'During',
+            data: chartData.during,
+            borderColor: '#dc2626',
+            backgroundColor: 'rgba(220,38,38,0.1)',
+            tension: 0.3,
+            fill: false,
+            pointRadius: 4,
+          },
+          {
+            label: 'After',
+            data: chartData.after,
+            borderColor: '#d97706',
+            backgroundColor: 'rgba(217,119,6,0.1)',
+            tension: 0.3,
+            fill: false,
+            pointRadius: 4,
+          },
+          {
+            label: 'Next Day',
+            data: chartData.next_day,
+            borderColor: '#7c3aed',
+            backgroundColor: 'rgba(124,58,237,0.1)',
+            tension: 0.3,
+            fill: false,
+            pointRadius: 4,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: {
+            min: 0, max: 10,
+            ticks: { stepSize: 2 },
+            title: { display: true, text: 'Pain (0–10)' }
+          }
+        },
+        plugins: {
+          legend: { position: 'bottom' },
+          tooltip: { mode: 'index', intersect: false }
+        }
+      }
+    });
+  }
+}
+
+{% if visa_history %}
+const visaLabels = {{ visa_history | map(attribute='created_at') | list | map('truncate', 10, true, '') | list | tojson | safe }};
+const visaScores = {{ visa_history | map(attribute='total_score') | list | tojson }};
+const visaCtx = document.getElementById('visaChart');
+if (visaCtx) {
+  new Chart(visaCtx, {
+    type: 'line',
+    data: {
+      labels: visaLabels,
+      datasets: [{
+        label: 'VISA-A Score',
+        data: visaScores,
+        borderColor: '#0284c7',
+        backgroundColor: 'rgba(2,132,199,0.1)',
+        tension: 0.3,
+        fill: true,
+        pointRadius: 5,
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: {
+          min: 0, max: 80,
+          ticks: { stepSize: 10 },
+          title: { display: true, text: 'Score (0–80)' }
+        }
+      },
+      plugins: {
+        legend: { position: 'bottom' },
+        annotation: {
+          annotations: {
+            goodLine: {
+              type: 'line', yMin: 64, yMax: 64,
+              borderColor: 'green', borderWidth: 1,
+              borderDash: [4, 4],
+              label: { content: 'Good function', display: true }
+            }
+          }
+        }
+      }
+    }
+  });
+}
+{% endif %}
+</script>
+{% endblock %}

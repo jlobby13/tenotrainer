@@ -1,0 +1,230 @@
+[
+  {
+    "id": "kb_001",
+    "title": "Heavy Load Eccentric Calf Muscle Training for the Treatment of Chronic Achilles Tendinosis",
+    "authors": "Alfredson H, Pietila T, Jonsson P, Lorentzon R",
+    "year": 1998,
+    "source": "The American Journal of Sports Medicine",
+    "summary": "Landmark RCT establishing the 12-week eccentric calf raise protocol for chronic Achilles tendinopathy. 100% of patients in the eccentric group returned to running, compared to 0% in the control group. Established pain-through-exercise as acceptable in mid-stage tendinopathy.",
+    "key_points": [
+      "Eccentric heel drops performed twice daily, 3 sets of 15 repetitions for 12 weeks",
+      "Both straight-knee and bent-knee variants target gastrocnemius and soleus respectively",
+      "Pain during exercise is acceptable (up to 5/10) — this is a key departure from traditional pain-avoidance models",
+      "100% return to running vs 0% control after 12 weeks",
+      "Significant reductions in tendon thickness and neovascularisation at follow-up",
+      "Best evidence for Stage 2 loading in chronic Achilles tendinopathy"
+    ],
+    "tags": ["stage_2", "eccentric", "alfredson", "chronic", "loading", "strength"],
+    "clinical_question": "What is the most effective loading protocol for chronic mid-portion Achilles tendinopathy in active patients?",
+    "applicability": "Chronic (>3 months) mid-portion Achilles tendinopathy. Moderate to low irritability. Not indicated for insertional tendinopathy or acute presentations.",
+    "recommended_loading_parameters": {
+      "sets": 3,
+      "reps": 15,
+      "tempo": "0-0-6",
+      "frequency": "twice daily",
+      "notes": "Two variants: straight knee (gastrocnemius) and bent knee (soleus). Perform off the edge of a step. Progress by adding load (backpack with books) when 15 reps are pain-free."
+    },
+    "progression_criteria": "Advance load (add weight) when able to complete 3x15 with pain ≤3/10. Full return to running readiness when 3x15 pain-free.",
+    "regression_criteria": "Reduce to flat-ground eccentric or isometric holds if pain exceeds 5/10 consistently.",
+    "contraindications": "Acute tendinopathy (<6 weeks), insertional Achilles tendinopathy, suspected partial/complete rupture, post-operative (within 12 weeks)."
+  },
+  {
+    "id": "kb_002",
+    "title": "Eccentric or Concentric Exercises for the Treatment of Tendinopathies?",
+    "authors": "Beyer R, Kongsgaard M, Hougs Kjær B, Øhlenschlæger T, Kjær M, Magnusson SP",
+    "year": 2015,
+    "source": "Journal of Orthopaedic & Sports Physical Therapy",
+    "summary": "RCT comparing heavy slow resistance (HSR) training to Alfredson eccentric protocol. Both showed significant improvement at 12 weeks, but HSR was preferred by patients and showed greater improvements in VISA-A, patient satisfaction, and structural tendon changes. HSR matched or surpassed eccentric outcomes with higher adherence.",
+    "key_points": [
+      "Heavy slow resistance: 3 sets of 15 reps (week 1-2), progressing to 4 sets of 6-8 reps (weeks 3-12)",
+      "HSR and eccentric both produced significant VISA-A improvements (27+ points)",
+      "HSR had significantly higher patient satisfaction at 12 months",
+      "Both concentric and eccentric loading components drive tendon adaptation",
+      "HSR provides more flexibility in clinical setting (gym-based, adjustable load)",
+      "Evidence base for Stage 2 HSR as equivalent or superior to pure eccentric"
+    ],
+    "tags": ["stage_2", "heavy_slow_resistance", "eccentric", "concentric", "strength", "loading"],
+    "clinical_question": "Is heavy slow resistance training more effective than isolated eccentric training for Achilles tendinopathy?",
+    "applicability": "Chronic mid-portion Achilles tendinopathy, moderate to low irritability. Suitable for patients who have access to gym equipment or adjustable loading.",
+    "recommended_loading_parameters": {
+      "sets": 4,
+      "reps": "6-8",
+      "tempo": "3-1-3",
+      "frequency": "3 times per week",
+      "notes": "Begin with 3x15 (light-moderate load) weeks 1-2 for familiarisation. Progress to 4x6-8 (heavy load) by week 3. Load is prescribed to reach RPE 8/10 on last rep. Rest 2-3 minutes between sets."
+    },
+    "progression_criteria": "Increase load by ~2.5 kg when able to complete all sets with pain ≤4/10. Progress through rep range before increasing load.",
+    "regression_criteria": "Reduce load if pain >5/10 during exercise or if next-day pain exceeds baseline.",
+    "contraindications": "Acute presentations, high irritability, insertional tendinopathy (modify range of motion), post-surgical (12 week exclusion)."
+  },
+  {
+    "id": "kb_003",
+    "title": "Isometric Exercise Induces Analgesia and Reduces Inhibition in Patellar Tendinopathy",
+    "authors": "Rio E, Kidgell D, Purdam C, Gaida J, Moseley GL, Pearce AJ, Cook J",
+    "year": 2015,
+    "source": "British Journal of Sports Medicine",
+    "summary": "Landmark study demonstrating that isometric exercise produces immediate and sustained pain relief in tendinopathy, associated with cortical inhibition changes. Isometrics produced significantly greater pain reduction (by 26 points on a 100mm VAS) than isotonic exercise immediately post-exercise. Effects sustained for 45 minutes.",
+    "key_points": [
+      "Isometric exercise reduces cortical inhibition of the quadriceps — mechanism extends to Achilles tendon context",
+      "Immediate analgesic effect: significant pain reduction lasting at least 45 minutes",
+      "5 x 45-second isometric holds at 70% MVIC most effective protocol",
+      "Mechanism: descending pain inhibition via motor cortex activation",
+      "Particularly useful during high-irritability phases to maintain load without provoking symptoms",
+      "Supports use of isometrics as a primary tool in Stage 1 (Capacity Initiation)"
+    ],
+    "tags": ["stage_1", "isometric", "pain_relief", "irritability", "analgesia", "high_irritability"],
+    "clinical_question": "Can isometric loading provide effective pain relief while maintaining tendon load in highly irritable Achilles tendinopathy?",
+    "applicability": "High and moderate irritability Achilles tendinopathy. Most useful in Stage 1 (Capacity Initiation) and as a pain-management tool during competition periods.",
+    "recommended_loading_parameters": {
+      "sets": 5,
+      "reps": "45s hold",
+      "tempo": "hold",
+      "frequency": "daily or twice daily",
+      "notes": "Perform at approximately 70% of maximum voluntary isometric contraction. Wall sit or step position. Pain should be ≤3/10 during hold. Analgesic effect peaks 5-10 minutes post-exercise."
+    },
+    "progression_criteria": "Progress to slow isotonic exercises (Stage 1) when 5x45s isometric holds are consistently ≤2/10 pain. Progress to eccentric loading (Stage 2) when full isotonic loading is tolerated.",
+    "regression_criteria": "Reduce hold duration or load if pain exceeds 3/10. Regress from isotonic to isometric if flare occurs.",
+    "contraindications": "Suspected rupture, acute inflammatory flare with rest pain >7/10, post-surgical (seek clearance)."
+  },
+  {
+    "id": "kb_004",
+    "title": "Validity and Reliability of the VISA-A Questionnaire for Achilles Tendinopathy",
+    "authors": "Robinson JM, Cook JL, Purdam C, Visentini PJ, Ross J, Maffulli N, Taunton JE, Khan KM",
+    "year": 2001,
+    "source": "British Journal of Sports Medicine",
+    "summary": "Original validation study of the VISA-A (Victorian Institute of Sport Assessment — Achilles) questionnaire. Established VISA-A as a valid, reliable, and responsive outcome measure for Achilles tendinopathy. Asymptomatic athletes scored 96±6; patients with chronic Achilles tendinopathy scored 64±16 at baseline.",
+    "key_points": [
+      "VISA-A is an 8-item self-report questionnaire validated for Achilles tendinopathy",
+      "Maximum score = 100 (full function, no pain, full competition)",
+      "Asymptomatic athletes: mean 96 ± 6",
+      "Minimally clinically important difference (MCID) is approximately 6-13 points",
+      "High test-retest reliability (ICC > 0.93)",
+      "Sensitive to change over rehabilitation time course",
+      "Should be administered every 2-4 weeks to track progress objectively"
+    ],
+    "tags": ["visa_a", "outcome_measure", "assessment", "monitoring", "progress_tracking"],
+    "clinical_question": "How should functional outcome be objectively measured in Achilles tendinopathy rehabilitation?",
+    "applicability": "All stages and all irritability levels. Primary outcome measure for tracking rehabilitation progress. Administer at baseline and every 2 weeks.",
+    "recommended_loading_parameters": {
+      "sets": null,
+      "reps": null,
+      "tempo": null,
+      "frequency": "every 2-4 weeks",
+      "notes": "Not a loading protocol — outcome measure only. Score ≥80 indicates good function. Score <40 indicates severe impairment requiring Stage 1 focus."
+    },
+    "progression_criteria": "Increase of ≥10 points over 4-week period indicates good treatment response. Score >80 supports consideration of Stage 3 loading.",
+    "regression_criteria": "Decrease of >5 points indicates deterioration — review loading and consider irritability reclassification.",
+    "contraindications": "None — suitable for all presentations as an outcome measure."
+  },
+  {
+    "id": "kb_005",
+    "title": "Is Tendon Pathology a Continuum? A Pathology Model to Explain the Clinical Presentation of Load-Induced Tendinopathy",
+    "authors": "Cook JL, Purdam CR",
+    "year": 2009,
+    "source": "British Journal of Sports Medicine",
+    "summary": "Landmark conceptual paper proposing the tendon continuum model: reactive tendinopathy → tendon disrepair → degenerative tendinopathy. Established that management differs by stage of pathology and that irritability (load sensitivity) is the key clinical modifier. Challenged the view that all tendinopathy should be treated the same way.",
+    "key_points": [
+      "Tendinopathy exists on a pathological continuum, not as a discrete condition",
+      "Reactive stage: high irritability, responds to load reduction and isometrics",
+      "Disrepair stage: moderate irritability, responds to progressive loading",
+      "Degenerative stage: variable irritability, may have windows of reactivity",
+      "Irritability is the primary guide to WHAT loading dose to apply",
+      "Stage of pathology guides WHAT type of loading (isometric → isotonic → plyometric)",
+      "Pain alone is not sufficient to guide management — load response and capacity must be considered"
+    ],
+    "tags": ["irritability", "classification", "continuum_model", "load_management", "stage_1", "stage_2", "stage_3"],
+    "clinical_question": "How should clinicians classify and guide management of Achilles tendinopathy to account for variability in presentation and irritability?",
+    "applicability": "Foundational model applicable to all stages and irritability levels. Informs the entire classification and progression framework of TenoTrainer.",
+    "recommended_loading_parameters": {
+      "sets": null,
+      "reps": null,
+      "tempo": null,
+      "frequency": null,
+      "notes": "Conceptual framework — not a direct loading protocol. Informs irritability-based FITT modification across all stages."
+    },
+    "progression_criteria": "Progression through continuum stages is capacity-driven, not symptom-driven. Reduced irritability enables progression of load dose, not load type.",
+    "regression_criteria": "Return to earlier stage loading type (e.g., reactive tendinopathy from overload) warrants temporary shift to isometrics and irritability management.",
+    "contraindications": "N/A — conceptual framework."
+  },
+  {
+    "id": "kb_007",
+    "title": "Strength Classification and Diagnosis: Not All Strength Is Created Equal",
+    "authors": "James LP, Talpey SW, Young WB, Geneau MC, Newton RU, Gastin PB",
+    "year": 2023,
+    "source": "Strength and Conditioning Journal, Vol. 45, No. 3, NSCA",
+    "summary": "Contemporary evidence-based framework reducing the many strength and speed-strength metrics into 5 empirically distinct qualities: (1) maximal isometric strength, (2) explosive strength, (3) heavy maximal dynamic strength, (4) fast maximal dynamic strength, and (5) reactive strength. Each quality has limited commonality (r² < 0.50) with the others, meaning they must be assessed and trained independently. The framework has direct application to Achilles tendinopathy rehabilitation staging, where each rehab stage targets a different strength quality on this continuum.",
+    "key_points": [
+      "Five distinct strength qualities exist: maximal isometric, explosive, heavy dynamic, fast dynamic, and reactive — each requires specific assessment and targeted training",
+      "Maximal isometric strength (IMTP/isometric squat peak force) maps directly to Stage 1 Achilles rehab — isometric loading builds foundational tendon capacity",
+      "Heavy maximal dynamic strength (1RM/HSR, 3-1-3 tempo) maps to Stage 2 — eccentric and concentric loading drives tendon structural adaptation",
+      "Reactive strength (drop jump RSI, contact time <0.25 s) maps to Stage 3 — plyometric and elastic loading restores tendon energy storage and release function",
+      "Shares only 10–35% commonality with other strength qualities, confirming that Stage 3 readiness cannot be inferred from Stage 2 performance alone",
+      "Stronger athletes (≥2.0× BM back squat) respond better to high-velocity and plyometric training — chronic load base must be established first",
+      "Reactive strength index (RSI) = jump height ÷ contact time — primary metric for Stage 3 readiness and plyometric progression",
+      "Fast movement time in a slow SSC task (e.g., CMJ) does NOT imply fast contact time in reactive strength — separate assessment is required",
+      "Training should be periodized and sequenced: isometric → heavy dynamic → fast dynamic → reactive strength, mirroring the 3-stage rehab model",
+      "Weaker or less-trained individuals improve broadly from heavy strength training; more specific targeting is required as strength improves"
+    ],
+    "tags": ["stage_1", "stage_2", "stage_3", "isometric", "heavy_slow_resistance", "reactive_strength", "plyometric", "strength_diagnosis", "progression", "assessment", "return_to_sport"],
+    "clinical_question": "How should strength qualities be classified, assessed, and sequenced to guide progression through Achilles tendinopathy rehabilitation stages?",
+    "applicability": "Applicable across all stages of Achilles tendinopathy rehabilitation. Provides the theoretical and evidence base for why each rehab stage targets a different strength quality and why stage progression requires capacity assessment, not pain response alone. Particularly relevant to Stage 2→3 transition and return-to-sport readiness.",
+    "recommended_loading_parameters": {
+      "stage_1_isometric": {
+        "type": "Maximal isometric — 45-second holds",
+        "sets": 5,
+        "reps": "45s hold",
+        "intensity": "~70% MVIC",
+        "notes": "Assess peak force to establish baseline. 'Hard and fast' cue for maximal output."
+      },
+      "stage_2_heavy_dynamic": {
+        "type": "Heavy maximal dynamic strength — calf raises with load",
+        "sets": 4,
+        "reps": "6-8",
+        "tempo": "3-1-3",
+        "intensity": "≥75% 1RM equivalent — RPE 8/10",
+        "notes": "Progress load when full sets completed with pain ≤3/10. Velocity at ≥80% 1RM load is a valid proxy when RM testing is not feasible."
+      },
+      "stage_3_reactive": {
+        "type": "Reactive strength — single-leg hops, drop jumps",
+        "sets": 3,
+        "reps": "10-20 contacts",
+        "tempo": "Minimal contact time",
+        "target_rsi": ">1.5 m/s (drop jump height ÷ contact time)",
+        "notes": "Bilateral before unilateral. Aim for 200–250 contacts per session when building running readiness. Do not infer Stage 3 readiness from Stage 2 performance — assess separately."
+      }
+    },
+    "progression_criteria": "Progress from Stage 1 to Stage 2 when isometric holds are consistently ≤2/10 pain and functional calf raise capacity is improving. Progress from Stage 2 to Stage 3 when heavy dynamic loading (4x6-8 at RPE 8) is well tolerated AND reactive strength has been formally assessed (RSI via drop jump or hop test). Do not progress based on pain alone.",
+    "regression_criteria": "If reactive strength testing reveals deficiency relative to heavy dynamic strength (large gap between Stage 2 and Stage 3 performance), do not attempt Stage 3 loading — consolidate Stage 2 and introduce bilateral slow-SSC plyometrics as a bridge.",
+    "contraindications": "Stage 3 reactive/plyometric loading is contraindicated until Stage 2 heavy dynamic capacity is well established (minimum 4 consistent weeks). Return to sport is NOT automated — clinician decision required. High irritability precludes reactive strength loading."
+  },
+  {
+    "id": "kb_006",
+    "title": "The Training-Injury Prevention Paradox: Should Athletes Train Smarter and Harder?",
+    "authors": "Gabbett TJ",
+    "year": 2016,
+    "source": "British Journal of Sports Medicine",
+    "summary": "Highly cited paper establishing the acute:chronic workload ratio (ACWR) as a predictor of injury risk. Demonstrates that well-prepared athletes (high chronic workload) tolerate spikes better, and that sudden load increases are the primary injury risk — not high load per se. Informs load management principles for tendon rehabilitation.",
+    "key_points": [
+      "Acute:chronic workload ratio (ACWR) >1.5 associated with significantly elevated injury risk",
+      "High chronic workload is PROTECTIVE — fitness is a protective factor",
+      "Rapid load spikes (not high load) are the primary injury mechanism for tendons",
+      "The training-injury prevention paradox: under-training increases injury risk as much as over-training",
+      "Load monitoring should track both acute and chronic workload over rolling 1-week and 4-week windows",
+      "Conservative progression: increase total load by no more than 10% per week",
+      "Applies directly to Achilles tendinopathy rehabilitation load management"
+    ],
+    "tags": ["load_management", "progression", "load_spikes", "risk_factors", "conservative_bias", "stage_2", "stage_3"],
+    "clinical_question": "How should load be progressed during Achilles tendinopathy rehabilitation to minimise re-injury risk while maximising adaptation?",
+    "applicability": "All stages, particularly relevant to Stage 2-3 progression and return-to-activity planning. Critical for patients with history of load spikes as a risk factor.",
+    "recommended_loading_parameters": {
+      "sets": null,
+      "reps": null,
+      "tempo": null,
+      "frequency": null,
+      "notes": "Load management principle: do not increase total training load by more than 10% per week. Monitor acute (1-week) vs chronic (4-week average) training load. ACWR >1.5 = high injury risk."
+    },
+    "progression_criteria": "Progress when chronic workload is well-established (≥4 consistent weeks at current load) and ACWR is 0.8–1.3.",
+    "regression_criteria": "Reduce load if ACWR exceeds 1.5 or if next-day pain responses increase.",
+    "contraindications": "N/A — load management principle applicable universally."
+  }
+]

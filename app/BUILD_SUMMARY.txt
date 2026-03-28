@@ -1,0 +1,118 @@
+TenoTrainer — Build Summary
+============================
+
+RUNNING THE APP
+---------------
+cd /home/jlobby/projects/tenotrainer
+uvicorn app.main:app --reload
+→ http://localhost:8000
+
+Set your Claude API key for AI explanations (optional — falls back to static text):
+export ANTHROPIC_API_KEY=your_key_here
+
+
+WHAT WAS BUILT (24 files)
+--------------------------
+
+Rule Engine (app/engine/rules.py)
+- Deterministic irritability classification:
+    High   = pain >= 6
+    Moderate = pain 3–5
+    Low    = pain <= 2
+- 3-stage loading system:
+    Stage 1 — Capacity Initiation: isometrics, slow isotonic
+    Stage 2 — Strength Development: concentric/eccentric, heavy slow resistance
+    Stage 3 — Energy Storage & Release: plyometrics, reactive strength, explosive
+- GO/STAY/CAUTION/STOP decision engine (requires >= 4 consistent sessions for GO)
+- Stage progression gates: improved capacity + improved tolerance + stable irritability
+  NOTE: stage never regresses from pain alone — only dosing (FITT) changes
+- Under/over-reporting override logic:
+    Under-reporting: low pain + poor performance → block progression
+    Over-reporting: high pain + strong performance → cautious progression
+- Conservative bias applied for any of: obesity, hypertension, diabetes,
+  steroid use, load spikes, family history
+- Red flag halt system (rupture indicators, severe symptoms)
+
+VISA-A Engine (app/engine/visa_a.py)
+- Fully deterministic scoring (0–80 scale, 8 questions)
+- Q7 scored: 0,2,4,6,8,10 for 0 / 1-4 / 5-9 / 10-19 / 20-24 / >=25 raises
+- Q8 scored: 0,4,7,10 for activity level tiers
+- AI never touches or modifies scores
+
+AI Explanation Layer (app/engine/ai_explainer.py)
+- Claude receives only rule engine output + KB entries — never raw user inputs
+- Strict system prompt: explanation and coaching only
+- Claude cannot select protocols, modify rules, or introduce external evidence
+- Graceful static fallback if ANTHROPIC_API_KEY is not set
+
+Knowledge Base (app/data/knowledge_base.json)
+- 6 seeded evidence entries:
+    1. Alfredson et al. (1998) — Eccentric calf training protocol
+    2. Beyer et al. (2015)    — Heavy slow resistance vs eccentric
+    3. Rio et al. (2015)      — Isometric exercise for pain relief
+    4. Robinson et al. (2001) — VISA-A questionnaire validation
+    5. Cook & Purdam (2009)   — Irritability model in tendon rehab
+    6. Gabbett (2016)         — Load management and tendon adaptation
+- Each entry includes: title, authors, year, source, summary, key_points,
+  tags, clinical_question, applicability, recommended_loading_parameters,
+  progression_criteria, regression_criteria, contraindications
+
+Exercises Library (app/data/exercises.py)
+- 6 exercises across 3 stages with full FITT metadata
+- Dosing automatically adjusted by irritability level at runtime
+
+Database (app/db/)
+- SQLite (aiosqlite), auto-initialised on startup
+- 8 tables: users, onboarding_assessments, visa_a_responses, daily_logs,
+  rehab_plans, sessions, progression_decisions, knowledge_entries
+- Knowledge base auto-seeded from JSON on first run
+
+FastAPI Routes (app/main.py)
+- GET  /                     Landing page
+- GET  /onboarding            Onboarding form
+- POST /onboarding            Submit → run rule engine → generate plan
+- GET  /visa-a                VISA-A questionnaire
+- POST /visa-a                Submit → deterministic score → store
+- GET  /dashboard             Current plan, pain trend chart, VISA-A progress
+- GET  /daily-log             Daily session log form
+- POST /daily-log             Submit → update irritability → run decision engine
+- GET  /plan/{plan_id}        Full plan: exercises, rationale, AI explanation, citations
+- GET  /admin/knowledge       Knowledge base management
+- POST /admin/knowledge       Add new KB entry
+- GET  /api/progression-check Returns GO/STAY/CAUTION/STOP from recent logs
+
+Templates (app/templates/) — Tailwind CSS + Chart.js via CDN
+- base.html           Layout, navigation, disclaimer footer
+- index.html          Landing page, how-it-works, stage overview
+- onboarding.html     Multi-section form with sliders + risk factor checkboxes
+- visa_a.html         Full questionnaire with result display panel
+- dashboard.html      Pain trend chart, VISA-A progress chart, plan summary
+- daily_log.html      Session log form with decision result badge
+- plan.html           Full plan view: exercises, FITT table, rationale, citations
+- admin_knowledge.html  KB listing + add-entry form
+
+
+CORE SYSTEM RULES
+-----------------
+1. Rule engine output is ALWAYS computed before any AI call
+2. AI never receives raw user inputs — only processed rule engine outputs
+3. VISA-A score computed in visa_a.py only — never by Claude
+4. All citations sourced only from knowledge_base.json
+5. Red flag check runs on every POST submission
+6. Conservative bias applied when any risk factor is present
+7. Stage never regresses from pain — only irritability/dosing changes
+8. Progression requires: improved capacity + improved tolerance +
+   stable irritability + sufficient exposure (>= 4 sessions)
+9. Return-to-sport is NOT automated — clinician decision required
+
+
+CRITICAL FRAMING
+----------------
+This system is:
+  YES  A decision support and coaching tool
+  NO   NOT a diagnostic or autonomous medical system
+
+The rule engine is the clinical authority.
+Claude is the explanation layer only.
+All outputs are traceable to deterministic rules and curated evidence.
+When uncertain, the system defaults to conservative.

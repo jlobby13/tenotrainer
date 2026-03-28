@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}Onboarding Assessment — TenoTrainer{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+  <h1 class="text-3xl font-bold text-gray-900 mb-2">Initial Assessment</h1>
+  <p class="text-gray-600 mb-6">
+    Answer all questions as accurately as possible. Your answers determine your rehab stage,
+    irritability classification, and starting exercise dose. All pain scores are 0–10 (0 = no pain, 10 = worst imaginable).
+  </p>
+
+  {% if halt %}
+  <!-- RED FLAG HALT -->
+  <div class="bg-red-50 border-2 border-red-500 rounded-xl p-6 mb-6">
+    <h2 class="text-2xl font-bold text-red-700 mb-3">SAFETY ALERT — Stop &amp; Seek Medical Help</h2>
+    <p class="text-red-800 mb-3">
+      Your responses indicate possible warning signs that require immediate assessment by a qualified clinician.
+      <strong>Do NOT continue self-managing until you have been assessed.</strong>
+    </p>
+    <ul class="list-disc list-inside text-red-700 mb-3">
+      {% for flag in red_flags %}
+      <li>{{ flag }}</li>
+      {% endfor %}
+    </ul>
+    <div class="bg-red-100 rounded p-3 text-sm text-red-800">
+      <strong>Red flag signs of Achilles rupture include:</strong>
+      sudden popping sound, inability to point the foot downward, visible gap in the tendon, and sudden severe pain.
+      These require urgent orthopaedic or emergency department assessment.
+    </div>
+  </div>
+  {% else %}
+
+  <form method="POST" action="/onboarding" class="space-y-8">
+
+    <!-- Section 1: Your Details -->
+    <div class="bg-white rounded-xl shadow p-6 border border-gray-100">
+      <h2 class="text-xl font-bold text-gray-800 mb-4">Your Details</h2>
+      <div class="grid gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Your Name</label>
+          <input type="text" name="user_name" value="{{ user.name }}"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none"
+                 placeholder="Enter your name" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Injury Duration</label>
+          <select name="injury_duration" required
+                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none">
+            <option value="acute">Acute — less than 6 weeks</option>
+            <option value="subacute">Subacute — 6 weeks to 3 months</option>
+            <option value="chronic" selected>Chronic — more than 3 months</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Have you had a sudden increase in training load in the past 2–4 weeks?
+          </label>
+          <select name="recent_load_change"
+                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none">
+            <option value="0">No — load has been stable or decreasing</option>
+            <option value="1">Yes — significant increase in training volume or intensity</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 2: Pain Scores -->
+    <div class="bg-white rounded-xl shadow p-6 border border-gray-100">
+      <h2 class="text-xl font-bold text-gray-800 mb-1">Pain Assessment</h2>
+      <p class="text-sm text-gray-500 mb-4">Rate each on a scale of 0 (no pain) to 10 (worst imaginable).</p>
+
+      {% set pain_items = [
+        ("morning_stiffness", "Morning stiffness / aching in the Achilles area on first getting up"),
+        ("pain_at_rest", "Pain at rest (sitting, lying down)"),
+        ("pain_with_activity", "Pain during activity (walking, running, exercise)"),
+        ("pain_after_activity", "Pain in the hour after activity"),
+        ("next_day_pain", "Pain / stiffness the morning after activity"),
+      ] %}
+
+      {% for name, label in pain_items %}
+      <div class="mb-5">
+        <label class="block text-sm font-medium text-gray-700 mb-2">{{ label }}</label>
+        <div class="flex items-center gap-3">
+          <span class="text-xs text-gray-500 w-12 text-right">No pain (0)</span>
+          <input type="range" name="{{ name }}" min="0" max="10" value="3"
+                 class="flex-1 accent-brand-600"
+                 oninput="document.getElementById('{{ name }}_val').textContent = this.value" />
+          <span class="text-xs text-gray-500 w-20">Worst (10)</span>
+          <span id="{{ name }}_val"
+                class="w-8 text-center font-bold text-brand-700 bg-brand-50 rounded px-1 py-0.5 text-sm">3</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Section 3: Functional Capacity -->
+    <div class="bg-white rounded-xl shadow p-6 border border-gray-100">
+      <h2 class="text-xl font-bold text-gray-800 mb-1">Functional Capacity</h2>
+      <p class="text-sm text-gray-500 mb-4">
+        Perform the test on a flat surface. Rise onto tiptoe on the affected leg and lower slowly.
+        Count until you cannot continue due to pain or fatigue.
+      </p>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">
+          Single-leg calf raise repetitions (affected side)
+        </label>
+        <input type="number" name="calf_raise_reps" min="0" max="100" value="10" required
+               class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+        <span class="ml-2 text-sm text-gray-500">repetitions</span>
+      </div>
+    </div>
+
+    <!-- Section 4: Risk Factors -->
+    <div class="bg-white rounded-xl shadow p-6 border border-gray-100">
+      <h2 class="text-xl font-bold text-gray-800 mb-1">Risk Factors</h2>
+      <p class="text-sm text-gray-500 mb-4">
+        Tick any that apply. These inform conservative dosing bias — they do not prevent participation.
+      </p>
+      <div class="grid grid-cols-2 gap-3">
+        {% set risk_items = [
+          ("risk_obesity", "obesity", "Obesity (BMI > 30)"),
+          ("risk_hypertension", "hypertension", "Hypertension"),
+          ("risk_diabetes", "diabetes", "Diabetes (Type 1 or 2)"),
+          ("risk_steroids", "steroids", "Recent corticosteroid use"),
+          ("risk_load_spikes", "load_spikes", "History of load spikes / overtraining"),
+          ("risk_family_history", "family_history", "Family history of tendinopathy or tendon rupture"),
+        ] %}
+        {% for field_name, value, label in risk_items %}
+        <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <input type="checkbox" name="{{ field_name }}" value="{{ value }}"
+                 class="accent-brand-600 w-4 h-4" />
+          {{ label }}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Section 5: Red Flags (Safety) -->
+    <div class="bg-red-50 rounded-xl border border-red-200 p-6">
+      <h2 class="text-xl font-bold text-red-800 mb-2">Safety Check — Red Flags</h2>
+      <p class="text-sm text-red-700 mb-3">
+        If any of the following apply to you, do NOT proceed with self-managed rehabilitation.
+        Seek immediate medical assessment.
+      </p>
+      <ul class="text-sm text-red-700 mb-4 space-y-1 list-disc list-inside">
+        <li>Sudden popping or snapping sound at the back of the ankle</li>
+        <li>Complete inability to point foot downward (plantarflex)</li>
+        <li>Visible gap or depression in the tendon above the heel</li>
+        <li>Sudden severe bruising and swelling around the Achilles</li>
+      </ul>
+      <div>
+        <label class="block text-sm font-medium text-red-800 mb-1">
+          If any apply, describe briefly (optional — this triggers a safety halt):
+        </label>
+        <textarea name="red_flags" rows="2" placeholder="e.g. 'heard a pop', 'cannot point foot down'"
+                  class="w-full border border-red-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-400 focus:outline-none bg-white"></textarea>
+      </div>
+    </div>
+
+    <div class="flex justify-end">
+      <button type="submit"
+              class="px-8 py-3 bg-brand-600 text-white font-semibold rounded-lg hover:bg-brand-700 transition-colors shadow-md">
+        Run Assessment &amp; Generate Plan
+      </button>
+    </div>
+
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

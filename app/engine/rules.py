@@ -1,0 +1,596 @@
+"""
+Deterministic Rule Engine for TenoTrainer.
+
+ALL clinical decisions originate here. No AI involvement in this module.
+
+Components:
+  - Irritability classification
+  - FITT dosing by irritability
+  - Rehab stage assignment
+  - Decision engine (GO/STAY/CAUTION/STOP)
+  - Stage progression rules
+  - Override logic (under/over-reporting)
+  - Conservative bias from risk factors
+  - Red flag / safety halt checks
+"""
+
+from __future__ import annotations
+import json
+from dataclasses import dataclass, field
+from typing import Optional
+
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+class Irritability:
+    HIGH = "high"
+    MODERATE = "moderate"
+    LOW = "low"
+
+
+class Decision:
+    GO = "GO"
+    STAY = "STAY"
+    CAUTION = "CAUTION"
+    STOP = "STOP"
+
+
+FITT_TABLE = {
+    Irritability.HIGH: {
+        "intensity": "very_low",
+        "volume": "low",
+        "frequency": "reduced",
+        "progression": "slow",
+    },
+    Irritability.MODERATE: {
+        "intensity": "moderate",
+        "volume": "moderate",
+        "frequency": "normal",
+        "progression": "moderate",
+    },
+    Irritability.LOW: {
+        "intensity": "high",
+        "volume": "higher",
+        "frequency": "full",
+        "progression": "faster",
+    },
+}
+
+# Dosing multipliers applied to sets/reps based on irritability
+DOSING_MULTIPLIERS = {
+    Irritability.HIGH:     {"sets_factor": 0.6, "reps_factor": 0.6},
+    Irritability.MODERATE: {"sets_factor": 1.0, "reps_factor": 1.0},
+    Irritability.LOW:      {"sets_factor": 1.0, "reps_factor": 1.2},
+}
+
+RED_FLAG_KEYWORDS = {
+    "sudden_pop", "pop_sound", "unable_to_plantarflex",
+    "complete_loss_plantarflex", "visible_gap", "tendon_gap",
+}
+
+
+# ---------------------------------------------------------------------------
+# Dataclasses
+# ---------------------------------------------------------------------------
+
+@dataclass
+class OnboardingData:
+    """Raw inputs from the onboarding form."""
+    pain_with_activity: int          # 0–10
+    pain_after_activity: int         # 0–10
+    next_day_pain: int               # 0–10
+    morning_stiffness: int           # 0–10 (higher = worse)
+    pain_at_rest: int                # 0–10
+    calf_raise_reps: int             # count
+    injury_duration: str             # acute / subacute / chronic
+    recent_load_change: bool
+    risk_factors: list[str] = field(default_factory=list)
+    red_flags: list[str] = field(default_factory=list)
+
+
+@dataclass
+class ClassificationResult:
+    irritability: str
+    stage: int
+    fitt: dict
+    has_red_flags: bool
+    red_flags_detail: list[str]
+    conservative_bias: bool
+    rationale: str
+
+
+@dataclass
+class ProgressionAssessment:
+    decision: str                    # GO / STAY / CAUTION / STOP
+    current_stage: int
+    proposed_stage: int
+    rationale: str
+    override_applied: Optional[str] = None
+    can_progress_stage: bool = False
+
+
+# ---------------------------------------------------------------------------
+# Red Flag Check
+# ---------------------------------------------------------------------------
+
+def check_red_flags(red_flags: list[str], notes: str = "") -> tuple[bool, list[str]]:
+    """
+    Check for rupture indicators and severe red flags.
+    Returns (has_red_flags, matched_flags).
+    This check must run on EVERY form submission.
+    """
+    matched = []
+    notes_lower = notes.lower() if notes else ""
+
+    for flag in red_flags:
+        if flag.lower().replace(" ", "_") in RED_FLAG_KEYWORDS:
+            matched.append(flag)
+
+    # Text-based heuristic scan for common rupture language
+    rupture_phrases = [
+        "heard a pop", "felt a pop", "sudden sharp pain",
+        "can't point foot", "cannot point foot", "gap in tendon",
+        "complete rupture",
+    ]
+    for phrase in rupture_phrases:
+        if phrase in notes_lower:
+            matched.append(phrase)
+
+    return bool(matched), matched
+
+
+# ---------------------------------------------------------------------------
+# Irritability Classification
+# ---------------------------------------------------------------------------
+
+def classify_irritability(
+    pain_with_activity: int,
+    pain_after_activity: int,
+    next_day_pain: int,
+) -> str:
+    """
+    Classify irritability from the worst pain score across contexts.
+    High  : worst pain ≥ 6
+    Moderate: worst pain 3–5
+    Low   : worst pain ≤ 2
+    """
+    worst = max(pain_with_activity, pain_after_activity, next_day_pain)
+    if worst >= 6:
+        return Irritability.HIGH
+    elif worst >= 3:
+        return Irritability.MODERATE
+    else:
+        return Irritability.LOW
+
+
+# ---------------------------------------------------------------------------
+# Stage Assignment
+# ---------------------------------------------------------------------------
+
+def assign_initial_stage(
+    injury_duration: str,
+    calf_raise_reps: int,
+    irritability: str,
+    recent_load_change: bool,
+) -> int:
+    """
+    Stage is a loading strategy axis — NOT symptom-driven.
+
+    Stage 1 — Capacity Initiation (isometrics, slow isotonic):
+      - Acute injury (<6 weeks)
+      - High irritability (regardless of duration)
+      - Very limited capacity (≤5 raises)
+
+    Stage 2 — Strength Development (eccentric, heavy slow resistance):
+      - Subacute or chronic with moderate/low irritability
+      - Reasonable calf capacity (6–19 raises)
+
+    Stage 3 — Energy Storage & Release (plyometrics, reactive strength):
+      - Chronic with low irritability
+      - Strong capacity (≥20 raises)
+      - No recent load spike
+    """
+    if irritability == Irritability.HIGH:
+        return 1
+    if injury_duration == "acute":
+        return 1
+    if calf_raise_reps <= 5:
+        return 1
+    if injury_duration == "subacute" and irritability == Irritability.MODERATE:
+        return 2
+    if calf_raise_reps >= 20 and irritability == Irritability.LOW and injury_duration == "chronic" and not recent_load_change:
+        return 3
+    if calf_raise_reps >= 6:
+        return 2
+    return 1
+
+
+# ---------------------------------------------------------------------------
+# Conservative Bias
+# ---------------------------------------------------------------------------
+
+RISK_FACTOR_SET = {"obesity", "hypertension", "diabetes", "steroids", "load_spikes", "family_history"}
+
+
+def has_conservative_bias(risk_factors: list[str]) -> bool:
+    """Return True if any known risk factor warrants conservative bias."""
+    return bool(set(rf.lower() for rf in risk_factors) & RISK_FACTOR_SET)
+
+
+# ---------------------------------------------------------------------------
+# FITT Dosing
+# ---------------------------------------------------------------------------
+
+def get_fitt_dosing(irritability: str) -> dict:
+    return FITT_TABLE.get(irritability, FITT_TABLE[Irritability.MODERATE])
+
+
+def apply_dosing_modifier(exercise: dict, irritability: str) -> dict:
+    """
+    Return a copy of the exercise dict with sets/reps adjusted for irritability.
+    Does NOT mutate the original.
+    """
+    m = DOSING_MULTIPLIERS.get(irritability, DOSING_MULTIPLIERS[Irritability.MODERATE])
+    ex = dict(exercise)
+
+    # Adjust sets (always numeric)
+    if isinstance(ex.get("sets"), (int, float)):
+        ex["sets"] = max(1, round(ex["sets"] * m["sets_factor"]))
+
+    # Adjust reps only if purely numeric
+    if isinstance(ex.get("reps"), (int, float)):
+        ex["reps"] = max(1, round(ex["reps"] * m["reps_factor"]))
+
+    # Add a dosing note
+    ex["dosing_note"] = _dosing_note(irritability)
+    return ex
+
+
+def _dosing_note(irritability: str) -> str:
+    notes = {
+        Irritability.HIGH: "High irritability: reduced volume. Keep pain ≤3/10.",
+        Irritability.MODERATE: "Moderate irritability: standard dosing. Monitor pain response.",
+        Irritability.LOW: "Low irritability: full dosing. Progress load as tolerated.",
+    }
+    return notes.get(irritability, "Standard dosing applies.")
+
+
+# ---------------------------------------------------------------------------
+# Full Onboarding Classification
+# ---------------------------------------------------------------------------
+
+def classify_onboarding(data: OnboardingData) -> ClassificationResult:
+    """
+    Master classification function called at onboarding.
+    Returns irritability, stage, FITT, red flag status, conservative bias, and rationale.
+    """
+    # 1. Red flags first — safety always takes priority
+    has_rf, rf_detail = check_red_flags(data.red_flags)
+
+    # 2. Irritability
+    irritability = classify_irritability(
+        data.pain_with_activity,
+        data.pain_after_activity,
+        data.next_day_pain,
+    )
+
+    # 3. Stage
+    stage = assign_initial_stage(
+        data.injury_duration,
+        data.calf_raise_reps,
+        irritability,
+        data.recent_load_change,
+    )
+
+    # 4. Conservative bias
+    conservative = has_conservative_bias(data.risk_factors)
+
+    # 5. FITT dosing
+    fitt = get_fitt_dosing(irritability)
+    if conservative:
+        # Downgrade dosing by one tier for conservative bias
+        fitt = _apply_conservative_bias_to_fitt(fitt)
+
+    # 6. Build rationale
+    worst_pain = max(data.pain_with_activity, data.pain_after_activity, data.next_day_pain)
+    rationale = _build_onboarding_rationale(
+        irritability, stage, worst_pain, data.calf_raise_reps,
+        data.injury_duration, conservative, data.risk_factors,
+    )
+
+    return ClassificationResult(
+        irritability=irritability,
+        stage=stage,
+        fitt=fitt,
+        has_red_flags=has_rf,
+        red_flags_detail=rf_detail,
+        conservative_bias=conservative,
+        rationale=rationale,
+    )
+
+
+def _apply_conservative_bias_to_fitt(fitt: dict) -> dict:
+    """Shift FITT dosing toward conservative when risk factors are present."""
+    tier_map = {
+        "high": "moderate",
+        "moderate": "low",
+        "very_low": "very_low",
+        "higher": "moderate",
+        "normal": "reduced",
+        "full": "normal",
+        "faster": "moderate",
+        "slow": "slow",
+    }
+    return {k: tier_map.get(v, v) for k, v in fitt.items()}
+
+
+def _build_onboarding_rationale(
+    irritability: str,
+    stage: int,
+    worst_pain: int,
+    calf_raise_reps: int,
+    injury_duration: str,
+    conservative: bool,
+    risk_factors: list[str],
+) -> str:
+    stage_names = {1: "Capacity Initiation", 2: "Strength Development", 3: "Energy Storage & Release"}
+    lines = [
+        f"Irritability classified as {irritability.upper()} based on worst pain score of {worst_pain}/10.",
+        f"Rehab Stage {stage} ({stage_names[stage]}) assigned based on injury duration ({injury_duration}), "
+        f"calf raise capacity ({calf_raise_reps} reps), and irritability level.",
+    ]
+    if conservative:
+        lines.append(
+            f"Conservative bias applied due to risk factor(s): {', '.join(risk_factors)}. "
+            "Dosing is reduced to support safe progression."
+        )
+    if irritability == Irritability.HIGH:
+        lines.append(
+            "High irritability: isometric loading recommended to reduce tendon sensitivity without "
+            "provocative loading. Stage 1 focus: pain modulation and load tolerance baseline."
+        )
+    elif irritability == Irritability.MODERATE:
+        lines.append(
+            "Moderate irritability: graduated loading with careful pain monitoring. "
+            "Standard dosing with progression contingent on consistent pain-free sessions."
+        )
+    else:
+        lines.append(
+            "Low irritability: full progressive loading appropriate. "
+            "Progression gates remain capacity-based, not symptom-based alone."
+        )
+    return " ".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Decision Engine — GO / STAY / CAUTION / STOP
+# ---------------------------------------------------------------------------
+
+def run_decision_engine(
+    recent_logs: list[dict],
+    current_stage: int,
+    current_irritability: str,
+    calf_raise_reps_baseline: int,
+    calf_raise_reps_current: int,
+    conservative_bias: bool = False,
+) -> ProgressionAssessment:
+    """
+    Determines GO/STAY/CAUTION/STOP and whether stage progression is warranted.
+
+    recent_logs: list of dicts with keys: pain_during, pain_after, next_day_pain, difficulty, confidence
+    Requires ≥4 recent logs for a GO decision (sufficient exposure).
+    """
+    if not recent_logs:
+        return ProgressionAssessment(
+            decision=Decision.STAY,
+            current_stage=current_stage,
+            proposed_stage=current_stage,
+            rationale="No session logs available. Cannot assess progression. Complete at least 4 sessions.",
+            can_progress_stage=False,
+        )
+
+    # Compute max pain from most recent log
+    latest = recent_logs[-1]
+    worst_recent_pain = max(
+        latest.get("pain_during", 0),
+        latest.get("pain_after", 0),
+        latest.get("next_day_pain", 0),
+    )
+
+    # Check for STOP condition first
+    if worst_recent_pain >= 6:
+        return ProgressionAssessment(
+            decision=Decision.STOP,
+            current_stage=current_stage,
+            proposed_stage=current_stage,
+            rationale=(
+                f"Pain level {worst_recent_pain}/10 exceeds the safety threshold of 6. "
+                "Halt current loading. Reduce intensity and consult your clinician if symptoms persist."
+            ),
+            can_progress_stage=False,
+        )
+
+    # CAUTION
+    if worst_recent_pain >= 4:
+        return ProgressionAssessment(
+            decision=Decision.CAUTION,
+            current_stage=current_stage,
+            proposed_stage=current_stage,
+            rationale=(
+                f"Pain level {worst_recent_pain}/10 is in the caution range (4–5). "
+                "Maintain current dosing. Do not progress until pain stabilises below 4/10."
+            ),
+            can_progress_stage=False,
+        )
+
+    # Below caution — check consistency gate
+    consistent_sessions = len(recent_logs)
+    required_sessions = 4
+
+    if consistent_sessions < required_sessions:
+        return ProgressionAssessment(
+            decision=Decision.STAY,
+            current_stage=current_stage,
+            proposed_stage=current_stage,
+            rationale=(
+                f"Only {consistent_sessions} session(s) logged. "
+                f"A minimum of {required_sessions} consistent sessions required before progression. "
+                "Continue current protocol."
+            ),
+            can_progress_stage=False,
+        )
+
+    # Check pain trending down (load tolerance improving)
+    pain_trending_down = _check_pain_trend(recent_logs)
+
+    # Check improved capacity
+    capacity_improved = calf_raise_reps_current > calf_raise_reps_baseline
+
+    # Override: under-reporting (low pain + poor performance → block)
+    under_reporting = (worst_recent_pain <= 1 and calf_raise_reps_current < calf_raise_reps_baseline)
+    # Override: over-reporting (high pain + strong performance → cautious progress)
+    over_reporting = (worst_recent_pain >= 4 and calf_raise_reps_current > calf_raise_reps_baseline + 5)
+
+    if under_reporting:
+        return ProgressionAssessment(
+            decision=Decision.STAY,
+            current_stage=current_stage,
+            proposed_stage=current_stage,
+            rationale=(
+                "Under-reporting detected: very low pain but declining performance. "
+                "Progression blocked. Reassess objectively."
+            ),
+            override_applied="under_reporting",
+            can_progress_stage=False,
+        )
+
+    if over_reporting:
+        return ProgressionAssessment(
+            decision=Decision.CAUTION,
+            current_stage=current_stage,
+            proposed_stage=current_stage,
+            rationale=(
+                "Over-reporting detected: high pain but strong performance. "
+                "Cautious progression only. Discuss with clinician."
+            ),
+            override_applied="over_reporting",
+            can_progress_stage=False,
+        )
+
+    # Stable irritability check (not HIGH)
+    stable_irritability = current_irritability != Irritability.HIGH
+
+    # All gates for stage progression
+    can_progress = (
+        pain_trending_down
+        and capacity_improved
+        and stable_irritability
+        and consistent_sessions >= required_sessions
+        and not conservative_bias  # extra gate for conservative cases
+    )
+
+    # Allow conservative to progress but at slower threshold
+    if conservative_bias and consistent_sessions >= 6 and pain_trending_down and capacity_improved:
+        can_progress = True
+
+    proposed_stage = min(3, current_stage + 1) if can_progress else current_stage
+
+    rationale_parts = [
+        f"Pain is {worst_recent_pain}/10 (acceptable range). "
+        f"{consistent_sessions} sessions logged."
+    ]
+    if capacity_improved:
+        rationale_parts.append(
+            f"Calf raise capacity improved from {calf_raise_reps_baseline} to {calf_raise_reps_current} reps."
+        )
+    else:
+        rationale_parts.append("Calf raise capacity not yet improved — stage progression blocked.")
+    if pain_trending_down:
+        rationale_parts.append("Pain is trending downward — improved load tolerance confirmed.")
+    if can_progress and proposed_stage > current_stage:
+        rationale_parts.append(
+            f"All progression gates met. Advancing to Stage {proposed_stage}."
+        )
+    else:
+        if not can_progress:
+            rationale_parts.append("Continue Stage {} to build further exposure.".format(current_stage))
+
+    return ProgressionAssessment(
+        decision=Decision.GO if can_progress else Decision.STAY,
+        current_stage=current_stage,
+        proposed_stage=proposed_stage,
+        rationale=" ".join(rationale_parts),
+        can_progress_stage=can_progress,
+    )
+
+
+def _check_pain_trend(logs: list[dict]) -> bool:
+    """
+    Returns True if pain is trending downward over the last N logs.
+    Uses simple comparison: average of first half vs second half.
+    """
+    if len(logs) < 2:
+        return False
+    scores = [
+        max(log.get("pain_during", 0), log.get("pain_after", 0), log.get("next_day_pain", 0))
+        for log in logs
+    ]
+    mid = len(scores) // 2
+    first_half_avg = sum(scores[:mid]) / max(1, mid)
+    second_half_avg = sum(scores[mid:]) / max(1, len(scores) - mid)
+    return second_half_avg < first_half_avg
+
+
+# ---------------------------------------------------------------------------
+# Update Irritability from Daily Log
+# ---------------------------------------------------------------------------
+
+def update_irritability_from_log(
+    pain_during: int,
+    pain_after: int,
+    next_day_pain: int,
+) -> str:
+    """Re-classify irritability from a single daily log entry."""
+    return classify_irritability(pain_during, pain_after, next_day_pain)
+
+
+# ---------------------------------------------------------------------------
+# Exercise Selection with Dosing
+# ---------------------------------------------------------------------------
+
+def select_exercises_for_plan(
+    stage: int,
+    irritability: str,
+    conservative_bias: bool,
+) -> list[dict]:
+    """
+    Select exercises from the library for the given stage and apply dosing modifiers.
+    Import happens here to avoid circular imports.
+    """
+    from app.data.exercises import EXERCISES
+
+    base_exercises = EXERCISES.get(stage, EXERCISES[1])
+    dosed = [apply_dosing_modifier(ex, irritability) for ex in base_exercises]
+    return dosed
+
+
+# ---------------------------------------------------------------------------
+# KB Tag Matching for Citation Selection
+# ---------------------------------------------------------------------------
+
+STAGE_TAGS = {
+    1: ["stage_1", "isometric", "slow_isotonic", "pain_relief", "irritability"],
+    2: ["stage_2", "eccentric", "heavy_slow_resistance", "strength", "alfredson"],
+    3: ["stage_3", "plyometric", "reactive_strength", "energy_storage"],
+}
+
+
+def select_relevant_kb_tags(stage: int, irritability: str) -> list[str]:
+    """Return KB tags relevant to the current stage and irritability."""
+    tags = list(STAGE_TAGS.get(stage, []))
+    tags.append("load_management")
+    if irritability == Irritability.HIGH:
+        tags.append("irritability")
+    return tags

@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block title %}Knowledge Base — TenoTrainer Admin{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto">
+
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-900">Knowledge Base</h1>
+      <p class="text-gray-500 text-sm mt-1">
+        {{ entries|length }} entries. All citations served exclusively from this knowledge base —
+        never from AI-generated external sources.
+      </p>
+    </div>
+    <button onclick="document.getElementById('addForm').classList.toggle('hidden')"
+            class="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-semibold hover:bg-brand-700 transition-colors">
+      + Add Entry
+    </button>
+  </div>
+
+  {% if success %}
+  <div class="bg-green-50 border border-green-300 rounded-lg p-3 mb-4 text-sm text-green-800">
+    {{ success }}
+  </div>
+  {% endif %}
+
+  <!-- Add Entry Form (hidden by default) -->
+  <div id="addForm" class="hidden bg-white rounded-xl shadow p-6 border border-gray-100 mb-8">
+    <h2 class="text-xl font-bold text-gray-800 mb-4">Add Knowledge Entry</h2>
+    <form method="POST" action="/admin/knowledge" class="space-y-4">
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="md:col-span-2">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+          <input type="text" name="title" required placeholder="Full paper title"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Authors *</label>
+          <input type="text" name="authors" required placeholder="Surname A, Surname B, et al."
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Year *</label>
+          <input type="number" name="year" required min="1950" max="2030" value="2023"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Journal / Source *</label>
+          <input type="text" name="source" required placeholder="British Journal of Sports Medicine"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Summary *</label>
+          <textarea name="summary" rows="3" required placeholder="Brief summary of the paper's findings and relevance..."
+                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none"></textarea>
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Key Points (one per line)</label>
+          <textarea name="key_points" rows="4" placeholder="Eccentric protocol: 3x15 reps&#10;Pain during exercise acceptable up to 5/10&#10;..."
+                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none"></textarea>
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Tags (comma-separated, e.g. stage_2, eccentric, loading)
+          </label>
+          <input type="text" name="tags" placeholder="stage_2, eccentric, heavy_slow_resistance"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Clinical Question</label>
+          <input type="text" name="clinical_question" placeholder="What is the evidence for...?"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Applicability</label>
+          <input type="text" name="applicability" placeholder="Chronic Achilles tendinopathy, Stage 2..."
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Progression Criteria</label>
+          <input type="text" name="progression_criteria"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Regression Criteria</label>
+          <input type="text" name="regression_criteria"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Contraindications</label>
+          <input type="text" name="contraindications"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+        </div>
+      </div>
+      <div class="flex justify-end gap-3">
+        <button type="button" onclick="document.getElementById('addForm').classList.add('hidden')"
+                class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 transition-colors">
+          Cancel
+        </button>
+        <button type="submit"
+                class="px-6 py-2 bg-brand-600 text-white rounded-lg text-sm font-semibold hover:bg-brand-700 transition-colors">
+          Save Entry
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Entries List -->
+  <div class="space-y-4">
+    {% for entry in entries %}
+    <div class="bg-white rounded-xl shadow p-5 border border-gray-100">
+      <div class="flex items-start justify-between gap-3 mb-2">
+        <div class="flex-1">
+          <div class="font-bold text-gray-900 text-base">{{ entry.title }}</div>
+          <div class="text-sm text-gray-500">{{ entry.authors }} ({{ entry.year }}) — <em>{{ entry.source }}</em></div>
+        </div>
+        <div class="flex flex-wrap gap-1 flex-shrink-0 justify-end">
+          {% for tag in entry.tags[:3] %}
+          <span class="text-xs bg-brand-50 text-brand-600 px-2 py-0.5 rounded-full">{{ tag }}</span>
+          {% endfor %}
+          {% if entry.tags|length > 3 %}
+          <span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">+{{ entry.tags|length - 3 }} more</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <p class="text-sm text-gray-700 mb-3">{{ entry.summary }}</p>
+
+      {% if entry.key_points %}
+      <details>
+        <summary class="text-xs text-brand-600 cursor-pointer hover:underline">
+          {{ entry.key_points|length }} key points
+        </summary>
+        <ul class="mt-2 space-y-1 list-disc list-inside">
+          {% for kp in entry.key_points %}
+          <li class="text-xs text-gray-600">{{ kp }}</li>
+          {% endfor %}
+        </ul>
+      </details>
+      {% endif %}
+
+      <div class="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2 text-xs text-gray-600">
+        {% if entry.progression_criteria %}
+        <div><strong>Progression:</strong> {{ entry.progression_criteria }}</div>
+        {% endif %}
+        {% if entry.regression_criteria %}
+        <div><strong>Regression:</strong> {{ entry.regression_criteria }}</div>
+        {% endif %}
+        {% if entry.contraindications %}
+        <div><strong>Contraindications:</strong> {{ entry.contraindications }}</div>
+        {% endif %}
+      </div>
+
+      {% if entry.kb_id %}
+      <div class="mt-2 text-xs text-gray-400">ID: {{ entry.kb_id }}</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if not entries %}
+  <div class="text-center py-12 text-gray-400">
+    <p class="text-lg mb-2">No entries yet.</p>
+    <p class="text-sm">Click "+ Add Entry" to add the first knowledge base entry.</p>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

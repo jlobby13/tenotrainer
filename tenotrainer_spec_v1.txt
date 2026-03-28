@@ -1,0 +1,431 @@
+1. SYSTEM OBJECTIVE
+Build
+A web application that functions as a clinical decision support and coaching system for Achilles tendinopathy rehabilitation.
+Goal
+To:
+•	Generate personalized, rule-based rehab programs 
+•	Adapt programs dynamically based on response to load 
+•	Provide clear coaching guidance 
+•	Deliver evidence-backed rationale using a curated knowledge base 
+•	Support clinician oversight for complex decisions 
+Generate and adapt personalized Achilles tendon loading programs based on structured user data, while providing clear coaching guidance, progress tracking, and evidence-based rationale using a curated internal knowledge base.
+________________________________________
+2. CRITICAL FRAMING
+This system is:
+•	✅ A decision support + guidance tool 
+•	❌ NOT a diagnostic or autonomous medical system 
+________________________________________
+3. CORE SYSTEM PHILOSOPHY
+Load-Based Rehabilitation
+•	Tendon adapts to progressive loading 
+•	Decisions must be based on response to load over time 
+________________________________________
+Deterministic Clinical Logic
+•	All decisions must come from explicit rule logic 
+•	No clinical decisions made by AI 
+________________________________________
+Evidence-Constrained Knowledge
+•	All clinical reasoning must map to: 
+o	curated literature 
+o	predefined rules 
+________________________________________
+Adaptation Over Time
+•	Progression requires: 
+o	repeated exposure 
+o	consistency 
+o	stable symptoms 
+________________________________________
+Human-in-the-Loop
+•	Clinician retains authority over: 
+o	return to sport 
+o	edge cases 
+o	complex scenarios 
+________________________________________
+4. SYSTEM ARCHITECTURE COMPONENTS
+Rule Engine (PRIMARY)
+Handles:
+•	classification 
+•	progression 
+•	regression 
+•	safety 
+________________________________________
+Knowledge Base
+Curated, editable, human-controlled database of medical evidence.
+Each entry must include:
+•	title 
+•	authors 
+•	year 
+•	source 
+•	summary 
+•	key_points (array) 
+•	tags (array) 
+Additional Required Fields
+•	clinical_question 
+•	applicability 
+•	recommended_loading_parameters (structured JSON) 
+•	progression_criteria 
+•	regression_criteria 
+•	contraindications 
+Purpose
+•	Provide evidence for clinical rationale 
+•	Serve as the ONLY source for citations 
+________________________________________
+Evidence-Based Rule Generation & Personalization
+Core Principle
+All classification and progression logic must be derived from:
+•	curated clinical research and guidelines in the knowledge base 
+•	user-specific goals and activity level 
+System MUST NOT
+•	generate rules dynamically using AI 
+•	infer clinical logic outside predefined mappings 
+________________________________________
+Rule Engine Behavior
+The system must:
+1.	Map user inputs → classification states: 
+o	irritability 
+o	functional capacity 
+o	rehab stage 
+2.	Query knowledge base for: 
+o	matching clinical scenarios 
+o	appropriate loading strategies 
+3.	Apply: 
+o	progression rules 
+o	regression rules 
+o	safety constraints 
+________________________________________
+AI Layer (Claude)
+Claude may:
+•	explain protocols 
+•	generate coaching language 
+•	summarize evidence 
+•	compare approaches (if present in knowledge base) 
+Claude must NOT:
+•	select protocols independently 
+•	modify rules 
+•	introduce external evidence 
+•	fabricate citations 
+•	make return-to-sport decisions 
+________________________________________
+App Layer
+•	UI 
+•	data tracking 
+•	visualization 
+________________________________________
+Core Constraint
+AI must never:
+•	make clinical decisions 
+•	override rules 
+•	fabricate evidence 
+________________________________________
+5. TECH STACK
+•	Frontend: Next.js (TypeScript) 
+•	Backend: API routes 
+•	DB/Auth: Supabase 
+•	AI: Claude 
+•	Hosting: Vercel 
+________________________________________
+6. ARCHITECTURE OVERVIEW
+The system consists of four core components:
+1.	Rule-Based Rehab Engine 
+2.	Curated Medical Knowledge Base 
+3.	AI Explanation Layer 
+4.	User Interface + Data Tracking 
+________________________________________
+7. DATA FLOW
+1.	User submits input data 
+2.	Rule engine determines rehab plan 
+3.	Knowledge base is queried 
+4.	Claude generates explanation 
+5.	System displays plan + rationale + citations 
+________________________________________
+8. USER ROLES
+Patient
+•	inputs subjective data 
+•	completes rehab 
+•	tracks progress 
+________________________________________
+Clinician
+•	inputs objective data 
+•	reviews system outputs 
+•	overrides when needed 
+________________________________________
+Admin
+•	controls knowledge base 
+•	approves sources 
+•	maintains integrity 
+________________________________________
+9. DATA MODEL (CONCEPTUAL ENTITIES)
+•	users 
+•	clinicians 
+•	onboarding_assessments 
+•	visa_a_responses 
+•	daily_logs 
+•	objective_tests 
+•	rehab_plans 
+•	sessions 
+•	progression_decisions 
+•	exercises 
+•	knowledge_entries 
+•	sources 
+•	review_queue 
+________________________________________
+10. ONBOARDING SYSTEM
+Purpose
+Establish baseline for:
+•	irritability 
+•	stage 
+•	load tolerance 
+________________________________________
+Inputs
+Subjective
+•	pain (multiple contexts) 
+•	stiffness 
+•	activity tolerance 
+•	load changes 
+•	pain during activity 
+•	pain after activity 
+•	next-day response 
+•	injury duration: 
+o	acute (<6 weeks) 
+o	subacute 
+o	chronic (>3 months) 
+•	recent load changes 
+________________________________________
+Functional
+•	calf raise capacity 
+________________________________________
+Outcome Measure — VISA-A
+Requirements:
+•	present all questions exactly 
+•	require completion 
+•	store: 
+o	total score 
+o	individual responses 
+o	timestamp 
+Constraints
+•	deterministic scoring 
+•	AI must NOT calculate or modify 
+________________________________________
+Initialization Outputs
+•	irritability classification 
+•	load tolerance level 
+•	initial rehab stage 
+•	baseline capacity 
+________________________________________
+🔥 11. CORE CLASSIFICATION FRAMEWORK (UPDATED)
+11.1 Core Distinction
+Rehab Stage = Loading Strategy Axis (WHAT)
+Defines:
+•	type of loading 
+•	mechanical stimulus 
+•	progression pathway 
+NOT symptom-driven directly
+________________________________________
+Irritability = Load Tolerance Modifier (HOW MUCH / HOW FAST)
+Defines:
+•	volume 
+•	intensity 
+•	frequency 
+•	progression speed 
+Symptom-response driven
+________________________________________
+11.2 REHAB STAGE = LOADING PROFILE SYSTEM
+Stage 1 — Capacity Initiation
+Loading:
+•	isometrics 
+•	slow isotonic 
+Purpose:
+•	introduce load 
+•	reduce sensitivity 
+________________________________________
+Stage 2 — Strength Development
+Loading:
+•	concentric/eccentric 
+•	eccentric-biased 
+•	heavy slow resistance 
+Purpose:
+•	build tendon capacity 
+________________________________________
+Stage 3 — Energy Storage & Release
+Loading:
+•	fast dynamic 
+•	reactive strength 
+•	plyometrics 
+•	explosive strength 
+Purpose:
+•	restore elastic function 
+________________________________________
+Rule
+Stage progression = capacity-driven
+________________________________________
+11.3 IRRITABILITY SYSTEM
+Level	Criteria
+High	Pain ≥6
+Moderate	Pain 3–5
+Low	Pain ≤2
+________________________________________
+Irritability Controls
+Variable	High	Moderate	Low
+Intensity	very low	moderate	high
+Volume	low	moderate	higher
+Frequency	reduced	normal	full
+Progression	slow	moderate	faster
+________________________________________
+11.4 INTEGRATION MODEL
+Step 1 — determine stage
+Step 2 — determine irritability
+Step 3 — combine
+•	Stage → exercises 
+•	Irritability → dosing 
+________________________________________
+Constraints
+•	do NOT regress stage from pain alone 
+•	do NOT progress stage from low pain alone 
+________________________________________
+Stage Progression Rule
+Requires:
+•	improved capacity 
+•	improved tolerance 
+•	goal demands 
+AND stable irritability
+________________________________________
+Engine Separation
+•	Stage Engine → capacity-driven 
+•	Irritability Engine → symptom-driven 
+•	Integration Layer → applies FITT 
+________________________________________
+12. DAILY FEEDBACK LOOP
+User logs:
+•	pain during 
+•	pain after 
+•	next-day pain 
+•	difficulty 
+•	confidence 
+Used to:
+•	update irritability 
+•	guide progression 
+________________________________________
+13. PROGRESSION & REGRESSION LOGIC
+Condition	Action
+Pain ≤3	Progress
+Pain 4–5	Maintain
+Pain ≥6	Regress
+________________________________________
+FITT Model
+•	Frequency 
+•	Intensity 
+•	Time 
+•	Type 
+________________________________________
+14. DECISION ENGINE (GO / STAY / CAUTION / STOP)
+Core Outputs
+•	GO 
+•	STAY 
+•	CAUTION 
+•	STOP 
+________________________________________
+Rules
+GO
+•	pain ≤3 
+•	no flare 
+•	consistent success (2–4 sessions) 
+________________________________________
+STAY
+•	stable but insufficient exposure 
+________________________________________
+CAUTION
+•	pain 4–5 
+________________________________________
+STOP
+•	pain ≥6 
+________________________________________
+Critical Rule
+Progression requires consistency, not single success
+________________________________________
+15. OBJECTIVE THRESHOLD SYSTEM
+Data Priority
+1.	Objective function 
+2.	Load response 
+3.	Symptoms 
+4.	VISA-A 
+________________________________________
+Risk Factors
+•	obesity 
+•	hypertension 
+•	diabetes 
+•	steroids 
+•	load spikes 
+•	family history 
+→ bias conservative
+________________________________________
+Physical Exam
+•	ROM 
+•	strength 
+•	swelling 
+•	deformities 
+________________________________________
+Functional Testing
+•	calf raises 
+•	hop tests 
+•	load tolerance 
+________________________________________
+Override Logic
+Under-reporting
+low pain + poor performance → block progression
+Over-reporting
+high pain + strong performance → cautious progression
+________________________________________
+16. PROGRESS TRACKING
+Track:
+•	pain trends 
+•	rehab stage 
+•	adherence 
+•	VISA-A 
+Reassess:
+•	VISA-A every 2 weeks 
+•	full reassessment every 6–8 weeks 
+________________________________________
+17. CLINICAL RATIONALE OUTPUT
+Display:
+•	rationale 
+•	summaries 
+•	citations 
+Claude:
+•	translates to user-friendly 
+________________________________________
+18. SAFETY SYSTEM
+System must:
+•	NOT diagnose 
+•	NOT replace clinician 
+________________________________________
+Halt if:
+•	rupture suspected 
+•	severe symptoms 
+•	red flags 
+________________________________________
+19. PLYOMETRIC & RUNNING SYSTEM
+Principle
+Plyometrics = elastic tolerance
+________________________________________
+Phases
+1.	bilateral low load 
+2.	progressive loading 
+3.	return-to-running prep 
+________________________________________
+Running Readiness
+•	stable symptoms 
+•	sufficient capacity 
+•	200–250 contacts 
+________________________________________
+Constraint
+Return to sport:
+•	NOT automated 
+•	clinician decision 
+________________________________________
+20. FINAL SYSTEM RULES
+•	Rule engine = authority 
+•	AI = explanation only 
+•	All outputs traceable 
+•	Default to conservative if uncertain 
+•	Objective > subjective when conflict
+
