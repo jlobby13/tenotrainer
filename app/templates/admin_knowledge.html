@@ -8,8 +8,8 @@
     <div>
       <h1 class="text-3xl font-bold text-gray-900">Knowledge Base</h1>
       <p class="text-gray-500 text-sm mt-1">
-        {{ entries|length }} entries. All citations served exclusively from this knowledge base —
-        never from AI-generated external sources.
+        <span id="visibleCount">{{ entries|length }}</span> of {{ entries|length }} entries.
+        All citations served exclusively from this knowledge base — never from AI-generated external sources.
       </p>
     </div>
     <button onclick="document.getElementById('addForm').classList.toggle('hidden')"
@@ -105,26 +105,195 @@
     </form>
   </div>
 
-  <!-- Entries List -->
-  <div class="space-y-4">
-    {% for entry in entries %}
-    <div class="bg-white rounded-xl shadow p-5 border border-gray-100">
-      <div class="flex items-start justify-between gap-3 mb-2">
-        <div class="flex-1">
-          <div class="font-bold text-gray-900 text-base">{{ entry.title }}</div>
-          <div class="text-sm text-gray-500">{{ entry.authors }} ({{ entry.year }}) — <em>{{ entry.source }}</em></div>
-        </div>
-        <div class="flex flex-wrap gap-1 flex-shrink-0 justify-end">
-          {% for tag in entry.tags[:3] %}
-          <span class="text-xs bg-brand-50 text-brand-600 px-2 py-0.5 rounded-full">{{ tag }}</span>
-          {% endfor %}
-          {% if entry.tags|length > 3 %}
-          <span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">+{{ entry.tags|length - 3 }} more</span>
-          {% endif %}
+  <!-- ── Search + Filter Panel ── -->
+  <div class="bg-white rounded-xl border border-gray-200 shadow-sm mb-4 overflow-hidden">
+
+    <!-- Search row -->
+    <div class="px-4 py-3 flex gap-3 items-center border-b border-gray-100">
+      <div class="flex-1">
+        <input id="kbSearch" type="text" placeholder="Search title, authors, summary, tags..."
+               oninput="filterEntries()"
+               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+      </div>
+      <div class="flex items-center gap-1.5">
+        <label for="perPageSelect" class="text-xs text-gray-400 font-medium uppercase tracking-wide whitespace-nowrap">Show</label>
+        <select id="perPageSelect" onchange="goToPage(1)"
+                class="border border-gray-300 rounded-lg px-2 py-2 text-sm text-gray-600 focus:ring-2 focus:ring-brand-400 focus:outline-none">
+          <option value="15" selected>15</option>
+          <option value="25">25</option>
+          <option value="50">50</option>
+          <option value="0">All</option>
+        </select>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <label for="sortSelect" class="text-xs text-gray-400 font-medium uppercase tracking-wide whitespace-nowrap">Sort by</label>
+        <select id="sortSelect" onchange="sortEntries()"
+                class="border border-gray-300 rounded-lg px-2 py-2 text-sm text-gray-600 focus:ring-2 focus:ring-brand-400 focus:outline-none">
+        <option value="year-desc">Year (newest)</option>
+        <option value="year-asc">Year (oldest)</option>
+        <option value="title-asc">Title A → Z</option>
+        <option value="title-desc">Title Z → A</option>
+        <option value="author-asc">Author A → Z</option>
+        <option value="level-asc">Evidence (high → low)</option>
+        <option value="level-desc">Evidence (low → high)</option>
+        </select>
+      </div>
+      <button onclick="toggleAdvanced()"
+              class="flex items-center gap-1.5 text-sm text-brand-600 font-medium hover:text-brand-800 transition-colors whitespace-nowrap">
+        <svg id="advIcon" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z"/>
+        </svg>
+        Advanced Filters
+        <span id="activeFilterBadge" class="hidden text-xs bg-brand-600 text-white rounded-full px-1.5 py-0.5 leading-none">0</span>
+      </button>
+      <button onclick="resetAll()" class="text-xs text-gray-400 hover:text-gray-600 transition-colors">Reset</button>
+    </div>
+
+    <!-- Advanced filter panel (hidden by default) -->
+    <div id="advancedPanel" class="hidden px-4 py-4 border-b border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-5">
+
+      <!-- Publication Year -->
+      <div>
+        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Publication Year</label>
+        <div class="flex items-center gap-3">
+          <input id="yearMin" type="number" min="1990" max="2030" placeholder="From"
+                 oninput="filterEntries()"
+                 class="w-24 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+          <span class="text-gray-400 text-sm">–</span>
+          <input id="yearMax" type="number" min="1990" max="2030" placeholder="To"
+                 oninput="filterEntries()"
+                 class="w-24 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
         </div>
       </div>
 
-      <p class="text-sm text-gray-700 mb-3">{{ entry.summary }}</p>
+      <!-- Journal / Source -->
+      <div>
+        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Journal / Source</label>
+        <select id="journalFilter" onchange="filterEntries()"
+                class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none">
+          <option value="">All journals</option>
+          {% set journals = [] %}
+          {% for entry in entries %}{% if entry.source and entry.source not in journals %}{% set _ = journals.append(entry.source) %}{% endif %}{% endfor %}
+          {% for j in journals | sort %}
+          <option value="{{ j | lower }}">{{ j }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Study Design -->
+      <div>
+        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Study Design</label>
+        <div class="flex flex-wrap gap-1.5">
+          {% set designs = [] %}
+          {% for entry in entries %}{% if entry.study_design and entry.study_design not in designs %}{% set _ = designs.append(entry.study_design) %}{% endif %}{% endfor %}
+          {% for d in designs | sort %}
+          <button onclick="toggleMulti('design', '{{ d }}')" data-group="design" data-val="{{ d }}"
+                  class="multi-btn text-xs px-2.5 py-1 rounded-full border border-gray-200 bg-gray-100 text-gray-600 hover:bg-brand-50 hover:text-brand-700 hover:border-brand-300 font-medium transition-colors">
+            {{ d }}
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Level of Evidence -->
+      <div>
+        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Level of Evidence</label>
+        <div class="flex flex-wrap gap-1.5">
+          {% set levels = ["Level 1", "Level 2", "Level 3", "Level 4"] %}
+          {% set level_desc = {"Level 1": "SR / Meta-Analysis", "Level 2": "RCT / Cohort", "Level 3": "Observational", "Level 4": "Review / Expert"} %}
+          {% for lv in levels %}
+          <button onclick="toggleMulti('level', '{{ lv }}')" data-group="level" data-val="{{ lv }}"
+                  class="multi-btn text-xs px-2.5 py-1 rounded-full border border-gray-200 bg-gray-100 text-gray-600 hover:bg-brand-50 hover:text-brand-700 hover:border-brand-300 font-medium transition-colors">
+            {{ lv }} <span class="opacity-60">— {{ level_desc[lv] }}</span>
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Population -->
+      <div>
+        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Population</label>
+        <div class="flex flex-wrap gap-1.5">
+          {% set populations = [
+            ("Athletic / Sport", "return_to_sport"),
+            ("Clinical Rehab", "achilles_tendinopathy"),
+            ("Older Adults", "older_adults"),
+            ("Youth Athletes", "youth_athletes"),
+            ("Female Athletes", "female_athletes"),
+            ("Runners", "running"),
+            ("General", "general_population")
+          ] %}
+          {% for label, pop_tag in populations %}
+          <button onclick="toggleMulti('population', '{{ pop_tag }}')" data-group="population" data-val="{{ pop_tag }}"
+                  class="multi-btn text-xs px-2.5 py-1 rounded-full border border-gray-200 bg-gray-100 text-gray-600 hover:bg-brand-50 hover:text-brand-700 hover:border-brand-300 font-medium transition-colors">
+            {{ label }}
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Tag Filter -->
+      <div class="md:col-span-2">
+        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Tags</label>
+        <div class="flex flex-wrap gap-1.5">
+          {% set all_tags = [] %}
+          {% for entry in entries %}{% for tag in entry.tags %}{% if tag not in all_tags %}{% set _ = all_tags.append(tag) %}{% endif %}{% endfor %}{% endfor %}
+          {% for tag in all_tags | sort %}
+          <button onclick="toggleMulti('tag', '{{ tag }}')" data-group="tag" data-val="{{ tag }}"
+                  class="multi-btn text-xs px-2.5 py-1 rounded-full border border-gray-200 bg-gray-100 text-gray-600 hover:bg-brand-50 hover:text-brand-700 hover:border-brand-300 font-medium transition-colors">
+            {{ tag | replace("_", " ") }}
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Active filter summary row -->
+    <div id="activeFiltersRow" class="hidden px-4 py-2 bg-gray-50 flex flex-wrap gap-2 items-center text-xs text-gray-500">
+      <span class="font-medium text-gray-400 uppercase tracking-wide">Active:</span>
+      <span id="activeFilterPills"></span>
+    </div>
+  </div>
+
+  <div id="noResults" class="hidden text-center py-10 text-gray-400 text-sm">No entries match your filters.</div>
+
+  <!-- Entries List -->
+  <div id="entriesList" class="space-y-4">
+    {% for entry in entries %}
+    <div class="kb-entry bg-white rounded-xl shadow p-5 border border-gray-100"
+         data-title="{{ entry.title | lower }}"
+         data-authors="{{ entry.authors | lower }}"
+         data-summary="{{ entry.summary | lower }}"
+         data-tags="{{ entry.tags | join(' ') | lower }}"
+         data-year="{{ entry.year }}"
+         data-source="{{ entry.source | lower }}"
+         data-design="{{ entry.study_design | lower }}"
+         data-level="{{ entry.level_of_evidence | lower }}">
+
+      <div class="flex items-start justify-between gap-3 mb-2">
+        <div class="flex-1">
+          <div class="font-bold text-gray-900 text-base">{{ entry.title }}</div>
+          <div class="text-sm text-gray-500 mt-0.5">{{ entry.authors }} ({{ entry.year }}) — <em>{{ entry.source }}</em></div>
+          <div class="flex items-center gap-2 mt-1.5 flex-wrap">
+            {% if entry.study_design %}
+            <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{{ entry.study_design }}</span>
+            {% endif %}
+            {% if entry.level_of_evidence %}
+            {% set lv_colours = {"Level 1": "bg-green-100 text-green-700", "Level 2": "bg-blue-100 text-blue-700", "Level 3": "bg-yellow-100 text-yellow-700", "Level 4": "bg-gray-100 text-gray-500"} %}
+            <span class="text-xs px-2 py-0.5 rounded-full font-medium {{ lv_colours.get(entry.level_of_evidence, 'bg-gray-100 text-gray-500') }}">{{ entry.level_of_evidence }}</span>
+            {% endif %}
+            {% for tag in entry.tags[:3] %}
+            <span class="text-xs bg-brand-50 text-brand-600 px-2 py-0.5 rounded-full">{{ tag | replace("_", " ") }}</span>
+            {% endfor %}
+            {% if entry.tags|length > 3 %}
+            <span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">+{{ entry.tags|length - 3 }} more</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <p class="text-sm text-gray-700 mb-3 mt-2">{{ entry.summary }}</p>
 
       {% if entry.key_points %}
       <details>
@@ -158,6 +327,12 @@
     {% endfor %}
   </div>
 
+  <!-- Pagination controls -->
+  <div id="pagination" class="hidden mt-6 flex items-center justify-between gap-3">
+    <p class="text-xs text-gray-400" id="pageInfo"></p>
+    <div class="flex items-center gap-1" id="pageButtons"></div>
+  </div>
+
   {% if not entries %}
   <div class="text-center py-12 text-gray-400">
     <p class="text-lg mb-2">No entries yet.</p>
@@ -166,4 +341,244 @@
   {% endif %}
 
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Active filter state
+  const activeFilters = { design: new Set(), level: new Set(), population: new Set(), tag: new Set() };
+  let advancedOpen = false;
+  let currentPage = 1;
+  let filteredEntries = [];
+
+  // Initialise on load
+  document.addEventListener('DOMContentLoaded', () => filterEntries());
+
+  function toggleAdvanced() {
+    advancedOpen = !advancedOpen;
+    document.getElementById('advancedPanel').classList.toggle('hidden', !advancedOpen);
+    document.getElementById('advIcon').style.transform = advancedOpen ? 'rotate(180deg)' : '';
+  }
+
+  function toggleMulti(group, val) {
+    const set = activeFilters[group];
+    set.has(val) ? set.delete(val) : set.add(val);
+
+    // Update button appearance
+    document.querySelectorAll(`[data-group="${group}"][data-val="${val}"]`).forEach(btn => {
+      if (set.has(val)) {
+        btn.classList.add('bg-brand-600', 'text-white', 'border-brand-300');
+        btn.classList.remove('bg-gray-100', 'text-gray-600', 'border-gray-200');
+      } else {
+        btn.classList.remove('bg-brand-600', 'text-white', 'border-brand-300');
+        btn.classList.add('bg-gray-100', 'text-gray-600', 'border-gray-200');
+      }
+    });
+
+    updateActiveFilterBadge();
+    filterEntries();
+  }
+
+  function updateActiveFilterBadge() {
+    const total = Object.values(activeFilters).reduce((n, s) => n + s.size, 0);
+    const badge = document.getElementById('activeFilterBadge');
+    badge.textContent = total;
+    badge.classList.toggle('hidden', total === 0);
+
+    // Update active filter pills row
+    const pillsRow = document.getElementById('activeFiltersRow');
+    const pillsContainer = document.getElementById('activeFilterPills');
+    const pills = [];
+
+    const labels = {
+      design: 'Design', level: 'Level', population: 'Population', tag: 'Tag',
+    };
+
+    Object.entries(activeFilters).forEach(([group, set]) => {
+      set.forEach(val => {
+        pills.push(`<span class="inline-flex items-center gap-1 bg-brand-100 text-brand-700 rounded-full px-2 py-0.5">
+          ${val.replace(/_/g, ' ')}
+          <button onclick="toggleMulti('${group}','${val}')" class="ml-0.5 text-brand-500 hover:text-brand-800 font-bold leading-none">×</button>
+        </span>`);
+      });
+    });
+
+    // Year / journal pills
+    const yMin = document.getElementById('yearMin')?.value;
+    const yMax = document.getElementById('yearMax')?.value;
+    if (yMin || yMax) {
+      pills.push(`<span class="inline-flex items-center gap-1 bg-brand-100 text-brand-700 rounded-full px-2 py-0.5">
+        Year: ${yMin || '…'}–${yMax || '…'}
+      </span>`);
+    }
+    const journal = document.getElementById('journalFilter')?.value;
+    if (journal) {
+      pills.push(`<span class="inline-flex items-center gap-1 bg-brand-100 text-brand-700 rounded-full px-2 py-0.5">${journal}</span>`);
+    }
+
+    pillsContainer.innerHTML = pills.join('');
+    pillsRow.classList.toggle('hidden', pills.length === 0);
+  }
+
+  function filterEntries() {
+    const query = document.getElementById('kbSearch').value.toLowerCase().trim();
+    const yMin = parseInt(document.getElementById('yearMin')?.value) || 0;
+    const yMax = parseInt(document.getElementById('yearMax')?.value) || 9999;
+    const journal = document.getElementById('journalFilter')?.value.toLowerCase() || '';
+
+    const entries = document.querySelectorAll('.kb-entry');
+    let visible = 0;
+
+    filteredEntries = [];
+    entries.forEach(el => {
+      const year = parseInt(el.dataset.year) || 0;
+
+      const matchesSearch = !query ||
+        el.dataset.title.includes(query) ||
+        el.dataset.authors.includes(query) ||
+        el.dataset.summary.includes(query) ||
+        el.dataset.tags.includes(query);
+
+      const matchesYear = year >= yMin && year <= yMax;
+      const matchesJournal = !journal || el.dataset.source.includes(journal);
+
+      const entryTags = el.dataset.tags.split(' ');
+      const matchesDesign = activeFilters.design.size === 0 ||
+        [...activeFilters.design].some(d => el.dataset.design.includes(d.toLowerCase()));
+      const matchesLevel = activeFilters.level.size === 0 ||
+        [...activeFilters.level].some(l => el.dataset.level === l.toLowerCase());
+      const matchesPopulation = activeFilters.population.size === 0 ||
+        [...activeFilters.population].some(p => entryTags.includes(p));
+      const matchesTag = activeFilters.tag.size === 0 ||
+        [...activeFilters.tag].every(t => entryTags.includes(t));
+
+      if (matchesSearch && matchesYear && matchesJournal && matchesDesign && matchesLevel && matchesPopulation && matchesTag) {
+        filteredEntries.push(el);
+      }
+    });
+
+    // Hide all first, then paginate
+    entries.forEach(el => el.classList.add('hidden'));
+    document.getElementById('noResults').classList.toggle('hidden', filteredEntries.length > 0);
+    document.getElementById('visibleCount').textContent = filteredEntries.length;
+    updateActiveFilterBadge();
+    goToPage(1);
+  }
+
+  function goToPage(page) {
+    const perPage = parseInt(document.getElementById('perPageSelect').value);
+    const total = filteredEntries.length;
+
+    // Hide all filtered entries first
+    filteredEntries.forEach(el => el.classList.add('hidden'));
+
+    if (perPage === 0) {
+      // Show all
+      filteredEntries.forEach(el => el.classList.remove('hidden'));
+      currentPage = 1;
+      renderPagination(1, 1, total, total);
+      return;
+    }
+
+    const totalPages = Math.max(1, Math.ceil(total / perPage));
+    currentPage = Math.min(Math.max(1, page), totalPages);
+
+    const start = (currentPage - 1) * perPage;
+    const end = Math.min(start + perPage, total);
+    filteredEntries.slice(start, end).forEach(el => el.classList.remove('hidden'));
+
+    renderPagination(currentPage, totalPages, start + 1, end, total);
+  }
+
+  function renderPagination(page, totalPages, rangeStart, rangeEnd, total) {
+    const pag = document.getElementById('pagination');
+    const info = document.getElementById('pageInfo');
+    const btns = document.getElementById('pageButtons');
+
+    const perPage = parseInt(document.getElementById('perPageSelect').value);
+
+    if (perPage === 0 || total === 0) {
+      pag.classList.add('hidden');
+      return;
+    }
+
+    pag.classList.remove('hidden');
+    info.textContent = `Showing ${rangeStart}–${rangeEnd} of ${total} entries`;
+
+    // Build page buttons (show up to 7 around current page)
+    const btnClass = 'px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border';
+    const activeClass = 'bg-brand-600 text-white border-brand-600';
+    const inactiveClass = 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50';
+    const disabledClass = 'bg-white text-gray-300 border-gray-200 cursor-not-allowed';
+
+    let html = '';
+
+    // Prev
+    html += `<button onclick="goToPage(${page - 1})" ${page === 1 ? 'disabled' : ''}
+      class="${btnClass} ${page === 1 ? disabledClass : inactiveClass}">‹ Prev</button>`;
+
+    // Page numbers
+    const delta = 2;
+    const pages = new Set([1, totalPages]);
+    for (let i = Math.max(2, page - delta); i <= Math.min(totalPages - 1, page + delta); i++) pages.add(i);
+    const sorted = [...pages].sort((a, b) => a - b);
+
+    let prev = 0;
+    sorted.forEach(p => {
+      if (prev && p - prev > 1) html += `<span class="px-1 text-gray-400">…</span>`;
+      html += `<button onclick="goToPage(${p})"
+        class="${btnClass} ${p === page ? activeClass : inactiveClass}">${p}</button>`;
+      prev = p;
+    });
+
+    // Next
+    html += `<button onclick="goToPage(${page + 1})" ${page === totalPages ? 'disabled' : ''}
+      class="${btnClass} ${page === totalPages ? disabledClass : inactiveClass}">Next ›</button>`;
+
+    btns.innerHTML = html;
+  }
+
+  function sortEntries() {
+    const val = document.getElementById('sortSelect').value;
+    const container = document.getElementById('entriesList');
+    const entries = [...container.querySelectorAll('.kb-entry')];
+
+    const levelOrder = { 'level 1': 1, 'level 2': 2, 'level 3': 3, 'level 4': 4, '': 5 };
+
+    entries.sort((a, b) => {
+      switch (val) {
+        case 'year-desc': return parseInt(b.dataset.year) - parseInt(a.dataset.year);
+        case 'year-asc':  return parseInt(a.dataset.year) - parseInt(b.dataset.year);
+        case 'title-asc': return a.dataset.title.localeCompare(b.dataset.title);
+        case 'title-desc':return b.dataset.title.localeCompare(a.dataset.title);
+        case 'author-asc':return a.dataset.authors.localeCompare(b.dataset.authors);
+        case 'level-asc': return (levelOrder[a.dataset.level] || 5) - (levelOrder[b.dataset.level] || 5);
+        case 'level-desc':return (levelOrder[b.dataset.level] || 5) - (levelOrder[a.dataset.level] || 5);
+        default: return 0;
+      }
+    });
+
+    entries.forEach(el => container.appendChild(el));
+    filterEntries();
+  }
+
+  function resetAll() {
+    document.getElementById('kbSearch').value = '';
+    document.getElementById('yearMin').value = '';
+    document.getElementById('yearMax').value = '';
+    document.getElementById('journalFilter').value = '';
+    document.getElementById('sortSelect').value = 'year-desc';
+    document.getElementById('perPageSelect').value = '15';
+    sortEntries();
+
+    Object.values(activeFilters).forEach(s => s.clear());
+
+    document.querySelectorAll('.multi-btn').forEach(btn => {
+      btn.classList.remove('bg-brand-600', 'text-white', 'border-brand-300');
+      btn.classList.add('bg-gray-100', 'text-gray-600', 'border-gray-200');
+    });
+
+    filterEntries();
+  }
+</script>
 {% endblock %}

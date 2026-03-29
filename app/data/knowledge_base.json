@@ -9,12 +9,16 @@
     "key_points": [
       "Eccentric heel drops performed twice daily, 3 sets of 15 repetitions for 12 weeks",
       "Both straight-knee and bent-knee variants target gastrocnemius and soleus respectively",
-      "Pain during exercise is acceptable (up to 5/10) — this is a key departure from traditional pain-avoidance models",
+      "Pain during exercise is acceptable (up to 5/10) \u2014 this is a key departure from traditional pain-avoidance models",
       "100% return to running vs 0% control after 12 weeks",
       "Significant reductions in tendon thickness and neovascularisation at follow-up",
       "Best evidence for Stage 2 loading in chronic Achilles tendinopathy"
     ],
-    "tags": ["stage_2", "eccentric", "alfredson", "chronic", "loading", "strength"],
+    "tags": [
+      "eccentric",
+      "load_management",
+      "stage_2"
+    ],
     "clinical_question": "What is the most effective loading protocol for chronic mid-portion Achilles tendinopathy in active patients?",
     "applicability": "Chronic (>3 months) mid-portion Achilles tendinopathy. Moderate to low irritability. Not indicated for insertional tendinopathy or acute presentations.",
     "recommended_loading_parameters": {
@@ -24,14 +28,14 @@
       "frequency": "twice daily",
       "notes": "Two variants: straight knee (gastrocnemius) and bent knee (soleus). Perform off the edge of a step. Progress by adding load (backpack with books) when 15 reps are pain-free."
     },
-    "progression_criteria": "Advance load (add weight) when able to complete 3x15 with pain ≤3/10. Full return to running readiness when 3x15 pain-free.",
+    "progression_criteria": "Advance load (add weight) when able to complete 3x15 with pain \u22643/10. Full return to running readiness when 3x15 pain-free.",
     "regression_criteria": "Reduce to flat-ground eccentric or isometric holds if pain exceeds 5/10 consistently.",
     "contraindications": "Acute tendinopathy (<6 weeks), insertional Achilles tendinopathy, suspected partial/complete rupture, post-operative (within 12 weeks)."
   },
   {
     "id": "kb_002",
     "title": "Eccentric or Concentric Exercises for the Treatment of Tendinopathies?",
-    "authors": "Beyer R, Kongsgaard M, Hougs Kjær B, Øhlenschlæger T, Kjær M, Magnusson SP",
+    "authors": "Beyer R, Kongsgaard M, Hougs Kj\u00e6r B, \u00d8hlenschl\u00e6ger T, Kj\u00e6r M, Magnusson SP",
     "year": 2015,
     "source": "Journal of Orthopaedic & Sports Physical Therapy",
     "summary": "RCT comparing heavy slow resistance (HSR) training to Alfredson eccentric protocol. Both showed significant improvement at 12 weeks, but HSR was preferred by patients and showed greater improvements in VISA-A, patient satisfaction, and structural tendon changes. HSR matched or surpassed eccentric outcomes with higher adherence.",
@@ -43,7 +47,13 @@
       "HSR provides more flexibility in clinical setting (gym-based, adjustable load)",
       "Evidence base for Stage 2 HSR as equivalent or superior to pure eccentric"
     ],
-    "tags": ["stage_2", "heavy_slow_resistance", "eccentric", "concentric", "strength", "loading"],
+    "tags": [
+      "eccentric",
+      "heavy_slow_resistance",
+      "load_management",
+      "stage_2",
+      "strength_training"
+    ],
     "clinical_question": "Is heavy slow resistance training more effective than isolated eccentric training for Achilles tendinopathy?",
     "applicability": "Chronic mid-portion Achilles tendinopathy, moderate to low irritability. Suitable for patients who have access to gym equipment or adjustable loading.",
     "recommended_loading_parameters": {
@@ -53,7 +63,7 @@
       "frequency": "3 times per week",
       "notes": "Begin with 3x15 (light-moderate load) weeks 1-2 for familiarisation. Progress to 4x6-8 (heavy load) by week 3. Load is prescribed to reach RPE 8/10 on last rep. Rest 2-3 minutes between sets."
     },
-    "progression_criteria": "Increase load by ~2.5 kg when able to complete all sets with pain ≤4/10. Progress through rep range before increasing load.",
+    "progression_criteria": "Increase load by ~2.5 kg when able to complete all sets with pain \u22644/10. Progress through rep range before increasing load.",
     "regression_criteria": "Reduce load if pain >5/10 during exercise or if next-day pain exceeds baseline.",
     "contraindications": "Acute presentations, high irritability, insertional tendinopathy (modify range of motion), post-surgical (12 week exclusion)."
   },
@@ -65,14 +75,19 @@
     "source": "British Journal of Sports Medicine",
     "summary": "Landmark study demonstrating that isometric exercise produces immediate and sustained pain relief in tendinopathy, associated with cortical inhibition changes. Isometrics produced significantly greater pain reduction (by 26 points on a 100mm VAS) than isotonic exercise immediately post-exercise. Effects sustained for 45 minutes.",
     "key_points": [
-      "Isometric exercise reduces cortical inhibition of the quadriceps — mechanism extends to Achilles tendon context",
+      "Isometric exercise reduces cortical inhibition of the quadriceps \u2014 mechanism extends to Achilles tendon context",
       "Immediate analgesic effect: significant pain reduction lasting at least 45 minutes",
       "5 x 45-second isometric holds at 70% MVIC most effective protocol",
       "Mechanism: descending pain inhibition via motor cortex activation",
       "Particularly useful during high-irritability phases to maintain load without provoking symptoms",
       "Supports use of isometrics as a primary tool in Stage 1 (Capacity Initiation)"
     ],
-    "tags": ["stage_1", "isometric", "pain_relief", "irritability", "analgesia", "high_irritability"],
+    "tags": [
+      "irritability",
+      "isometric",
+      "pain_management",
+      "stage_1"
+    ],
     "clinical_question": "Can isometric loading provide effective pain relief while maintaining tendon load in highly irritable Achilles tendinopathy?",
     "applicability": "High and moderate irritability Achilles tendinopathy. Most useful in Stage 1 (Capacity Initiation) and as a pain-management tool during competition periods.",
     "recommended_loading_parameters": {
@@ -80,9 +95,9 @@
       "reps": "45s hold",
       "tempo": "hold",
       "frequency": "daily or twice daily",
-      "notes": "Perform at approximately 70% of maximum voluntary isometric contraction. Wall sit or step position. Pain should be ≤3/10 during hold. Analgesic effect peaks 5-10 minutes post-exercise."
+      "notes": "Perform at approximately 70% of maximum voluntary isometric contraction. Wall sit or step position. Pain should be \u22643/10 during hold. Analgesic effect peaks 5-10 minutes post-exercise."
     },
-    "progression_criteria": "Progress to slow isotonic exercises (Stage 1) when 5x45s isometric holds are consistently ≤2/10 pain. Progress to eccentric loading (Stage 2) when full isotonic loading is tolerated.",
+    "progression_criteria": "Progress to slow isotonic exercises (Stage 1) when 5x45s isometric holds are consistently \u22642/10 pain. Progress to eccentric loading (Stage 2) when full isotonic loading is tolerated.",
     "regression_criteria": "Reduce hold duration or load if pain exceeds 3/10. Regress from isotonic to isometric if flare occurs.",
     "contraindications": "Suspected rupture, acute inflammatory flare with rest pain >7/10, post-surgical (seek clearance)."
   },
@@ -92,17 +107,20 @@
     "authors": "Robinson JM, Cook JL, Purdam C, Visentini PJ, Ross J, Maffulli N, Taunton JE, Khan KM",
     "year": 2001,
     "source": "British Journal of Sports Medicine",
-    "summary": "Original validation study of the VISA-A (Victorian Institute of Sport Assessment — Achilles) questionnaire. Established VISA-A as a valid, reliable, and responsive outcome measure for Achilles tendinopathy. Asymptomatic athletes scored 96±6; patients with chronic Achilles tendinopathy scored 64±16 at baseline.",
+    "summary": "Original validation study of the VISA-A (Victorian Institute of Sport Assessment \u2014 Achilles) questionnaire. Established VISA-A as a valid, reliable, and responsive outcome measure for Achilles tendinopathy. Asymptomatic athletes scored 96\u00b16; patients with chronic Achilles tendinopathy scored 64\u00b116 at baseline.",
     "key_points": [
       "VISA-A is an 8-item self-report questionnaire validated for Achilles tendinopathy",
       "Maximum score = 100 (full function, no pain, full competition)",
-      "Asymptomatic athletes: mean 96 ± 6",
+      "Asymptomatic athletes: mean 96 \u00b1 6",
       "Minimally clinically important difference (MCID) is approximately 6-13 points",
       "High test-retest reliability (ICC > 0.93)",
       "Sensitive to change over rehabilitation time course",
       "Should be administered every 2-4 weeks to track progress objectively"
     ],
-    "tags": ["visa_a", "outcome_measure", "assessment", "monitoring", "progress_tracking"],
+    "tags": [
+      "assessment",
+      "visa_a"
+    ],
     "clinical_question": "How should functional outcome be objectively measured in Achilles tendinopathy rehabilitation?",
     "applicability": "All stages and all irritability levels. Primary outcome measure for tracking rehabilitation progress. Administer at baseline and every 2 weeks.",
     "recommended_loading_parameters": {
@@ -110,11 +128,11 @@
       "reps": null,
       "tempo": null,
       "frequency": "every 2-4 weeks",
-      "notes": "Not a loading protocol — outcome measure only. Score ≥80 indicates good function. Score <40 indicates severe impairment requiring Stage 1 focus."
+      "notes": "Not a loading protocol \u2014 outcome measure only. Score \u226580 indicates good function. Score <40 indicates severe impairment requiring Stage 1 focus."
     },
-    "progression_criteria": "Increase of ≥10 points over 4-week period indicates good treatment response. Score >80 supports consideration of Stage 3 loading.",
-    "regression_criteria": "Decrease of >5 points indicates deterioration — review loading and consider irritability reclassification.",
-    "contraindications": "None — suitable for all presentations as an outcome measure."
+    "progression_criteria": "Increase of \u226510 points over 4-week period indicates good treatment response. Score >80 supports consideration of Stage 3 loading.",
+    "regression_criteria": "Decrease of >5 points indicates deterioration \u2014 review loading and consider irritability reclassification.",
+    "contraindications": "None \u2014 suitable for all presentations as an outcome measure."
   },
   {
     "id": "kb_005",
@@ -122,17 +140,25 @@
     "authors": "Cook JL, Purdam CR",
     "year": 2009,
     "source": "British Journal of Sports Medicine",
-    "summary": "Landmark conceptual paper proposing the tendon continuum model: reactive tendinopathy → tendon disrepair → degenerative tendinopathy. Established that management differs by stage of pathology and that irritability (load sensitivity) is the key clinical modifier. Challenged the view that all tendinopathy should be treated the same way.",
+    "summary": "Landmark conceptual paper proposing the tendon continuum model: reactive tendinopathy \u2192 tendon disrepair \u2192 degenerative tendinopathy. Established that management differs by stage of pathology and that irritability (load sensitivity) is the key clinical modifier. Challenged the view that all tendinopathy should be treated the same way.",
     "key_points": [
       "Tendinopathy exists on a pathological continuum, not as a discrete condition",
       "Reactive stage: high irritability, responds to load reduction and isometrics",
       "Disrepair stage: moderate irritability, responds to progressive loading",
       "Degenerative stage: variable irritability, may have windows of reactivity",
       "Irritability is the primary guide to WHAT loading dose to apply",
-      "Stage of pathology guides WHAT type of loading (isometric → isotonic → plyometric)",
-      "Pain alone is not sufficient to guide management — load response and capacity must be considered"
+      "Stage of pathology guides WHAT type of loading (isometric \u2192 isotonic \u2192 plyometric)",
+      "Pain alone is not sufficient to guide management \u2014 load response and capacity must be considered"
     ],
-    "tags": ["irritability", "classification", "continuum_model", "load_management", "stage_1", "stage_2", "stage_3"],
+    "tags": [
+      "assessment",
+      "irritability",
+      "load_management",
+      "pathophysiology",
+      "stage_1",
+      "stage_2",
+      "stage_3"
+    ],
     "clinical_question": "How should clinicians classify and guide management of Achilles tendinopathy to account for variability in presentation and irritability?",
     "applicability": "Foundational model applicable to all stages and irritability levels. Informs the entire classification and progression framework of TenoTrainer.",
     "recommended_loading_parameters": {
@@ -140,11 +166,11 @@
       "reps": null,
       "tempo": null,
       "frequency": null,
-      "notes": "Conceptual framework — not a direct loading protocol. Informs irritability-based FITT modification across all stages."
+      "notes": "Conceptual framework \u2014 not a direct loading protocol. Informs irritability-based FITT modification across all stages."
     },
     "progression_criteria": "Progression through continuum stages is capacity-driven, not symptom-driven. Reduced irritability enables progression of load dose, not load type.",
     "regression_criteria": "Return to earlier stage loading type (e.g., reactive tendinopathy from overload) warrants temporary shift to isometrics and irritability management.",
-    "contraindications": "N/A — conceptual framework."
+    "contraindications": "N/A \u2014 conceptual framework."
   },
   {
     "id": "kb_007",
@@ -152,50 +178,60 @@
     "authors": "James LP, Talpey SW, Young WB, Geneau MC, Newton RU, Gastin PB",
     "year": 2023,
     "source": "Strength and Conditioning Journal, Vol. 45, No. 3, NSCA",
-    "summary": "Contemporary evidence-based framework reducing the many strength and speed-strength metrics into 5 empirically distinct qualities: (1) maximal isometric strength, (2) explosive strength, (3) heavy maximal dynamic strength, (4) fast maximal dynamic strength, and (5) reactive strength. Each quality has limited commonality (r² < 0.50) with the others, meaning they must be assessed and trained independently. The framework has direct application to Achilles tendinopathy rehabilitation staging, where each rehab stage targets a different strength quality on this continuum.",
+    "summary": "Contemporary evidence-based framework reducing the many strength and speed-strength metrics into 5 empirically distinct qualities: (1) maximal isometric strength, (2) explosive strength, (3) heavy maximal dynamic strength, (4) fast maximal dynamic strength, and (5) reactive strength. Each quality has limited commonality (r\u00b2 < 0.50) with the others, meaning they must be assessed and trained independently. The framework has direct application to Achilles tendinopathy rehabilitation staging, where each rehab stage targets a different strength quality on this continuum.",
     "key_points": [
-      "Five distinct strength qualities exist: maximal isometric, explosive, heavy dynamic, fast dynamic, and reactive — each requires specific assessment and targeted training",
-      "Maximal isometric strength (IMTP/isometric squat peak force) maps directly to Stage 1 Achilles rehab — isometric loading builds foundational tendon capacity",
-      "Heavy maximal dynamic strength (1RM/HSR, 3-1-3 tempo) maps to Stage 2 — eccentric and concentric loading drives tendon structural adaptation",
-      "Reactive strength (drop jump RSI, contact time <0.25 s) maps to Stage 3 — plyometric and elastic loading restores tendon energy storage and release function",
-      "Shares only 10–35% commonality with other strength qualities, confirming that Stage 3 readiness cannot be inferred from Stage 2 performance alone",
-      "Stronger athletes (≥2.0× BM back squat) respond better to high-velocity and plyometric training — chronic load base must be established first",
-      "Reactive strength index (RSI) = jump height ÷ contact time — primary metric for Stage 3 readiness and plyometric progression",
-      "Fast movement time in a slow SSC task (e.g., CMJ) does NOT imply fast contact time in reactive strength — separate assessment is required",
-      "Training should be periodized and sequenced: isometric → heavy dynamic → fast dynamic → reactive strength, mirroring the 3-stage rehab model",
+      "Five distinct strength qualities exist: maximal isometric, explosive, heavy dynamic, fast dynamic, and reactive \u2014 each requires specific assessment and targeted training",
+      "Maximal isometric strength (IMTP/isometric squat peak force) maps directly to Stage 1 Achilles rehab \u2014 isometric loading builds foundational tendon capacity",
+      "Heavy maximal dynamic strength (1RM/HSR, 3-1-3 tempo) maps to Stage 2 \u2014 eccentric and concentric loading drives tendon structural adaptation",
+      "Reactive strength (drop jump RSI, contact time <0.25 s) maps to Stage 3 \u2014 plyometric and elastic loading restores tendon energy storage and release function",
+      "Shares only 10\u201335% commonality with other strength qualities, confirming that Stage 3 readiness cannot be inferred from Stage 2 performance alone",
+      "Stronger athletes (\u22652.0\u00d7 BM back squat) respond better to high-velocity and plyometric training \u2014 chronic load base must be established first",
+      "Reactive strength index (RSI) = jump height \u00f7 contact time \u2014 primary metric for Stage 3 readiness and plyometric progression",
+      "Fast movement time in a slow SSC task (e.g., CMJ) does NOT imply fast contact time in reactive strength \u2014 separate assessment is required",
+      "Training should be periodized and sequenced: isometric \u2192 heavy dynamic \u2192 fast dynamic \u2192 reactive strength, mirroring the 3-stage rehab model",
       "Weaker or less-trained individuals improve broadly from heavy strength training; more specific targeting is required as strength improves"
     ],
-    "tags": ["stage_1", "stage_2", "stage_3", "isometric", "heavy_slow_resistance", "reactive_strength", "plyometric", "strength_diagnosis", "progression", "assessment", "return_to_sport"],
+    "tags": [
+      "assessment",
+      "heavy_slow_resistance",
+      "isometric",
+      "plyometric",
+      "progression",
+      "return_to_sport",
+      "stage_1",
+      "stage_2",
+      "stage_3"
+    ],
     "clinical_question": "How should strength qualities be classified, assessed, and sequenced to guide progression through Achilles tendinopathy rehabilitation stages?",
-    "applicability": "Applicable across all stages of Achilles tendinopathy rehabilitation. Provides the theoretical and evidence base for why each rehab stage targets a different strength quality and why stage progression requires capacity assessment, not pain response alone. Particularly relevant to Stage 2→3 transition and return-to-sport readiness.",
+    "applicability": "Applicable across all stages of Achilles tendinopathy rehabilitation. Provides the theoretical and evidence base for why each rehab stage targets a different strength quality and why stage progression requires capacity assessment, not pain response alone. Particularly relevant to Stage 2\u21923 transition and return-to-sport readiness.",
     "recommended_loading_parameters": {
       "stage_1_isometric": {
-        "type": "Maximal isometric — 45-second holds",
+        "type": "Maximal isometric \u2014 45-second holds",
         "sets": 5,
         "reps": "45s hold",
         "intensity": "~70% MVIC",
         "notes": "Assess peak force to establish baseline. 'Hard and fast' cue for maximal output."
       },
       "stage_2_heavy_dynamic": {
-        "type": "Heavy maximal dynamic strength — calf raises with load",
+        "type": "Heavy maximal dynamic strength \u2014 calf raises with load",
         "sets": 4,
         "reps": "6-8",
         "tempo": "3-1-3",
-        "intensity": "≥75% 1RM equivalent — RPE 8/10",
-        "notes": "Progress load when full sets completed with pain ≤3/10. Velocity at ≥80% 1RM load is a valid proxy when RM testing is not feasible."
+        "intensity": "\u226575% 1RM equivalent \u2014 RPE 8/10",
+        "notes": "Progress load when full sets completed with pain \u22643/10. Velocity at \u226580% 1RM load is a valid proxy when RM testing is not feasible."
       },
       "stage_3_reactive": {
-        "type": "Reactive strength — single-leg hops, drop jumps",
+        "type": "Reactive strength \u2014 single-leg hops, drop jumps",
         "sets": 3,
         "reps": "10-20 contacts",
         "tempo": "Minimal contact time",
-        "target_rsi": ">1.5 m/s (drop jump height ÷ contact time)",
-        "notes": "Bilateral before unilateral. Aim for 200–250 contacts per session when building running readiness. Do not infer Stage 3 readiness from Stage 2 performance — assess separately."
+        "target_rsi": ">1.5 m/s (drop jump height \u00f7 contact time)",
+        "notes": "Bilateral before unilateral. Aim for 200\u2013250 contacts per session when building running readiness. Do not infer Stage 3 readiness from Stage 2 performance \u2014 assess separately."
       }
     },
-    "progression_criteria": "Progress from Stage 1 to Stage 2 when isometric holds are consistently ≤2/10 pain and functional calf raise capacity is improving. Progress from Stage 2 to Stage 3 when heavy dynamic loading (4x6-8 at RPE 8) is well tolerated AND reactive strength has been formally assessed (RSI via drop jump or hop test). Do not progress based on pain alone.",
-    "regression_criteria": "If reactive strength testing reveals deficiency relative to heavy dynamic strength (large gap between Stage 2 and Stage 3 performance), do not attempt Stage 3 loading — consolidate Stage 2 and introduce bilateral slow-SSC plyometrics as a bridge.",
-    "contraindications": "Stage 3 reactive/plyometric loading is contraindicated until Stage 2 heavy dynamic capacity is well established (minimum 4 consistent weeks). Return to sport is NOT automated — clinician decision required. High irritability precludes reactive strength loading."
+    "progression_criteria": "Progress from Stage 1 to Stage 2 when isometric holds are consistently \u22642/10 pain and functional calf raise capacity is improving. Progress from Stage 2 to Stage 3 when heavy dynamic loading (4x6-8 at RPE 8) is well tolerated AND reactive strength has been formally assessed (RSI via drop jump or hop test). Do not progress based on pain alone.",
+    "regression_criteria": "If reactive strength testing reveals deficiency relative to heavy dynamic strength (large gap between Stage 2 and Stage 3 performance), do not attempt Stage 3 loading \u2014 consolidate Stage 2 and introduce bilateral slow-SSC plyometrics as a bridge.",
+    "contraindications": "Stage 3 reactive/plyometric loading is contraindicated until Stage 2 heavy dynamic capacity is well established (minimum 4 consistent weeks). Return to sport is NOT automated \u2014 clinician decision required. High irritability precludes reactive strength loading."
   },
   {
     "id": "kb_006",
@@ -203,17 +239,23 @@
     "authors": "Gabbett TJ",
     "year": 2016,
     "source": "British Journal of Sports Medicine",
-    "summary": "Highly cited paper establishing the acute:chronic workload ratio (ACWR) as a predictor of injury risk. Demonstrates that well-prepared athletes (high chronic workload) tolerate spikes better, and that sudden load increases are the primary injury risk — not high load per se. Informs load management principles for tendon rehabilitation.",
+    "summary": "Highly cited paper establishing the acute:chronic workload ratio (ACWR) as a predictor of injury risk. Demonstrates that well-prepared athletes (high chronic workload) tolerate spikes better, and that sudden load increases are the primary injury risk \u2014 not high load per se. Informs load management principles for tendon rehabilitation.",
     "key_points": [
       "Acute:chronic workload ratio (ACWR) >1.5 associated with significantly elevated injury risk",
-      "High chronic workload is PROTECTIVE — fitness is a protective factor",
+      "High chronic workload is PROTECTIVE \u2014 fitness is a protective factor",
       "Rapid load spikes (not high load) are the primary injury mechanism for tendons",
       "The training-injury prevention paradox: under-training increases injury risk as much as over-training",
       "Load monitoring should track both acute and chronic workload over rolling 1-week and 4-week windows",
       "Conservative progression: increase total load by no more than 10% per week",
       "Applies directly to Achilles tendinopathy rehabilitation load management"
     ],
-    "tags": ["load_management", "progression", "load_spikes", "risk_factors", "conservative_bias", "stage_2", "stage_3"],
+    "tags": [
+      "load_management",
+      "progression",
+      "risk_factors",
+      "stage_2",
+      "stage_3"
+    ],
     "clinical_question": "How should load be progressed during Achilles tendinopathy rehabilitation to minimise re-injury risk while maximising adaptation?",
     "applicability": "All stages, particularly relevant to Stage 2-3 progression and return-to-activity planning. Critical for patients with history of load spikes as a risk factor.",
     "recommended_loading_parameters": {
@@ -223,8 +265,1442 @@
       "frequency": null,
       "notes": "Load management principle: do not increase total training load by more than 10% per week. Monitor acute (1-week) vs chronic (4-week average) training load. ACWR >1.5 = high injury risk."
     },
-    "progression_criteria": "Progress when chronic workload is well-established (≥4 consistent weeks at current load) and ACWR is 0.8–1.3.",
+    "progression_criteria": "Progress when chronic workload is well-established (\u22654 consistent weeks at current load) and ACWR is 0.8\u20131.3.",
     "regression_criteria": "Reduce load if ACWR exceeds 1.5 or if next-day pain responses increase.",
-    "contraindications": "N/A — load management principle applicable universally."
+    "contraindications": "N/A \u2014 load management principle applicable universally."
+  },
+  {
+    "id": "kb_008",
+    "title": "Which treatment is most effective for patients with Achilles tendinopathy? A living systematic review with network meta-analysis of 29 randomised controlled trials",
+    "authors": "van der Vlist AC, Breda SJ, Damen PJ, Waarsing JH, Krestin GP, Verhaar JAN, de Vos RJ",
+    "year": 2021,
+    "source": "British Journal of Sports Medicine",
+    "summary": "Living systematic review and network meta-analysis of 29 RCTs evaluating treatments for Achilles tendinopathy. Identifies wide uncertainty across treatment rankings and concludes that no single intervention is definitively superior. Reinforces that clinicians should anchor care in progressive loading protocols rather than chasing small between-intervention differences. Highest-evidence comparative synthesis for Achilles tendinopathy treatment effectiveness.",
+    "key_points": [
+      "Living NMA of 29 RCTs \u2014 highest-level synthesis for Achilles tendinopathy treatment comparison",
+      "Wide confidence intervals across treatment rankings indicate substantial uncertainty",
+      "Exercise-based loading is consistently in the top-performing cluster across analyses",
+      "Adjuncts (e.g., injections, shockwave) show inconsistent benefit and should not replace loading",
+      "Clinical decisions should be grounded in progressive loading, adherence, and symptom-guided progression",
+      "Risk of bias is substantial across included trials, limiting certainty of rankings",
+      "Directly practice-shaping for evidence-based rehabilitation program design"
+    ],
+    "tags": [
+      "achilles_tendinopathy",
+      "load_management",
+      "meta_analysis",
+      "stage_1",
+      "stage_2"
+    ],
+    "clinical_question": "Which treatment approach is most effective for Achilles tendinopathy across all available RCT evidence?",
+    "applicability": "All stages and irritability levels of Achilles tendinopathy. Foundational for treatment selection and evidence communication with patients.",
+    "recommended_loading_parameters": {
+      "sets": null,
+      "reps": null,
+      "tempo": null,
+      "frequency": null,
+      "notes": "Synthesis paper \u2014 not a direct loading protocol. Supports progressive loading as the cornerstone intervention across treatment comparisons."
+    },
+    "progression_criteria": "Use loading-based progression criteria from stage-specific protocols (see kb_001, kb_002, kb_003). No single adjunct warrants deviation from progressive loading.",
+    "regression_criteria": "Regression decisions should follow irritability classification (see kb_005), not absence of adjunct response.",
+    "contraindications": "N/A \u2014 systematic review. Individual study contraindications apply to specific interventions."
+  },
+  {
+    "id": "kb_009",
+    "title": "Efficacy of heel lifts versus calf muscle eccentric exercise for mid-portion Achilles tendinopathy (HEALTHY): a randomised trial",
+    "authors": "Rabusin CL, Menz HB, McClelland JA, Tan JM, Whittaker GA, Landorf KB",
+    "year": 2021,
+    "source": "British Journal of Sports Medicine",
+    "summary": "Pragmatic RCT comparing heel lifts (passive offloading) versus the Alfredson eccentric calf raise protocol for mid-portion Achilles tendinopathy. Both groups improved significantly over 12 weeks, but eccentric exercise demonstrated superior VISA-A improvements at 12 weeks. Heel lifts may provide a useful short-term adjunct but should not replace progressive loading.",
+    "key_points": [
+      "Eccentric exercise (Alfredson protocol) produced superior VISA-A improvement vs heel lifts at 12 weeks",
+      "Both groups improved significantly \u2014 heel lifts are not ineffective, but inferior as standalone treatment",
+      "Heel lifts may reduce acute Achilles load and provide short-term symptom relief",
+      "Pragmatic design supports real-world applicability in clinical and community settings",
+      "Reinforces eccentric loading as the standard non-surgical intervention for mid-portion Achilles tendinopathy",
+      "Patient-reported outcomes (VISA-A) used as primary endpoint \u2014 clinically meaningful"
+    ],
+    "tags": [
+      "achilles_tendinopathy",
+      "eccentric",
+      "load_management",
+      "rct",
+      "stage_2",
+      "visa_a"
+    ],
+    "clinical_question": "Are heel lifts an effective alternative or adjunct to eccentric exercise for mid-portion Achilles tendinopathy?",
+    "applicability": "Mid-portion Achilles tendinopathy, moderate to low irritability. Heel lifts may support early symptom management but eccentric loading should remain the primary intervention.",
+    "recommended_loading_parameters": {
+      "sets": 3,
+      "reps": 15,
+      "tempo": "0-0-6",
+      "frequency": "twice daily",
+      "notes": "Alfredson eccentric protocol as per kb_001. Heel lifts (full-length, 12\u201315mm) may be used as adjunct in early symptomatic phase. Remove heel lifts as loading capacity improves."
+    },
+    "progression_criteria": "Progress eccentric load when 3x15 reps pain \u22643/10. Wean heel lifts when pain at rest and morning stiffness are consistently low.",
+    "regression_criteria": "Reintroduce heel lifts temporarily if pain spikes with activity. Reduce eccentric load if pain >5/10.",
+    "contraindications": "Insertional Achilles tendinopathy (heel lifts may worsen insertion compression). Acute presentations."
+  },
+  {
+    "id": "kb_010",
+    "title": "Rate of Improvement of Pain and Function in Mid-Portion Achilles Tendinopathy with Loading Protocols: A Systematic Review and Longitudinal Meta-Analysis",
+    "authors": "Murphy M, Travers M, Gibson W, Chivers P, Debenham J, Docking S, Rio E",
+    "year": 2018,
+    "source": "Sports Medicine",
+    "summary": "Systematic review and longitudinal meta-analysis quantifying the time-course of pain and function improvements with loading protocols in mid-portion Achilles tendinopathy. Demonstrates meaningful, progressive improvements in VISA-A over weeks 0\u201312, providing clinicians with evidence-based prognosis benchmarks. Key for expectation-setting and trial design in tendinopathy rehabilitation.",
+    "key_points": [
+      "Significant VISA-A improvements occur across weeks 0\u201312 with loading protocols",
+      "Greatest rate of improvement typically occurs in the first 6 weeks",
+      "Continued (slower) improvement occurs between weeks 6\u201312 and beyond",
+      "Longitudinal meta-analysis design captures trajectory rather than just endpoint \u2014 valuable for prognostication",
+      "Supports patient expectation-setting: meaningful gains are achievable in 6\u201312 weeks",
+      "Loading type (eccentric, HSR, isometric) does not significantly alter the improvement trajectory",
+      "Adherence to loading protocol is a stronger predictor of outcome than loading type"
+    ],
+    "tags": [
+      "achilles_tendinopathy",
+      "load_management",
+      "meta_analysis",
+      "stage_2",
+      "visa_a"
+    ],
+    "clinical_question": "What is the expected rate and trajectory of improvement in pain and function with loading protocols for mid-portion Achilles tendinopathy?",
+    "applicability": "Mid-portion Achilles tendinopathy, all irritability levels. Particularly useful for patient counselling, setting realistic milestones, and monitoring treatment response.",
+    "recommended_loading_parameters": {
+      "sets": null,
+      "reps": null,
+      "tempo": null,
+      "frequency": null,
+      "notes": "Synthesis paper \u2014 not a direct loading protocol. Supports 12-week minimum commitment to loading programs. Benchmark: expect VISA-A improvement of 15\u201325 points at 6 weeks, 25\u201335 points at 12 weeks."
+    },
+    "progression_criteria": "Use VISA-A trajectory as a progression benchmark. Lack of \u226510-point improvement at 6 weeks warrants clinical review of loading dose and adherence.",
+    "regression_criteria": "Deterioration in VISA-A over 2+ consecutive assessments indicates over-loading or irritability reclassification needed.",
+    "contraindications": "N/A \u2014 systematic review."
+  },
+  {
+    "id": "kb_011",
+    "title": "Nonoperative or Surgical Treatment of Acute Achilles' Tendon Rupture",
+    "authors": "Myhrvold SB, Brouwer EF, Andresen TKM, Rydevik K, Amundsen M, Gr\u00fcn W, Ulstein S, Nilsen F, Figved W, Finished W, Engebretsen L",
+    "year": 2022,
+    "source": "New England Journal of Medicine",
+    "summary": "Landmark multicenter RCT comparing operative versus nonoperative management of acute Achilles tendon rupture. Found no significant difference in patient-important outcomes (Achilles tendon Total Rupture Score) between groups when both received modern rehabilitation protocols. Surgical group had higher complication rates. Supports shared decision-making with emphasis on modern rehabilitation over automatic surgical referral.",
+    "key_points": [
+      "No significant difference in primary outcome (ATRS) between operative and nonoperative groups at 12 months",
+      "Operative group had significantly higher complication rates (wound infection, nerve damage)",
+      "Modern early functional rehabilitation protocol is key \u2014 both groups received structured rehab",
+      "Re-rupture rates were similar between groups in this well-controlled RCT",
+      "Challenges historical assumption that surgery is superior for active patients",
+      "Shared decision-making should weigh patient preference, activity level, and complication risk",
+      "Published in NEJM \u2014 highest-impact venue; informs international clinical guidelines"
+    ],
+    "tags": [
+      "achilles_rupture",
+      "rct",
+      "return_to_sport",
+      "surgery"
+    ],
+    "clinical_question": "Is surgical repair of acute Achilles tendon rupture superior to nonoperative management with modern rehabilitation?",
+    "applicability": "Acute Achilles tendon rupture. Informs shared decision-making regarding operative vs nonoperative pathways and rehabilitation planning post-rupture.",
+    "recommended_loading_parameters": {
+      "sets": null,
+      "reps": null,
+      "tempo": null,
+      "frequency": null,
+      "notes": "RCT \u2014 not a loading protocol. Both groups received early functional rehabilitation (weight-bearing within 2 weeks, progressive loading). Modern rehab protocol is the critical variable, not surgical vs nonoperative."
+    },
+    "progression_criteria": "Early weight-bearing within 1\u20132 weeks regardless of operative status. Progressive loading milestones: full weight-bearing by week 6, return to jogging ~3\u20134 months, return to sport ~6\u20139 months.",
+    "regression_criteria": "Pain >6/10 or re-rupture symptoms (sudden sharp pain, palpable gap) require immediate clinical reassessment.",
+    "contraindications": "Operative: active infection, vascular compromise, severe skin condition at site. Nonoperative: patient preference for surgery after counselling is respected."
+  },
+  {
+    "id": "kb_012",
+    "title": "Early functional rehabilitation versus traditional immobilization for surgical Achilles tendon repair after acute rupture: a systematic review of overlapping meta-analyses",
+    "authors": "Zhao JG, Yu XW, Zhao J, Liang GB",
+    "year": 2017,
+    "source": "Scientific Reports",
+    "summary": "Systematic review consolidating overlapping and sometimes discordant meta-analyses on early functional rehabilitation versus traditional immobilization after surgical Achilles tendon repair. Concludes that early functional rehabilitation does not increase re-rupture rates and significantly improves return-to-activity outcomes. Supports early weight-bearing and functional protocols post-surgical repair.",
+    "key_points": [
+      "Early functional rehabilitation is safe \u2014 no increase in re-rupture rates vs immobilization",
+      "Early functional rehab improves return-to-activity speed and patient satisfaction",
+      "Addresses discordance between prior meta-analyses using a systematic overlap approach",
+      "Open-access (PMC) \u2014 widely accessible for clinical teams",
+      "Directly informs post-surgical Achilles rehabilitation pathways",
+      "Traditional cast immobilization is not superior and delays recovery",
+      "Supports immediate post-operative mobilization protocols"
+    ],
+    "tags": [
+      "achilles_rupture",
+      "load_management",
+      "return_to_sport",
+      "surgery"
+    ],
+    "clinical_question": "Should early functional rehabilitation replace traditional immobilization after surgical Achilles tendon repair?",
+    "applicability": "Post-surgical acute Achilles tendon rupture. Informs immediate post-operative rehabilitation protocol design.",
+    "recommended_loading_parameters": {
+      "sets": null,
+      "reps": null,
+      "tempo": null,
+      "frequency": null,
+      "notes": "Synthesis paper \u2014 not a direct protocol. Supports early weight-bearing (within 2 weeks post-op) and functional rehabilitation over cast immobilization."
+    },
+    "progression_criteria": "Early weight-bearing in a boot within 1\u20132 weeks. Transition to full weight-bearing by weeks 4\u20136. Progressive strengthening from week 6 onwards.",
+    "regression_criteria": "Increased wound pain, swelling, or wound breakdown warrants temporary load reduction and surgical team review.",
+    "contraindications": "Wound complications, active infection, non-compliance with weight-bearing guidelines."
+  },
+  {
+    "id": "kb_013",
+    "title": "Resistance training prescription for muscle strength and hypertrophy: a systematic review and Bayesian network meta-analysis",
+    "authors": "Currier BS, Mcleod JC, Banfield L, Beyene J, Welton NJ, D'Souza AC, Oikawa SY, Wang X, Philpott JD, Bretz F, Thabane L, Phillips SM",
+    "year": 2023,
+    "source": "British Journal of Sports Medicine",
+    "summary": "High-impact Bayesian network meta-analysis integrating multiple resistance training prescription variables (load, volume, frequency, rest) for strength and hypertrophy. Improves practical translation beyond single-variable analyses by simultaneously modelling prescription interactions. One of the most comprehensive contemporary summaries of resistance training dose-response relationships for clinical and coaching application.",
+    "key_points": [
+      "Bayesian NMA approach enables simultaneous comparison of multiple prescription variables \u2014 superior to pairwise MA",
+      "Higher loads (\u226560% 1RM) favour maximal strength gains; hypertrophy is achievable across a wide load spectrum",
+      "Volume (sets per muscle per week) is a primary driver of hypertrophy dose-response",
+      "Frequency effects are largely mediated by total volume \u2014 equating volume attenuates frequency differences",
+      "Failure proximity (training to or near failure) is important for hypertrophy, especially at lower loads",
+      "Directly informs Stage 2 prescription parameters for Achilles rehabilitation (load, volume, rest)",
+      "198 citations \u2014 rapidly becoming the definitive modern synthesis for resistance training prescription"
+    ],
+    "tags": [
+      "hypertrophy",
+      "load_management",
+      "meta_analysis",
+      "periodization",
+      "stage_2",
+      "strength_training",
+      "volume"
+    ],
+    "clinical_question": "What resistance training prescription variables (load, volume, frequency) optimise strength and hypertrophy outcomes?",
+    "applicability": "Applicable to all stages of Achilles rehabilitation requiring progressive resistance loading (Stage 2 primary). Informs clinical prescription of calf raise loading parameters.",
+    "recommended_loading_parameters": {
+      "sets": 4,
+      "reps": "6-15",
+      "tempo": "controlled (2-1-2 to 3-1-3)",
+      "frequency": "2-4 times per week",
+      "notes": "For strength: prioritise \u226575% 1RM equivalent, lower reps (6-8). For hypertrophy/tendon adaptation: moderate loads (60-75% 1RM), moderate reps (10-15), train close to failure. Rest 2-3 min between sets."
+    },
+    "progression_criteria": "Increase load by ~2.5\u20135 kg when all sets completed with RPE \u22648/10. Progress rep range before increasing load for hypertrophy focus.",
+    "regression_criteria": "Reduce load or volume if next-day pain exceeds baseline or VISA-A declines.",
+    "contraindications": "High irritability phases \u2014 reduce to isometric or low-load isotonic (see kb_003). Post-surgical within 6 weeks."
+  },
+  {
+    "id": "kb_014",
+    "title": "Resistance Training Load Effects on Muscle Hypertrophy and Strength Gain: Systematic Review and Network Meta-analysis",
+    "authors": "Lopez P, Radaelli R, Taaffe DR, Newton RU, Galv\u00e3o DA, Trajano GS, Teodoro JL, Kraemer WJ, H\u00e4kkinen K, Pinto RS",
+    "year": 2021,
+    "source": "Medicine & Science in Sports & Exercise",
+    "summary": "Seminal network meta-analysis clarifying load-specificity for hypertrophy and strength outcomes in resistance training. Demonstrates that strength gains significantly favour heavier loads, while hypertrophy can be achieved across a broad load range when sets are taken to volitional failure. One of the most highly cited (434 citations) modern resistance training meta-analyses.",
+    "key_points": [
+      "Maximal strength gains are load-specific \u2014 heavier loads (\u226570% 1RM) produce superior 1RM improvements",
+      "Muscle hypertrophy is largely load-independent when sets are taken to volitional failure",
+      "Low-load training to failure is a viable hypertrophy strategy for tendon rehab contexts (reduces compressive stress)",
+      "Network approach enables indirect comparisons across load ranges not directly compared in primary RCTs",
+      "434 citations \u2014 among the most influential modern resistance training syntheses",
+      "Directly informs Stage 2 load selection: heavy loads for strength; moderate loads acceptable for tissue hypertrophy",
+      "Failure proximity matters more than load for hypertrophy \u2014 important for clinical load prescription"
+    ],
+    "tags": [
+      "heavy_slow_resistance",
+      "hypertrophy",
+      "load_management",
+      "meta_analysis",
+      "stage_2",
+      "strength_training"
+    ],
+    "clinical_question": "Does training load (light vs heavy) differentially affect muscle hypertrophy and maximal strength gains?",
+    "applicability": "Stage 2 Achilles rehabilitation and return to performance. Informs when to prioritise heavier loading (strength goals) vs moderate loading to failure (hypertrophy/tendon adaptation).",
+    "recommended_loading_parameters": {
+      "sets": 3,
+      "reps": "6-15 (load-dependent)",
+      "tempo": "controlled",
+      "frequency": "2-3 times per week",
+      "notes": "Strength target: \u226570% 1RM, 6-8 reps. Hypertrophy target: 40-70% 1RM to near-failure, 10-15 reps. Both valid for tendon adaptation; choose based on clinical goal and irritability."
+    },
+    "progression_criteria": "Increase load when full prescribed reps are completed with RPE <8. For strength: prioritise load increases. For hypertrophy: prioritise training close to failure before increasing load.",
+    "regression_criteria": "Reduce to lower loads or isometrics if pain >5/10 during loading.",
+    "contraindications": "High irritability \u2014 avoid heavy maximal loading until irritability reduces."
+  },
+  {
+    "id": "kb_015",
+    "title": "Strength and Hypertrophy Adaptations Between Low- vs. High-Load Resistance Training: A Systematic Review and Meta-analysis",
+    "authors": "Schoenfeld BJ, Grgic J, Ogborn D, Krieger JW",
+    "year": 2017,
+    "source": "Journal of Strength and Conditioning Research",
+    "summary": "Landmark systematic review and meta-analysis (1212 citations) examining hypertrophy and strength adaptations across low-load and high-load resistance training. Established the foundational position that hypertrophy is similar across load ranges when volume is equated and effort is sufficient, while strength gains favour heavier loads. Highly influential in shaping modern load-selection practice.",
+    "key_points": [
+      "Hypertrophy is similar between low-load and high-load training when volume is equated",
+      "Maximal strength (1RM) significantly favours high-load training (specificity principle)",
+      "1212 citations \u2014 one of the most foundational resistance training meta-analyses of the decade",
+      "Challenges earlier dogma that heavy loads are required for muscle growth",
+      "Practical implication: use heavier loads for strength-focused rehab stages; moderate loads are viable for hypertrophy",
+      "Applicable to calf raise prescription in Stage 2 Achilles rehabilitation",
+      "Volume-equating is a critical methodological consideration when comparing load conditions"
+    ],
+    "tags": [
+      "hypertrophy",
+      "load_management",
+      "meta_analysis",
+      "stage_2",
+      "strength_training"
+    ],
+    "clinical_question": "Is heavy loading necessary for muscle hypertrophy, or can lower loads achieve equivalent adaptations?",
+    "applicability": "Stage 2 Achilles rehabilitation. Justifies use of moderate loading protocols when heavy loads are not tolerated, without compromising hypertrophy targets.",
+    "recommended_loading_parameters": {
+      "sets": 3,
+      "reps": "8-15",
+      "tempo": "controlled",
+      "frequency": "2-3 times per week",
+      "notes": "For hypertrophy equivalence: moderate loads (50-70% 1RM) to near-failure are sufficient. For maximal strength: \u226575% 1RM required. Effort (proximity to failure) matters more than absolute load for hypertrophy."
+    },
+    "progression_criteria": "Progress load when reps are completed with good form and RPE <8. Volume is the primary driver \u2014 add sets before adding load for hypertrophy.",
+    "regression_criteria": "Reduce load if pain >4/10 or technique breaks down.",
+    "contraindications": "High irritability. Avoid any loading that provokes pain >5/10 during exercise."
+  },
+  {
+    "id": "kb_016",
+    "title": "Dose-response relationship between weekly resistance training volume and increases in muscle mass: A systematic review and meta-analysis",
+    "authors": "Schoenfeld BJ, Ogborn D, Krieger JW",
+    "year": 2017,
+    "source": "Journal of Sports Sciences",
+    "summary": "Highly cited systematic review and meta-analysis (1047 citations) establishing a positive dose-response relationship between weekly resistance training volume (sets per muscle group per week) and muscle hypertrophy. Demonstrates that higher weekly set volumes produce greater muscle mass increases, up to a practical ceiling. Foundational for volume periodization in both athletic and rehabilitation contexts.",
+    "key_points": [
+      "Positive dose-response between weekly sets per muscle group and hypertrophy",
+      "\u226510 sets per muscle per week produces greater hypertrophy than lower volumes",
+      "Volume is a primary programming lever for muscle mass \u2014 not just load or frequency",
+      "1047 citations \u2014 among the most influential sports science papers of its era",
+      "Practical upper limit exists (high volume also increases recovery demand)",
+      "Supports progressive volume overload as a primary mechanism for tendon tissue remodelling",
+      "Informs Phase 2 loading progression: increase sets before increasing load"
+    ],
+    "tags": [
+      "hypertrophy",
+      "meta_analysis",
+      "progression",
+      "stage_2",
+      "strength_training",
+      "volume"
+    ],
+    "clinical_question": "How does weekly resistance training volume (number of sets) affect muscle hypertrophy outcomes?",
+    "applicability": "Stage 2 and Stage 3 Achilles rehabilitation. Informs how to progress loading volume over the 12-week rehabilitation programme.",
+    "recommended_loading_parameters": {
+      "sets": "10-20 per week (per muscle group)",
+      "reps": "8-15",
+      "tempo": "controlled",
+      "frequency": "2-4 times per week",
+      "notes": "Begin at lower weekly volume (6-8 sets/week for calf group) and build to 10-15 sets/week over 4-6 weeks. Do not increase load and volume simultaneously \u2014 prioritise one variable at a time."
+    },
+    "progression_criteria": "Add 1-2 sets per week every 2 weeks when current volume is well tolerated. Monitor next-day pain response as volume proxy.",
+    "regression_criteria": "Reduce weekly volume by 20-30% if next-day pain increases or VISA-A declines.",
+    "contraindications": "High irritability. Avoid volume progression during reactive tendinopathy phase."
+  },
+  {
+    "id": "kb_017",
+    "title": "Effect of resistance training frequency on gains in muscular strength: a systematic review and meta-analysis",
+    "authors": "Grgic J, Schoenfeld BJ, Davies TB, Lazinica B, Krieger JW, Pedisic Z",
+    "year": 2018,
+    "source": "Journal of Sports Sciences",
+    "summary": "Systematic review and meta-analysis (618 citations) examining how resistance training frequency affects maximal strength gains. Finds that higher training frequencies produce greater strength gains when volume is not equated, but the effect attenuates substantially when total volume is matched. Context-dependent: training status, volume distribution, and programme design moderate frequency effects.",
+    "key_points": [
+      "Higher training frequency generally produces greater strength gains when volume is not equated",
+      "When volume is equated, frequency effects on strength are substantially reduced",
+      "Trained individuals may benefit more from higher frequencies than beginners",
+      "618 citations \u2014 highly influential for programming frequency decisions",
+      "Practical implication: 2-3x/week is sufficient for rehab strength gains when volume is managed",
+      "Frequency manipulations should be used to distribute volume, not replace volume",
+      "Directly relevant to scheduling exercise sessions in Achilles rehabilitation microcycles"
+    ],
+    "tags": [
+      "meta_analysis",
+      "periodization",
+      "stage_2",
+      "strength_training"
+    ],
+    "clinical_question": "How does resistance training frequency affect strength gains, and what is the optimal frequency for rehabilitation?",
+    "applicability": "Stage 2 Achilles rehabilitation. Informs session frequency prescription (typically 3x/week for HSR protocols).",
+    "recommended_loading_parameters": {
+      "sets": 3,
+      "reps": "8-12",
+      "tempo": "3-1-3",
+      "frequency": "3 times per week",
+      "notes": "3x/week is standard for Stage 2 rehabilitation. Higher frequency (4-5x/week) is not meaningfully superior when total volume is matched. Allow 48h between sessions for tendon recovery."
+    },
+    "progression_criteria": "Maintain 3x/week as standard. Increase frequency only when total volume per session cannot be further increased.",
+    "regression_criteria": "Reduce to 2x/week during high-volume weeks or when fatigue accumulates.",
+    "contraindications": "Daily training of the same tendon group is not recommended during active rehabilitation phases."
+  },
+  {
+    "id": "kb_018",
+    "title": "The effects of plyometric jump training on physical fitness attributes in basketball players: A meta-analysis",
+    "authors": "Ramirez-Campillo R, Moran J, Chaabene H, Granacher U, Garcia-Hermoso A, Behm D, Negra Y, Scanlan AT",
+    "year": 2022,
+    "source": "Journal of Sport and Health Science",
+    "summary": "Large meta-analysis of plyometric jump training (PJT) in basketball players demonstrating consistent improvements in jumping, sprinting, and change-of-direction performance. Identifies dose and program design moderators. Provides clear performance benchmarks and dose recommendations directly applicable to Stage 3 Achilles rehabilitation and return-to-sport plyometric programming.",
+    "key_points": [
+      "PJT produces significant improvements in jump height, sprint speed, and change-of-direction in basketball players",
+      "255 citations \u2014 highly influential in sport-specific plyometric programming literature",
+      "Training dose (volume, intensity, duration) moderates effect magnitude",
+      "Progressive PJT over 6-10 weeks produces the largest performance benefits",
+      "Bilateral exercises before unilateral \u2014 essential sequencing principle for Achilles rehab",
+      "Directly applicable to Stage 3 Achilles rehabilitation plyometric progression",
+      "Supports minimum 200-250 contacts per session as a volume target for tendon loading"
+    ],
+    "tags": [
+      "meta_analysis",
+      "plyometric",
+      "return_to_sport",
+      "stage_3"
+    ],
+    "clinical_question": "What is the evidence for plyometric training effectiveness and optimal dose for athletic performance in jump-based sports?",
+    "applicability": "Stage 3 Achilles rehabilitation and return-to-sport. Informs plyometric progression structure, volume targets, and readiness benchmarks for sport-specific loading.",
+    "recommended_loading_parameters": {
+      "sets": 3,
+      "reps": "10-20 contacts",
+      "tempo": "minimal ground contact time",
+      "frequency": "2-3 times per week",
+      "notes": "Progress bilateral \u2192 unilateral. Start: 50-80 contacts/session. Build to 200-250 contacts/session over 6-8 weeks. Prioritise quality (maximal intent, fast ground contact) over quantity. RSI target >1.5 for sport readiness."
+    },
+    "progression_criteria": "Advance from bilateral to unilateral when bilateral drop jump RSI >1.2 and pain \u22642/10. Progress contact volume by 20-30 contacts/session per week.",
+    "regression_criteria": "Return to bilateral loading if unilateral pain >3/10 or technique deteriorates. Reduce volume by 30% if next-day pain exceeds baseline.",
+    "contraindications": "Stage 1 or high irritability. Plyometric loading contraindicated until Stage 2 heavy dynamic loading is well established (minimum 4 weeks)."
+  },
+  {
+    "id": "kb_019",
+    "title": "Plyometric-jump training effects on physical fitness and sport-specific performance according to maturity: A systematic review with meta-analysis",
+    "authors": "Ramirez-Campillo R, Moran J, Oliver JL, Taber CB, Hughes MG, Reyes A, Lloyd RS",
+    "year": 2023,
+    "source": "Sports Medicine - Open",
+    "summary": "Systematic review and meta-analysis examining the effects of plyometric jump training across maturity levels in youth athletes. Demonstrates that PJT is effective both pre- and post-peak height velocity, with maturity status shaping expected magnitude of gains. Provides dose recommendations for youth populations and supports age-appropriate plyometric programming in rehabilitation contexts.",
+    "key_points": [
+      "PJT is effective for physical fitness and sport-specific performance across maturity stages",
+      "Both pre- and post-PHV athletes benefit, though effect sizes differ by maturity status",
+      "Maturity-appropriate dose and exercise selection improve safety and efficacy in youth",
+      "Open-access publication \u2014 widely accessible for clinicians working with youth athletes",
+      "Directly applicable for paediatric Achilles tendinopathy rehabilitation Stage 3 planning",
+      "Supports minimum effective dose programming for injury prevention in youth sport",
+      "107 citations \u2014 rapidly growing evidence base for maturity-stratified plyometric programming"
+    ],
+    "tags": [
+      "meta_analysis",
+      "plyometric",
+      "return_to_sport",
+      "stage_3",
+      "youth_athletes"
+    ],
+    "clinical_question": "Is plyometric jump training safe and effective for youth athletes, and does maturity status affect response?",
+    "applicability": "Stage 3 Achilles rehabilitation in adolescent/youth patients. Informs age-appropriate plyometric dose and exercise selection based on maturity status.",
+    "recommended_loading_parameters": {
+      "sets": "2-3",
+      "reps": "8-15 contacts",
+      "tempo": "submaximal intent initially",
+      "frequency": "2 times per week",
+      "notes": "Pre-PHV: lower volume (60-100 contacts/session), bilateral, submaximal. Post-PHV: can progress to adult-level volumes. Prioritise landing mechanics before increasing intensity. Supervise closely during growth spurts."
+    },
+    "progression_criteria": "Advance from submaximal to maximal intent when landing mechanics are consistently safe. Progress bilateral \u2192 unilateral. Increase volume by 10-15 contacts/session weekly.",
+    "regression_criteria": "Reduce to submaximal bilateral if pain emerges or technique degrades. Reassess maturity status during rapid growth phases.",
+    "contraindications": "Active growth plate stress, acute tendon pain >4/10. Consult paediatric sports medicine if growth plate injury is suspected."
+  },
+  {
+    "id": "kb_020",
+    "title": "Strength training vs. plyometric training on physical performance in female soccer players: A systematic review and meta-analysis",
+    "authors": "Pardos-Mainer E, Casajus JA, Gonzalez-Aguero A, Bishop C, Colomer-Poveda D, Marcos-Frutos D, Gallego-Izquierdo T, Jimenez-Gutierrez A, Serrano-Ostarez E",
+    "year": 2021,
+    "source": "International Journal of Environmental Research and Public Health",
+    "summary": "Highly cited meta-analysis comparing strength training and plyometric training effects on physical performance in female soccer players. Both modalities improve performance, with plyometrics showing advantages for explosive performance. Addresses a population (female athletes) underrepresented in older plyometric literature. Directly supports sex-specific consideration in Stage 3 programming.",
+    "key_points": [
+      "Both strength and plyometric training improve physical performance in female soccer players",
+      "Plyometrics show greater advantages for explosive outcomes (jumping, sprint acceleration)",
+      "Strength training shows advantages for maximal strength and deceleration capacity",
+      "Female athletes require specific consideration \u2014 response may differ from male-dominant literature",
+      "173 citations \u2014 highest-cited comparator meta-analysis for strength vs plyometrics in female sport",
+      "Supports combined strength + plyometric programming for comprehensive Stage 3 preparation",
+      "Informs sex-specific programming in return-to-sport Achilles rehabilitation"
+    ],
+    "tags": [
+      "female_athletes",
+      "meta_analysis",
+      "plyometric",
+      "return_to_sport",
+      "stage_3",
+      "strength_training"
+    ],
+    "clinical_question": "Is strength training or plyometric training more effective for physical performance in female athletes?",
+    "applicability": "Stage 3 Achilles rehabilitation in female athletes. Supports combined strength and plyometric programming for comprehensive return-to-sport preparation.",
+    "recommended_loading_parameters": {
+      "sets": "3-4",
+      "reps": "variable (strength: 6-8; plyometric: 10-15 contacts)",
+      "tempo": "strength: 3-1-3; plyometric: maximal intent",
+      "frequency": "2-3 times per week each modality",
+      "notes": "Combine strength (HSR calf raises) and plyometric training (bilateral \u2192 unilateral hops) in Stage 3. For female athletes, ensure adequate strength base before advancing to high-intensity plyometrics."
+    },
+    "progression_criteria": "Advance plyometric intensity when maximal strength (HSR 4x6-8) is well established. Add reactive strength work when bilateral plyometrics are pain-free.",
+    "regression_criteria": "Prioritise strength consolidation if plyometric load causes pain escalation.",
+    "contraindications": "Insufficient Stage 2 strength base. Plyometrics without established heavy dynamic strength capacity."
+  },
+  {
+    "id": "kb_021",
+    "title": "A Systematic Review with Meta-Analysis on the Effects of Plyometric-Jump Training in Combat Sport Athletes",
+    "authors": "Ojeda-Aravena A, Herrera-Valenzuela T, Vald\u00e9s-Badilla P, Cancino-L\u00f3pez J, Tuesta M, Ram\u00edrez-Campillo R",
+    "year": 2023,
+    "source": "Sports (MDPI)",
+    "summary": "Systematic review and meta-analysis extending plyometric jump training evidence to combat sport athletes. Demonstrates broad applicability of PJT principles across diverse sport populations beyond field/court sports. Confirms consistent performance improvements and supports generalisation of plyometric programming principles across sport contexts.",
+    "key_points": [
+      "PJT produces significant performance improvements in combat sport athletes",
+      "Generalises plyometric programming principles beyond field and court sports",
+      "Supports PJT as a universal Stage 3 tool applicable across sport types",
+      "Open-access publication (PMC)",
+      "Effect sizes comparable to field sport literature \u2014 confirms generalisability",
+      "Programme design factors (volume, frequency, duration) remain primary moderators",
+      "58 citations \u2014 growing evidence base for sport-specific plyometric programming"
+    ],
+    "tags": [
+      "meta_analysis",
+      "plyometric",
+      "return_to_sport",
+      "stage_3"
+    ],
+    "clinical_question": "Is plyometric training effective for athletic performance across diverse sport populations beyond field sports?",
+    "applicability": "Stage 3 Achilles rehabilitation. Supports plyometric programming for patients returning to non-field sports (combat sports, court sports, general athleticism).",
+    "recommended_loading_parameters": {
+      "sets": 3,
+      "reps": "10-15 contacts",
+      "tempo": "maximal intent",
+      "frequency": "2 times per week",
+      "notes": "Standard PJT principles apply across sport types. Adjust exercise selection to match sport-specific demands (lateral movements, deceleration, rotational loading as appropriate)."
+    },
+    "progression_criteria": "Progress exercise specificity towards sport demands as pain and capacity allow. Add lateral and deceleration plyometrics after sagittal plane competence is established.",
+    "regression_criteria": "Reduce specificity and intensity if pain >3/10 or fatigue accumulates.",
+    "contraindications": "Insufficient Stage 2 capacity. High-irritability phase."
+  },
+  {
+    "id": "kb_022",
+    "title": "Effects of plyometric training on health-related physical fitness: a systematic review and meta-analysis",
+    "authors": "Deng N, Soh KG, Abdullah BB, Huang B",
+    "year": 2024,
+    "source": "Scientific Reports",
+    "summary": "Systematic review and meta-analysis demonstrating plyometric training effects extend beyond sport performance to health-related physical fitness domains including cardiovascular fitness, body composition, and musculoskeletal health. Broadens the clinical application of plyometric programming to general conditioning and injury prevention contexts beyond elite sport.",
+    "key_points": [
+      "PJT improves health-related physical fitness across multiple domains",
+      "Benefits include improvements in cardiorespiratory fitness, muscle strength, and body composition",
+      "Applicable to non-elite populations for prevention and general conditioning",
+      "Open-access publication (Scientific Reports)",
+      "Supports plyometric training as a general health intervention, not only performance-focused",
+      "Particularly relevant for general-population Achilles tendinopathy patients returning to recreational activity",
+      "33 citations \u2014 newer but growing evidence base"
+    ],
+    "tags": [
+      "general_population",
+      "meta_analysis",
+      "plyometric",
+      "prevention",
+      "return_to_sport",
+      "stage_3"
+    ],
+    "clinical_question": "Can plyometric training improve health-related fitness outcomes in non-elite or general populations?",
+    "applicability": "Stage 3 Achilles rehabilitation for recreational and general-population patients. Supports plyometric programming beyond sport-specific contexts.",
+    "recommended_loading_parameters": {
+      "sets": "2-3",
+      "reps": "10-20 contacts",
+      "tempo": "moderate intent initially",
+      "frequency": "2 times per week",
+      "notes": "For recreational patients: begin with low-impact bilateral jumps (jump squats, skipping), progress to single-leg hops. Lower volume targets (100-150 contacts/session) appropriate for non-athletes."
+    },
+    "progression_criteria": "Advance contact intensity when bilateral competence and pain control are established. Goal for recreational patients: pain-free single-leg hop and return to activity-specific demands.",
+    "regression_criteria": "Reduce intensity and volume if next-day pain increases or function declines.",
+    "contraindications": "High irritability, Stage 1 phase, insufficient Stage 2 strength base."
+  },
+  {
+    "id": "kb_023",
+    "title": "Determining the Sites of Neural Adaptations to Resistance Training: A Systematic Review and Meta-analysis",
+    "authors": "Siddique U, Rahman S, Frazer AK, Pearce AJ, Howatson G, Kidgell DJ",
+    "year": 2020,
+    "source": "Sports Medicine",
+    "summary": "Systematic review and meta-analysis explicitly mapping where neural adaptations to resistance training occur within the CNS \u2014 cortical, subcortical, and spinal sites. Identifies reduced intracortical inhibition and altered corticospinal excitability as key early neural signatures of strength training. Provides mechanistic foundation for understanding why early strength gains precede structural muscle changes.",
+    "key_points": [
+      "Neural adaptations occur at multiple sites: cortical (M1), subcortical, and spinal levels",
+      "Reduced intracortical inhibition is a dominant early neural signature of strength training",
+      "Neural adaptations precede structural (hypertrophy) adaptations \u2014 explain early strength gains in rehab",
+      "174 citations \u2014 most integrative high-level CNS adaptation synthesis",
+      "Isometric training produces measurable corticospinal adaptations relevant to Stage 1 Achilles rehab",
+      "Provides mechanistic rationale for why isometric exercise produces rapid analgesia (see kb_003)",
+      "Supports sequenced neural \u2192 structural progression in rehabilitation planning"
+    ],
+    "tags": [
+      "isometric",
+      "meta_analysis",
+      "neural_adaptation",
+      "pathophysiology",
+      "stage_1",
+      "stage_2"
+    ],
+    "clinical_question": "What are the neural mechanisms underlying early strength gains in resistance training, and where in the CNS do these adaptations occur?",
+    "applicability": "All stages of Achilles rehabilitation. Provides mechanistic understanding for why isometric loading produces rapid pain relief and early strength gains. Informs expectations during Stage 1.",
+    "recommended_loading_parameters": {
+      "sets": null,
+      "reps": null,
+      "tempo": null,
+      "frequency": null,
+      "notes": "Mechanistic synthesis \u2014 not a direct loading protocol. Neural adaptation timeline: significant corticospinal changes within 2-4 weeks of consistent training. Supports early loading even before structural tendon changes are detectable."
+    },
+    "progression_criteria": "Neural adaptations support progression from Stage 1 to Stage 2 when pain during isometric loading is consistently \u22642/10 and functional strength is improving.",
+    "regression_criteria": "N/A \u2014 mechanistic framework. Apply regression criteria from stage-specific protocols.",
+    "contraindications": "N/A \u2014 systematic review."
+  },
+  {
+    "id": "kb_024",
+    "title": "Corticospinal responses following strength training: a systematic review and meta-analysis",
+    "authors": "Kidgell DJ, Bonanno DR, Frazer AK, Howatson G, Pearce AJ",
+    "year": 2017,
+    "source": "European Journal of Neuroscience",
+    "summary": "Systematic review and meta-analysis establishing reduced intracortical inhibition as a dominant and consistent neural signature of strength training. Demonstrates measurable corticospinal adaptations following resistance training, supporting the neural contribution to early strength gains. Highly cited (157 citations) foundation for understanding training-induced neuroplasticity in rehabilitation.",
+    "key_points": [
+      "Strength training consistently reduces intracortical inhibition measured via TMS",
+      "Corticospinal adaptations are measurable and significant following resistance training programmes",
+      "Reduced inhibition contributes to greater voluntary motor output and early strength gains",
+      "157 citations \u2014 foundational synthesis for training-induced neuroplasticity",
+      "Provides mechanistic rationale for rapid strength improvements in Stages 1-2 rehabilitation",
+      "Adaptations are task-specific \u2014 training method affects which corticospinal pathways adapt",
+      "Supports use of isometric and dynamic loading to drive neuromotor rehabilitation"
+    ],
+    "tags": [
+      "meta_analysis",
+      "neural_adaptation",
+      "pathophysiology",
+      "stage_1",
+      "stage_2"
+    ],
+    "clinical_question": "How does resistance training affect corticospinal excitability and inhibition, and what are the implications for rehabilitation?",
+    "applicability": "Mechanistic understanding across all rehab stages. Supports early loading as a neurological as well as structural intervention.",
+    "recommended_loading_parameters": {
+      "sets": null,
+      "reps": null,
+      "tempo": null,
+      "frequency": null,
+      "notes": "Mechanistic synthesis \u2014 not a loading protocol. Corticospinal adaptations begin within 2-3 weeks of consistent training. Task-specificity: isometric training best for isometric strength transfer; dynamic training for dynamic strength."
+    },
+    "progression_criteria": "N/A \u2014 mechanistic framework.",
+    "regression_criteria": "N/A \u2014 mechanistic framework.",
+    "contraindications": "N/A \u2014 systematic review."
+  },
+  {
+    "id": "kb_025",
+    "title": "The Effect of Resistance Training on Motor Unit Firing Properties: A Systematic Review and Meta-Analysis",
+    "authors": "Elgueta-Cancino E, Mancilla-Engine R, Martinez-Valdes E, Falla D",
+    "year": 2022,
+    "source": "Frontiers in Physiology",
+    "summary": "Systematic review and meta-analysis examining resistance training effects on motor unit firing properties. Explicitly concludes that evidence quality limits definitive mechanistic claims \u2014 variability in methods and high risk of bias constrain certainty. Most directly relevant synthesis for motor-unit firing mechanisms, providing an honest appraisal of what is and is not established.",
+    "key_points": [
+      "Evidence for specific motor-unit firing property changes after resistance training is limited by study quality",
+      "Methodological heterogeneity constrains definitive mechanistic conclusions",
+      "Open-access (PMC) \u2014 widely accessible for clinicians and researchers",
+      "Provides honest appraisal of the limits of current motor unit firing evidence",
+      "47 citations \u2014 growing evidence base but field is methodologically challenging",
+      "Complements broader neural adaptation literature (kb_023, kb_024) with motor-unit level evidence",
+      "Relevant for understanding neuromuscular fatigue and adaptation in high-volume training"
+    ],
+    "tags": [
+      "meta_analysis",
+      "neural_adaptation",
+      "pathophysiology"
+    ],
+    "clinical_question": "Does resistance training alter motor unit firing properties, and what is the certainty of this evidence?",
+    "applicability": "Background mechanistic context for all rehabilitation stages. Use to calibrate confidence in claims about motor unit adaptations during patient education.",
+    "recommended_loading_parameters": {
+      "sets": null,
+      "reps": null,
+      "tempo": null,
+      "frequency": null,
+      "notes": "Mechanistic synthesis \u2014 not a loading protocol. Motor unit adaptations are real but their specific firing property changes are less certain than broader corticospinal adaptations."
+    },
+    "progression_criteria": "N/A \u2014 mechanistic framework.",
+    "regression_criteria": "N/A \u2014 mechanistic framework.",
+    "contraindications": "N/A \u2014 systematic review."
+  },
+  {
+    "id": "kb_026",
+    "title": "A Systematic Review and Meta-Analysis on Neural Adaptations following Low-Load Blood Flow Restriction Training",
+    "authors": "Centner C, Lauber B, Seynnes OR, Minshull C, Mesquita RNO, Grotkasten J, Gundermann D, H\u00e4ring MF, K\u00f6nig D",
+    "year": 2020,
+    "source": "Frontiers in Physiology",
+    "summary": "Systematic review and meta-analysis examining neural adaptations specifically following low-load blood flow restriction (BFR) training. Demonstrates that BFR training produces neural adaptations comparable to conventional heavy loading at lower absolute loads \u2014 directly relevant for contexts where heavy loading is contraindicated or poorly tolerated, such as high-irritability Achilles tendinopathy.",
+    "key_points": [
+      "Low-load BFR training produces neural adaptations (reduced inhibition, altered excitability) comparable to conventional loading",
+      "BFR enables neural and hypertrophic adaptation at loads (20-30% 1RM) that avoid compressive tendon stress",
+      "Open-access (PMC) \u2014 widely accessible",
+      "88 citations \u2014 seminal for understanding BFR as a rehabilitation tool",
+      "Particularly relevant for high-irritability phases where heavy tendon loading is contraindicated",
+      "BFR may bridge Stages 1-2: enables progressive loading without exceeding pain thresholds",
+      "Neural adaptation mechanism: metabolic stress + occlusion triggers central adaptations similar to high-load training"
+    ],
+    "tags": [
+      "bfr",
+      "isometric",
+      "load_management",
+      "meta_analysis",
+      "neural_adaptation",
+      "pathophysiology",
+      "stage_1",
+      "stage_2"
+    ],
+    "clinical_question": "Can low-load blood flow restriction training produce neural and hypertrophic adaptations comparable to conventional heavy resistance training?",
+    "applicability": "Stage 1 to early Stage 2 Achilles rehabilitation, particularly in high-irritability presentations where heavy loading cannot be tolerated. BFR provides a progressive loading option.",
+    "recommended_loading_parameters": {
+      "sets": 4,
+      "reps": "15-30 (30-15-15-15 protocol)",
+      "tempo": "controlled",
+      "frequency": "2-3 times per week",
+      "notes": "BFR at 20-40% 1RM with 40-80% limb occlusion pressure. Rest 30-60s between sets. Contraindicated with active DVT, peripheral vascular disease, or open wounds. Requires trained supervision for cuff placement."
+    },
+    "progression_criteria": "Progress from BFR to conventional loading when pain allows. BFR is a bridge strategy, not a long-term substitute for progressive heavy loading.",
+    "regression_criteria": "Discontinue BFR if pain increases, distal circulation compromised, or patient reports adverse symptoms.",
+    "contraindications": "DVT, peripheral vascular disease, hypertension (relative), open wounds, pregnancy. Requires qualified supervision."
+  },
+  {
+    "id": "kb_027",
+    "title": "Long-Term Neurophysiological Adaptations to Strength Training: A Systematic Review With Cross-Sectional Studies",
+    "authors": "Santos PDG, Vaz MA, Correia MV, Gomes TM, Correia PH, Melo BC, Feito Y, Behm D",
+    "year": 2023,
+    "source": "Journal of Strength and Conditioning Research",
+    "summary": "Systematic review using cross-sectional studies to examine long-term neurophysiological adaptations in resistance-trained versus untrained individuals. Demonstrates that trained individuals show greater voluntary activation, more efficient submaximal activation patterns, and distinct neurophysiological profiles. Complements intervention-based neural adaptation research with long-term training status evidence.",
+    "key_points": [
+      "Long-term trained individuals show greater voluntary activation and more efficient neural patterns",
+      "Cross-sectional design captures chronic adaptation state vs acute training studies",
+      "Trained individuals demonstrate more economical submaximal activation \u2014 functional advantage for sports",
+      "Supports view that long-term training history builds neuromotor reserve relevant to injury resilience",
+      "Causal inference constrained by cross-sectional design \u2014 cannot isolate training effect from selection",
+      "Complements Stages 1-3 rehabilitation: long-term adaptation expectation-setting for patients",
+      "36 citations \u2014 newer synthesis in a growing evidence area"
+    ],
+    "tags": [
+      "neural_adaptation",
+      "return_to_sport",
+      "stage_3"
+    ],
+    "clinical_question": "How do long-term resistance training adaptations differ neurophysiologically between trained and untrained individuals?",
+    "applicability": "Return-to-sport and Stage 3 rehabilitation. Supports emphasis on long-term loading history for neuromotor resilience. Useful for patient education on the long-term value of rehabilitation.",
+    "recommended_loading_parameters": {
+      "sets": null,
+      "reps": null,
+      "tempo": null,
+      "frequency": null,
+      "notes": "Cross-sectional review \u2014 not a loading protocol. Long-term adaptation: neurophysiological benefits accrue over months to years of consistent training. Emphasise programme adherence and continuation post-discharge."
+    },
+    "progression_criteria": "N/A \u2014 mechanistic framework. Long-term adaptation supports continued training beyond formal rehabilitation.",
+    "regression_criteria": "N/A \u2014 mechanistic framework.",
+    "contraindications": "N/A \u2014 systematic review."
+  },
+  {
+    "id": "kb_028",
+    "title": "Effects of Periodization on Strength and Muscle Hypertrophy in Volume-Equated Resistance Training Programs: A Systematic Review and Meta-analysis",
+    "authors": "Moesgaard L, Beck MM, Christiansen L, Aagaard P, Lundbye-Jensen J",
+    "year": 2022,
+    "source": "Sports Medicine",
+    "summary": "Systematic review and meta-analysis directly addressing periodization under the critical constraint of volume-equating. Finds periodized approaches produce modestly greater maximal strength gains than non-periodized training when volume is matched, while hypertrophy differences are less consistent. Supports periodization primarily for strength-specific neural and practice effects rather than muscle growth.",
+    "key_points": [
+      "Periodized training produces modestly greater 1RM strength gains vs non-periodized when volume is equated",
+      "Hypertrophy differences between periodized and non-periodized are inconsistent \u2014 volume is the primary driver",
+      "Volume-equating is the critical methodological requirement for valid periodization comparisons",
+      "Undulating periodization may have advantages for strength in trained individuals (see kb_029)",
+      "94 citations \u2014 most relevant meta-analysis for answering the volume-equated periodization question",
+      "Informs rehabilitation programme structure: periodize for strength goals, manage volume for hypertrophy",
+      "Directly applicable to 12-week Achilles rehabilitation programme design"
+    ],
+    "tags": [
+      "meta_analysis",
+      "periodization",
+      "stage_2",
+      "strength_training",
+      "volume"
+    ],
+    "clinical_question": "Does periodized resistance training produce superior strength and hypertrophy outcomes compared to non-periodized training when volume is equated?",
+    "applicability": "Stage 2 Achilles rehabilitation programme design. Informs whether to use periodized loading progression or simpler linear increases.",
+    "recommended_loading_parameters": {
+      "sets": "3-4 (variable by phase)",
+      "reps": "varies by periodization phase (15\u21928\u21926)",
+      "tempo": "3-1-3",
+      "frequency": "3 times per week",
+      "notes": "For 12-week Achilles rehab: Phase 1 (weeks 1-4): 3x15 moderate load for familiarisation. Phase 2 (weeks 5-8): 4x10 increasing load. Phase 3 (weeks 9-12): 4x6-8 heavy load. Volume-equate between phases by adjusting load, not just reps."
+    },
+    "progression_criteria": "Advance to next phase when current rep range is completed at RPE \u22648 with pain \u22643/10 for 2 consecutive sessions.",
+    "regression_criteria": "Extend current phase by 1-2 weeks if adaptation criteria not met. Reduce load rather than dropping reps if pain limits progression.",
+    "contraindications": "High-irritability phase \u2014 do not begin periodized heavy loading until pain is manageable at moderate loads."
+  },
+  {
+    "id": "kb_029",
+    "title": "Effects of linear and daily undulating periodized resistance training programs on measures of muscle hypertrophy: a systematic review and meta-analysis",
+    "authors": "Grgic J, Mikulic P, Podnar H, Pedisic Z",
+    "year": 2017,
+    "source": "PeerJ",
+    "summary": "Open-access systematic review and meta-analysis comparing linear periodization (LP) and daily undulating periodization (DUP) for muscle hypertrophy outcomes. Concludes that hypertrophy differences between LP and DUP are likely small, suggesting that volume is more important than periodization model for muscle mass. Trained individuals may show greater strength advantages from undulating variation.",
+    "key_points": [
+      "Hypertrophy outcomes are similar between LP and DUP when volume is equated",
+      "1RM strength gains may favour DUP in trained individuals",
+      "Open-access publication (PMC) \u2014 widely accessible for clinicians",
+      "85 citations \u2014 high-quality meta-analysis for periodization model comparison",
+      "Practical implication: choose periodization model based on patient adherence and scheduling, not expected hypertrophy superiority",
+      "DUP allows more session-to-session variation \u2014 may improve adherence and motivation in rehabilitation",
+      "LP is simpler to implement and programme \u2014 appropriate for rehabilitation contexts"
+    ],
+    "tags": [
+      "hypertrophy",
+      "meta_analysis",
+      "periodization",
+      "stage_2",
+      "strength_training"
+    ],
+    "clinical_question": "Does daily undulating periodization produce superior hypertrophy outcomes compared to linear periodization?",
+    "applicability": "Stage 2 Achilles rehabilitation programme design. LP is recommended for simplicity; DUP may offer motivational advantages for higher-level athletes.",
+    "recommended_loading_parameters": {
+      "sets": "3-4",
+      "reps": "variable (LP: fixed progression; DUP: varies session-to-session)",
+      "tempo": "3-1-3",
+      "frequency": "3 times per week",
+      "notes": "LP example: Week 1-4: 3x15 \u2192 Week 5-8: 4x10 \u2192 Week 9-12: 4x6-8. DUP example: Mon 3x12 / Wed 4x8 / Fri 5x5 at increasing loads. Both are valid for rehabilitation \u2014 choose based on patient profile."
+    },
+    "progression_criteria": "Same as kb_028 periodization criteria. For DUP: progress the load within each rep range, not the rep range itself.",
+    "regression_criteria": "Simplify to LP if DUP variation causes confusion or adherence issues.",
+    "contraindications": "High-irritability phase. Do not begin either model until moderate loading is pain-free."
+  },
+  {
+    "id": "kb_030",
+    "title": "Comparison of Powerlifting Performance in Trained Men Using Traditional and Flexible Daily Undulating Periodization",
+    "authors": "Colquhoun RJ, Gai CM, Walters J, Brannon AR, Kilpatrick MW, D'Agostino DP, Campbell BI",
+    "year": 2017,
+    "source": "Journal of Strength and Conditioning Research",
+    "summary": "Widely cited RCT addressing flexibility and autonomy as programming features in daily undulating periodization. Compares traditional DUP (prescribed sessions) versus flexible DUP (athlete chooses daily session type within a week). Both improved strength similarly, but flexible DUP had adherence advantages. Influential for introducing autoregulation as a practical programming concept.",
+    "key_points": [
+      "Flexible DUP (athlete chooses session order) produces equivalent strength gains to traditional DUP",
+      "Flexibility in programming may improve adherence without sacrificing outcomes",
+      "Pioneered practical autoregulation concept in periodization research",
+      "95 citations \u2014 widely cited in applied strength and conditioning",
+      "Implication for rehab: allowing patients some session flexibility may improve long-term adherence",
+      "Supports patient-centred approach to rehabilitation load programming",
+      "RCT in trained men \u2014 direct applicability to rehabilitation varies by population"
+    ],
+    "tags": [
+      "periodization",
+      "rct",
+      "stage_2"
+    ],
+    "clinical_question": "Does flexibility in daily undulating periodization (patient-directed session choice) affect strength outcomes or adherence?",
+    "applicability": "Stage 2 Achilles rehabilitation \u2014 supporting patient autonomy in session scheduling within a prescribed weekly volume framework.",
+    "recommended_loading_parameters": {
+      "sets": "3-5",
+      "reps": "6-12",
+      "tempo": "3-1-3",
+      "frequency": "3 times per week",
+      "notes": "Flexible DUP application: prescribe 3 session types per week (e.g., heavy/moderate/light) but allow patient to choose the daily order. Maintains required weekly volume and intensity variety while supporting patient engagement."
+    },
+    "progression_criteria": "Progress overall load targets weekly regardless of session order. Review adherence at each session.",
+    "regression_criteria": "Revert to prescribed session order if patient reports difficulty with self-directed scheduling.",
+    "contraindications": "Patients requiring close clinical supervision should not use fully flexible programming."
+  },
+  {
+    "id": "kb_031",
+    "title": "Autoregulated resistance training for maximal strength enhancement: A systematic review and network meta-analysis",
+    "authors": "Huang Z, Zhu Y, Liu M, Wang X, Yang L",
+    "year": 2025,
+    "source": "Frontiers in Physiology",
+    "summary": "Contemporary systematic review and network meta-analysis capturing autoregulation strategies (APRE, RPE-based, velocity-based) for maximal strength. Indicates potential strength advantages over percentage-based loading, though the evidence base is newer and less citation-mature. Represents the current frontier of precision loading in rehabilitation and performance contexts.",
+    "key_points": [
+      "Autoregulated approaches (APRE, RPE, velocity-based) may produce greater strength gains than percentage-based programming",
+      "RPE-based autoregulation is the most practically accessible method for rehabilitation contexts",
+      "Velocity-based training (VBT) requires equipment but provides real-time load feedback",
+      "Evidence is newer (2025) and less citation-mature than older periodization literature",
+      "Open-access (PMC) \u2014 accessible for clinicians",
+      "Directly applicable to Stage 2 HSR loading: RPE 8/10 target on final rep is a practical autoregulation tool",
+      "APRE (auto-regulatory progressive resistance exercise) self-adjusts load based on rep performance"
+    ],
+    "tags": [
+      "meta_analysis",
+      "periodization",
+      "stage_2",
+      "strength_training"
+    ],
+    "clinical_question": "Do autoregulated resistance training approaches produce superior strength gains compared to percentage-based loading?",
+    "applicability": "Stage 2 Achilles rehabilitation. RPE-based autoregulation (target RPE 8/10) is the recommended practical tool for session-by-session load adjustment.",
+    "recommended_loading_parameters": {
+      "sets": "3-4",
+      "reps": "6-12",
+      "tempo": "3-1-3",
+      "frequency": "3 times per week",
+      "notes": "RPE autoregulation: prescribe target RPE (e.g., RPE 8 = 2 reps in reserve). Adjust load each session based on daily readiness. If RPE <8 at prescribed load, increase next set. If RPE >8, decrease. This is more responsive than fixed % programming."
+    },
+    "progression_criteria": "Progress target RPE from 7 to 8 to 9 across phases as capacity and tolerance improve.",
+    "regression_criteria": "Lower target RPE (from 8 to 7) during high-pain periods or after load spikes.",
+    "contraindications": "RPE autoregulation requires patient understanding of perceived exertion \u2014 provide education before implementing."
+  },
+  {
+    "id": "kb_032",
+    "title": "Gaining more from doing less? The effects of a one-week deload period during supervised resistance training on muscular adaptations",
+    "authors": "Coleman M, Blazevich AJ, Androulakis-Korakakis P, Wolf M, Androulakis-Korakakis P, Schoenfeld BJ",
+    "year": 2024,
+    "source": "PeerJ",
+    "summary": "Controlled training study providing rare direct evidence on the effects of a planned deload week during resistance training. Finds that midpoint deloading may blunt strength gains without affecting hypertrophy, challenging the universal recommendation for planned deload weeks. Highly practical for fatigue management and long-term programme design.",
+    "key_points": [
+      "Midpoint deload may blunt strength gains without affecting hypertrophy outcomes",
+      "Challenges the universal recommendation for planned deload weeks in all programmes",
+      "Deloading may be more beneficial when fatigue is evident than as a routine scheduled strategy",
+      "17 citations \u2014 newer but directly clinically relevant controlled evidence",
+      "Supports symptom-guided (reactive) deloading over prophylactic scheduled deloading",
+      "Relevant for Achilles rehabilitation: reduce load when next-day pain increases, not on a fixed schedule",
+      "Open-access (PeerJ)"
+    ],
+    "tags": [
+      "load_management",
+      "periodization",
+      "stage_2",
+      "strength_training"
+    ],
+    "clinical_question": "Should deload weeks be routinely planned in resistance training programmes, and what is the effect on strength and hypertrophy?",
+    "applicability": "Stage 2 Achilles rehabilitation load management. Supports reactive deloading (based on pain/fatigue signals) over rigid scheduled deloads.",
+    "recommended_loading_parameters": {
+      "sets": null,
+      "reps": null,
+      "tempo": null,
+      "frequency": null,
+      "notes": "Deload indicator: next-day pain >3/10, VISA-A decline, or subjective fatigue score \u22657/10. Reactive deload: reduce total weekly volume by 30-40% for 1 week, maintain load intensity. Do not routinely schedule deloads \u2014 use pain and fatigue signals instead."
+    },
+    "progression_criteria": "Return to full volume after 1-week deload when next-day pain returns to baseline.",
+    "regression_criteria": "Extend deload if pain does not return to baseline after 1 week. Reassess irritability classification.",
+    "contraindications": "Deloading should not be used as avoidance behaviour \u2014 confirm that reduced volume is driven by objective fatigue or pain signals."
+  },
+  {
+    "id": "kb_033",
+    "title": "Biomechanical insights into Achilles tendinopathy risk and protection in runners: a large prospective study 4HAIE",
+    "authors": "Jandacka D, Farana R, Uchytil J, Zahradnik D, Hamill J",
+    "year": 2026,
+    "source": "British Journal of Sports Medicine",
+    "summary": "Rare large prospective biomechanics study directly linking measured running mechanics to incident Achilles tendinopathy in runners. Identifies specific biomechanical risk variables and protective factors. Provides the strongest available prospective evidence for biomechanics-informed screening and individualised load management in runners at risk of or recovering from Achilles tendinopathy.",
+    "key_points": [
+      "Specific running biomechanical variables predict incident Achilles tendinopathy in prospective design",
+      "Protective biomechanical factors identified \u2014 inform gait retraining targets",
+      "Rare prospective design with biomechanics measurement \u2014 highest evidence for running mechanics and AT risk",
+      "Open-access (CC BY) \u2014 freely available for clinicians",
+      "Only 1 citation (2026 publication) \u2014 very recent, rapidly emerging evidence",
+      "Directly informs screening and gait assessment criteria for running rehabilitation",
+      "Supports biomechanics-informed load management in return-to-running protocols"
+    ],
+    "tags": [
+      "biomechanics",
+      "prevention",
+      "rct",
+      "return_to_sport",
+      "risk_factors",
+      "running",
+      "stage_3"
+    ],
+    "clinical_question": "What running biomechanical variables predict Achilles tendinopathy onset, and which are protective?",
+    "applicability": "Return-to-running Stage 3 rehabilitation and injury prevention screening. Informs gait assessment and retraining targets for runners with Achilles tendinopathy.",
+    "recommended_loading_parameters": {
+      "sets": null,
+      "reps": null,
+      "tempo": null,
+      "frequency": null,
+      "notes": "Biomechanics assessment paper \u2014 not a direct loading protocol. Apply findings to gait retraining: assess and address identified risk variables (e.g., foot strike pattern, ankle stiffness, loading rate) before return to running. Retraining should be gradual and paired with progressive running volume."
+    },
+    "progression_criteria": "Return to running when Stage 2 loading capacity is established, pain \u22642/10 at fast walking, and gait risk variables have been addressed.",
+    "regression_criteria": "Reduce running volume and reassess gait mechanics if AT symptoms recur during running reintroduction.",
+    "contraindications": "Return to running contraindicated until Stage 2 loading (HSR 4x6-8) is well tolerated and VISA-A \u226570."
+  },
+  {
+    "id": "kb_034",
+    "title": "Foot and ankle biomechanics during walking in older adults: A systematic review and meta-analysis of observational studies",
+    "authors": "Pol F, Lejeune C, Leteneur S, Simoneau-Buessinger E",
+    "year": 2021,
+    "source": "Gait & Posture",
+    "summary": "Systematic review and meta-analysis identifying consistent age-related deficits in ankle plantarflexion power and range of motion during walking in older adults. Demonstrates reduced ankle propulsion mechanics as a key biomechanical consequence of ageing \u2014 directly relevant to strengthening targets, gait intervention priorities, and fall risk management in older patients with Achilles tendinopathy.",
+    "key_points": [
+      "Older adults show consistent reductions in ankle plantarflexion power and ROM during walking",
+      "Reduced ankle propulsion is a key biomechanical deficit associated with ageing",
+      "Directly informs strengthening targets: calf muscle strength and power are priority outcomes in older patients",
+      "Relevant to fall risk management and walking economy in ageing populations",
+      "36 citations \u2014 high-value synthesis for ageing-related foot/ankle mechanics",
+      "Supports age-specific modification of Stage 2 loading targets (power development as well as strength)",
+      "Older patients with Achilles tendinopathy may have compounded deficits \u2014 require staged loading approach"
+    ],
+    "tags": [
+      "biomechanics",
+      "meta_analysis",
+      "older_adults",
+      "stage_2",
+      "strength_training"
+    ],
+    "clinical_question": "How does ageing affect ankle plantarflexion biomechanics during walking, and what are the rehabilitation implications?",
+    "applicability": "Stage 2 Achilles rehabilitation in older patients (>60 years). Informs strengthening priorities (plantarflexion power and range) and walking gait retraining targets.",
+    "recommended_loading_parameters": {
+      "sets": 3,
+      "reps": "12-15",
+      "tempo": "2-0-4 (eccentric emphasis for power development)",
+      "frequency": "3 times per week",
+      "notes": "For older adults: add plantarflexion power exercises (explosive concentric phase) alongside slow eccentric loading. Include seated calf raises for isolated soleus work. Address walking economy with progressive walking challenge."
+    },
+    "progression_criteria": "Progress to single-leg standing calf raises and power-focused raises when double-leg is pain-free. Target self-selected walking speed improvement as a functional outcome.",
+    "regression_criteria": "Reduce to seated calf raises or supported bilateral if pain or balance limits standing exercises.",
+    "contraindications": "Balance-limiting conditions (severe peripheral neuropathy, vestibular disorders) \u2014 modify to supported exercises."
+  },
+  {
+    "id": "kb_035",
+    "title": "The influence of population characteristics and measurement system on barefoot plantar pressures: A systematic review and meta-regression analysis",
+    "authors": "Telfer S, Bigham JJ",
+    "year": 2019,
+    "source": "Gait & Posture",
+    "summary": "Systematic review and meta-regression quantifying how plantar pressure values are systematically affected by both measurement system choice and participant characteristics (age, sex, BMI). Establishes that barefoot plantar pressure values cannot be naively compared across studies using different equipment or populations. Critical methodological reference for interpreting foot-loading data in clinical and research contexts.",
+    "key_points": [
+      "Measurement system choice materially affects plantar pressure values \u2014 systems are not interchangeable",
+      "Participant characteristics (age, sex, BMI, foot size) systematically influence plantar pressure",
+      "Meta-regression approach quantifies the magnitude of these systematic biases",
+      "42 citations \u2014 methodologically seminal for plantar pressure literature",
+      "Clinical implication: serial plantar pressure measurements should use the same system for valid comparison",
+      "Warns against cross-study comparisons of foot-loading data without accounting for measurement factors",
+      "Relevant for Achilles rehabilitation monitoring: consistent measurement protocols are essential"
+    ],
+    "tags": [
+      "assessment",
+      "biomechanics"
+    ],
+    "clinical_question": "How do measurement system choice and patient characteristics affect plantar pressure values, and what are the implications for clinical interpretation?",
+    "applicability": "Clinical assessment and monitoring across all stages. Use the same measurement system for serial assessments. Avoid comparing plantar pressure data collected with different instruments.",
+    "recommended_loading_parameters": {
+      "sets": null,
+      "reps": null,
+      "tempo": null,
+      "frequency": null,
+      "notes": "Methodological reference \u2014 not a loading protocol. Standardise plantar pressure measurement protocol: same system, same conditions, same footwear status (barefoot), same time of day where possible."
+    },
+    "progression_criteria": "N/A \u2014 methodological framework.",
+    "regression_criteria": "N/A \u2014 methodological framework.",
+    "contraindications": "N/A \u2014 systematic review."
+  },
+  {
+    "id": "kb_036",
+    "title": "Exercise Effects on the Biomechanical Properties of the Achilles Tendon: A Systematic Review",
+    "authors": "Yu C, Mei Z, Hua C, Xu Z",
+    "year": 2022,
+    "source": "Frontiers in Physiology",
+    "summary": "Systematic review bridging exercise intervention and Achilles tendon biomechanical adaptation. Demonstrates that loading protocols drive measurable structural and mechanical changes in the Achilles tendon including increased stiffness, cross-sectional area, and improved energy storage and release capacity. Provides the mechanistic evidence for why loading is not only safe but structurally restorative in tendinopathy rehabilitation.",
+    "key_points": [
+      "Exercise loading drives measurable Achilles tendon biomechanical adaptations: increased stiffness, CSA, and energy storage",
+      "Tendon mechanical properties improve with both eccentric and heavy slow resistance loading",
+      "Structural tendon adaptation occurs over 8-12+ weeks of consistent loading",
+      "Open-access (PMC) \u2014 widely accessible",
+      "Provides mechanistic rationale for loading-based rehabilitation: not just symptom management but structural restoration",
+      "27 citations \u2014 growing evidence base for tendon biomechanical adaptation",
+      "Directly supports Stage 2 loading rationale: drive tissue-level tendon adaptation through progressive load"
+    ],
+    "tags": [
+      "achilles_tendinopathy",
+      "biomechanics",
+      "load_management",
+      "pathophysiology",
+      "stage_2"
+    ],
+    "clinical_question": "Does exercise loading produce measurable biomechanical adaptations in the Achilles tendon, and what are the implications for rehabilitation?",
+    "applicability": "Stage 2 Achilles rehabilitation. Provides structural rationale for progressive loading: tendon stiffness and CSA increase with consistent loading over 8-12 weeks.",
+    "recommended_loading_parameters": {
+      "sets": null,
+      "reps": null,
+      "tempo": null,
+      "frequency": null,
+      "notes": "Mechanistic synthesis \u2014 not a loading protocol. Structural tendon adaptation requires minimum 8-12 weeks of consistent progressive loading. Slower tempo (eccentric or 3-1-3 HSR) may produce superior tendon mechanical adaptation vs fast loading."
+    },
+    "progression_criteria": "Structural adaptation occurs over 8-12 weeks \u2014 use clinical outcomes (VISA-A, pain during activity) as proxies. Tendon structural changes support progressive load increase.",
+    "regression_criteria": "N/A \u2014 mechanistic framework. If loading produces pain escalation, reduce dose before structural adaptation is compromised.",
+    "contraindications": "N/A \u2014 systematic review."
+  },
+  {
+    "id": "kb_037",
+    "title": "Tendon loading in runners with Achilles tendinopathy",
+    "authors": "Corrigan P, Cortes DH, Silbernagel KG",
+    "year": 2022,
+    "source": "Journal of Biomechanics",
+    "summary": "Observational biomechanics study providing load-estimation data during running in symptomatic patients with Achilles tendinopathy. Quantifies how Achilles tendon loading differs in symptomatic versus asymptomatic runners, informing return-to-sport decision frameworks and hypothesis generation about load tolerance thresholds during running rehabilitation.",
+    "key_points": [
+      "Symptomatic runners show modified loading patterns compared to asymptomatic controls",
+      "Tendon load estimation during running provides hypothesis-generating data for return-to-sport thresholds",
+      "Open-access (PMC) \u2014 widely accessible",
+      "32 citations \u2014 establishing evidence base for running-specific tendon load estimation",
+      "Supports gradual running reintroduction with monitored load progression in return-to-sport",
+      "Informs running pace and distance targets during return-to-running protocols",
+      "Level 3 evidence \u2014 observational design; useful for generating hypotheses but not definitive"
+    ],
+    "tags": [
+      "achilles_tendinopathy",
+      "biomechanics",
+      "load_management",
+      "return_to_sport",
+      "running",
+      "stage_3"
+    ],
+    "clinical_question": "How does Achilles tendon loading during running differ in symptomatic versus asymptomatic individuals?",
+    "applicability": "Stage 3 return-to-running rehabilitation. Informs gradual running reintroduction pace and distance targets based on tendon load estimation.",
+    "recommended_loading_parameters": {
+      "sets": null,
+      "reps": null,
+      "tempo": null,
+      "frequency": null,
+      "notes": "Observational biomechanics study \u2014 not a loading protocol. Return-to-running: begin at conversational pace (reducing tendon load rate), short distances (5-10 min), flat terrain. Progress distance before speed. Monitor VISA-A and next-day pain throughout."
+    },
+    "progression_criteria": "Progress running distance by 10% per week when pain \u22642/10 during and next day after running. Add speed only after distance goals are met.",
+    "regression_criteria": "Reduce running volume by 30-40% if pain during running exceeds 3/10 or next-day pain exceeds baseline.",
+    "contraindications": "Return to running contraindicated with pain >4/10 at comfortable walking pace or VISA-A <70."
+  },
+  {
+    "id": "kb_038",
+    "title": "Medical imaging for plantar heel pain: a systematic review and meta-analysis",
+    "authors": "Drake C, Whittaker GA, Kaminski MR, Chen J, Keenan AM, Rathleff MS, Menz HB",
+    "year": 2022,
+    "source": "Journal of Foot and Ankle Research",
+    "summary": "Systematic review and meta-analysis identifying imaging features associated with plantar heel pain. Demonstrates that structural findings (plantar fascia thickening, heel spur presence) are significantly more common in symptomatic individuals, informing differential diagnosis. However, emphasises that imaging findings must be interpreted alongside clinical presentation, as structural abnormalities occur in asymptomatic individuals.",
+    "key_points": [
+      "Plantar fascia thickening (>4mm) is significantly more prevalent in symptomatic heel pain patients",
+      "Heel spur presence is more common in symptomatic vs asymptomatic individuals but has low specificity",
+      "Imaging findings support differential diagnosis but cannot be used in isolation",
+      "Open-access (PDF via institutional repository)",
+      "61 citations \u2014 high-citation synthesis for plantar heel pain imaging",
+      "Ultrasound is useful for confirming plantar fasciitis and guiding injection if indicated",
+      "MRI provides superior detail for partial tears and post-operative assessment"
+    ],
+    "tags": [
+      "assessment",
+      "biomechanics",
+      "diagnosis",
+      "imaging",
+      "meta_analysis"
+    ],
+    "clinical_question": "What imaging findings are associated with plantar heel pain, and how should imaging be used in diagnosis?",
+    "applicability": "Differential diagnosis for foot/ankle pain presentations. Relevant when ruling out plantar fasciitis versus Achilles insertional pathology in patients presenting with heel pain.",
+    "recommended_loading_parameters": {
+      "sets": null,
+      "reps": null,
+      "tempo": null,
+      "frequency": null,
+      "notes": "Diagnostic reference \u2014 not a loading protocol. Imaging threshold: ultrasound plantar fascia thickness >4mm supports plantar fasciitis diagnosis. Use imaging to inform differential diagnosis, not to guide loading prescription directly."
+    },
+    "progression_criteria": "N/A \u2014 diagnostic framework.",
+    "regression_criteria": "N/A \u2014 diagnostic framework.",
+    "contraindications": "Avoid relying on imaging alone for treatment decisions \u2014 clinical correlation is mandatory."
+  },
+  {
+    "id": "kb_039",
+    "title": "MRI of the Achilles tendon \u2014 A comprehensive pictorial review",
+    "authors": "Szaro P, Nilsson-Helander K, Carmont MR",
+    "year": 2021,
+    "source": "European Journal of Radiology Open",
+    "summary": "Clinically pragmatic, anatomy-rich MRI pictorial review standardising interpretation of Achilles tendon imaging across pathology stages and post-operative states. Demonstrates modality-specific strengths of MRI for partial tears and postoperative assessment. Serves as a practical imaging reference for clinicians interpreting Achilles tendon MRI findings in rehabilitation contexts.",
+    "key_points": [
+      "Comprehensive MRI reference for Achilles tendon \u2014 pathology, variants, and post-operative appearances",
+      "MRI particularly valuable for partial tears and postoperative assessment where ultrasound has limitations",
+      "Standardises imaging interpretation nomenclature for clinical communication",
+      "Open-access (PMC) \u2014 widely accessible for clinicians",
+      "32 citations \u2014 practical imaging reference for Achilles tendon pathology",
+      "Key MRI findings: intratendinous signal change, tendon thickening, partial vs complete tear, retrocalcaneal bursitis",
+      "Anatomy-forward approach supports accurate differential diagnosis in complex presentations"
+    ],
+    "tags": [
+      "achilles_tendinopathy",
+      "anatomy",
+      "assessment",
+      "diagnosis",
+      "imaging"
+    ],
+    "clinical_question": "How should MRI findings of the Achilles tendon be interpreted for diagnosis, staging, and post-operative assessment?",
+    "applicability": "Diagnostic and staging reference across all Achilles tendinopathy presentations. Particularly useful for complex cases, suspected partial tears, and post-surgical monitoring.",
+    "recommended_loading_parameters": {
+      "sets": null,
+      "reps": null,
+      "tempo": null,
+      "frequency": null,
+      "notes": "Imaging reference \u2014 not a loading protocol. MRI indications: suspected partial tear, post-operative assessment, failed conservative management >3 months, atypical presentation. Ultrasound preferred for initial assessment and serial monitoring due to cost and accessibility."
+    },
+    "progression_criteria": "N/A \u2014 imaging reference.",
+    "regression_criteria": "N/A \u2014 imaging reference.",
+    "contraindications": "MRI contraindicated with incompatible implants, pacemakers. Ultrasound as alternative."
+  },
+  {
+    "id": "kb_040",
+    "title": "Advanced Ankle and Foot Sonoanatomy: Imaging Beyond the Basics",
+    "authors": "Hung CY, Hsiao MY, Chang KV, Wu CH, Wang TG",
+    "year": 2020,
+    "source": "Diagnostics (MDPI)",
+    "summary": "High-yield synthesis of advanced sonographic anatomy and ultrasound scanning approaches for the ankle and foot beyond standard introductory content. Particularly valuable for clinicians using ultrasound-guided diagnosis in complex ankle and foot presentations. Covers advanced anatomy identification, scanning windows, and pathology-specific sonographic appearances.",
+    "key_points": [
+      "Advanced ultrasound anatomy reference for ankle and foot beyond basic scanning",
+      "Covers complex structures: retrocalcaneal bursa, Achilles insertion, peroneal tendons, plantar fascia",
+      "Open-access (MDPI) \u2014 freely accessible for clinicians",
+      "27 citations \u2014 practical sonoanatomy reference for advanced ultrasound users",
+      "Scanning techniques: probe positioning, anisotropy avoidance, dynamic assessment",
+      "Supports accurate Achilles tendon thickness measurement and intratendinous pathology identification",
+      "Informs diagnostic ultrasound use in clinical tendinopathy assessment"
+    ],
+    "tags": [
+      "achilles_tendinopathy",
+      "anatomy",
+      "assessment",
+      "biomechanics",
+      "diagnosis",
+      "imaging"
+    ],
+    "clinical_question": "How should advanced ultrasound scanning techniques be applied to assess ankle and foot anatomy and pathology?",
+    "applicability": "Diagnostic assessment across all stages. Reference for clinicians using ultrasound to assess Achilles tendon thickness, intratendinous pathology, and adjacent structures.",
+    "recommended_loading_parameters": {
+      "sets": null,
+      "reps": null,
+      "tempo": null,
+      "frequency": null,
+      "notes": "Imaging reference \u2014 not a loading protocol. Normal Achilles tendon ultrasound: <6mm thickness at 2\u20136 cm proximal to calcaneal insertion, homogeneous fibrillar echotexture. Hypoechoic intratendinous areas suggest pathology."
+    },
+    "progression_criteria": "N/A \u2014 imaging reference.",
+    "regression_criteria": "N/A \u2014 imaging reference.",
+    "contraindications": "N/A \u2014 imaging reference."
+  },
+  {
+    "id": "kb_041",
+    "title": "The Specific Anatomical Morphology of Lateral Ankle Ligament",
+    "authors": "Inchai C, Kummaung W, Kerdsomnuek M, Wongsiri S, Boonthathip M",
+    "year": 2023,
+    "source": "Archives of Bone and Joint Surgery",
+    "summary": "Cadaveric anatomic quantification study providing detailed morphometric data on the major lateral ankle ligaments (ATFL, CFL, PTFL). Quantifies attachment area dimensions and morphological variants to support more anatomically precise interpretation of instability, ligament reconstruction, and biomechanical modelling.",
+    "key_points": [
+      "Quantitative attachment area data for ATFL, CFL, and PTFL from cadaveric specimens",
+      "Morphological variants identified \u2014 clinically relevant for ligament reconstruction planning",
+      "Open-access (PMC) \u2014 widely accessible",
+      "13 citations \u2014 anatomically precise reference for lateral ankle ligament morphology",
+      "Informs interpretation of lateral ankle instability and imaging findings",
+      "Supports biomechanical models of lateral ankle complex loading",
+      "Useful for differential diagnosis in patients presenting with concurrent lateral ankle instability and Achilles tendinopathy"
+    ],
+    "tags": [
+      "anatomy",
+      "biomechanics",
+      "diagnosis"
+    ],
+    "clinical_question": "What is the morphometric anatomy of the lateral ankle ligaments, and how does this inform instability assessment and reconstruction?",
+    "applicability": "Differential diagnosis and concurrent injury assessment. Relevant when patients present with Achilles tendinopathy combined with lateral ankle instability symptoms.",
+    "recommended_loading_parameters": {
+      "sets": null,
+      "reps": null,
+      "tempo": null,
+      "frequency": null,
+      "notes": "Anatomical reference \u2014 not a loading protocol. If concurrent lateral ankle instability is suspected, add proprioceptive and ankle stability exercises alongside Achilles loading protocol."
+    },
+    "progression_criteria": "N/A \u2014 anatomical reference.",
+    "regression_criteria": "N/A \u2014 anatomical reference.",
+    "contraindications": "N/A \u2014 anatomical reference."
+  },
+  {
+    "id": "kb_042",
+    "title": "The double fascicular variations of the anterior talofibular ligament",
+    "authors": "Szaro P, Geijer M, Solidakis N",
+    "year": 2020,
+    "source": "Scientific Reports",
+    "summary": "Imaging-based anatomic variation study defining clinically relevant fascicular variants of the anterior talofibular ligament (ATFL) and their interconnections with adjacent structures. Supports improved interpretation of lateral ankle instability imaging and informs anatomically precise reconstructive surgical planning. Relevant for understanding common anatomical variants encountered in clinical practice.",
+    "key_points": [
+      "ATFL commonly exists as double-fascicular variant \u2014 a normal anatomical finding, not pathology",
+      "Fascicular variants and interconnections affect interpretation of instability imaging",
+      "Open-access (Scientific Reports)",
+      "29 citations \u2014 defines an important normal anatomical variant",
+      "Clinicians should not misinterpret double ATFL fascicles as pathological splitting or tear",
+      "Relevant for MRI and ultrasound interpretation in lateral ankle assessment",
+      "Supports more accurate differential diagnosis between normal variants and ligament injury"
+    ],
+    "tags": [
+      "anatomy",
+      "biomechanics",
+      "diagnosis",
+      "imaging"
+    ],
+    "clinical_question": "What are the morphological variants of the ATFL, and how should they be interpreted on imaging?",
+    "applicability": "Imaging interpretation reference for ankle pathology assessment. Prevents misidentification of normal ATFL fascicular variants as pathological findings.",
+    "recommended_loading_parameters": {
+      "sets": null,
+      "reps": null,
+      "tempo": null,
+      "frequency": null,
+      "notes": "Anatomical reference \u2014 not a loading protocol. Double ATFL fascicles are a normal variant. Do not treat as pathological without supporting clinical instability findings."
+    },
+    "progression_criteria": "N/A \u2014 anatomical reference.",
+    "regression_criteria": "N/A \u2014 anatomical reference.",
+    "contraindications": "N/A \u2014 anatomical reference."
+  },
+  {
+    "id": "kb_043",
+    "title": "Osteoarthritis: toward a comprehensive understanding of pathological mechanism",
+    "authors": "Chen D, Shen J, Zhao W, Wang T, Han L, Hamilton JL, Im HJ",
+    "year": 2017,
+    "source": "Bone Research",
+    "summary": "Exceptionally high-citation (1457 citations) field-shaping synthesis reframing osteoarthritis as a whole-joint, inflammatory-mechanical systems disease rather than isolated cartilage wear. Covers cartilage, subchondral bone, synovium, and inflammatory signalling networks as interacting contributors to OA pathogenesis. Foundational for understanding the systemic dimension of musculoskeletal pathology relevant to Achilles tendinopathy.",
+    "key_points": [
+      "OA is a whole-joint disease \u2014 cartilage, subchondral bone, synovium, and inflammation all contribute",
+      "1457 citations \u2014 exceptionally high-citation field-shaping synthesis",
+      "Inflammatory signalling (cytokines, MMPs) drives cartilage degradation alongside mechanical factors",
+      "Challenges isolated cartilage-wear model \u2014 systemic and inflammatory factors must be addressed",
+      "Relevant to tendinopathy: shared inflammatory and mechanical loading pathways",
+      "Subchondral bone remodelling contributes to OA progression \u2014 relevant to calcaneal insertional pathology",
+      "Underpins rationale for anti-inflammatory adjuncts and load management in musculoskeletal conditions"
+    ],
+    "tags": [
+      "inflammation",
+      "osteoarthritis",
+      "pathophysiology"
+    ],
+    "clinical_question": "What are the pathological mechanisms of osteoarthritis, and what are the implications for rehabilitation and load management?",
+    "applicability": "Background pathophysiological context for all musculoskeletal rehabilitation. Particularly relevant for patients with concurrent OA and Achilles tendinopathy \u2014 inflammation management is a shared priority.",
+    "recommended_loading_parameters": {
+      "sets": null,
+      "reps": null,
+      "tempo": null,
+      "frequency": null,
+      "notes": "Mechanistic review \u2014 not a loading protocol. OA co-management principles: maintain joint loading to prevent cartilage atrophy while respecting pain thresholds. Progressive loading is beneficial for joint health even in OA."
+    },
+    "progression_criteria": "N/A \u2014 pathophysiology framework.",
+    "regression_criteria": "N/A \u2014 pathophysiology framework.",
+    "contraindications": "N/A \u2014 systematic review."
+  },
+  {
+    "id": "kb_044",
+    "title": "Health Outcomes of Sarcopenia: A Systematic Review and Meta-Analysis",
+    "authors": "Beaudart C, Zaaria M, Pasleau F, Reginster JY, Bruyere O",
+    "year": 2017,
+    "source": "PLOS ONE",
+    "summary": "Seminal systematic review and meta-analysis (1526 citations) establishing sarcopenia as a clinically meaningful predictor of hard outcomes including mortality, disability, institutionalisation, and falls. Transforms sarcopenia from a descriptive phenotype to an actionable risk stratifier with direct implications for rehabilitation intensity and resistance training priorities in older patients.",
+    "key_points": [
+      "Sarcopenia is significantly associated with mortality, disability, institutionalisation, and falls",
+      "1526 citations \u2014 seminal evidence linking muscle mass to hard clinical outcomes",
+      "Open-access (PMC and PLOS ONE)",
+      "Supports resistance training as a primary intervention for sarcopenia prevention and reversal",
+      "Older Achilles tendinopathy patients with sarcopenia require additional muscle-building focus in Stage 2",
+      "Functional outcomes (grip strength, gait speed) are useful sarcopenia screening tools in clinical practice",
+      "Informs prioritisation of heavy resistance training in older patients over lighter symptomatic approaches"
+    ],
+    "tags": [
+      "meta_analysis",
+      "older_adults",
+      "pathophysiology",
+      "sarcopenia",
+      "stage_2",
+      "strength_training"
+    ],
+    "clinical_question": "What are the health consequences of sarcopenia, and how does this inform rehabilitation priorities in older patients?",
+    "applicability": "Stage 2 Achilles rehabilitation in older adults. Identifies sarcopenia as a risk modifier requiring additional focus on resistance training volume and progressive loading intensity.",
+    "recommended_loading_parameters": {
+      "sets": 3,
+      "reps": "10-12",
+      "tempo": "2-0-3",
+      "frequency": "3 times per week",
+      "notes": "For older patients with suspected sarcopenia: prioritise progressive resistance loading (HSR calf raises + broader lower limb strengthening). Gait speed <0.8 m/s or grip strength below age/sex norms warrants sarcopenia screening referral. Combine resistance training with adequate protein intake (\u22651.2g/kg/day)."
+    },
+    "progression_criteria": "Progress load when full reps completed with RPE \u22647. Functional outcomes: improved gait speed, chair stand test, and stair climbing are primary progress markers.",
+    "regression_criteria": "Reduce load if fatigue accumulates or joint pain limits full range. Never stop loading entirely \u2014 maintain minimum 2x/week.",
+    "contraindications": "Severe frailty requires supervised individual programme. Avoid high-impact loading until basic strength foundation established."
+  },
+  {
+    "id": "kb_045",
+    "title": "Osteoarthritis: New Insight on Its Pathophysiology",
+    "authors": "Coaccioli S, Sarzi-Puttini P, Zis P, Rinonapoli G, Varrassi G",
+    "year": 2022,
+    "source": "Journal of Clinical Medicine",
+    "summary": "Highly cited update (287 citations) on OA pathophysiology emphasising inflammatory, biochemical, and central sensitisation pathways beyond the traditional mechanical wear model. Provides a contemporary mechanistic framework relevant to pain management and rehabilitation in patients with musculoskeletal pain sensitisation, applicable to tendinopathy patients with central sensitisation features.",
+    "key_points": [
+      "OA pathophysiology involves inflammatory cytokines, oxidative stress, and central sensitisation",
+      "Central sensitisation is increasingly recognised in OA \u2014 relevant to persistent tendinopathy pain",
+      "287 citations \u2014 highly cited contemporary OA pathophysiology update",
+      "Open-access (PMC) \u2014 widely accessible",
+      "Pain sensitisation framework informs multi-modal pain management in tendinopathy rehabilitation",
+      "Biochemical inflammation pathways support selective use of anti-inflammatory adjuncts",
+      "Relevant when Achilles tendinopathy pain is disproportionate to structural findings"
+    ],
+    "tags": [
+      "inflammation",
+      "osteoarthritis",
+      "pain_management",
+      "pathophysiology"
+    ],
+    "clinical_question": "What contemporary pathophysiological mechanisms drive OA pain beyond mechanical wear, and how do these inform clinical management?",
+    "applicability": "Pain assessment and management in complex Achilles tendinopathy presentations with central sensitisation features. Informs multi-modal approach when pain is disproportionate to load.",
+    "recommended_loading_parameters": {
+      "sets": null,
+      "reps": null,
+      "tempo": null,
+      "frequency": null,
+      "notes": "Pathophysiology reference \u2014 not a loading protocol. For patients with central sensitisation features: combine progressive loading with pain education, sleep, stress management, and consider referral for broader pain management. Do not reduce loading as primary response to sensitisation \u2014 maintain stimulus while managing sensitisation separately."
+    },
+    "progression_criteria": "N/A \u2014 pathophysiology framework.",
+    "regression_criteria": "N/A \u2014 pathophysiology framework.",
+    "contraindications": "N/A \u2014 review paper."
+  },
+  {
+    "id": "kb_046",
+    "title": "Tendinopathy: Pathophysiology, Therapeutic Options, and Role of Nutraceuticals",
+    "authors": "Loiacono C, Palermi S, Massa B, Belviso I, Romano V, Di Gregorio A, Sirico F, Sacco AM",
+    "year": 2019,
+    "source": "Journal of Human Kinetics",
+    "summary": "Frequently cited synthesis (157 citations) of tendinopathy mechanisms covering the inflammation versus degeneration debate, therapeutic loading rationale, and nutraceutical evidence. Provides a comprehensive mechanistic framework for tendinopathy pathophysiology that directly underpins the loading-based rehabilitation rationale used throughout TenoTrainer.",
+    "key_points": [
+      "Tendinopathy pathophysiology spans reactive, disrepair, and degenerative stages with distinct inflammatory profiles",
+      "Inflammation vs degeneration framing: reactive stages have inflammatory features; chronic stages are degenerative",
+      "Progressive loading drives ECM remodelling, collagen synthesis, and tendon structural restoration",
+      "Nutraceuticals (collagen hydrolysate, vitamin C) have emerging evidence as loading adjuncts \u2014 not replacements",
+      "157 citations \u2014 widely referenced tendinopathy mechanisms review",
+      "Open-access (PMC) \u2014 widely accessible for clinicians",
+      "Directly underpins the load-based rehabilitation rationale: loading is the primary treatment stimulus"
+    ],
+    "tags": [
+      "achilles_tendinopathy",
+      "inflammation",
+      "load_management",
+      "pathophysiology",
+      "stage_1",
+      "stage_2"
+    ],
+    "clinical_question": "What are the pathophysiological mechanisms of tendinopathy, and how do these mechanisms justify loading-based rehabilitation?",
+    "applicability": "Foundational mechanistic context for all stages of Achilles tendinopathy rehabilitation. Informs patient education on why loading is restorative rather than harmful.",
+    "recommended_loading_parameters": {
+      "sets": null,
+      "reps": null,
+      "tempo": null,
+      "frequency": null,
+      "notes": "Mechanistic review \u2014 not a loading protocol. Nutraceutical adjuncts with emerging evidence: collagen hydrolysate (15g/day + vitamin C, 60 min pre-exercise). These are adjuncts to loading, not substitutes. Evidence is insufficient to recommend routinely but no harm signal."
+    },
+    "progression_criteria": "N/A \u2014 mechanistic framework.",
+    "regression_criteria": "N/A \u2014 mechanistic framework.",
+    "contraindications": "N/A \u2014 review paper."
+  },
+  {
+    "id": "kb_047",
+    "title": "Inflammation balance in skeletal muscle damage and repair",
+    "authors": "Tu H, Li YL",
+    "year": 2023,
+    "source": "Frontiers in Immunology",
+    "summary": "High-citation immunology-forward review (206 citations) clarifying the role of inflammatory phases in skeletal muscle injury and repair. Distinguishes pro-inflammatory (debris clearance, satellite cell activation) from anti-inflammatory (remodelling, regeneration) phases, establishing that both are required for optimal repair. Directly relevant to timing and dosing of rehabilitation loading relative to acute muscle or tendon injury.",
+    "key_points": [
+      "Muscle repair requires sequential pro-inflammatory then anti-inflammatory phases \u2014 both are necessary",
+      "Premature suppression of early inflammation (e.g., NSAID overuse) may impair satellite cell activation",
+      "206 citations \u2014 high-citation immunology synthesis relevant to musculoskeletal rehabilitation",
+      "Open-access (Frontiers in Immunology)",
+      "Timing of loading relative to injury phase is critical: too early disrupts inflammatory repair, too late delays remodelling",
+      "Informs caution with NSAIDs in early tendinopathy reactive phase \u2014 may impair tissue repair",
+      "Supports the Stage 1 approach: manage load but do not eliminate it entirely \u2014 some mechanical stimulus supports repair"
+    ],
+    "tags": [
+      "inflammation",
+      "load_management",
+      "pathophysiology",
+      "stage_1",
+      "timing"
+    ],
+    "clinical_question": "How does the inflammatory response regulate skeletal muscle repair, and what are the implications for rehabilitation loading timing?",
+    "applicability": "Stage 1 Achilles rehabilitation and acute tendon injury management. Informs decisions about anti-inflammatory medication timing and the importance of maintaining some mechanical stimulus during repair.",
+    "recommended_loading_parameters": {
+      "sets": null,
+      "reps": null,
+      "tempo": null,
+      "frequency": null,
+      "notes": "Mechanistic review \u2014 not a loading protocol. Clinical implication: avoid prolonged NSAID use in tendinopathy (>2 weeks) as it may impair tissue remodelling. Maintain gentle mechanical loading (isometrics) even in acute phase to support remodelling without overloading reactive tissue."
+    },
+    "progression_criteria": "N/A \u2014 mechanistic framework.",
+    "regression_criteria": "N/A \u2014 mechanistic framework.",
+    "contraindications": "N/A \u2014 review paper."
   }
 ]
