@@ -476,22 +476,6 @@
     </div>
   </form>
 
-  <!-- Difficulty legend -->
-  <div class="flex flex-wrap gap-2 mb-6 items-center">
-    <span class="text-xs text-gray-400 font-semibold uppercase tracking-wide mr-1">Difficulty:</span>
-    {% for lvl, label, colour in [
-      (1, 'Level 1', 'bg-emerald-100 text-emerald-700'),
-      (2, 'Level 2', 'bg-teal-100 text-teal-700'),
-      (3, 'Level 3', 'bg-sky-100 text-sky-700'),
-      (4, 'Level 4', 'bg-blue-100 text-blue-700'),
-      (5, 'Level 5', 'bg-violet-100 text-violet-700'),
-      (6, 'Level 6', 'bg-purple-100 text-purple-700'),
-      (7, 'Level 7', 'bg-orange-100 text-orange-700'),
-      (8, 'Level 8', 'bg-red-100 text-red-700')
-    ] %}
-    <span class="px-2.5 py-0.5 rounded-full text-xs font-bold {{ colour }}">{{ label }}</span>
-    {% endfor %}
-  </div>
 
   <!-- No results -->
   {% set total_filtered = exercises | length %}

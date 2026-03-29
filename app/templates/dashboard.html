@@ -578,10 +578,17 @@ function snapArrow(prev, curr) {
 }
 
 function snapHTML(rows) {
-  // rows: [{label, arr, unit, higherIsBetter}]
-  return rows.map(({ label, arr, unit, higherIsBetter = true }) => {
+  // rows: [{label, arr, unit, higherIsBetter, showWhenEmpty}]
+  return rows.map(({ label, arr, unit, higherIsBetter = true, showWhenEmpty = false }) => {
     const { current, previous } = snapVal(arr);
-    if (!current) return '';
+    if (!current) {
+      if (!showWhenEmpty) return '';
+      return `
+        <div class="flex items-center justify-between bg-gray-50 rounded px-3 py-1.5 border border-dashed border-gray-200">
+          <span class="text-xs text-gray-500 w-28 shrink-0">${label}</span>
+          <span class="text-xs text-gray-300 italic">No data — enter during re-assessment</span>
+        </div>`;
+    }
     const curr = current.v;
     const prev = previous ? previous.v : null;
     const date = fc.labels[current.i];
@@ -630,12 +637,12 @@ setSnap('snapWblt', [
 setSnap('snapHopDist', [
   { label: 'Double-leg',           arr: fc.hop_distance.double,      unit: ' in' },
   { label: 'Single-leg (affect.)', arr: fc.hop_distance.single,      unit: ' in' },
-  { label: 'Single-leg (unaff.)',  arr: fc.hop_distance.unaffected,  unit: ' in' },
+  { label: 'Single-leg (unaff.)',  arr: fc.hop_distance.unaffected,  unit: ' in', showWhenEmpty: true },
 ]);
 setSnap('snapHopEnd', [
   { label: 'Double-leg',           arr: fc.hop_endurance.double,     unit: ' reps' },
   { label: 'Single-leg (affect.)', arr: fc.hop_endurance.single,     unit: ' reps' },
-  { label: 'Single-leg (unaff.)',  arr: fc.hop_endurance.unaffected, unit: ' reps' },
+  { label: 'Single-leg (unaff.)',  arr: fc.hop_endurance.unaffected, unit: ' reps', showWhenEmpty: true },
 ]);
 setSnap('snapLsiCr',   [{ label: 'LSI', arr: fc.calf_raise.lsi,   unit: '%', higherIsBetter: true }]);
 setSnap('snapLsiWblt', [{ label: 'LSI', arr: fc.wblt.lsi,         unit: '%', higherIsBetter: true }]);

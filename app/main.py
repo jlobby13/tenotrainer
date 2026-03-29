@@ -395,14 +395,47 @@ async def onboarding_get(
     request: Request,
     response: Response,
     teno_session: Optional[str] = Cookie(default=None),
+    confirm: Optional[str] = None,
 ):
     user = await get_authenticated_user(teno_session)
     if not user:
         return RedirectResponse("/login", status_code=302)
+
+    last_assessment_date = None
+    days_since_assessment = None
+
+    db = await get_db()
+    try:
+        cursor = await db.execute(
+            "SELECT created_at FROM onboarding_assessments WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
+            (user["id"],),
+        )
+        row = await cursor.fetchone()
+        if row:
+            row = row_to_dict(row)
+            last_assessment_date = row["created_at"][:10]
+            try:
+                delta = datetime.utcnow() - datetime.fromisoformat(row["created_at"][:19])
+                days_since_assessment = delta.days
+            except Exception:
+                days_since_assessment = None
+    finally:
+        await db.close()
+
+    show_confirm = last_assessment_date is not None and confirm != "1"
+    is_reassessment = last_assessment_date is not None
+    today_date = datetime.utcnow().strftime("%Y-%m-%d")
+
     return templates.TemplateResponse(
         request, "onboarding.html",
         context={
-            "user": user
+            "user": user,
+            "last_assessment_date": last_assessment_date,
+            "days_since_assessment": days_since_assessment,
+            "show_confirm": show_confirm,
+            "is_reassessment": is_reassessment,
+            "today_date": today_date,
+            "questions": get_questions(),
         },
     )
 
@@ -455,6 +488,15 @@ async def onboarding_post(
     red_flags: Optional[str] = Form(default=""),
     # User name update
     user_name: Optional[str] = Form(default=None),
+    # VISA-A questions
+    q1: Optional[int] = Form(default=None),
+    q2: Optional[int] = Form(default=None),
+    q3: Optional[int] = Form(default=None),
+    q4: Optional[int] = Form(default=None),
+    q5: Optional[int] = Form(default=None),
+    q6: Optional[int] = Form(default=None),
+    q7: Optional[int] = Form(default=None),
+    q8: Optional[int] = Form(default=None),
 ):
     user = await get_authenticated_user(teno_session)
     if not user:
@@ -611,6 +653,22 @@ async def onboarding_post(
             (user["id"], plan_id, 1, 0),
         )
 
+        # Save VISA-A if all 8 questions answered
+        visa_result = None
+        if all(v is not None for v in [q1, q2, q3, q4, q5, q6, q7, q8]):
+            visa_result = score_visa_a(q1, q2, q3, q4, q5, q6, q7, q8)
+            await db.execute(
+                """INSERT INTO visa_a_responses
+                   (user_id, q1, q2, q3, q4, q5, q6, q7, q8, total_score)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    user["id"],
+                    visa_result.q1, visa_result.q2, visa_result.q3, visa_result.q4,
+                    visa_result.q5, visa_result.q6, visa_result.q7_score, visa_result.q8_score,
+                    visa_result.total_score,
+                ),
+            )
+
         await db.commit()
     finally:
         await db.close()
@@ -623,76 +681,24 @@ async def onboarding_post(
             "classification": classification,
             "kb_entries": kb_entries,
             "ai_explanation": ai_explanation,
-            "is_onboarding": True
+            "is_onboarding": True,
+            "visa_result": visa_result,
         },
     )
 
 
 # ---------------------------------------------------------------------------
-# GET /visa-a — VISA-A questionnaire
+# GET /visa-a — redirects to assessment (VISA-A is now part of the assessment)
 # ---------------------------------------------------------------------------
 
 @app.get("/visa-a", response_class=HTMLResponse)
-async def visa_a_get(
-    request: Request,
-    response: Response,
-    teno_session: Optional[str] = Cookie(default=None),
-):
-    user = await get_or_create_user(teno_session, response)
-    questions = get_questions()
-    return templates.TemplateResponse(
-        request, "visa_a.html",
-        context={
-            "user": user, "questions": questions
-        },
-    )
+async def visa_a_get(request: Request):
+    return RedirectResponse("/onboarding", status_code=302)
 
-
-# ---------------------------------------------------------------------------
-# POST /visa-a — Submit VISA-A
-# ---------------------------------------------------------------------------
 
 @app.post("/visa-a", response_class=HTMLResponse)
-async def visa_a_post(
-    request: Request,
-    response: Response,
-    teno_session: Optional[str] = Cookie(default=None),
-):
-    user = await get_or_create_user(teno_session, response)
-    form = await request.form()
-    form_data = dict(form)
-
-    # Score deterministically in visa_a.py — AI never touches this
-    result = visa_a_score_from_form(form_data)
-
-    # Store in DB
-    db = await get_db()
-    try:
-        await db.execute(
-            """INSERT INTO visa_a_responses
-               (user_id, q1, q2, q3, q4, q5, q6, q7, q8, total_score)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (
-                user["id"],
-                result.q1, result.q2, result.q3, result.q4,
-                result.q5, result.q6, result.q7_score, result.q8_score,
-                result.total_score,
-            ),
-        )
-        await db.commit()
-    finally:
-        await db.close()
-
-    questions = get_questions()
-    return templates.TemplateResponse(
-        request, "visa_a.html",
-        context={
-            "user": user,
-            "questions": questions,
-            "result": result,
-            "show_result": True
-        },
-    )
+async def visa_a_post(request: Request):
+    return RedirectResponse("/onboarding", status_code=302)
 
 
 # ---------------------------------------------------------------------------

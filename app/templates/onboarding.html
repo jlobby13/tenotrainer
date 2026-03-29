@@ -3,36 +3,205 @@
 
 {% block content %}
 <div class="max-w-3xl mx-auto">
-  <h1 class="text-3xl font-bold text-gray-900 mb-2">Initial Assessment</h1>
-  <p class="text-gray-600 mb-6">
+
+  {% if show_confirm %}
+  <!-- REASSESSMENT CONFIRMATION PROMPT -->
+  <div class="bg-white rounded-2xl shadow border border-gray-100 overflow-hidden mb-6">
+
+    {# Header #}
+    <div class="bg-brand-700 px-6 py-4">
+      <h2 class="text-xl font-black text-white">You have an existing assessment</h2>
+      <p class="text-brand-200 text-sm mt-0.5">Last completed on {{ last_assessment_date }}</p>
+    </div>
+
+    <div class="px-6 py-5 space-y-5">
+
+      {# Time since last assessment #}
+      {% if days_since_assessment is not none %}
+      {% if days_since_assessment < 7 %}
+        {% set recency_colour = "green" %}
+        {% set recency_label = "Recent" %}
+        {% set recency_note = "Your last assessment was only " ~ days_since_assessment ~ " day(s) ago. Re-assessing this soon is unlikely to reflect meaningful physiological change." %}
+      {% elif days_since_assessment < 28 %}
+        {% set recency_colour = "yellow" %}
+        {% set recency_label = "Approaching window" %}
+        {% set recency_note = "It has been " ~ days_since_assessment ~ " days since your last assessment. You are approaching the minimum recommended interval — consider waiting until 6–8 weeks for more meaningful data." %}
+      {% elif days_since_assessment < 56 %}
+        {% set recency_colour = "blue" %}
+        {% set recency_label = "Within optimal window" %}
+        {% set recency_note = "It has been " ~ days_since_assessment ~ " days since your last assessment — you are within the recommended 6–8 week reassessment window. This is a good time to reassess." %}
+      {% else %}
+        {% set recency_colour = "orange" %}
+        {% set recency_label = "Overdue" %}
+        {% set recency_note = "It has been " ~ days_since_assessment ~ " days (" ~ (days_since_assessment // 7) ~ " weeks) since your last assessment. Regular reassessment is important for tracking adaptation and adjusting your plan." %}
+      {% endif %}
+      <div class="flex items-start gap-3 bg-{{ recency_colour }}-50 border border-{{ recency_colour }}-200 rounded-xl px-4 py-3">
+        <div class="shrink-0 mt-0.5">
+          <span class="inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-{{ recency_colour }}-100 text-{{ recency_colour }}-800">{{ recency_label }}</span>
+        </div>
+        <p class="text-sm text-{{ recency_colour }}-900">{{ recency_note }}</p>
+      </div>
+      {% endif %}
+
+      {# Evidence on reassessment timing #}
+      <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
+        <p class="text-sm font-bold text-gray-800">When should you reassess? — What the evidence says</p>
+        <div class="space-y-2">
+          <div class="flex items-start gap-3">
+            <span class="shrink-0 w-24 text-xs font-semibold text-brand-700 pt-0.5">6–8 weeks</span>
+            <p class="text-xs text-gray-600">The standard interval recommended in tendinopathy rehabilitation literature. Sufficient time for measurable neuromuscular adaptation and tendon structural remodelling to occur in response to progressive loading. Reassessing earlier will typically show minimal change and may lead to premature stage adjustments.</p>
+          </div>
+          <div class="flex items-start gap-3 border-t border-gray-100 pt-2">
+            <span class="shrink-0 w-24 text-xs font-semibold text-brand-700 pt-0.5">Sooner if…</span>
+            <p class="text-xs text-gray-600">A significant change in symptoms has occurred — marked worsening, a new acute episode, suspected structural injury, or a clinician has asked you to repeat the assessment. Pain profile changes or inability to tolerate previously manageable loads are valid triggers for early reassessment.</p>
+          </div>
+          <div class="flex items-start gap-3 border-t border-gray-100 pt-2">
+            <span class="shrink-0 w-24 text-xs font-semibold text-brand-700 pt-0.5">What changes</span>
+            <p class="text-xs text-gray-600">A new assessment will update your irritability classification, rehab stage, exercise dosage, session plan, and VISA-A score. If you have progressed, this will unlock higher-load exercises and revised targets. If symptoms have worsened, the plan will adjust accordingly. VISA-A and functional data are tracked together on the dashboard.</p>
+          </div>
+        </div>
+      </div>
+
+      {# Action buttons #}
+      <div class="flex flex-wrap items-center gap-3 pt-1">
+        <a href="/onboarding?confirm=1"
+           class="px-6 py-2.5 bg-brand-600 text-white font-semibold rounded-lg hover:bg-brand-700 transition-colors shadow-sm text-sm">
+          Yes, start re-assessment
+        </a>
+        <a href="/dashboard"
+           class="px-6 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors text-sm">
+          Back to dashboard
+        </a>
+      </div>
+
+    </div>
+  </div>
+
+  {% else %}
+  <h1 class="text-3xl font-bold text-gray-900 mb-2">
+    {% if is_reassessment %}Re-assessment{% else %}Initial Assessment{% endif %}
+  </h1>
+  <p class="text-gray-600 mb-4">
     Answer all questions as accurately as possible. Your answers determine your rehab stage,
     irritability classification, and starting exercise dose. All pain scores are 0–10 (0 = no pain, 10 = worst imaginable).
   </p>
 
+  {% if is_reassessment %}
+  <div class="flex flex-wrap items-center gap-4 bg-brand-50 border border-brand-200 rounded-xl px-5 py-3 mb-6 text-sm">
+    <div class="flex items-center gap-2">
+      <span class="text-xs font-semibold text-brand-700 uppercase tracking-wide">Previous assessment</span>
+      <span class="font-bold text-brand-900">{{ last_assessment_date }}</span>
+      <span class="text-brand-400">·</span>
+      <span class="text-brand-600 text-xs">{{ days_since_assessment }} day{{ 's' if days_since_assessment != 1 else '' }} ago</span>
+    </div>
+    <div class="h-4 w-px bg-brand-200 hidden sm:block"></div>
+    <div class="flex items-center gap-2">
+      <span class="text-xs font-semibold text-brand-700 uppercase tracking-wide">Today's re-assessment</span>
+      <span class="font-bold text-brand-900">{{ today_date }}</span>
+    </div>
+  </div>
+  {% endif %}
+
   {% if halt %}
   <!-- RED FLAG HALT -->
-  <div class="bg-red-50 border-2 border-red-500 rounded-xl p-6 mb-6">
-    <h2 class="text-2xl font-bold text-red-700 mb-3">SAFETY ALERT — Stop &amp; Seek Medical Help</h2>
-    <p class="text-red-800 mb-3">
-      Your responses indicate possible warning signs that require immediate assessment by a qualified clinician.
-      <strong>Do NOT continue self-managing until you have been assessed.</strong>
-    </p>
-    <ul class="list-disc list-inside text-red-700 mb-3">
-      {% for flag in red_flags %}
-      <li>{{ flag }}</li>
-      {% endfor %}
-    </ul>
-    <div class="bg-red-100 rounded p-3 text-sm text-red-800">
-      <strong>Red flag signs of Achilles rupture include:</strong>
-      sudden popping sound, inability to point the foot downward, visible gap in the tendon, and sudden severe pain.
-      These require urgent orthopaedic or emergency department assessment.
+  <div class="bg-red-50 border-2 border-red-600 rounded-xl overflow-hidden mb-6">
+
+    {# Header #}
+    <div class="bg-red-600 px-6 py-4">
+      <h2 class="text-2xl font-black text-white tracking-tight">SAFETY ALERT — Do Not Continue</h2>
+      <p class="text-red-100 text-sm mt-1">
+        Your reported symptoms indicate a possible Achilles tendon rupture or serious structural injury.
+        Self-managed rehabilitation is <strong class="text-white">not appropriate</strong> until you have been assessed by a clinician.
+      </p>
+    </div>
+
+    <div class="px-6 py-5 space-y-5">
+
+      {# Flagged symptoms #}
+      {% if red_flags %}
+      <div>
+        <p class="text-xs font-bold text-red-700 uppercase tracking-wide mb-2">You reported:</p>
+        <ul class="space-y-1">
+          {% for flag in red_flags %}
+          <li class="flex items-start gap-2 text-sm text-red-800">
+            <span class="mt-0.5 text-red-500 font-black shrink-0">!</span>
+            {{ flag }}
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+
+      {# Clinical indicators and rising likelihood #}
+      <div class="bg-white border border-red-200 rounded-lg p-4 space-y-3">
+        <p class="text-sm font-bold text-red-800">Why these symptoms matter — rising likelihood of rupture:</p>
+
+        <div class="space-y-2 text-sm text-gray-700">
+          <div class="flex items-start gap-3 pb-2 border-b border-gray-100">
+            <span class="shrink-0 w-28 text-xs font-semibold text-red-600 pt-0.5">Audible pop / snap</span>
+            <p class="text-xs text-gray-600">A sudden sharp sound at the back of the ankle during activity is one of the most reliable signs of complete Achilles rupture. Patients often describe it as feeling like they were struck or kicked. <strong>High specificity for full-thickness tear.</strong></p>
+          </div>
+          <div class="flex items-start gap-3 pb-2 border-b border-gray-100">
+            <span class="shrink-0 w-28 text-xs font-semibold text-red-600 pt-0.5">Cannot plantarflex</span>
+            <p class="text-xs text-gray-600">Inability to point the foot downward against gravity or resistance suggests the Achilles is no longer mechanically continuous. Partial tears may retain some plantarflexion strength; complete rupture typically eliminates it. <strong>Strongly raises suspicion of complete rupture.</strong></p>
+          </div>
+          <div class="flex items-start gap-3 pb-2 border-b border-gray-100">
+            <span class="shrink-0 w-28 text-xs font-semibold text-red-600 pt-0.5">Cannot bear weight</span>
+            <p class="text-xs text-gray-600">Inability to load the affected leg indicates significant structural compromise. While isolated tendinopathy rarely prevents weight-bearing entirely, rupture — complete or high-grade partial — frequently does. <strong>Significantly elevates clinical suspicion.</strong></p>
+          </div>
+          <div class="flex items-start gap-3 pb-2 border-b border-gray-100">
+            <span class="shrink-0 w-28 text-xs font-semibold text-red-600 pt-0.5">Palpable gap</span>
+            <p class="text-xs text-gray-600">A visible or palpable depression in the tendon 2–6 cm above the heel indicates a physical discontinuity in the tendon tissue. Early haematoma and swelling may obscure this finding within hours of injury — its presence when detected is <strong>highly diagnostic of rupture.</strong></p>
+          </div>
+          <div class="flex items-start gap-3 pb-2 border-b border-gray-100">
+            <span class="shrink-0 w-28 text-xs font-semibold text-red-600 pt-0.5">Bruising / swelling</span>
+            <p class="text-xs text-gray-600">Rapid, diffuse bruising and swelling around the heel and lower leg following acute onset pain suggests significant tissue trauma and haemorrhage. This pattern is more consistent with structural injury than tendinopathy, which typically presents with localised, gradual-onset tenderness.</p>
+          </div>
+          <div class="flex items-start gap-3">
+            <span class="shrink-0 w-28 text-xs font-semibold text-red-600 pt-0.5">Thompson test</span>
+            <p class="text-xs text-gray-600">The Thompson (Simmonds) test — lying prone with the foot free, squeezing the calf — is a validated clinical screen. A positive result (foot does <em>not</em> plantarflex) has <strong>sensitivity ~96% and specificity ~93% for complete Achilles rupture</strong> and is the standard bedside test used in emergency and orthopaedic settings. Multiple co-occurring indicators above substantially increase the probability of a clinically significant tear.</p>
+          </div>
+        </div>
+      </div>
+
+      {# Action directive #}
+      <div class="bg-red-100 border border-red-300 rounded-lg px-4 py-3 text-sm text-red-900">
+        <strong>Immediate action required:</strong> Present to an emergency department or urgent orthopaedic clinic.
+        Do not attempt to walk, run, or load the affected leg until assessed. Early diagnosis determines whether
+        conservative management or surgical repair is appropriate — delay worsens outcomes for complete ruptures.
+      </div>
+
     </div>
   </div>
   {% else %}
 
   <form method="POST" action="/onboarding" class="space-y-8">
 
-    <!-- Section 1: Your Details -->
+    <!-- Section 1: Safety Check — Red Flags -->
+    <div class="bg-red-50 rounded-xl border border-red-200 p-6">
+      <h2 class="text-xl font-bold text-red-800 mb-2">Safety Check — Red Flags</h2>
+      <p class="text-sm text-red-700 mb-3">
+        If any of the following apply to you, do NOT proceed with self-managed rehabilitation.
+        Seek immediate medical assessment.
+      </p>
+      <ul class="text-sm text-red-700 mb-4 space-y-1 list-disc list-inside">
+        <li>Sudden popping or snapping sound at the back of the ankle</li>
+        <li>Complete inability to point foot downward (plantarflex)</li>
+        <li>Visible gap or depression in the tendon above the heel</li>
+        <li>Sudden severe bruising and swelling around the Achilles</li>
+        <li>Inability to bear weight on the affected leg</li>
+        <li><strong>Thompson test positive:</strong> lie face-down with your foot hanging off a surface; squeeze the calf firmly — if the foot does <em>not</em> move, this indicates a likely Achilles rupture requiring urgent medical assessment</li>
+      </ul>
+      <div>
+        <label class="block text-sm font-medium text-red-800 mb-1">
+          If any apply, describe briefly (optional — this triggers a safety halt):
+        </label>
+        <textarea name="red_flags" rows="2" placeholder="e.g. 'heard a pop', 'cannot point foot down'"
+                  class="w-full border border-red-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-400 focus:outline-none bg-white"></textarea>
+      </div>
+    </div>
+
+    <!-- Section 2: Your Details -->
     <div class="bg-white rounded-xl shadow p-6 border border-gray-100">
       <h2 class="text-xl font-bold text-gray-800 mb-4">Your Details</h2>
       <div class="grid gap-4">
@@ -317,25 +486,57 @@
       </div>
     </div>
 
-    <!-- Section 6: Red Flags (Safety) -->
-    <div class="bg-red-50 rounded-xl border border-red-200 p-6">
-      <h2 class="text-xl font-bold text-red-800 mb-2">Safety Check — Red Flags</h2>
-      <p class="text-sm text-red-700 mb-3">
-        If any of the following apply to you, do NOT proceed with self-managed rehabilitation.
-        Seek immediate medical assessment.
-      </p>
-      <ul class="text-sm text-red-700 mb-4 space-y-1 list-disc list-inside">
-        <li>Sudden popping or snapping sound at the back of the ankle</li>
-        <li>Complete inability to point foot downward (plantarflex)</li>
-        <li>Visible gap or depression in the tendon above the heel</li>
-        <li>Sudden severe bruising and swelling around the Achilles</li>
-      </ul>
-      <div>
-        <label class="block text-sm font-medium text-red-800 mb-1">
-          If any apply, describe briefly (optional — this triggers a safety halt):
-        </label>
-        <textarea name="red_flags" rows="2" placeholder="e.g. 'heard a pop', 'cannot point foot down'"
-                  class="w-full border border-red-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-400 focus:outline-none bg-white"></textarea>
+    <!-- Section 6: VISA-A Questionnaire -->
+    <div class="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
+      <div class="bg-brand-50 border-b border-brand-100 px-6 py-4">
+        <h2 class="text-xl font-bold text-gray-800">VISA-A Questionnaire</h2>
+        <p class="text-sm text-gray-500 mt-0.5">
+          The Victorian Institute of Sport Assessment — Achilles (VISA-A) is a validated outcome measure
+          for Achilles tendinopathy. Scores range 0–80 (higher = better function). This is saved alongside
+          your functional data and tracked over time on the dashboard.
+        </p>
+      </div>
+      <div class="p-6 space-y-5">
+        {% for q in questions %}
+        <div class="pb-5 {% if not loop.last %}border-b border-gray-100{% endif %}">
+          <div class="flex items-start gap-3 mb-3">
+            <span class="flex-shrink-0 w-7 h-7 bg-brand-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
+              {{ q.number }}
+            </span>
+            <p class="text-sm font-medium text-gray-800 pt-0.5">{{ q.text }}</p>
+          </div>
+
+          {% if q.type == 'scale' %}
+          <div class="flex items-center gap-3 pl-10">
+            <span class="text-xs text-gray-500 w-24 text-right leading-tight">{{ q.min_label }}</span>
+            <input type="range" name="{{ q.id }}" min="{{ q.min }}" max="{{ q.max }}" value="{{ (q.max // 2) }}"
+                   class="flex-1 accent-brand-600"
+                   oninput="document.getElementById('ob_{{ q.id }}_val').textContent = this.value" />
+            <span class="text-xs text-gray-500 w-24 leading-tight">{{ q.max_label }}</span>
+            <span id="ob_{{ q.id }}_val"
+                  class="w-8 text-center font-bold text-brand-700 bg-brand-50 rounded px-1 py-0.5 text-sm">
+              {{ (q.max // 2) }}
+            </span>
+          </div>
+          <div class="flex justify-between text-xs text-gray-400 pl-10 mt-1 pr-24">
+            <span>0</span><span>5</span><span>10</span>
+          </div>
+
+          {% elif q.type == 'select' %}
+          <div class="pl-10 space-y-2">
+            {% for opt in q.options %}
+            <label class="flex items-center gap-3 cursor-pointer group">
+              <input type="radio" name="{{ q.id }}" value="{{ opt.value }}"
+                     class="accent-brand-600 w-4 h-4" />
+              <span class="text-sm text-gray-700 group-hover:text-brand-700 transition-colors">
+                {{ opt.label }}
+              </span>
+            </label>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
       </div>
     </div>
 
@@ -348,5 +549,7 @@
 
   </form>
   {% endif %}
+
+  {% endif %}{# end show_confirm #}
 </div>
 {% endblock %}
