@@ -131,7 +131,7 @@
 
     <!-- Hop Distance -->
     <div>
-      <h3 class="text-sm font-semibold text-gray-700 mb-2">Hop Distance — best of 3 (cm)</h3>
+      <h3 class="text-sm font-semibold text-gray-700 mb-2">Hop Distance — best of 3 (inches)</h3>
       <div id="snapHopDist" class="mb-3"></div>
       <canvas id="hopDistChart" height="200"></canvas>
     </div>
@@ -192,34 +192,108 @@
 </div>
 {% endif %}
 
-<!-- Current Plan Summary -->
-{% if current_plan %}
-<div class="bg-white rounded-xl shadow p-6 border border-gray-100 mb-6">
-  <div class="flex items-center justify-between mb-4">
-    <h2 class="text-lg font-bold text-gray-800">Current Rehab Plan</h2>
-    <a href="/plan/{{ current_plan.id }}" class="text-xs text-brand-600 hover:underline">View full plan</a>
+<!-- Current Rehab Plan — rule-engine driven, unified with Track Session -->
+<div class="bg-white rounded-2xl shadow border border-gray-100 mb-6 overflow-hidden">
+
+  {# Header #}
+  <div class="bg-brand-700 px-5 py-4 flex items-start justify-between gap-3">
+    <div>
+      <h2 class="font-black text-white text-lg leading-tight">Current Rehab Plan</h2>
+      <p class="text-xs text-brand-200 mt-0.5">Personalised to your stage, irritability, and functional measures</p>
+    </div>
+    <div class="flex items-center gap-2 flex-wrap justify-end shrink-0">
+      {% set ibg = {'high': 'bg-red-400', 'moderate': 'bg-yellow-400', 'low': 'bg-green-400'} %}
+      <span class="text-xs px-2.5 py-1 rounded-full font-bold text-white {{ ibg.get(current_irritability, 'bg-gray-400') }} uppercase">
+        {{ current_irritability }}
+      </span>
+      <span class="text-xs px-2.5 py-1 rounded-full font-bold bg-white/20 text-white">Stage {{ current_stage }}</span>
+      {% if is_insertional %}
+      <span class="text-xs px-2.5 py-1 rounded-full font-bold bg-amber-400 text-white">Insertional</span>
+      {% endif %}
+    </div>
   </div>
 
-  {% if current_plan.rationale %}
-  <p class="text-sm text-gray-600 mb-4 italic">{{ current_plan.rationale }}</p>
+  {# WBLT notice if stretch is indicated #}
+  {% if wblt_result and wblt_result.stretch_indicated %}
+  <div class="px-5 py-2 bg-teal-50 border-b border-teal-100 flex items-center gap-2 text-xs text-teal-800">
+    <span class="font-semibold">WBLT {{ wblt_cm }} cm</span>
+    <span class="text-teal-600">—</span>
+    <span>{{ wblt_result.rationale }}</span>
+    {% if wblt_result.stretch_priority == 'primary' %}
+    <span class="ml-auto px-2 py-0.5 rounded-full bg-teal-200 text-teal-800 font-bold text-[10px]">Stretch: Primary</span>
+    {% else %}
+    <span class="ml-auto px-2 py-0.5 rounded-full bg-teal-100 text-teal-700 font-bold text-[10px]">Stretch: Adjunct</span>
+    {% endif %}
+  </div>
   {% endif %}
 
-  <div class="space-y-3">
-    {% for ex in current_plan.exercises %}
-    <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
-      <div class="flex items-center justify-between mb-1">
-        <span class="font-semibold text-sm text-gray-800">{{ ex.name }}</span>
-        <span class="text-xs bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full">{{ ex.type }}</span>
+  {# Exercise cards #}
+  {% if session_plan %}
+  {% set cat_colors = {
+    'symptom_modulation': 'bg-sky-200 text-sky-900',
+    'slow_strength': 'bg-sky-300 text-sky-900',
+    'eccentric_loading': 'bg-blue-200 text-blue-900',
+    'heavy_dynamic': 'bg-blue-300 text-blue-900',
+    'fast_dynamic': 'bg-indigo-200 text-indigo-900',
+    'reactive_plyometric': 'bg-indigo-300 text-indigo-900',
+    'running_sport_reentry': 'bg-violet-300 text-violet-900',
+    'accessory': 'bg-gray-100 text-gray-600',
+    'flexibility_mobility': 'bg-teal-100 text-teal-700',
+  } %}
+  <div class="divide-y divide-gray-50">
+    {% for item in session_plan %}
+    {% set ex = item.exercise %}
+    {% set dos = item.dosage %}
+    <div class="px-5 py-4 flex items-start gap-4">
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 flex-wrap mb-1">
+          <span class="font-semibold text-gray-900 text-sm">{{ ex.exercise_name }}</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold {{ cat_colors.get(ex.category, 'bg-gray-100 text-gray-600') }} capitalize">
+            {{ ex.category | replace('_', ' ') }}
+          </span>
+          {% if item.source == 'stretch' %}
+          <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-teal-100 text-teal-700">Stretch</span>
+          {% endif %}
+          {% if not ex.insertional_safe %}
+          <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700">Mid-portion</span>
+          {% endif %}
+        </div>
+        <p class="text-[11px] text-gray-500 mb-2">{{ item.reason }}</p>
+        <div class="flex items-center gap-4 text-xs">
+          <span class="font-semibold text-gray-800">
+            {{ dos.sets if dos.sets else '3' }} sets &times; {{ dos.reps_or_hold_time if dos.reps_or_hold_time else '—' }}
+          </span>
+          {% if dos.tempo and dos.tempo not in ['hold', 'reactive', 'normal'] %}
+          <span class="text-gray-500">{{ dos.tempo }} tempo</span>
+          {% endif %}
+          {% if dos.notes %}
+          <span class="text-gray-400 italic truncate">{{ dos.notes }}</span>
+          {% endif %}
+        </div>
       </div>
-      <div class="text-xs text-gray-600">
-        {{ ex.sets }} sets &times; {{ ex.reps }}
-        {% if ex.tempo and ex.tempo != 'hold' %} &bull; Tempo: {{ ex.tempo }}{% endif %}
-      </div>
+      <a href="/exercise-library#{{ ex.ex_id }}"
+         class="shrink-0 text-[11px] px-2.5 py-1 rounded-lg bg-brand-50 text-brand-700 font-medium hover:bg-brand-100 transition-colors border border-brand-200">
+        View →
+      </a>
     </div>
     {% endfor %}
   </div>
+  {% else %}
+  <div class="px-5 py-8 text-center text-gray-400 text-sm">
+    No plan generated yet. Complete your assessment to get a personalised exercise plan.
+  </div>
+  {% endif %}
+
+  {# Footer CTA #}
+  <div class="px-5 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+    <p class="text-xs text-gray-500">Log today's session to update your plan based on your response.</p>
+    <a href="/daily-log"
+       class="text-xs px-4 py-2 bg-brand-600 text-white font-semibold rounded-lg hover:bg-brand-700 transition-colors shadow-sm">
+      Track Session →
+    </a>
+  </div>
+
 </div>
-{% endif %}
 
 <!-- Recovery Roadmap -->
 {% if timeline and goals %}
@@ -554,12 +628,14 @@ setSnap('snapWblt', [
   { label: 'Unaffected', arr: fc.wblt.unaffected, unit: ' cm', higherIsBetter: true },
 ]);
 setSnap('snapHopDist', [
-  { label: 'Double-leg',          arr: fc.hop_distance.double, unit: ' cm' },
-  { label: 'Single-leg (affect.)', arr: fc.hop_distance.single, unit: ' cm' },
+  { label: 'Double-leg',           arr: fc.hop_distance.double,      unit: ' in' },
+  { label: 'Single-leg (affect.)', arr: fc.hop_distance.single,      unit: ' in' },
+  { label: 'Single-leg (unaff.)',  arr: fc.hop_distance.unaffected,  unit: ' in' },
 ]);
 setSnap('snapHopEnd', [
-  { label: 'Double-leg',          arr: fc.hop_endurance.double, unit: ' reps' },
-  { label: 'Single-leg (affect.)', arr: fc.hop_endurance.single, unit: ' reps' },
+  { label: 'Double-leg',           arr: fc.hop_endurance.double,     unit: ' reps' },
+  { label: 'Single-leg (affect.)', arr: fc.hop_endurance.single,     unit: ' reps' },
+  { label: 'Single-leg (unaff.)',  arr: fc.hop_endurance.unaffected, unit: ' reps' },
 ]);
 setSnap('snapLsiCr',   [{ label: 'LSI', arr: fc.calf_raise.lsi,   unit: '%', higherIsBetter: true }]);
 setSnap('snapLsiWblt', [{ label: 'LSI', arr: fc.wblt.lsi,         unit: '%', higherIsBetter: true }]);
@@ -628,7 +704,7 @@ function withLsiAxis(opts) {
   ];
   const hasBoth = fc.wblt.lsi.some(v => v !== null);
   if (hasBoth) datasets.push({ ...lsiDataset(fc.wblt.lsi) });
-  const opts = fcLineOpts('Distance (cm)', 25);
+  const opts = fcLineOpts('Distance (cm)', 20);
   if (hasBoth) withLsiAxis(opts);
   // Reference line at 10 cm (clinical threshold)
   opts.plugins.annotation = { annotations: { threshold: { type: 'line', yMin: 10, yMax: 10, borderColor: '#f59e0b', borderWidth: 1.5, borderDash: [4,3], label: { content: '10 cm threshold', display: true, position: 'start', font: { size: 10 } } } } };
@@ -640,14 +716,16 @@ function withLsiAxis(opts) {
   const ctx = document.getElementById('hopDistChart');
   if (!ctx || !fc.labels.length) return;
   const datasets = [
-    { label: 'Double-leg', data: fc.hop_distance.double, borderColor: '#0284c7', backgroundColor: 'rgba(2,132,199,0.08)', pointRadius: 5, tension: 0.2, fill: false },
-    { label: 'Single-leg (affected)', data: fc.hop_distance.single, borderColor: '#ea580c', backgroundColor: 'rgba(234,88,12,0.08)', pointRadius: 5, tension: 0.2, fill: false },
+    { label: 'Double-leg',           data: fc.hop_distance.double,     borderColor: '#0284c7', backgroundColor: 'rgba(2,132,199,0.08)',  pointRadius: 5, tension: 0.2, fill: false },
+    { label: 'Single-leg (affected)', data: fc.hop_distance.single,     borderColor: '#ea580c', backgroundColor: 'rgba(234,88,12,0.08)',  pointRadius: 5, tension: 0.2, fill: false },
+    { label: 'Single-leg (unaff.)',   data: fc.hop_distance.unaffected, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,0.08)',  pointRadius: 5, tension: 0.2, fill: false, borderDash: [5,3] },
   ];
   const hasBoth = fc.hop_distance.lsi.some(v => v !== null);
   if (hasBoth) datasets.push({ ...lsiDataset(fc.hop_distance.lsi) });
-  const opts = fcLineOpts('Distance (cm)', 200);
+  const opts = fcLineOpts('Distance (in)', 500);
+  opts.scales.y.max = 500;
+  opts.scales.y.ticks = { stepSize: 100 };
   if (hasBoth) withLsiAxis(opts);
-  // LSI 90% reference
   if (hasBoth) opts.plugins.annotation = { annotations: { lsi90: { type: 'line', yScaleID: 'lsi', yMin: 90, yMax: 90, borderColor: '#16a34a', borderWidth: 1.5, borderDash: [4,3], label: { content: 'LSI 90%', display: true, position: 'end', font: { size: 10 } } } } };
   new Chart(ctx, { type: 'line', data: { labels: fc.labels, datasets }, options: opts });
 })();
@@ -656,17 +734,19 @@ function withLsiAxis(opts) {
 (function() {
   const ctx = document.getElementById('hopEndChart');
   if (!ctx || !fc.labels.length) return;
-  new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: fc.labels,
-      datasets: [
-        { label: 'Double-leg', data: fc.hop_endurance.double, borderColor: '#0284c7', backgroundColor: 'rgba(2,132,199,0.08)', pointRadius: 5, tension: 0.2, fill: false },
-        { label: 'Single-leg (affected)', data: fc.hop_endurance.single, borderColor: '#ea580c', backgroundColor: 'rgba(234,88,12,0.08)', pointRadius: 5, tension: 0.2, fill: false },
-      ]
-    },
-    options: fcLineOpts('Repetitions', 100),
-  });
+  const datasets = [
+    { label: 'Double-leg',           data: fc.hop_endurance.double,     borderColor: '#0284c7', backgroundColor: 'rgba(2,132,199,0.08)', pointRadius: 5, tension: 0.2, fill: false },
+    { label: 'Single-leg (affected)', data: fc.hop_endurance.single,     borderColor: '#ea580c', backgroundColor: 'rgba(234,88,12,0.08)', pointRadius: 5, tension: 0.2, fill: false },
+    { label: 'Single-leg (unaff.)',   data: fc.hop_endurance.unaffected, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,0.08)', pointRadius: 5, tension: 0.2, fill: false, borderDash: [5,3] },
+  ];
+  const hasBoth = fc.hop_endurance.lsi.some(v => v !== null);
+  if (hasBoth) datasets.push({ ...lsiDataset(fc.hop_endurance.lsi) });
+  const opts = fcLineOpts('Repetitions', 500);
+  opts.scales.y.max = 500;
+  opts.scales.y.ticks = { stepSize: 100 };
+  if (hasBoth) withLsiAxis(opts);
+  if (hasBoth) opts.plugins.annotation = { annotations: { lsi90: { type: 'line', yScaleID: 'lsi', yMin: 90, yMax: 90, borderColor: '#16a34a', borderWidth: 1.5, borderDash: [4,3], label: { content: 'LSI 90%', display: true, position: 'end', font: { size: 10 } } } } };
+  new Chart(ctx, { type: 'line', data: { labels: fc.labels, datasets }, options: opts });
 })();
 
 // ── LSI Charts ───────────────────────────────────────────────────────────────

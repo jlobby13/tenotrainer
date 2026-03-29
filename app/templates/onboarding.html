@@ -190,7 +190,7 @@
         </p>
         <!-- Distance hop -->
         <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Distance Hop</p>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Double-leg hop — best of 3 (cm)</label>
             <p class="text-xs text-gray-400 mb-2">Stand on both feet, hop forward as far as possible, land on both feet. Measure from take-off line to nearest heel.</p>
@@ -201,10 +201,19 @@
             </div>
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Single-leg hop — best of 3, affected side (cm)</label>
-            <p class="text-xs text-gray-400 mb-2">Same as above on the affected leg only. A limb symmetry index &lt;90% (vs. unaffected side) indicates meaningful deficit.</p>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Single-leg hop — affected side (cm)</label>
+            <p class="text-xs text-gray-400 mb-2">Same as above on the affected leg only.</p>
             <div class="flex items-center gap-2">
               <input type="number" name="single_leg_hop_cm" min="0" max="300" placeholder="—"
+                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+              <span class="text-sm text-gray-500">cm</span>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Single-leg hop — unaffected side (cm)</label>
+            <p class="text-xs text-gray-400 mb-2">Same test on the unaffected leg. Used to calculate LSI (affected ÷ unaffected × 100). &lt;90% indicates meaningful deficit.</p>
+            <div class="flex items-center gap-2">
+              <input type="number" name="single_leg_hop_cm_unaffected" min="0" max="300" placeholder="—"
                      class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
               <span class="text-sm text-gray-500">cm</span>
             </div>
@@ -214,7 +223,7 @@
         <!-- In-place endurance hop -->
         <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">In-Place Endurance Hop</p>
         <p class="text-xs text-gray-400 mb-3">Hop continuously on the spot at a comfortable pace. Count total hops until pain, fatigue, or form breaks down. Measures tendon endurance under repeated elastic loading — a higher-demand capacity than distance hopping, relevant for running and sport return.</p>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Double-leg in-place hop (reps)</label>
             <p class="text-xs text-gray-400 mb-2">Both feet, hopping on the spot.</p>
@@ -225,10 +234,19 @@
             </div>
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Single-leg in-place hop — affected side (reps)</label>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Single-leg in-place hop — affected (reps)</label>
             <p class="text-xs text-gray-400 mb-2">Affected leg only, hopping on the spot.</p>
             <div class="flex items-center gap-2">
-              <input type="number" name="single_leg_hop_endurance_reps" min="0" max="300" placeholder="—"
+              <input type="number" name="single_leg_hop_endurance_reps" min="0" max="500" placeholder="—"
+                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+              <span class="text-sm text-gray-500">reps</span>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Single-leg in-place hop — unaffected (reps)</label>
+            <p class="text-xs text-gray-400 mb-2">Unaffected leg, used to compute LSI (affected ÷ unaffected × 100).</p>
+            <div class="flex items-center gap-2">
+              <input type="number" name="single_leg_hop_endurance_reps_unaffected" min="0" max="500" placeholder="—"
                      class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
               <span class="text-sm text-gray-500">reps</span>
             </div>

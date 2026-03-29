@@ -429,8 +429,10 @@ async def onboarding_post(
     wblt_cm_unaffected: Optional[int] = Form(default=None),
     double_leg_hop_cm: Optional[int] = Form(default=None),
     single_leg_hop_cm: Optional[int] = Form(default=None),
+    single_leg_hop_cm_unaffected: Optional[int] = Form(default=None),
     double_leg_hop_endurance_reps: Optional[int] = Form(default=None),
     single_leg_hop_endurance_reps: Optional[int] = Form(default=None),
+    single_leg_hop_endurance_reps_unaffected: Optional[int] = Form(default=None),
     # History
     injury_duration: str = Form(...),
     recent_load_change: str = Form(default="0"),
@@ -562,8 +564,10 @@ async def onboarding_post(
                 "wblt_cm_unaffected": wblt_cm_unaffected,
                 "double_leg_hop_cm": double_leg_hop_cm,
                 "single_leg_hop_cm": single_leg_hop_cm,
+                "single_leg_hop_cm_unaffected": single_leg_hop_cm_unaffected,
                 "double_leg_hop_endurance_reps": double_leg_hop_endurance_reps,
                 "single_leg_hop_endurance_reps": single_leg_hop_endurance_reps,
+                "single_leg_hop_endurance_reps_unaffected": single_leg_hop_endurance_reps_unaffected,
             }.items() if v is not None
         })
         goals_json = json.dumps({
@@ -707,7 +711,10 @@ async def dashboard(
 
     db = await get_db()
     try:
-        # Current plan (most recent)
+        # Unified user rehab state (irritability, stage, insertional, WBLT, session_plan, etc.)
+        rehab_state = await _get_user_rehab_state(user, db)
+
+        # Current plan (most recent) — kept for stage/irritability/decision badges and rationale
         cursor = await db.execute(
             "SELECT * FROM rehab_plans WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
             (user["id"],),
@@ -769,8 +776,8 @@ async def dashboard(
 
         fc_labels, cr_affected, cr_unaffected, cr_lsi = [], [], [], []
         wblt_aff, wblt_unaff, wblt_lsi = [], [], []
-        hop_d, hop_s, hop_lsi = [], [], []
-        hop_end_d, hop_end_s = [], []
+        hop_d, hop_s, hop_su, hop_lsi = [], [], [], []
+        hop_end_d, hop_end_s, hop_end_su, hop_end_lsi = [], [], [], []
 
         for row in all_onboarding_rows:
             rd = row_to_dict(row)
@@ -792,19 +799,26 @@ async def dashboard(
 
             hd = ft.get("double_leg_hop_cm")
             hs = ft.get("single_leg_hop_cm")
+            hsu = ft.get("single_leg_hop_cm_unaffected")
             hop_d.append(hd)
             hop_s.append(hs)
-            hop_lsi.append(_lsi(hs, hd))
+            hop_su.append(hsu)
+            hop_lsi.append(_lsi(hs, hsu))
 
-            hop_end_d.append(ft.get("double_leg_hop_endurance_reps"))
-            hop_end_s.append(ft.get("single_leg_hop_endurance_reps"))
+            hed = ft.get("double_leg_hop_endurance_reps")
+            hes = ft.get("single_leg_hop_endurance_reps")
+            hesu = ft.get("single_leg_hop_endurance_reps_unaffected")
+            hop_end_d.append(hed)
+            hop_end_s.append(hes)
+            hop_end_su.append(hesu)
+            hop_end_lsi.append(_lsi(hes, hesu))
 
         functional_chart_data = {
             "labels": fc_labels,
             "calf_raise": {"affected": cr_affected, "unaffected": cr_unaffected, "lsi": cr_lsi},
             "wblt": {"affected": wblt_aff, "unaffected": wblt_unaff, "lsi": wblt_lsi},
-            "hop_distance": {"double": hop_d, "single": hop_s, "lsi": hop_lsi},
-            "hop_endurance": {"double": hop_end_d, "single": hop_end_s},
+            "hop_distance": {"double": hop_d, "single": hop_s, "unaffected": hop_su, "lsi": hop_lsi},
+            "hop_endurance": {"double": hop_end_d, "single": hop_end_s, "unaffected": hop_end_su, "lsi": hop_end_lsi},
         }
 
         # Progression decisions
@@ -856,8 +870,84 @@ async def dashboard(
             "has_onboarding": onboarding is not None,
             "goals": goals,
             "timeline": timeline,
+            # Unified rehab state — same data as Track Session and Exercise Library
+            **rehab_state,
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# Shared user-rehab-state helper
+# ---------------------------------------------------------------------------
+
+async def _get_user_rehab_state(user: dict, db) -> dict:
+    """
+    Single source of truth for per-user rehab state needed across multiple pages.
+    Returns a dict with keys:
+      current_irritability, current_stage, is_insertional,
+      wblt_cm, wblt_cm_unaffected, wblt_result,
+      baseline_morning_pain, baseline_morning_stiffness,
+      has_plan, has_onboarding,
+      session_plan, session_plan_ids
+    """
+    cursor = await db.execute(
+        "SELECT * FROM rehab_plans WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
+        (user["id"],),
+    )
+    plan_row = await cursor.fetchone()
+
+    cursor = await db.execute(
+        "SELECT * FROM onboarding_assessments WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
+        (user["id"],),
+    )
+    ob_row = await cursor.fetchone()
+
+    current_irritability = Irritability.MODERATE
+    current_stage = 1
+    if plan_row:
+        p = row_to_dict(plan_row)
+        current_irritability = p.get("irritability", Irritability.MODERATE)
+        current_stage = p.get("stage", 1)
+
+    is_insertional = False
+    wblt_cm = None
+    wblt_cm_unaffected = None
+    baseline_morning_pain = 0
+    baseline_morning_stiffness = 0
+
+    if ob_row:
+        o = parse_json_fields(row_to_dict(ob_row), ["risk_factors", "functional_tests"])
+        baseline_morning_pain = o.get("next_day_pain", 0)
+        baseline_morning_stiffness = o.get("morning_stiffness", 0)
+        rf = o.get("risk_factors", [])
+        is_insertional = "insertional" in [r.lower() for r in rf]
+        ft = o.get("functional_tests", {}) or {}
+        if isinstance(ft, str):
+            try: ft = json.loads(ft)
+            except Exception: ft = {}
+        wblt_cm = ft.get("wblt_cm") or o.get("wblt_cm")
+        wblt_cm_unaffected = ft.get("wblt_cm_unaffected") or o.get("wblt_cm_unaffected")
+
+    wblt_result = classify_wblt(wblt_cm, wblt_cm_unaffected)
+    lib_exercises = await _load_exercises_from_db(db)
+    session_plan = _build_session_plan(lib_exercises, current_irritability, current_stage, is_insertional, wblt_result)
+    session_plan_ids = ",".join(item["exercise"]["ex_id"] for item in session_plan)
+
+    return {
+        "current_irritability": current_irritability,
+        "current_stage": current_stage,
+        "is_insertional": is_insertional,
+        "wblt_cm": wblt_cm,
+        "wblt_cm_unaffected": wblt_cm_unaffected,
+        "wblt_result": wblt_result,
+        "baseline_morning_pain": baseline_morning_pain,
+        "baseline_morning_stiffness": baseline_morning_stiffness,
+        "has_plan": plan_row is not None,
+        "has_onboarding": ob_row is not None,
+        "session_plan": session_plan,
+        "session_plan_ids": session_plan_ids,
+        "lib_exercises": lib_exercises,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -931,65 +1021,13 @@ async def daily_log_get(
 
     db = await get_db()
     try:
-        cursor = await db.execute(
-            "SELECT * FROM rehab_plans WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
-            (user["id"],),
-        )
-        plan_row = await cursor.fetchone()
-        current_irritability = Irritability.MODERATE
-        current_stage = 1
-        if plan_row:
-            p = row_to_dict(plan_row)
-            current_irritability = p.get("irritability", Irritability.MODERATE)
-            current_stage = p.get("stage", 1)
-
-        cursor = await db.execute(
-            "SELECT * FROM onboarding_assessments WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
-            (user["id"],),
-        )
-        ob_row = await cursor.fetchone()
-        baseline_morning_pain = 0
-        baseline_morning_stiffness = 0
-        is_insertional = False
-        wblt_cm = None
-        wblt_cm_unaffected = None
-
-        if ob_row:
-            o = parse_json_fields(row_to_dict(ob_row), ["risk_factors", "functional_tests"])
-            baseline_morning_pain = o.get("next_day_pain", 0)
-            baseline_morning_stiffness = o.get("morning_stiffness", 0)
-            rf = o.get("risk_factors", [])
-            is_insertional = "insertional" in [r.lower() for r in rf]
-            ft = o.get("functional_tests", {}) or {}
-            wblt_cm = ft.get("wblt_cm") or o.get("wblt_cm")
-            wblt_cm_unaffected = ft.get("wblt_cm_unaffected") or o.get("wblt_cm_unaffected")
-
-        lib_exercises = await _load_exercises_from_db(db)
+        state = await _get_user_rehab_state(user, db)
     finally:
         await db.close()
 
-    wblt_result = classify_wblt(wblt_cm, wblt_cm_unaffected)
-    session_plan = _build_session_plan(
-        lib_exercises, current_irritability, current_stage, is_insertional, wblt_result
-    )
-    session_plan_ids = ",".join(item["exercise"]["ex_id"] for item in session_plan)
-
     return templates.TemplateResponse(
         request, "daily_log.html",
-        context={
-            "user": user,
-            "session_plan": session_plan,
-            "session_plan_ids": session_plan_ids,
-            "current_irritability": current_irritability,
-            "current_stage": current_stage,
-            "is_insertional": is_insertional,
-            "wblt_result": wblt_result,
-            "wblt_cm": wblt_cm,
-            "baseline_morning_pain": baseline_morning_pain,
-            "baseline_morning_stiffness": baseline_morning_stiffness,
-            "has_plan": plan_row is not None,
-            "has_onboarding": ob_row is not None,
-        },
+        context={"user": user, **state},
     )
 
 
@@ -1138,7 +1176,7 @@ async def daily_log_post(
         allowed_pain_map = {Irritability.HIGH: 3, Irritability.MODERATE: 4, Irritability.LOW: 5}
         allowed_pain = allowed_pain_map.get(current_irritability, 4)
         total_prescribed_sets = sum(
-            ex.get("sets", 0) for ex in current_exercises
+            ex.get("sets", 0) for ex in compliance_exercises
             if isinstance(ex.get("sets"), (int, float))
         )
         total_completed_sets = sum(
@@ -1640,14 +1678,10 @@ async def exercise_library_page(
 
     db = await get_db()
     try:
-        exercises = await _load_exercises_from_db(db)
+        state = await _get_user_rehab_state(user, db)
+        exercises = state["lib_exercises"]
 
-        # Load current patient state for smart recommendations
-        cursor = await db.execute(
-            "SELECT * FROM rehab_plans WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
-            (user["id"],),
-        )
-        plan_row = await cursor.fetchone()
+        # Exercise-library-specific: calf raise + hop functional measures (not needed by other pages)
         cursor = await db.execute(
             "SELECT * FROM onboarding_assessments WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
             (user["id"],),
@@ -1656,17 +1690,13 @@ async def exercise_library_page(
     finally:
         await db.close()
 
-    current_irritability = Irritability.MODERATE
-    current_stage = 1
-    is_insertional = False
+    current_irritability = state["current_irritability"]
+    current_stage = state["current_stage"]
+    is_insertional = state["is_insertional"]
+    wblt_cm = state["wblt_cm"]
+    wblt_cm_unaffected = state["wblt_cm_unaffected"]
+    wblt_result = state["wblt_result"]
 
-    if plan_row:
-        p = row_to_dict(plan_row)
-        current_irritability = p.get("irritability", Irritability.MODERATE)
-        current_stage = p.get("stage", 1)
-
-    wblt_cm = None
-    wblt_cm_unaffected = None
     calf_raise_reps = None
     calf_raise_reps_unaffected = None
     single_leg_hop_cm = None
@@ -1675,43 +1705,27 @@ async def exercise_library_page(
     double_leg_hop_endurance_reps = None
 
     if onboarding_row:
-        o = row_to_dict(onboarding_row)
-        o = parse_json_fields(o, ["risk_factors", "functional_tests"])
-        rf = o.get("risk_factors", [])
-        is_insertional = "insertional" in [r.lower() for r in rf]
+        o = parse_json_fields(row_to_dict(onboarding_row), ["risk_factors", "functional_tests"])
         ft = o.get("functional_tests", {}) or {}
         if isinstance(ft, str):
             try: ft = json.loads(ft)
             except Exception: ft = {}
-
-        # WBLT
-        wblt_cm = ft.get("wblt_cm") or o.get("wblt_cm")
-        wblt_cm_unaffected = ft.get("wblt_cm_unaffected") or o.get("wblt_cm_unaffected")
-
-        # Calf raise — affected stored in top-level column, unaffected in functional_tests
         calf_raise_reps = o.get("calf_raise_reps")
         calf_raise_reps_unaffected = ft.get("calf_raise_reps_unaffected")
-
-        # Hop tests
         single_leg_hop_cm = ft.get("single_leg_hop_cm")
         double_leg_hop_cm = ft.get("double_leg_hop_cm")
         single_leg_hop_endurance_reps = ft.get("single_leg_hop_endurance_reps")
         double_leg_hop_endurance_reps = ft.get("double_leg_hop_endurance_reps")
 
     def _lsi(affected, unaffected):
-        """Limb Symmetry Index as integer percent, or None."""
         try:
             return round((float(affected) / float(unaffected)) * 100)
         except (TypeError, ZeroDivisionError):
             return None
 
-    # Pre-compute LSI values
     calf_raise_lsi = _lsi(calf_raise_reps, calf_raise_reps_unaffected)
     hop_distance_lsi = _lsi(single_leg_hop_cm, double_leg_hop_cm)
     hop_endurance_lsi = _lsi(single_leg_hop_endurance_reps, double_leg_hop_endurance_reps)
-
-    # WBLT classification and stretch indication
-    wblt_result = classify_wblt(wblt_cm, wblt_cm_unaffected)
 
     # Build exercise map for progression/regression lookups
     ex_map = {ex["ex_id"]: ex for ex in exercises}
@@ -1843,6 +1857,6 @@ async def exercise_library_page(
             "single_leg_hop_endurance_reps": single_leg_hop_endurance_reps,
             "double_leg_hop_endurance_reps": double_leg_hop_endurance_reps,
             "hop_endurance_lsi": hop_endurance_lsi,
-            "has_onboarding": onboarding_row is not None,
+            "has_onboarding": state["has_onboarding"],
         },
     )
