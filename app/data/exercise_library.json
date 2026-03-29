@@ -1,0 +1,2862 @@
+[
+  {
+    "id": "ex_001",
+    "exercise_name": "Double-Leg Calf Isometric Hold",
+    "category": "symptom_modulation",
+    "difficulty_level": 1,
+    "target_tissue": "Achilles tendon, gastrocnemius, soleus",
+    "region_bias": [
+      "midportion",
+      "insertional"
+    ],
+    "loading_profile": "isometric",
+    "irritability_appropriateness": [
+      "high",
+      "moderate",
+      "low"
+    ],
+    "insertional_safe": true,
+    "requires_dorsiflexion_depth": "none",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "slow",
+    "unilateral_or_bilateral": "bilateral",
+    "requires_full_rom": false,
+    "max_load_potential": "moderate",
+    "impact_level": "none",
+    "required_equipment": "wall or support surface",
+    "dosage_defaults": {
+      "sets": 5,
+      "reps_or_hold_time": "45s hold",
+      "tempo": "hold",
+      "rest": "90s",
+      "weekly_frequency": "daily"
+    },
+    "progression_options": [
+      "ex_002",
+      "ex_007"
+    ],
+    "regression_options": [
+      "ex_004"
+    ],
+    "setup_instructions": "Stand facing a wall with fingertips lightly touching for balance. Feet hip-width apart, slight knee softness permitted.",
+    "execution_cues": [
+      "Rise onto toes and hold at approximately 70% effort",
+      "Maintain even pressure through both feet",
+      "Breathe normally throughout hold",
+      "Keep knees soft \u2014 do not lock out"
+    ],
+    "common_compensations": [
+      "Gripping toes",
+      "Shifting weight to one side",
+      "Holding breath",
+      "Collapsing ankle inward"
+    ],
+    "contraindications_or_cautions": "Reduce hold duration or range if pain exceeds 3/10. Not suitable if rest pain >7/10.",
+    "decision_rules_tags": [
+      "isometric",
+      "bilateral",
+      "high_irritability_safe",
+      "insertional_safe",
+      "stage_1",
+      "no_impact",
+      "no_equipment"
+    ],
+    "patient_facing_explanation": "This hold loads your Achilles tendon without movement. Research shows it reliably reduces pain for 45+ minutes. It is safe to use even when your tendon is most irritable.",
+    "clinician_notes": "First-line exercise for high irritability. Produces cortical analgesia via descending pain inhibition. 70% MVIC target. Can be used pre-activity for pain priming. Bilateral before unilateral."
+  },
+  {
+    "id": "ex_002",
+    "exercise_name": "Single-Leg Calf Isometric Hold",
+    "category": "symptom_modulation",
+    "difficulty_level": 1,
+    "target_tissue": "Achilles tendon, gastrocnemius, soleus",
+    "region_bias": [
+      "midportion",
+      "insertional"
+    ],
+    "loading_profile": "isometric",
+    "irritability_appropriateness": [
+      "moderate",
+      "low"
+    ],
+    "insertional_safe": true,
+    "requires_dorsiflexion_depth": "none",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "slow",
+    "unilateral_or_bilateral": "unilateral",
+    "requires_full_rom": false,
+    "max_load_potential": "moderate",
+    "impact_level": "none",
+    "required_equipment": "wall or support surface",
+    "dosage_defaults": {
+      "sets": 5,
+      "reps_or_hold_time": "45s hold",
+      "tempo": "hold",
+      "rest": "90s",
+      "weekly_frequency": "daily"
+    },
+    "progression_options": [
+      "ex_008"
+    ],
+    "regression_options": [
+      "ex_001"
+    ],
+    "setup_instructions": "Stand on one leg with fingertips lightly touching a wall. Rise onto toes of the affected leg and hold.",
+    "execution_cues": [
+      "Hold at 70% effort \u2014 strong but controlled",
+      "Keep standing knee slightly soft",
+      "Do not grip the floor with toes",
+      "Maintain upright posture throughout hold"
+    ],
+    "common_compensations": [
+      "Shifting trunk laterally",
+      "Knee locking into hyperextension",
+      "Hip hiking to compensate for calf fatigue"
+    ],
+    "contraindications_or_cautions": "Do not progress to unilateral if bilateral isometric is not yet pain-controlled. Reduce to bilateral if pain exceeds 4/10.",
+    "decision_rules_tags": [
+      "isometric",
+      "unilateral",
+      "moderate_irritability_safe",
+      "insertional_safe",
+      "stage_1",
+      "no_impact"
+    ],
+    "patient_facing_explanation": "The single-leg version of the isometric hold increases the load through your Achilles tendon specifically. It keeps all the pain-relieving benefits while preparing you for single-leg activities.",
+    "clinician_notes": "Progress from ex_001 when bilateral isometric is consistently \u22642/10. Unilateral increases tendon load substantially. Monitor pain response closely on first session."
+  },
+  {
+    "id": "ex_003",
+    "exercise_name": "Bent-Knee Calf Isometric Hold",
+    "category": "symptom_modulation",
+    "difficulty_level": 1,
+    "target_tissue": "Achilles tendon, soleus",
+    "region_bias": [
+      "midportion",
+      "insertional"
+    ],
+    "loading_profile": "isometric",
+    "irritability_appropriateness": [
+      "high",
+      "moderate",
+      "low"
+    ],
+    "insertional_safe": true,
+    "requires_dorsiflexion_depth": "none",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "slow",
+    "unilateral_or_bilateral": "bilateral",
+    "requires_full_rom": false,
+    "max_load_potential": "moderate",
+    "impact_level": "none",
+    "required_equipment": "wall or chair",
+    "dosage_defaults": {
+      "sets": 5,
+      "reps_or_hold_time": "45s hold",
+      "tempo": "hold",
+      "rest": "90s",
+      "weekly_frequency": "daily"
+    },
+    "progression_options": [
+      "ex_009"
+    ],
+    "regression_options": [
+      "ex_004"
+    ],
+    "setup_instructions": "Stand with knees bent to approximately 30-40 degrees, holding wall or chair for support. Rise onto toes in this bent-knee position and hold.",
+    "execution_cues": [
+      "Keep knees bent throughout the hold",
+      "Rise as high as possible in the bent-knee position",
+      "Hold at 70% effort",
+      "Maintain equal weight distribution"
+    ],
+    "common_compensations": [
+      "Straightening knees during the hold",
+      "Forward trunk lean",
+      "Asymmetric weight bearing"
+    ],
+    "contraindications_or_cautions": "Preferred over straight-knee variant for isolated soleus loading. Safe for insertional presentations at all irritability levels.",
+    "decision_rules_tags": [
+      "isometric",
+      "bilateral",
+      "high_irritability_safe",
+      "insertional_safe",
+      "soleus_bias",
+      "stage_1",
+      "no_impact"
+    ],
+    "patient_facing_explanation": "The bent-knee version targets the deeper calf muscle (soleus) more specifically, which attaches closer to your heel. It is safe even when your tendon is most sensitive.",
+    "clinician_notes": "Soleus-dominant isometric. Critical for insertional presentations where straight-knee loading at range provokes compression. Use alongside ex_001 as paired isometric protocol."
+  },
+  {
+    "id": "ex_004",
+    "exercise_name": "Seated Isometric Plantarflexion",
+    "category": "symptom_modulation",
+    "difficulty_level": 1,
+    "target_tissue": "Achilles tendon, soleus",
+    "region_bias": [
+      "midportion",
+      "insertional"
+    ],
+    "loading_profile": "isometric",
+    "irritability_appropriateness": [
+      "high",
+      "moderate",
+      "low"
+    ],
+    "insertional_safe": true,
+    "requires_dorsiflexion_depth": "none",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "slow",
+    "unilateral_or_bilateral": "bilateral",
+    "requires_full_rom": false,
+    "max_load_potential": "low",
+    "impact_level": "none",
+    "required_equipment": "chair, resistance band (optional)",
+    "dosage_defaults": {
+      "sets": 5,
+      "reps_or_hold_time": "30-45s hold",
+      "tempo": "hold",
+      "rest": "60s",
+      "weekly_frequency": "daily"
+    },
+    "progression_options": [
+      "ex_001",
+      "ex_010"
+    ],
+    "regression_options": [],
+    "setup_instructions": "Sit in a chair with feet flat on floor. Push ball of foot into floor (or against resistance band) and hold.",
+    "execution_cues": [
+      "Press firmly into floor without moving foot",
+      "Aim for 70% maximum effort",
+      "Keep heel on floor",
+      "Breathe normally"
+    ],
+    "common_compensations": [
+      "Lifting heel off floor",
+      "Pushing with toes rather than ball of foot"
+    ],
+    "contraindications_or_cautions": "Lowest-demand entry point. Use when standing isometrics are not tolerated.",
+    "decision_rules_tags": [
+      "isometric",
+      "bilateral",
+      "high_irritability_safe",
+      "insertional_safe",
+      "seated",
+      "stage_1",
+      "no_impact",
+      "no_equipment"
+    ],
+    "patient_facing_explanation": "The seated version is the gentlest way to load your Achilles. It is the starting point when standing exercises are too painful, or as a first step after a flare.",
+    "clinician_notes": "Minimum viable isometric. For very high irritability (rest pain 5-7/10) or post-flare. Load is modest but provides mechanical stimulus and pain education. Progress to standing isometrics as soon as tolerated."
+  },
+  {
+    "id": "ex_005",
+    "exercise_name": "Supported Standing Calf Raise \u2014 Partial Range",
+    "category": "symptom_modulation",
+    "difficulty_level": 1,
+    "target_tissue": "Achilles tendon, gastrocnemius, soleus",
+    "region_bias": [
+      "midportion"
+    ],
+    "loading_profile": "isotonic_slow",
+    "irritability_appropriateness": [
+      "moderate",
+      "low"
+    ],
+    "insertional_safe": true,
+    "requires_dorsiflexion_depth": "none",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "slow",
+    "unilateral_or_bilateral": "bilateral",
+    "requires_full_rom": false,
+    "max_load_potential": "low",
+    "impact_level": "none",
+    "required_equipment": "wall or support surface",
+    "dosage_defaults": {
+      "sets": 3,
+      "reps_or_hold_time": 15,
+      "tempo": "2-1-2",
+      "rest": "60s",
+      "weekly_frequency": "daily"
+    },
+    "progression_options": [
+      "ex_007"
+    ],
+    "regression_options": [
+      "ex_001"
+    ],
+    "setup_instructions": "Stand facing a wall with both hands on wall for support. Rise onto toes through a comfortable, pain-free range only.",
+    "execution_cues": [
+      "Move only within your pain-free range",
+      "Rise slowly over 2 seconds, lower slowly over 2 seconds",
+      "Use wall firmly for support",
+      "Stop range of motion before pain starts"
+    ],
+    "common_compensations": [
+      "Pushing through pain to reach full range",
+      "Using arms to offload body weight excessively"
+    ],
+    "contraindications_or_cautions": "Range should be restricted to pain-free only. Do not attempt full range if painful.",
+    "decision_rules_tags": [
+      "isotonic_slow",
+      "bilateral",
+      "moderate_irritability_safe",
+      "insertional_safe",
+      "partial_range",
+      "stage_1",
+      "no_impact"
+    ],
+    "patient_facing_explanation": "A gentle calf raise through a comfortable range. This bridges from holds to full movement. Go only as far as feels comfortable \u2014 the range will increase as your tendon settles.",
+    "clinician_notes": "Transition exercise between isometric loading and full-range isotonic. Range-of-motion gate is patient-guided. Progress range before progressing load."
+  },
+  {
+    "id": "ex_006",
+    "exercise_name": "Leg Press Calf Raise \u2014 Short-Range Isometric",
+    "category": "symptom_modulation",
+    "difficulty_level": 1,
+    "target_tissue": "Achilles tendon, gastrocnemius, soleus",
+    "region_bias": [
+      "midportion",
+      "insertional"
+    ],
+    "loading_profile": "isometric",
+    "irritability_appropriateness": [
+      "high",
+      "moderate",
+      "low"
+    ],
+    "insertional_safe": true,
+    "requires_dorsiflexion_depth": "none",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "slow",
+    "unilateral_or_bilateral": "bilateral",
+    "requires_full_rom": false,
+    "max_load_potential": "high",
+    "impact_level": "none",
+    "required_equipment": "leg press machine",
+    "dosage_defaults": {
+      "sets": 5,
+      "reps_or_hold_time": "45s hold",
+      "tempo": "hold",
+      "rest": "90s",
+      "weekly_frequency": "3x/week"
+    },
+    "progression_options": [
+      "ex_011"
+    ],
+    "regression_options": [
+      "ex_004"
+    ],
+    "setup_instructions": "Set up on leg press with feet on platform at shoulder width. Extend through toes to plantarflexion mid-range and hold. Apply moderate resistance via machine.",
+    "execution_cues": [
+      "Hold at mid-range plantarflexion \u2014 not end range",
+      "Apply approximately 70% maximum effort",
+      "Do not allow platform to move",
+      "Breathe normally"
+    ],
+    "common_compensations": [
+      "Allowing slow platform drift",
+      "Holding at end-range rather than mid-range"
+    ],
+    "contraindications_or_cautions": "Set resistance at a comfortable working load. Avoid end-range compression in insertional presentations.",
+    "decision_rules_tags": [
+      "isometric",
+      "bilateral",
+      "high_irritability_safe",
+      "insertional_safe",
+      "gym_required",
+      "stage_1",
+      "no_impact"
+    ],
+    "patient_facing_explanation": "Using the leg press machine allows us to control exactly how much load goes through your Achilles during the hold. This is a gym-based alternative with greater load control.",
+    "clinician_notes": "High load potential makes this useful for patients who need more stimulus than bodyweight isometrics provide but cannot tolerate dynamic loading. Load can be precisely titrated."
+  },
+  {
+    "id": "ex_007",
+    "exercise_name": "Double-Leg Standing Calf Raise",
+    "category": "slow_strength",
+    "difficulty_level": 2,
+    "target_tissue": "Achilles tendon, gastrocnemius, soleus",
+    "region_bias": [
+      "midportion"
+    ],
+    "loading_profile": "isotonic_slow",
+    "irritability_appropriateness": [
+      "moderate",
+      "low"
+    ],
+    "insertional_safe": false,
+    "requires_dorsiflexion_depth": "moderate",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "slow",
+    "unilateral_or_bilateral": "bilateral",
+    "requires_full_rom": true,
+    "max_load_potential": "moderate",
+    "impact_level": "none",
+    "required_equipment": "step or raised surface (optional)",
+    "dosage_defaults": {
+      "sets": 3,
+      "reps_or_hold_time": 15,
+      "tempo": "2-1-2",
+      "rest": "90s",
+      "weekly_frequency": "3x/week"
+    },
+    "progression_options": [
+      "ex_008",
+      "ex_012"
+    ],
+    "regression_options": [
+      "ex_001",
+      "ex_005"
+    ],
+    "setup_instructions": "Stand with feet hip-width apart. Rise up onto toes through full range, lower under control. Can be performed on flat ground or edge of step.",
+    "execution_cues": [
+      "Rise up tall through full range",
+      "Lower slowly \u2014 2-3 seconds on the way down",
+      "Pause briefly at top",
+      "Maintain even weight through both feet"
+    ],
+    "common_compensations": [
+      "Rushing the lowering phase",
+      "Shifting weight to one foot",
+      "Limited ankle range of motion"
+    ],
+    "contraindications_or_cautions": "Not suitable for insertional Achilles presentations in early phase \u2014 dorsiflexion at base of range compresses the insertion. Use flat-ground version to limit dorsiflexion if borderline.",
+    "decision_rules_tags": [
+      "isotonic_slow",
+      "bilateral",
+      "moderate_irritability_safe",
+      "midportion_bias",
+      "stage_1_to_2",
+      "no_impact"
+    ],
+    "patient_facing_explanation": "The standard bilateral calf raise builds strength and resilience in both your Achilles tendon and calf muscles. This is one of the most important exercises in your programme.",
+    "clinician_notes": "Entry-level isotonic. Insertional precaution: limit range to neutral if presenting with insertional AT. Progress tempo (2-1-2 \u2192 3-1-3) before adding load."
+  },
+  {
+    "id": "ex_008",
+    "exercise_name": "Single-Leg Standing Calf Raise",
+    "category": "slow_strength",
+    "difficulty_level": 3,
+    "target_tissue": "Achilles tendon, gastrocnemius, soleus",
+    "region_bias": [
+      "midportion"
+    ],
+    "loading_profile": "isotonic_slow",
+    "irritability_appropriateness": [
+      "moderate",
+      "low"
+    ],
+    "insertional_safe": false,
+    "requires_dorsiflexion_depth": "moderate",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "slow",
+    "unilateral_or_bilateral": "unilateral",
+    "requires_full_rom": true,
+    "max_load_potential": "moderate",
+    "impact_level": "none",
+    "required_equipment": "step or raised surface (optional)",
+    "dosage_defaults": {
+      "sets": 3,
+      "reps_or_hold_time": 15,
+      "tempo": "3-1-3",
+      "rest": "90s",
+      "weekly_frequency": "3x/week"
+    },
+    "progression_options": [
+      "ex_017",
+      "ex_021"
+    ],
+    "regression_options": [
+      "ex_007"
+    ],
+    "setup_instructions": "Stand on one leg with toes on edge of step or flat ground. Rise onto toes through full range and lower under control.",
+    "execution_cues": [
+      "Rise tall \u2014 reach maximum plantarflexion",
+      "Control the lowering phase over 3 seconds",
+      "Avoid trunk rotation or lateral lean",
+      "Fingertips on wall for balance only"
+    ],
+    "common_compensations": [
+      "Bending knee to cheat range of motion",
+      "Hip hiking",
+      "Shortening the lowering phase"
+    ],
+    "contraindications_or_cautions": "Insertional precaution \u2014 limit to flat-ground version if insertional presentation. Progress from bilateral only.",
+    "decision_rules_tags": [
+      "isotonic_slow",
+      "unilateral",
+      "moderate_irritability_safe",
+      "midportion_bias",
+      "stage_2",
+      "no_impact"
+    ],
+    "patient_facing_explanation": "The single-leg calf raise is the key strength benchmark for your Achilles. It builds the capacity needed for walking, running, and sport. Working on this consistently is central to your recovery.",
+    "clinician_notes": "Key functional strength benchmark \u2014 25 single-leg raises to full range is a running readiness indicator. Progress tempo before adding external load."
+  },
+  {
+    "id": "ex_009",
+    "exercise_name": "Bent-Knee Calf Raise",
+    "category": "slow_strength",
+    "difficulty_level": 2,
+    "target_tissue": "Achilles tendon, soleus",
+    "region_bias": [
+      "midportion",
+      "insertional"
+    ],
+    "loading_profile": "isotonic_slow",
+    "irritability_appropriateness": [
+      "moderate",
+      "low"
+    ],
+    "insertional_safe": true,
+    "requires_dorsiflexion_depth": "none",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "slow",
+    "unilateral_or_bilateral": "bilateral",
+    "requires_full_rom": false,
+    "max_load_potential": "moderate",
+    "impact_level": "none",
+    "required_equipment": "none",
+    "dosage_defaults": {
+      "sets": 3,
+      "reps_or_hold_time": 15,
+      "tempo": "2-1-2",
+      "rest": "90s",
+      "weekly_frequency": "3x/week"
+    },
+    "progression_options": [
+      "ex_010",
+      "ex_016"
+    ],
+    "regression_options": [
+      "ex_003"
+    ],
+    "setup_instructions": "Stand with knees bent 30-40 degrees. Rise onto toes through available range while maintaining knee bend.",
+    "execution_cues": [
+      "Keep knees bent throughout",
+      "Rise as high as possible in the bent-knee position",
+      "Lower slowly",
+      "Equal weight through both feet"
+    ],
+    "common_compensations": [
+      "Straightening knees on the way up",
+      "Reduced range due to early knee extension"
+    ],
+    "contraindications_or_cautions": "Preferred over straight-knee variant for soleus isolation. Safe for insertional presentations.",
+    "decision_rules_tags": [
+      "isotonic_slow",
+      "bilateral",
+      "moderate_irritability_safe",
+      "insertional_safe",
+      "soleus_bias",
+      "stage_1_to_2",
+      "no_impact",
+      "no_equipment"
+    ],
+    "patient_facing_explanation": "The bent-knee raise isolates the deeper calf muscle that runs directly into your Achilles tendon near the heel. It is gentler on the insertion and an important part of complete tendon loading.",
+    "clinician_notes": "Soleus-biased isotonic. Pairs with ex_007 for comprehensive gastrocnemius + soleus loading. Insertional-safe due to reduced dorsiflexion at base position."
+  },
+  {
+    "id": "ex_010",
+    "exercise_name": "Seated Calf Raise",
+    "category": "slow_strength",
+    "difficulty_level": 2,
+    "target_tissue": "Achilles tendon, soleus",
+    "region_bias": [
+      "midportion",
+      "insertional"
+    ],
+    "loading_profile": "isotonic_slow",
+    "irritability_appropriateness": [
+      "moderate",
+      "low"
+    ],
+    "insertional_safe": true,
+    "requires_dorsiflexion_depth": "none",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "slow",
+    "unilateral_or_bilateral": "bilateral",
+    "requires_full_rom": false,
+    "max_load_potential": "high",
+    "impact_level": "none",
+    "required_equipment": "seated calf raise machine or weighted barbell on knees",
+    "dosage_defaults": {
+      "sets": 3,
+      "reps_or_hold_time": 15,
+      "tempo": "2-1-2",
+      "rest": "90s",
+      "weekly_frequency": "3x/week"
+    },
+    "progression_options": [
+      "ex_020"
+    ],
+    "regression_options": [
+      "ex_004"
+    ],
+    "setup_instructions": "Sit on a bench or calf raise machine with weight on thighs just above knees. Rise onto toes and lower under control.",
+    "execution_cues": [
+      "Full plantarflexion range",
+      "Slow lowering phase",
+      "Do not let heel slam down",
+      "Keep weight evenly distributed"
+    ],
+    "common_compensations": [
+      "Rushing the lowering phase",
+      "Bouncing at the bottom"
+    ],
+    "contraindications_or_cautions": "Knee flexion position means minimal gastrocnemius contribution \u2014 primarily soleus loading. Insertional safe.",
+    "decision_rules_tags": [
+      "isotonic_slow",
+      "bilateral",
+      "moderate_irritability_safe",
+      "insertional_safe",
+      "soleus_bias",
+      "gym_required",
+      "stage_2",
+      "no_impact"
+    ],
+    "patient_facing_explanation": "The seated calf raise in the gym specifically targets the soleus \u2014 the muscle that works hardest during walking and running. Adding load here is important for building real tendon capacity.",
+    "clinician_notes": "High load potential for soleus via seated position. Gastrocnemius contribution minimal at 90\u00b0 knee flexion. Can be loaded heavily as tendon tolerance improves. Insertional-safe throughout."
+  },
+  {
+    "id": "ex_011",
+    "exercise_name": "Leg Press Calf Raise",
+    "category": "slow_strength",
+    "difficulty_level": 2,
+    "target_tissue": "Achilles tendon, gastrocnemius, soleus",
+    "region_bias": [
+      "midportion",
+      "insertional"
+    ],
+    "loading_profile": "isotonic_slow",
+    "irritability_appropriateness": [
+      "moderate",
+      "low"
+    ],
+    "insertional_safe": true,
+    "requires_dorsiflexion_depth": "none",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "slow",
+    "unilateral_or_bilateral": "bilateral",
+    "requires_full_rom": false,
+    "max_load_potential": "high",
+    "impact_level": "none",
+    "required_equipment": "leg press machine",
+    "dosage_defaults": {
+      "sets": 3,
+      "reps_or_hold_time": 15,
+      "tempo": "2-1-2",
+      "rest": "90s",
+      "weekly_frequency": "3x/week"
+    },
+    "progression_options": [
+      "ex_022"
+    ],
+    "regression_options": [
+      "ex_006"
+    ],
+    "setup_instructions": "Sit on leg press with feet positioned at shoulder-width on lower portion of platform. Extend through toes in full plantarflexion range.",
+    "execution_cues": [
+      "Push through toes to full plantarflexion",
+      "Return slowly to neutral \u2014 do not go past neutral into dorsiflexion",
+      "Control the pace \u2014 do not bounce",
+      "Maintain foot contact with platform throughout"
+    ],
+    "common_compensations": [
+      "Going into full dorsiflexion at base \u2014 avoid in insertional presentations",
+      "Allowing knees to flex during the movement"
+    ],
+    "contraindications_or_cautions": "Limit range of motion to neutral at base position for insertional presentations \u2014 avoid forced dorsiflexion.",
+    "decision_rules_tags": [
+      "isotonic_slow",
+      "bilateral",
+      "moderate_irritability_safe",
+      "insertional_safe",
+      "gym_required",
+      "stage_2",
+      "no_impact"
+    ],
+    "patient_facing_explanation": "The leg press calf raise lets us load your Achilles with significantly more weight in a safe, controlled position. It builds the tendon strength needed for heavier activities.",
+    "clinician_notes": "Useful early isotonic for patients where standing balance or pain limits floor-based raises. Range gate important for insertional: set limiter to prevent full dorsiflexion."
+  },
+  {
+    "id": "ex_012",
+    "exercise_name": "Tempo Calf Raise with Pause at Top",
+    "category": "slow_strength",
+    "difficulty_level": 2,
+    "target_tissue": "Achilles tendon, gastrocnemius, soleus",
+    "region_bias": [
+      "midportion"
+    ],
+    "loading_profile": "isotonic_slow",
+    "irritability_appropriateness": [
+      "moderate",
+      "low"
+    ],
+    "insertional_safe": false,
+    "requires_dorsiflexion_depth": "moderate",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "slow",
+    "unilateral_or_bilateral": "bilateral",
+    "requires_full_rom": true,
+    "max_load_potential": "moderate",
+    "impact_level": "none",
+    "required_equipment": "none",
+    "dosage_defaults": {
+      "sets": 3,
+      "reps_or_hold_time": 12,
+      "tempo": "3-2-3",
+      "rest": "90s",
+      "weekly_frequency": "3x/week"
+    },
+    "progression_options": [
+      "ex_013",
+      "ex_019"
+    ],
+    "regression_options": [
+      "ex_007"
+    ],
+    "setup_instructions": "Standard bilateral calf raise position. Rise to peak plantarflexion over 3 seconds, hold at top for 2 seconds, lower slowly over 3 seconds.",
+    "execution_cues": [
+      "Count to 3 on the way up",
+      "Hold hard at top \u2014 squeeze calf",
+      "Count to 3 on the way down",
+      "Do not rest at the bottom \u2014 maintain tension"
+    ],
+    "common_compensations": [
+      "Shortening the pause at top",
+      "Rushing the lowering",
+      "Resting at bottom between reps"
+    ],
+    "contraindications_or_cautions": "Full dorsiflexion at base \u2014 insertional precaution applies.",
+    "decision_rules_tags": [
+      "isotonic_slow",
+      "bilateral",
+      "moderate_irritability_safe",
+      "midportion_bias",
+      "time_under_tension",
+      "stage_2",
+      "no_impact",
+      "no_equipment"
+    ],
+    "patient_facing_explanation": "The pause at the top forces your calf and Achilles to work harder for longer. This builds both strength and tendon resilience more effectively than standard calf raises.",
+    "clinician_notes": "High time-under-tension variant. Isometric component at top drives additional tendon adaptation. Good bridge between standard isotonic and loaded HSR."
+  },
+  {
+    "id": "ex_013",
+    "exercise_name": "Tempo Calf Raise with Slow Lowering",
+    "category": "slow_strength",
+    "difficulty_level": 3,
+    "target_tissue": "Achilles tendon, gastrocnemius, soleus",
+    "region_bias": [
+      "midportion"
+    ],
+    "loading_profile": "eccentric_biased",
+    "irritability_appropriateness": [
+      "moderate",
+      "low"
+    ],
+    "insertional_safe": false,
+    "requires_dorsiflexion_depth": "moderate",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "slow",
+    "unilateral_or_bilateral": "bilateral",
+    "requires_full_rom": true,
+    "max_load_potential": "moderate",
+    "impact_level": "none",
+    "required_equipment": "none",
+    "dosage_defaults": {
+      "sets": 3,
+      "reps_or_hold_time": 12,
+      "tempo": "2-0-6",
+      "rest": "90s",
+      "weekly_frequency": "3x/week"
+    },
+    "progression_options": [
+      "ex_015",
+      "ex_017"
+    ],
+    "regression_options": [
+      "ex_012"
+    ],
+    "setup_instructions": "Rise up onto toes using both legs over 2 seconds. Lower slowly using both legs (or single leg if tolerated) over 6 seconds.",
+    "execution_cues": [
+      "Control every millimetre of the lowering phase",
+      "6 full seconds from top to bottom",
+      "Maintain tension throughout \u2014 do not drop",
+      "Feel the calf working during the lowering"
+    ],
+    "common_compensations": [
+      "Speeding up the lowering phase",
+      "Leaning forward to reduce calf load",
+      "Bending knees during lowering"
+    ],
+    "contraindications_or_cautions": "Eccentric component drives greater tendon stimulus. Insertional precaution at base of range.",
+    "decision_rules_tags": [
+      "eccentric_biased",
+      "bilateral",
+      "moderate_irritability_safe",
+      "midportion_bias",
+      "eccentric_emphasis",
+      "stage_2",
+      "no_impact",
+      "no_equipment"
+    ],
+    "patient_facing_explanation": "Slowing down the lowering phase is one of the most powerful ways to strengthen your Achilles tendon. The eccentric phase drives the most tendon adaptation.",
+    "clinician_notes": "Eccentric-biased isotonic. Good bridge to formal Alfredson protocol. Bilateral lowering reduces load compared to single-leg off-step \u2014 use as stepping stone."
+  },
+  {
+    "id": "ex_014",
+    "exercise_name": "Smith Machine Calf Raise",
+    "category": "slow_strength",
+    "difficulty_level": 3,
+    "target_tissue": "Achilles tendon, gastrocnemius, soleus",
+    "region_bias": [
+      "midportion"
+    ],
+    "loading_profile": "isotonic_slow",
+    "irritability_appropriateness": [
+      "low"
+    ],
+    "insertional_safe": false,
+    "requires_dorsiflexion_depth": "moderate",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "slow",
+    "unilateral_or_bilateral": "bilateral",
+    "requires_full_rom": true,
+    "max_load_potential": "high",
+    "impact_level": "none",
+    "required_equipment": "Smith machine, raised platform",
+    "dosage_defaults": {
+      "sets": 4,
+      "reps_or_hold_time": "8-12",
+      "tempo": "3-1-3",
+      "rest": "120s",
+      "weekly_frequency": "3x/week"
+    },
+    "progression_options": [
+      "ex_019",
+      "ex_023"
+    ],
+    "regression_options": [
+      "ex_007",
+      "ex_012"
+    ],
+    "setup_instructions": "Position under Smith machine bar with toes on raised platform. Perform full range calf raise with bar resting across upper trapezius/shoulders.",
+    "execution_cues": [
+      "Full range \u2014 up and down",
+      "3-1-3 tempo throughout",
+      "Progressively load to RPE 8 on final rep",
+      "Maintain vertical shin path"
+    ],
+    "common_compensations": [
+      "Partial range to manage load",
+      "Knee bend on lowering",
+      "Foot turning out excessively"
+    ],
+    "contraindications_or_cautions": "Gym-dependent. Insertional precaution. Requires low irritability and established tolerance to bilateral raises.",
+    "decision_rules_tags": [
+      "isotonic_slow",
+      "bilateral",
+      "low_irritability_only",
+      "midportion_bias",
+      "gym_required",
+      "stage_2",
+      "no_impact"
+    ],
+    "patient_facing_explanation": "Using the Smith machine allows us to safely add significant load to your calf raise. This level of loading is what drives the strongest Achilles tendon adaptations.",
+    "clinician_notes": "High load potential. Smith machine path stabilises movement for heavy loading. Progress to 4x6-8 at RPE 8 for maximum tendon adaptation. Pairs with ex_020 (seated) for comprehensive loading."
+  },
+  {
+    "id": "ex_015",
+    "exercise_name": "Eccentric Heel Lower Off Step",
+    "category": "eccentric_loading",
+    "difficulty_level": 3,
+    "target_tissue": "Achilles tendon, gastrocnemius",
+    "region_bias": [
+      "midportion"
+    ],
+    "loading_profile": "eccentric_biased",
+    "irritability_appropriateness": [
+      "moderate",
+      "low"
+    ],
+    "insertional_safe": false,
+    "requires_dorsiflexion_depth": "high",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "slow",
+    "unilateral_or_bilateral": "unilateral",
+    "requires_full_rom": true,
+    "max_load_potential": "moderate",
+    "impact_level": "none",
+    "required_equipment": "step or stair",
+    "dosage_defaults": {
+      "sets": 3,
+      "reps_or_hold_time": 15,
+      "tempo": "0-0-6",
+      "rest": "90s",
+      "weekly_frequency": "twice daily"
+    },
+    "progression_options": [
+      "ex_021"
+    ],
+    "regression_options": [
+      "ex_013",
+      "ex_017"
+    ],
+    "setup_instructions": "Stand with both feet on edge of step, toes on edge, heels free. Rise onto both toes, shift weight to affected leg, lower heel below step level over 6 seconds.",
+    "execution_cues": [
+      "Rise using both legs \u2014 lower using one",
+      "6 full seconds on every repetition",
+      "Lower heel as far below step as comfortable",
+      "Feel the stretch in the calf"
+    ],
+    "common_compensations": [
+      "Speeding up the lowering phase",
+      "Not going below step level",
+      "Bending knee during lowering"
+    ],
+    "contraindications_or_cautions": "CONTRAINDICATED for insertional Achilles tendinopathy in early/mid phase \u2014 forced dorsiflexion compresses the insertion. For midportion only.",
+    "decision_rules_tags": [
+      "eccentric_biased",
+      "unilateral",
+      "moderate_irritability_safe",
+      "midportion_only",
+      "insertional_contraindicated",
+      "alfredson_protocol",
+      "stage_2",
+      "no_impact"
+    ],
+    "patient_facing_explanation": "This is the classic Alfredson eccentric exercise \u2014 one of the most studied treatments for Achilles tendon problems. Lowering slowly below step height is what makes it effective.",
+    "clinician_notes": "Alfredson eccentric protocol. Some pain during exercise is acceptable (\u22645/10 by original protocol). CONTRAINDICATED for insertional AT. Twice-daily dosing supported by original RCT."
+  },
+  {
+    "id": "ex_016",
+    "exercise_name": "Bent-Knee Eccentric Heel Lower",
+    "category": "eccentric_loading",
+    "difficulty_level": 3,
+    "target_tissue": "Achilles tendon, soleus",
+    "region_bias": [
+      "midportion"
+    ],
+    "loading_profile": "eccentric_biased",
+    "irritability_appropriateness": [
+      "moderate",
+      "low"
+    ],
+    "insertional_safe": false,
+    "requires_dorsiflexion_depth": "high",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "slow",
+    "unilateral_or_bilateral": "unilateral",
+    "requires_full_rom": true,
+    "max_load_potential": "moderate",
+    "impact_level": "none",
+    "required_equipment": "step or stair",
+    "dosage_defaults": {
+      "sets": 3,
+      "reps_or_hold_time": 15,
+      "tempo": "0-0-6",
+      "rest": "90s",
+      "weekly_frequency": "twice daily"
+    },
+    "progression_options": [
+      "ex_021"
+    ],
+    "regression_options": [
+      "ex_009",
+      "ex_013"
+    ],
+    "setup_instructions": "Same position as ex_015 but maintain approximately 30\u00b0 knee bend throughout. Rise using both legs with bent knee, lower on one leg maintaining knee bend.",
+    "execution_cues": [
+      "Keep knee bent throughout the entire rep",
+      "Same 6-second lowering as straight-knee variant",
+      "Feel the load in the deeper calf muscle",
+      "Maintain consistent knee angle"
+    ],
+    "common_compensations": [
+      "Knee straightening during lowering",
+      "Reduced range compared to straight-knee variant"
+    ],
+    "contraindications_or_cautions": "Soleus eccentric \u2014 same insertional contraindication applies due to dorsiflexion at base. Midportion only.",
+    "decision_rules_tags": [
+      "eccentric_biased",
+      "unilateral",
+      "moderate_irritability_safe",
+      "midportion_only",
+      "insertional_contraindicated",
+      "soleus_bias",
+      "alfredson_protocol",
+      "stage_2",
+      "no_impact"
+    ],
+    "patient_facing_explanation": "The bent-knee version targets the soleus specifically. Performing both the straight-knee and bent-knee version gives full coverage of your Achilles tendon from all angles.",
+    "clinician_notes": "Soleus-targeting eccentric \u2014 should be performed alongside ex_015 for complete Alfredson protocol coverage. Same dosing and insertional contraindication."
+  },
+  {
+    "id": "ex_017",
+    "exercise_name": "Assisted Up \u2014 Single-Leg Down Calf Raise",
+    "category": "eccentric_loading",
+    "difficulty_level": 3,
+    "target_tissue": "Achilles tendon, gastrocnemius, soleus",
+    "region_bias": [
+      "midportion"
+    ],
+    "loading_profile": "eccentric_biased",
+    "irritability_appropriateness": [
+      "moderate",
+      "low"
+    ],
+    "insertional_safe": false,
+    "requires_dorsiflexion_depth": "moderate",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "slow",
+    "unilateral_or_bilateral": "both",
+    "requires_full_rom": true,
+    "max_load_potential": "moderate",
+    "impact_level": "none",
+    "required_equipment": "none",
+    "dosage_defaults": {
+      "sets": 3,
+      "reps_or_hold_time": 15,
+      "tempo": "2-0-4",
+      "rest": "90s",
+      "weekly_frequency": "3x/week"
+    },
+    "progression_options": [
+      "ex_008",
+      "ex_015"
+    ],
+    "regression_options": [
+      "ex_013"
+    ],
+    "setup_instructions": "Flat ground version. Rise onto toes using both legs, transfer weight to affected leg, lower slowly on single leg. Return to start using both legs.",
+    "execution_cues": [
+      "Use both legs equally on the way up",
+      "Shift weight smoothly before lowering",
+      "Lower over 4 seconds on single leg",
+      "Control every part of the descent"
+    ],
+    "common_compensations": [
+      "Using unaffected leg to assist on the way down",
+      "Rushing the lowering phase"
+    ],
+    "contraindications_or_cautions": "Flat ground version significantly reduces dorsiflexion compared to step version \u2014 more insertional-friendly but still use caution.",
+    "decision_rules_tags": [
+      "eccentric_biased",
+      "unilateral",
+      "moderate_irritability_safe",
+      "midportion_bias",
+      "stage_2",
+      "no_impact",
+      "no_equipment"
+    ],
+    "patient_facing_explanation": "This exercise gives you the benefits of single-leg lowering on flat ground, making it less demanding than the step version. It's a good stepping stone toward full eccentric loading.",
+    "clinician_notes": "Eccentric with assisted concentric \u2014 reduces fatigue accumulation and allows higher rep completion. Flat ground reduces dorsiflexion range compared to step. Good bridge to ex_015."
+  },
+  {
+    "id": "ex_018",
+    "exercise_name": "Eccentric Leg Press Calf Lowering",
+    "category": "eccentric_loading",
+    "difficulty_level": 3,
+    "target_tissue": "Achilles tendon, gastrocnemius, soleus",
+    "region_bias": [
+      "midportion",
+      "insertional"
+    ],
+    "loading_profile": "eccentric_biased",
+    "irritability_appropriateness": [
+      "moderate",
+      "low"
+    ],
+    "insertional_safe": true,
+    "requires_dorsiflexion_depth": "none",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "slow",
+    "unilateral_or_bilateral": "bilateral",
+    "requires_full_rom": false,
+    "max_load_potential": "high",
+    "impact_level": "none",
+    "required_equipment": "leg press machine",
+    "dosage_defaults": {
+      "sets": 3,
+      "reps_or_hold_time": 12,
+      "tempo": "2-0-5",
+      "rest": "90s",
+      "weekly_frequency": "3x/week"
+    },
+    "progression_options": [
+      "ex_022"
+    ],
+    "regression_options": [
+      "ex_011"
+    ],
+    "setup_instructions": "Set up on leg press. Use both feet to push to full plantarflexion, then lower slowly back to neutral (do not go into dorsiflexion for insertional presentations) over 5 seconds.",
+    "execution_cues": [
+      "Both feet up \u2014 controlled lowering",
+      "5 seconds on the way down",
+      "Stop at neutral \u2014 do not force dorsiflexion",
+      "Maintain control throughout the range"
+    ],
+    "common_compensations": [
+      "Allowing dorsiflexion past neutral in insertional cases",
+      "Losing foot contact with platform"
+    ],
+    "contraindications_or_cautions": "Insertional-safe if range is limited to neutral at base. Do not allow forced dorsiflexion.",
+    "decision_rules_tags": [
+      "eccentric_biased",
+      "bilateral",
+      "moderate_irritability_safe",
+      "insertional_safe",
+      "gym_required",
+      "stage_2",
+      "no_impact"
+    ],
+    "patient_facing_explanation": "The leg press eccentric is the safest way to get heavy eccentric loading if you have insertional tendon pain, because we can control exactly how far your ankle moves.",
+    "clinician_notes": "Insertional-safe eccentric via ROM control. High load potential. Load can exceed bodyweight \u2014 useful when floor-based eccentrics cannot be adequately loaded."
+  },
+  {
+    "id": "ex_019",
+    "exercise_name": "Weighted Standing Calf Raise",
+    "category": "heavy_dynamic",
+    "difficulty_level": 4,
+    "target_tissue": "Achilles tendon, gastrocnemius, soleus",
+    "region_bias": [
+      "midportion"
+    ],
+    "loading_profile": "heavy_slow_resistance",
+    "irritability_appropriateness": [
+      "low"
+    ],
+    "insertional_safe": false,
+    "requires_dorsiflexion_depth": "moderate",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "moderate",
+    "unilateral_or_bilateral": "bilateral",
+    "requires_full_rom": true,
+    "max_load_potential": "high",
+    "impact_level": "none",
+    "required_equipment": "dumbbell or barbell",
+    "dosage_defaults": {
+      "sets": 4,
+      "reps_or_hold_time": "8-12",
+      "tempo": "3-1-3",
+      "rest": "120s",
+      "weekly_frequency": "3x/week"
+    },
+    "progression_options": [
+      "ex_021",
+      "ex_024"
+    ],
+    "regression_options": [
+      "ex_012",
+      "ex_007"
+    ],
+    "setup_instructions": "Hold dumbbell(s) or place barbell on shoulders. Perform full range calf raise on flat ground or raised surface with 3-1-3 tempo.",
+    "execution_cues": [
+      "Load to RPE 8 on final rep of each set",
+      "3 seconds up \u2014 1 second hold \u2014 3 seconds down",
+      "Full range",
+      "No bounce at bottom"
+    ],
+    "common_compensations": [
+      "Reducing range to manage load",
+      "Speeding up tempo under fatigue",
+      "Asymmetric loading"
+    ],
+    "contraindications_or_cautions": "Low irritability only. Insertional precaution. Requires established tolerance to slow bodyweight raises.",
+    "decision_rules_tags": [
+      "heavy_slow_resistance",
+      "bilateral",
+      "low_irritability_only",
+      "midportion_bias",
+      "stage_2",
+      "no_impact"
+    ],
+    "patient_facing_explanation": "Adding external weight to your calf raise is what drives the most powerful changes in your Achilles tendon. Research shows this type of heavy, slow loading is one of the best treatments available.",
+    "clinician_notes": "HSR protocol. Target RPE 8 on final rep. Load progression: +2.5-5kg weekly when full sets completed. Pairs with ex_020 for comprehensive gastrocnemius + soleus HSR."
+  },
+  {
+    "id": "ex_020",
+    "exercise_name": "Weighted Seated Calf Raise",
+    "category": "heavy_dynamic",
+    "difficulty_level": 4,
+    "target_tissue": "Achilles tendon, soleus",
+    "region_bias": [
+      "midportion",
+      "insertional"
+    ],
+    "loading_profile": "heavy_slow_resistance",
+    "irritability_appropriateness": [
+      "low"
+    ],
+    "insertional_safe": true,
+    "requires_dorsiflexion_depth": "none",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "moderate",
+    "unilateral_or_bilateral": "bilateral",
+    "requires_full_rom": false,
+    "max_load_potential": "high",
+    "impact_level": "none",
+    "required_equipment": "seated calf raise machine or barbell/dumbbell on knees",
+    "dosage_defaults": {
+      "sets": 4,
+      "reps_or_hold_time": "8-12",
+      "tempo": "3-1-3",
+      "rest": "120s",
+      "weekly_frequency": "3x/week"
+    },
+    "progression_options": [],
+    "regression_options": [
+      "ex_010"
+    ],
+    "setup_instructions": "Heavy load on knees in seated position. Perform full plantarflexion range with 3-1-3 tempo.",
+    "execution_cues": [
+      "Load to RPE 8 on final rep",
+      "Full range \u2014 complete plantarflexion",
+      "3 seconds down \u2014 maintain tension",
+      "No bounce"
+    ],
+    "common_compensations": [
+      "Reducing range under heavy load",
+      "Knee extension under fatigue"
+    ],
+    "contraindications_or_cautions": "Insertional-safe due to knee flexion position. Requires low irritability.",
+    "decision_rules_tags": [
+      "heavy_slow_resistance",
+      "bilateral",
+      "low_irritability_only",
+      "insertional_safe",
+      "soleus_bias",
+      "gym_required",
+      "stage_2",
+      "no_impact"
+    ],
+    "patient_facing_explanation": "Heavy seated raises load the soleus to maximum capacity. Because you're seated, this is safe even with insertional tendon pain. It's a key exercise for building the deep calf strength that protects your Achilles.",
+    "clinician_notes": "HSR soleus. Insertional-safe throughout loading range. Pairs with ex_019 (standing/gastroc) for Beyer HSR protocol. Progress load weekly."
+  },
+  {
+    "id": "ex_021",
+    "exercise_name": "Heavy Single-Leg Calf Raise with Dumbbell",
+    "category": "heavy_dynamic",
+    "difficulty_level": 4,
+    "target_tissue": "Achilles tendon, gastrocnemius, soleus",
+    "region_bias": [
+      "midportion"
+    ],
+    "loading_profile": "heavy_slow_resistance",
+    "irritability_appropriateness": [
+      "low"
+    ],
+    "insertional_safe": false,
+    "requires_dorsiflexion_depth": "moderate",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "moderate",
+    "unilateral_or_bilateral": "unilateral",
+    "requires_full_rom": true,
+    "max_load_potential": "high",
+    "impact_level": "none",
+    "required_equipment": "dumbbell, step or raised surface",
+    "dosage_defaults": {
+      "sets": 4,
+      "reps_or_hold_time": "6-10",
+      "tempo": "3-1-3",
+      "rest": "120s",
+      "weekly_frequency": "3x/week"
+    },
+    "progression_options": [
+      "ex_024"
+    ],
+    "regression_options": [
+      "ex_008",
+      "ex_015"
+    ],
+    "setup_instructions": "Stand on one foot on edge of step with dumbbell in hand on affected side. Perform single-leg calf raise through full range with 3-1-3 tempo.",
+    "execution_cues": [
+      "Load to RPE 8",
+      "Full range on every rep",
+      "Control the lowering \u2014 3 full seconds",
+      "Maintain tall posture"
+    ],
+    "common_compensations": [
+      "Reducing range under heavy load",
+      "Trunk lateral lean to compensate for calf fatigue"
+    ],
+    "contraindications_or_cautions": "Highest unilateral load demand. Insertional precaution. Requires solid bilateral HSR tolerance.",
+    "decision_rules_tags": [
+      "heavy_slow_resistance",
+      "unilateral",
+      "low_irritability_only",
+      "midportion_bias",
+      "stage_2_to_3",
+      "no_impact"
+    ],
+    "patient_facing_explanation": "Single-leg heavy loading is the most demanding strength exercise for your Achilles. At this level, you are building the capacity needed for running, jumping, and sport.",
+    "clinician_notes": "Peak unilateral tendon load in HSR phase. Loading here should approach RPE 8-9. Key exercise for Stage 2-3 transition readiness. Bilateral-to-unilateral strength ratio important benchmark."
+  },
+  {
+    "id": "ex_022",
+    "exercise_name": "Heavy Leg Press Calf Raise",
+    "category": "heavy_dynamic",
+    "difficulty_level": 4,
+    "target_tissue": "Achilles tendon, gastrocnemius, soleus",
+    "region_bias": [
+      "midportion",
+      "insertional"
+    ],
+    "loading_profile": "heavy_slow_resistance",
+    "irritability_appropriateness": [
+      "low"
+    ],
+    "insertional_safe": true,
+    "requires_dorsiflexion_depth": "none",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "moderate",
+    "unilateral_or_bilateral": "bilateral",
+    "requires_full_rom": false,
+    "max_load_potential": "high",
+    "impact_level": "none",
+    "required_equipment": "leg press machine",
+    "dosage_defaults": {
+      "sets": 4,
+      "reps_or_hold_time": "6-10",
+      "tempo": "3-1-3",
+      "rest": "120s",
+      "weekly_frequency": "3x/week"
+    },
+    "progression_options": [],
+    "regression_options": [
+      "ex_018",
+      "ex_011"
+    ],
+    "setup_instructions": "Heavy load on leg press. Perform full plantarflexion range (not past neutral at base) with 3-1-3 tempo.",
+    "execution_cues": [
+      "Significant load \u2014 approach RPE 8",
+      "Full plantarflexion range",
+      "Return only to neutral \u2014 no dorsiflexion",
+      "3 seconds each phase"
+    ],
+    "common_compensations": [
+      "Insufficient load",
+      "Going past neutral into dorsiflexion"
+    ],
+    "contraindications_or_cautions": "Insertional-safe with range-of-motion limit to neutral. Requires low irritability.",
+    "decision_rules_tags": [
+      "heavy_slow_resistance",
+      "bilateral",
+      "low_irritability_only",
+      "insertional_safe",
+      "gym_required",
+      "stage_2",
+      "no_impact"
+    ],
+    "patient_facing_explanation": "Heavy leg press loading is the insertional-safe version of heavy slow resistance. The machine lets us load heavily without the ankle going past neutral.",
+    "clinician_notes": "HSR for insertional presentations. Best heavy loading option when floor-based raises are contraindicated. Range-of-motion limiter critical."
+  },
+  {
+    "id": "ex_023",
+    "exercise_name": "Smith Machine Heavy Calf Raise",
+    "category": "heavy_dynamic",
+    "difficulty_level": 4,
+    "target_tissue": "Achilles tendon, gastrocnemius, soleus",
+    "region_bias": [
+      "midportion"
+    ],
+    "loading_profile": "heavy_slow_resistance",
+    "irritability_appropriateness": [
+      "low"
+    ],
+    "insertional_safe": false,
+    "requires_dorsiflexion_depth": "moderate",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "moderate",
+    "unilateral_or_bilateral": "bilateral",
+    "requires_full_rom": true,
+    "max_load_potential": "high",
+    "impact_level": "none",
+    "required_equipment": "Smith machine, raised platform",
+    "dosage_defaults": {
+      "sets": 4,
+      "reps_or_hold_time": "6-8",
+      "tempo": "3-1-3",
+      "rest": "120s",
+      "weekly_frequency": "3x/week"
+    },
+    "progression_options": [
+      "ex_024"
+    ],
+    "regression_options": [
+      "ex_014",
+      "ex_019"
+    ],
+    "setup_instructions": "Heavy load via Smith machine bar. Full range on raised platform with 3-1-3 tempo. Target RPE 8-9 on final set.",
+    "execution_cues": [
+      "Load heavier than ex_014 \u2014 target RPE 8-9",
+      "Full range non-negotiable",
+      "Slow tempo throughout",
+      "No bounce at bottom"
+    ],
+    "common_compensations": [
+      "Bouncing at bottom under heavy load",
+      "Reduced range with increasing weight"
+    ],
+    "contraindications_or_cautions": "Insertional precaution. Maximum load potential variant \u2014 requires solid progression through earlier HSR exercises.",
+    "decision_rules_tags": [
+      "heavy_slow_resistance",
+      "bilateral",
+      "low_irritability_only",
+      "midportion_bias",
+      "gym_required",
+      "stage_2",
+      "no_impact"
+    ],
+    "patient_facing_explanation": "The heaviest gym-based version of the calf raise. This level of loading is what drives the strongest structural changes in the tendon.",
+    "clinician_notes": "Peak bilateral tendon loading. 4x6-8 at RPE 8-9 is the target. Strength gains here support Stage 3 transition. Bilateral-to-unilateral transfer important."
+  },
+  {
+    "id": "ex_024",
+    "exercise_name": "Fast Calf Raise",
+    "category": "fast_dynamic",
+    "difficulty_level": 5,
+    "target_tissue": "Achilles tendon, gastrocnemius, soleus",
+    "region_bias": [
+      "midportion"
+    ],
+    "loading_profile": "ballistic",
+    "irritability_appropriateness": [
+      "low"
+    ],
+    "insertional_safe": false,
+    "requires_dorsiflexion_depth": "moderate",
+    "stretch_shortening_cycle": true,
+    "rate_of_loading": "fast",
+    "unilateral_or_bilateral": "bilateral",
+    "requires_full_rom": true,
+    "max_load_potential": "moderate",
+    "impact_level": "low",
+    "required_equipment": "none",
+    "dosage_defaults": {
+      "sets": 3,
+      "reps_or_hold_time": "20-30",
+      "tempo": "fast",
+      "rest": "120s",
+      "weekly_frequency": "3x/week"
+    },
+    "progression_options": [
+      "ex_025",
+      "ex_028"
+    ],
+    "regression_options": [
+      "ex_019",
+      "ex_012"
+    ],
+    "setup_instructions": "Standard bilateral calf raise position. Perform quick consecutive rises onto toes with intent for speed and springiness rather than range.",
+    "execution_cues": [
+      "Think speed \u2014 fast up and down",
+      "Stay on toes between reps",
+      "Small, quick movements",
+      "Focus on ankle stiffness and spring"
+    ],
+    "common_compensations": [
+      "Slow, heavy movements rather than fast",
+      "Leaving ground with each rep \u2014 keep feet on floor initially"
+    ],
+    "contraindications_or_cautions": "Bridge exercise between slow HSR and plyometric loading. Do not progress here until 4x6-8 HSR is well tolerated.",
+    "decision_rules_tags": [
+      "ballistic",
+      "bilateral",
+      "low_irritability_only",
+      "midportion_bias",
+      "fast_loading",
+      "stage_2_to_3",
+      "ssc_preparation"
+    ],
+    "patient_facing_explanation": "Fast calf raises train your Achilles to store and release energy quickly \u2014 a completely different demand from slow exercises. This is the bridge toward jumping and running.",
+    "clinician_notes": "Rate-of-loading transition. Introduces SSC stimulus at low energy levels. Speed of execution is the variable being trained, not load. Critical bridge to plyometric loading."
+  },
+  {
+    "id": "ex_025",
+    "exercise_name": "Snap Calf Raise",
+    "category": "fast_dynamic",
+    "difficulty_level": 5,
+    "target_tissue": "Achilles tendon, gastrocnemius",
+    "region_bias": [
+      "midportion"
+    ],
+    "loading_profile": "ballistic",
+    "irritability_appropriateness": [
+      "low"
+    ],
+    "insertional_safe": false,
+    "requires_dorsiflexion_depth": "moderate",
+    "stretch_shortening_cycle": true,
+    "rate_of_loading": "fast",
+    "unilateral_or_bilateral": "bilateral",
+    "requires_full_rom": false,
+    "max_load_potential": "moderate",
+    "impact_level": "low",
+    "required_equipment": "none",
+    "dosage_defaults": {
+      "sets": 3,
+      "reps_or_hold_time": "15-20",
+      "tempo": "explosive",
+      "rest": "120s",
+      "weekly_frequency": "3x/week"
+    },
+    "progression_options": [
+      "ex_028"
+    ],
+    "regression_options": [
+      "ex_024"
+    ],
+    "setup_instructions": "Standing bilateral. Quickly snap onto toes with maximum speed intent. Feet remain on floor. Focus on rate of force development.",
+    "execution_cues": [
+      "Maximum speed on every rep",
+      "Snap up \u2014 controlled return",
+      "Short, sharp movement",
+      "Aim for fastest possible ankle action"
+    ],
+    "common_compensations": [
+      "Performing as a slow calf raise with hurried tempo",
+      "Hip extension to assist"
+    ],
+    "contraindications_or_cautions": "Requires solid fast calf raise base. More ballistic than ex_024.",
+    "decision_rules_tags": [
+      "ballistic",
+      "bilateral",
+      "low_irritability_only",
+      "midportion_bias",
+      "rate_of_force_development",
+      "stage_2_to_3"
+    ],
+    "patient_facing_explanation": "The snap raise trains the explosive power in your calf. This is the kind of speed your tendon needs for running, court sports, and quick directional changes.",
+    "clinician_notes": "Rate of force development emphasis. Transition toward plyometric stimulus. Monitor for delayed onset tendon symptoms \u2014 this is a significant load-rate increase."
+  },
+  {
+    "id": "ex_026",
+    "exercise_name": "Repeated Fast Bilateral Heel Raises",
+    "category": "fast_dynamic",
+    "difficulty_level": 5,
+    "target_tissue": "Achilles tendon, gastrocnemius, soleus",
+    "region_bias": [
+      "midportion"
+    ],
+    "loading_profile": "ballistic",
+    "irritability_appropriateness": [
+      "low"
+    ],
+    "insertional_safe": false,
+    "requires_dorsiflexion_depth": "moderate",
+    "stretch_shortening_cycle": true,
+    "rate_of_loading": "fast",
+    "unilateral_or_bilateral": "bilateral",
+    "requires_full_rom": false,
+    "max_load_potential": "low",
+    "impact_level": "low",
+    "required_equipment": "none",
+    "dosage_defaults": {
+      "sets": 3,
+      "reps_or_hold_time": "30s continuous",
+      "tempo": "fast",
+      "rest": "120s",
+      "weekly_frequency": "3x/week"
+    },
+    "progression_options": [
+      "ex_028"
+    ],
+    "regression_options": [
+      "ex_024"
+    ],
+    "setup_instructions": "Continuous bilateral fast heel raises for 30-second bouts. Stay on toes, minimal ground contact between reps.",
+    "execution_cues": [
+      "Keep rhythm fast and consistent",
+      "Stay on forefoot throughout",
+      "Maintain posture",
+      "Do not slow down"
+    ],
+    "common_compensations": [
+      "Slowing during the set",
+      "Full heel contact between reps"
+    ],
+    "contraindications_or_cautions": "Volume-based fast loading. Monitor total contacts per session.",
+    "decision_rules_tags": [
+      "ballistic",
+      "bilateral",
+      "low_irritability_only",
+      "midportion_bias",
+      "running_preparation",
+      "stage_2_to_3"
+    ],
+    "patient_facing_explanation": "Continuous fast heel raises condition your Achilles for the repetitive loading of running \u2014 the same rhythm, the same demand, but with both feet on the ground.",
+    "clinician_notes": "Endurance-fast hybrid. Builds tendon tolerance to repetitive elastic loading. Good running-preparation bridge. Volume monitoring important \u2014 count contacts."
+  },
+  {
+    "id": "ex_027",
+    "exercise_name": "Alternating Ankle Rebounds In Place",
+    "category": "fast_dynamic",
+    "difficulty_level": 5,
+    "target_tissue": "Achilles tendon, gastrocnemius, soleus",
+    "region_bias": [
+      "midportion"
+    ],
+    "loading_profile": "ballistic",
+    "irritability_appropriateness": [
+      "low"
+    ],
+    "insertional_safe": false,
+    "requires_dorsiflexion_depth": "moderate",
+    "stretch_shortening_cycle": true,
+    "rate_of_loading": "fast",
+    "unilateral_or_bilateral": "bilateral",
+    "requires_full_rom": false,
+    "max_load_potential": "low",
+    "impact_level": "low",
+    "required_equipment": "none",
+    "dosage_defaults": {
+      "sets": 3,
+      "reps_or_hold_time": "20 contacts each side",
+      "tempo": "fast",
+      "rest": "120s",
+      "weekly_frequency": "3x/week"
+    },
+    "progression_options": [
+      "ex_028"
+    ],
+    "regression_options": [
+      "ex_024"
+    ],
+    "setup_instructions": "Alternate quick springy steps in place \u2014 right, left, right, left. Stay on forefoot throughout. Focus on elastic spring.",
+    "execution_cues": [
+      "Think marching on springs",
+      "Minimal foot contact time",
+      "Drive upward quickly on each step",
+      "Maintain upright posture"
+    ],
+    "common_compensations": [
+      "Full foot contact",
+      "Heavy heel striking",
+      "Slow rhythm"
+    ],
+    "contraindications_or_cautions": "Introduces alternating single-leg loading at low impact \u2014 step toward unilateral plyometrics.",
+    "decision_rules_tags": [
+      "ballistic",
+      "bilateral",
+      "low_irritability_only",
+      "midportion_bias",
+      "running_preparation",
+      "stage_2_to_3"
+    ],
+    "patient_facing_explanation": "Alternating rebounds mimic the rhythm of running without leaving the ground. They train your Achilles for the alternating demands of each stride.",
+    "clinician_notes": "Unilateral loading stimulus within a bilateral framework. Key stepping stone before true plyometric loading and running reintroduction."
+  },
+  {
+    "id": "ex_028",
+    "exercise_name": "Bilateral Pogos",
+    "category": "reactive_plyometric",
+    "difficulty_level": 6,
+    "target_tissue": "Achilles tendon, gastrocnemius",
+    "region_bias": [
+      "midportion"
+    ],
+    "loading_profile": "plyometric",
+    "irritability_appropriateness": [
+      "low"
+    ],
+    "insertional_safe": false,
+    "requires_dorsiflexion_depth": "moderate",
+    "stretch_shortening_cycle": true,
+    "rate_of_loading": "explosive",
+    "unilateral_or_bilateral": "bilateral",
+    "requires_full_rom": false,
+    "max_load_potential": "high",
+    "impact_level": "moderate",
+    "required_equipment": "flat surface",
+    "dosage_defaults": {
+      "sets": 3,
+      "reps_or_hold_time": "20 contacts",
+      "tempo": "reactive",
+      "rest": "120s",
+      "weekly_frequency": "3x/week"
+    },
+    "progression_options": [
+      "ex_030",
+      "ex_029"
+    ],
+    "regression_options": [
+      "ex_026",
+      "ex_027"
+    ],
+    "setup_instructions": "Small bilateral jumps in place with stiff ankle \u2014 no knee bend. Focus on minimal ground contact time and elastic spring from ankle only.",
+    "execution_cues": [
+      "Stay stiff \u2014 no knee bend",
+      "Off the ground and back quickly",
+      "Land on forefoot \u2014 not flat foot",
+      "Short and springy \u2014 not high"
+    ],
+    "common_compensations": [
+      "Knee bend to absorb landing",
+      "Heel striking",
+      "Slow contact time",
+      "Excessive jump height"
+    ],
+    "contraindications_or_cautions": "First true plyometric exercise \u2014 requires established fast dynamic capacity. Bilateral before unilateral. Monitor next-morning pain carefully.",
+    "decision_rules_tags": [
+      "plyometric",
+      "bilateral",
+      "low_irritability_only",
+      "midportion_bias",
+      "ssc",
+      "stage_3",
+      "impact_moderate"
+    ],
+    "patient_facing_explanation": "Pogos are the foundation of plyometric loading \u2014 short, stiff, springy jumps that train your Achilles to store and release energy rapidly. This is the energy-storage function your tendon needs for sport.",
+    "clinician_notes": "Entry-level plyometric. Contact time target <0.25s. Ankle stiffness is the adaptation driver. Monitor next-morning symptoms. Progress to 100+ contacts/session before advancing."
+  },
+  {
+    "id": "ex_029",
+    "exercise_name": "Single-Leg Pogos",
+    "category": "reactive_plyometric",
+    "difficulty_level": 7,
+    "target_tissue": "Achilles tendon, gastrocnemius",
+    "region_bias": [
+      "midportion"
+    ],
+    "loading_profile": "plyometric",
+    "irritability_appropriateness": [
+      "low"
+    ],
+    "insertional_safe": false,
+    "requires_dorsiflexion_depth": "moderate",
+    "stretch_shortening_cycle": true,
+    "rate_of_loading": "explosive",
+    "unilateral_or_bilateral": "unilateral",
+    "requires_full_rom": false,
+    "max_load_potential": "high",
+    "impact_level": "high",
+    "required_equipment": "flat surface",
+    "dosage_defaults": {
+      "sets": 3,
+      "reps_or_hold_time": "15 contacts",
+      "tempo": "reactive",
+      "rest": "150s",
+      "weekly_frequency": "3x/week"
+    },
+    "progression_options": [
+      "ex_032"
+    ],
+    "regression_options": [
+      "ex_028"
+    ],
+    "setup_instructions": "Single-leg small hops in place with stiff ankle. Maintain upright posture. Short, springy contacts on forefoot.",
+    "execution_cues": [
+      "Stay stiff \u2014 ankle-only spring",
+      "Minimal contact time",
+      "Stay low \u2014 height is not the goal",
+      "Consistent rhythm"
+    ],
+    "common_compensations": [
+      "Knee flexion on landing",
+      "Losing rhythm under fatigue",
+      "Excessive lean"
+    ],
+    "contraindications_or_cautions": "High impact level \u2014 requires bilateral pogo tolerance. Formal RSI assessment recommended before progressing to unilateral.",
+    "decision_rules_tags": [
+      "plyometric",
+      "unilateral",
+      "low_irritability_only",
+      "midportion_bias",
+      "ssc",
+      "stage_3",
+      "impact_high"
+    ],
+    "patient_facing_explanation": "Single-leg pogos are the most demanding tendon exercise in the programme. They simulate the peak loads of running and jumping on your Achilles \u2014 the final step before return to sport.",
+    "clinician_notes": "RSI target >1.5 (jump height \u00f7 contact time) for sport readiness. Do not infer readiness from bilateral performance \u2014 assess separately. Monitor carefully."
+  },
+  {
+    "id": "ex_030",
+    "exercise_name": "Line Hops \u2014 Bilateral",
+    "category": "reactive_plyometric",
+    "difficulty_level": 6,
+    "target_tissue": "Achilles tendon, gastrocnemius, soleus",
+    "region_bias": [
+      "midportion"
+    ],
+    "loading_profile": "plyometric",
+    "irritability_appropriateness": [
+      "low"
+    ],
+    "insertional_safe": false,
+    "requires_dorsiflexion_depth": "moderate",
+    "stretch_shortening_cycle": true,
+    "rate_of_loading": "explosive",
+    "unilateral_or_bilateral": "bilateral",
+    "requires_full_rom": false,
+    "max_load_potential": "moderate",
+    "impact_level": "moderate",
+    "required_equipment": "line or tape on floor",
+    "dosage_defaults": {
+      "sets": 3,
+      "reps_or_hold_time": "20 contacts",
+      "tempo": "reactive",
+      "rest": "120s",
+      "weekly_frequency": "3x/week"
+    },
+    "progression_options": [
+      "ex_031"
+    ],
+    "regression_options": [
+      "ex_028"
+    ],
+    "setup_instructions": "Stand beside a line. Quick bilateral hops side-to-side over the line. Fast, low hops.",
+    "execution_cues": [
+      "Side-to-side rhythm",
+      "Stay on forefoot",
+      "Minimal ground contact",
+      "Land and go immediately"
+    ],
+    "common_compensations": [
+      "Pausing on landing",
+      "Flat-foot landing",
+      "Excessive knee bend"
+    ],
+    "contraindications_or_cautions": "Adds lateral loading demand to bilateral plyometric base. Sport-specific for court and field athletes.",
+    "decision_rules_tags": [
+      "plyometric",
+      "bilateral",
+      "low_irritability_only",
+      "midportion_bias",
+      "lateral_loading",
+      "ssc",
+      "stage_3",
+      "impact_moderate"
+    ],
+    "patient_facing_explanation": "Lateral hops add a new direction to your tendon loading \u2014 important for sports that involve side-to-side movement. They build a more complete resilience in your Achilles.",
+    "clinician_notes": "Frontal-plane plyometric loading. Important for return to court and field sports. Progress from sagittal-plane bilateral pogos only."
+  },
+  {
+    "id": "ex_031",
+    "exercise_name": "Single-Leg Hop and Stick",
+    "category": "reactive_plyometric",
+    "difficulty_level": 7,
+    "target_tissue": "Achilles tendon, gastrocnemius, soleus",
+    "region_bias": [
+      "midportion"
+    ],
+    "loading_profile": "plyometric",
+    "irritability_appropriateness": [
+      "low"
+    ],
+    "insertional_safe": false,
+    "requires_dorsiflexion_depth": "moderate",
+    "stretch_shortening_cycle": true,
+    "rate_of_loading": "explosive",
+    "unilateral_or_bilateral": "unilateral",
+    "requires_full_rom": false,
+    "max_load_potential": "high",
+    "impact_level": "high",
+    "required_equipment": "flat surface",
+    "dosage_defaults": {
+      "sets": 3,
+      "reps_or_hold_time": "8 hops",
+      "tempo": "reactive",
+      "rest": "150s",
+      "weekly_frequency": "3x/week"
+    },
+    "progression_options": [
+      "ex_032"
+    ],
+    "regression_options": [
+      "ex_030",
+      "ex_028"
+    ],
+    "setup_instructions": "Hop forward on single leg and land and hold for 3 seconds. Control the landing before the next hop. Build to continuous hops when stick is well controlled.",
+    "execution_cues": [
+      "Hop and stick \u2014 hold landing for 3 seconds",
+      "Soft landing \u2014 control ankle, knee, hip",
+      "Look ahead \u2014 not down",
+      "Build confidence in the landing before removing the hold"
+    ],
+    "common_compensations": [
+      "Immediately hopping again without sticking",
+      "Trunk forward lean to manage landing force",
+      "Knee valgus on landing"
+    ],
+    "contraindications_or_cautions": "Deceleration loading \u2014 important for injury prevention. Progress from bilateral before unilateral.",
+    "decision_rules_tags": [
+      "plyometric",
+      "unilateral",
+      "low_irritability_only",
+      "midportion_bias",
+      "deceleration",
+      "ssc",
+      "stage_3",
+      "impact_high"
+    ],
+    "patient_facing_explanation": "Hopping and sticking the landing builds your ability to control force \u2014 not just produce it. This is critical for safe running and cutting movements.",
+    "clinician_notes": "Deceleration emphasis. Important for ACL and tendon injury prevention. Stick landing is a landing mechanics screen \u2014 progress to continuous hops only with good control."
+  },
+  {
+    "id": "ex_032",
+    "exercise_name": "Repeated Single-Leg Hops",
+    "category": "reactive_plyometric",
+    "difficulty_level": 7,
+    "target_tissue": "Achilles tendon, gastrocnemius",
+    "region_bias": [
+      "midportion"
+    ],
+    "loading_profile": "plyometric",
+    "irritability_appropriateness": [
+      "low"
+    ],
+    "insertional_safe": false,
+    "requires_dorsiflexion_depth": "moderate",
+    "stretch_shortening_cycle": true,
+    "rate_of_loading": "explosive",
+    "unilateral_or_bilateral": "unilateral",
+    "requires_full_rom": false,
+    "max_load_potential": "high",
+    "impact_level": "high",
+    "required_equipment": "flat surface",
+    "dosage_defaults": {
+      "sets": 3,
+      "reps_or_hold_time": "15-20 contacts",
+      "tempo": "reactive",
+      "rest": "150s",
+      "weekly_frequency": "3x/week"
+    },
+    "progression_options": [
+      "ex_033"
+    ],
+    "regression_options": [
+      "ex_031",
+      "ex_029"
+    ],
+    "setup_instructions": "Continuous forward single-leg hops. Minimal contact time. Build to 200-250 contacts per session across all plyometric exercises.",
+    "execution_cues": [
+      "Maintain consistent rhythm",
+      "Minimal ground contact",
+      "Stay on forefoot",
+      "Aim for 200+ contacts per session total"
+    ],
+    "common_compensations": [
+      "Slowing significantly by the end of sets",
+      "Increased contact time as fatigue accumulates"
+    ],
+    "contraindications_or_cautions": "Running readiness threshold: consistent 200+ contacts pain-free + VISA-A \u226580. Requires clinician clearance for return to running.",
+    "decision_rules_tags": [
+      "plyometric",
+      "unilateral",
+      "low_irritability_only",
+      "midportion_bias",
+      "ssc",
+      "running_readiness",
+      "stage_3",
+      "impact_high"
+    ],
+    "patient_facing_explanation": "Repeated single-leg hops are the final loading step before return to running. When you can complete these consistently without pain, your Achilles is ready for the demands of running.",
+    "clinician_notes": "Running readiness gate: 200-250 contacts pain-free, next-morning pain \u22642/10, VISA-A \u226580. RSI via drop jump or repeated hop test before clearing for running."
+  },
+  {
+    "id": "ex_033",
+    "exercise_name": "Walk-Jog Intervals",
+    "category": "running_sport_reentry",
+    "difficulty_level": 8,
+    "target_tissue": "Achilles tendon, entire posterior chain",
+    "region_bias": [
+      "midportion"
+    ],
+    "loading_profile": "return_to_run",
+    "irritability_appropriateness": [
+      "low"
+    ],
+    "insertional_safe": false,
+    "requires_dorsiflexion_depth": "moderate",
+    "stretch_shortening_cycle": true,
+    "rate_of_loading": "moderate",
+    "unilateral_or_bilateral": "unilateral",
+    "requires_full_rom": true,
+    "max_load_potential": "high",
+    "impact_level": "moderate",
+    "required_equipment": "flat surface outdoors or treadmill",
+    "dosage_defaults": {
+      "sets": 1,
+      "reps_or_hold_time": "20 min total (1 min jog : 2 min walk)",
+      "tempo": "conversational pace",
+      "rest": "as needed",
+      "weekly_frequency": "every other day"
+    },
+    "progression_options": [
+      "ex_034"
+    ],
+    "regression_options": [
+      "ex_032"
+    ],
+    "setup_instructions": "Begin with 1 minute of easy jogging alternating with 2 minutes of walking. Total 20 minutes. Conversational pace only.",
+    "execution_cues": [
+      "Stay at conversational pace \u2014 you should be able to talk",
+      "Focus on smooth forefoot landing",
+      "If pain rises above 3/10, walk only for remainder",
+      "Note pain score before and 24h after"
+    ],
+    "common_compensations": [
+      "Running too fast",
+      "Increasing distance before settling on pace",
+      "Running through pain above threshold"
+    ],
+    "contraindications_or_cautions": "Pain threshold during running: \u22643/10. Next-morning pain: \u22642/10 above baseline. Return to running requires CLINICIAN clearance.",
+    "decision_rules_tags": [
+      "return_to_run",
+      "unilateral",
+      "low_irritability_only",
+      "midportion_bias",
+      "running",
+      "stage_3",
+      "clinician_clearance_required"
+    ],
+    "patient_facing_explanation": "Walk-jog intervals reintroduce running gradually, keeping load manageable while your tendon adapts. Start easy and build confidence \u2014 the tendon needs time to adapt to the repetitive loading of running.",
+    "clinician_notes": "Running reintroduction gate: VISA-A \u226580, 200+ hop contacts pain-free, next-morning pain \u22642/10. Progression: 1:2 \u2192 1:1 \u2192 2:1 jog:walk ratio over weeks. Increase frequency before duration."
+  },
+  {
+    "id": "ex_034",
+    "exercise_name": "Continuous Easy Run",
+    "category": "running_sport_reentry",
+    "difficulty_level": 8,
+    "target_tissue": "Achilles tendon, posterior chain",
+    "region_bias": [
+      "midportion"
+    ],
+    "loading_profile": "return_to_run",
+    "irritability_appropriateness": [
+      "low"
+    ],
+    "insertional_safe": false,
+    "requires_dorsiflexion_depth": "moderate",
+    "stretch_shortening_cycle": true,
+    "rate_of_loading": "moderate",
+    "unilateral_or_bilateral": "unilateral",
+    "requires_full_rom": true,
+    "max_load_potential": "high",
+    "impact_level": "moderate",
+    "required_equipment": "flat surface",
+    "dosage_defaults": {
+      "sets": 1,
+      "reps_or_hold_time": "10-20 min continuous",
+      "tempo": "easy (RPE 4-5)",
+      "rest": "48h between sessions",
+      "weekly_frequency": "3x/week"
+    },
+    "progression_options": [
+      "ex_035"
+    ],
+    "regression_options": [
+      "ex_033"
+    ],
+    "setup_instructions": "Continuous easy-pace running for 10-20 minutes. Flat surface preferred. RPE 4-5 (easy conversation).",
+    "execution_cues": [
+      "Easy pace \u2014 RPE 4-5",
+      "Smooth forefoot strike",
+      "Increase distance by maximum 10% per week",
+      "Stop if pain exceeds 3/10"
+    ],
+    "common_compensations": [
+      "Running too fast",
+      "Increasing distance too quickly",
+      "Running on consecutive days"
+    ],
+    "contraindications_or_cautions": "10% rule: do not increase weekly distance by more than 10%. At least 48h between runs.",
+    "decision_rules_tags": [
+      "return_to_run",
+      "unilateral",
+      "low_irritability_only",
+      "midportion_bias",
+      "running",
+      "stage_3"
+    ],
+    "patient_facing_explanation": "Continuous easy running is the next step \u2014 building your running base progressively. Patience here protects your tendon. Small consistent steps are better than rushing.",
+    "clinician_notes": "Increase distance before pace. Monitor ACWR \u2014 do not exceed 1.5 ratio. VISA-A tracking every 2 weeks during running reintroduction phase."
+  },
+  {
+    "id": "ex_035",
+    "exercise_name": "Stride Accelerations",
+    "category": "running_sport_reentry",
+    "difficulty_level": 8,
+    "target_tissue": "Achilles tendon, gastrocnemius",
+    "region_bias": [
+      "midportion"
+    ],
+    "loading_profile": "return_to_run",
+    "irritability_appropriateness": [
+      "low"
+    ],
+    "insertional_safe": false,
+    "requires_dorsiflexion_depth": "moderate",
+    "stretch_shortening_cycle": true,
+    "rate_of_loading": "fast",
+    "unilateral_or_bilateral": "unilateral",
+    "requires_full_rom": true,
+    "max_load_potential": "high",
+    "impact_level": "high",
+    "required_equipment": "flat surface, 50m clear space",
+    "dosage_defaults": {
+      "sets": 4,
+      "reps_or_hold_time": "60m stride",
+      "tempo": "75-80% effort",
+      "rest": "2 min",
+      "weekly_frequency": "2x/week"
+    },
+    "progression_options": [],
+    "regression_options": [
+      "ex_034"
+    ],
+    "setup_instructions": "Run 60m strides at 75-80% effort. Build from easy pace to stride pace over first 20m, hold, decelerate over final 20m.",
+    "execution_cues": [
+      "Build gradually \u2014 do not sprint from start",
+      "Feel the elastic spring in the ankle",
+      "Controlled deceleration",
+      "80% feels fast but controlled"
+    ],
+    "common_compensations": [
+      "Immediately running at full effort",
+      "Skipping deceleration phase"
+    ],
+    "contraindications_or_cautions": "High rate of loading. Requires established easy running base (20+ minutes continuous). Sport-return preparation.",
+    "decision_rules_tags": [
+      "return_to_run",
+      "unilateral",
+      "low_irritability_only",
+      "midportion_bias",
+      "running",
+      "speed",
+      "stage_3",
+      "impact_high"
+    ],
+    "patient_facing_explanation": "Strides introduce faster running speeds progressively. They train your Achilles for the higher forces of sport-pace running without the full volume of a speed session.",
+    "clinician_notes": "Rate-of-loading increase in running. Introduce only after 3-4 weeks of symptom-stable easy running. Monitor next-morning response closely."
+  },
+  {
+    "id": "ex_036",
+    "exercise_name": "Hill Walk/Jog Progression",
+    "category": "running_sport_reentry",
+    "difficulty_level": 8,
+    "target_tissue": "Achilles tendon, soleus, gastrocnemius",
+    "region_bias": [
+      "midportion"
+    ],
+    "loading_profile": "return_to_run",
+    "irritability_appropriateness": [
+      "low"
+    ],
+    "insertional_safe": false,
+    "requires_dorsiflexion_depth": "high",
+    "stretch_shortening_cycle": true,
+    "rate_of_loading": "moderate",
+    "unilateral_or_bilateral": "unilateral",
+    "requires_full_rom": true,
+    "max_load_potential": "high",
+    "impact_level": "moderate",
+    "required_equipment": "hill or incline",
+    "dosage_defaults": {
+      "sets": 1,
+      "reps_or_hold_time": "20-30 min",
+      "tempo": "easy",
+      "rest": "48h",
+      "weekly_frequency": "2x/week"
+    },
+    "progression_options": [],
+    "regression_options": [
+      "ex_034"
+    ],
+    "setup_instructions": "Walk then jog on gentle hill gradients (5-10%). Begin with uphill walking, progress to uphill jogging. Control downhill carefully.",
+    "execution_cues": [
+      "Uphill before downhill",
+      "Short stride on uphill \u2014 drive through ankle",
+      "Walk downhill initially",
+      "Monitor Achilles during downhill \u2014 greatest stretch-load"
+    ],
+    "common_compensations": [
+      "Running downhill too fast",
+      "Ignoring increased tendon load on descent"
+    ],
+    "contraindications_or_cautions": "High dorsiflexion demand on downhill \u2014 insertional contraindicated. Significant tendon loading increase vs flat running.",
+    "decision_rules_tags": [
+      "return_to_run",
+      "unilateral",
+      "low_irritability_only",
+      "midportion_bias",
+      "running",
+      "incline",
+      "stage_3"
+    ],
+    "patient_facing_explanation": "Hill running significantly increases the load through your Achilles \u2014 especially on the descent. This is important preparation for sport but requires care and gradual introduction.",
+    "clinician_notes": "Significant tendon load increase vs flat \u2014 estimate 20-40% increased Achilles force on incline. Insertional contraindicated throughout. Introduce after flat running is symptom-stable."
+  },
+  {
+    "id": "ex_037",
+    "exercise_name": "Soleus-Biased Seated Loading",
+    "category": "accessory",
+    "difficulty_level": 2,
+    "target_tissue": "Soleus, Achilles tendon",
+    "region_bias": [
+      "midportion",
+      "insertional"
+    ],
+    "loading_profile": "isotonic_slow",
+    "irritability_appropriateness": [
+      "moderate",
+      "low"
+    ],
+    "insertional_safe": true,
+    "requires_dorsiflexion_depth": "none",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "slow",
+    "unilateral_or_bilateral": "bilateral",
+    "requires_full_rom": false,
+    "max_load_potential": "high",
+    "impact_level": "none",
+    "required_equipment": "seated calf raise machine or weight on knees",
+    "dosage_defaults": {
+      "sets": 3,
+      "reps_or_hold_time": 15,
+      "tempo": "2-1-2",
+      "rest": "90s",
+      "weekly_frequency": "3x/week"
+    },
+    "progression_options": [
+      "ex_010",
+      "ex_020"
+    ],
+    "regression_options": [
+      "ex_004"
+    ],
+    "setup_instructions": "Seated with heavy load on thighs. Perform slow, full-range plantarflexion. Knees at 90\u00b0 to bias soleus.",
+    "execution_cues": [
+      "Slow controlled movement",
+      "Full range",
+      "Heavy enough to feel the soleus",
+      "Even through both feet"
+    ],
+    "common_compensations": [
+      "Insufficient load \u2014 soleus needs heavy loading to be challenged effectively"
+    ],
+    "contraindications_or_cautions": "Soleus is often undertrained relative to gastrocnemius. Insertional-safe throughout.",
+    "decision_rules_tags": [
+      "isotonic_slow",
+      "bilateral",
+      "moderate_irritability_safe",
+      "insertional_safe",
+      "soleus_bias",
+      "accessory",
+      "stage_2",
+      "no_impact"
+    ],
+    "patient_facing_explanation": "Your soleus is one of the most important muscles for Achilles health and is often underworked. This seated exercise targets it directly and is safe for all types of Achilles pain.",
+    "clinician_notes": "Accessory soleus strengthening \u2014 complements main programme. Often undertrained. High load potential is a key feature \u2014 do not underdose this exercise."
+  },
+  {
+    "id": "ex_038",
+    "exercise_name": "Tibialis Posterior Strengthening",
+    "category": "accessory",
+    "difficulty_level": 2,
+    "target_tissue": "Tibialis posterior, medial arch",
+    "region_bias": [
+      "midportion"
+    ],
+    "loading_profile": "isotonic_slow",
+    "irritability_appropriateness": [
+      "high",
+      "moderate",
+      "low"
+    ],
+    "insertional_safe": true,
+    "requires_dorsiflexion_depth": "none",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "slow",
+    "unilateral_or_bilateral": "both",
+    "requires_full_rom": false,
+    "max_load_potential": "low",
+    "impact_level": "none",
+    "required_equipment": "resistance band",
+    "dosage_defaults": {
+      "sets": 3,
+      "reps_or_hold_time": 15,
+      "tempo": "2-1-2",
+      "rest": "60s",
+      "weekly_frequency": "3x/week"
+    },
+    "progression_options": [],
+    "regression_options": [],
+    "setup_instructions": "Seated or standing. Resistance band around midfoot. Invert foot (turn sole inward) against resistance. Can also be performed with slow walking on inner edge of feet.",
+    "execution_cues": [
+      "Move from the arch \u2014 not the toes",
+      "Control the return",
+      "Feel the inner shin and arch working",
+      "Do not compensate with hip rotation"
+    ],
+    "common_compensations": [
+      "Using hip to invert foot",
+      "Compensating with toe flexion"
+    ],
+    "contraindications_or_cautions": "Accessory exercise. Supports medial arch control and Achilles load distribution.",
+    "decision_rules_tags": [
+      "isotonic_slow",
+      "accessory",
+      "high_irritability_safe",
+      "insertional_safe",
+      "arch_control",
+      "stage_1",
+      "no_impact"
+    ],
+    "patient_facing_explanation": "The tibialis posterior supports your arch and influences how load is distributed through your Achilles. Strengthening it reduces strain on the tendon during walking and running.",
+    "clinician_notes": "Often implicated in overpronation and medial Achilles load increase. Useful adjunct especially where foot posture contributes to tendon loading patterns."
+  },
+  {
+    "id": "ex_039",
+    "exercise_name": "Hip Abductor Strengthening",
+    "category": "accessory",
+    "difficulty_level": 2,
+    "target_tissue": "Gluteus medius, hip abductors",
+    "region_bias": [
+      "midportion"
+    ],
+    "loading_profile": "isotonic_slow",
+    "irritability_appropriateness": [
+      "high",
+      "moderate",
+      "low"
+    ],
+    "insertional_safe": true,
+    "requires_dorsiflexion_depth": "none",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "slow",
+    "unilateral_or_bilateral": "unilateral",
+    "requires_full_rom": false,
+    "max_load_potential": "moderate",
+    "impact_level": "none",
+    "required_equipment": "resistance band (optional)",
+    "dosage_defaults": {
+      "sets": 3,
+      "reps_or_hold_time": 15,
+      "tempo": "2-1-2",
+      "rest": "60s",
+      "weekly_frequency": "3x/week"
+    },
+    "progression_options": [],
+    "regression_options": [],
+    "setup_instructions": "Side-lying or standing. Band around ankles for resistance. Lift or step affected leg outward against resistance.",
+    "execution_cues": [
+      "Lead with the heel, not the toe",
+      "Control the return \u2014 do not let it snap back",
+      "Maintain pelvic stability",
+      "Feel the outside of your hip working"
+    ],
+    "common_compensations": [
+      "Trunk rotation to assist",
+      "Pelvic drop",
+      "Toe-leading movement"
+    ],
+    "contraindications_or_cautions": "Accessory exercise. Hip abductor weakness increases Achilles load through altered gait mechanics.",
+    "decision_rules_tags": [
+      "isotonic_slow",
+      "unilateral",
+      "accessory",
+      "high_irritability_safe",
+      "insertional_safe",
+      "proximal_loading",
+      "stage_1",
+      "no_impact"
+    ],
+    "patient_facing_explanation": "Your hip strength directly affects how much load goes through your Achilles during walking and running. Strong hip muscles reduce strain on the tendon and protect it during activity.",
+    "clinician_notes": "Proximal loading \u2014 reduces Achilles strain through improved gait mechanics. Important early adjunct especially in high-irritability phase when direct tendon loading is limited."
+  },
+  {
+    "id": "ex_040",
+    "exercise_name": "Balance and Frontal-Plane Control Drills",
+    "category": "accessory",
+    "difficulty_level": 3,
+    "target_tissue": "Ankle stabilisers, intrinsic foot muscles, gluteus medius",
+    "region_bias": [
+      "midportion"
+    ],
+    "loading_profile": "isotonic_slow",
+    "irritability_appropriateness": [
+      "moderate",
+      "low"
+    ],
+    "insertional_safe": true,
+    "requires_dorsiflexion_depth": "moderate",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "slow",
+    "unilateral_or_bilateral": "unilateral",
+    "requires_full_rom": false,
+    "max_load_potential": "low",
+    "impact_level": "low",
+    "required_equipment": "balance pad or foam surface (optional)",
+    "dosage_defaults": {
+      "sets": 3,
+      "reps_or_hold_time": "30s hold per position",
+      "tempo": "hold",
+      "rest": "60s",
+      "weekly_frequency": "3x/week"
+    },
+    "progression_options": [],
+    "regression_options": [],
+    "setup_instructions": "Single-leg balance on flat or unstable surface. Progress: eyes open flat \u2192 eyes closed flat \u2192 eyes open foam \u2192 add small reaches. Hold each position for 30 seconds.",
+    "execution_cues": [
+      "Soft knee \u2014 never locked",
+      "Feel the foot working to control balance",
+      "Look ahead \u2014 not down",
+      "Small controlled corrections"
+    ],
+    "common_compensations": [
+      "Locking knee straight",
+      "Looking down at foot",
+      "Heavy gripping of floor with toes"
+    ],
+    "contraindications_or_cautions": "Accessory but important. Proprioceptive deficits are common post-injury and increase re-injury risk.",
+    "decision_rules_tags": [
+      "isotonic_slow",
+      "unilateral",
+      "accessory",
+      "moderate_irritability_safe",
+      "insertional_safe",
+      "proprioception",
+      "stage_2",
+      "no_impact"
+    ],
+    "patient_facing_explanation": "Balance training restores the automatic control your ankle and leg need to protect your Achilles during every step. After an Achilles injury, this control is often reduced and needs to be rebuilt.",
+    "clinician_notes": "Proprioception and neuromuscular control adjunct. Important for reducing re-injury risk, especially on uneven surfaces and return to sport contexts."
+  },
+  {
+    "id": "ex_041",
+    "exercise_name": "Standing Gastrocnemius Wall Stretch (Bilateral, Straight Knee)",
+    "category": "flexibility_mobility",
+    "difficulty_level": 1,
+    "target_tissue": "gastrocnemius, Achilles tendon",
+    "region_bias": [
+      "midportion"
+    ],
+    "loading_profile": "stretching",
+    "irritability_appropriateness": [
+      "moderate",
+      "low"
+    ],
+    "insertional_safe": false,
+    "requires_dorsiflexion_depth": "moderate",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "slow",
+    "unilateral_or_bilateral": "bilateral",
+    "requires_full_rom": false,
+    "max_load_potential": "low",
+    "impact_level": "none",
+    "required_equipment": "wall",
+    "dosage_defaults": {
+      "sets": 3,
+      "reps_or_hold_time": "30\u201345s hold",
+      "tempo": "static hold",
+      "rest": "30s",
+      "weekly_frequency": "2\u20133x daily"
+    },
+    "progression_options": [
+      "ex_042",
+      "ex_046"
+    ],
+    "regression_options": [
+      "ex_043",
+      "ex_045"
+    ],
+    "setup_instructions": "Stand facing a wall approximately 60\u201380 cm away. Place both hands on the wall at shoulder height for support. Step both feet back to a staggered stance with both heels flat on the floor and knees fully extended (straight). Lean the body gently forward into the wall until a stretch is felt in the calf of the rear leg.",
+    "execution_cues": [
+      "Keep both heels flat on the floor throughout the hold",
+      "Maintain a fully straight (extended) knee on the stretching leg",
+      "Lean hips gently forward to deepen the stretch \u2014 do not bounce",
+      "Keep toes pointed straight ahead \u2014 avoid toe flare",
+      "Breathe normally throughout the hold",
+      "Feel the stretch in the belly of the calf, not in the heel"
+    ],
+    "common_compensations": [
+      "Heel lifting off the floor \u2014 reduces stretch on gastrocnemius",
+      "Knee bending \u2014 shifts stretch from gastrocnemius to soleus",
+      "Foot rotating outward (toe flare) \u2014 reduces stretch effectiveness",
+      "Leaning trunk rather than shifting hip forward"
+    ],
+    "contraindications_or_cautions": "CONTRAINDICATED for insertional Achilles presentations. Full dorsiflexion range compresses the tendon at the calcaneal insertion. Do not perform if this exercise provokes pain at the heel insertion site. Prescribe ex_043 or ex_045 instead for insertional presentations.",
+    "decision_rules_tags": [
+      "stretching",
+      "wblt_indicated",
+      "gastroc_stretch",
+      "insertional_contraindicated"
+    ],
+    "patient_facing_explanation": "This stretch targets the larger of your two calf muscles \u2014 the gastrocnemius \u2014 which attaches above your knee and runs all the way to your Achilles tendon. A tight gastrocnemius increases the strain on your Achilles during walking and running, so improving its flexibility can reduce tendon stress over time. You must keep your knee straight to stretch this muscle correctly.",
+    "clinician_notes": "CONTRAINDICATED for insertional Achilles presentations. Full dorsiflexion range compresses the tendon at the calcaneal insertion. Indicated for midportion presentations with WBLT <10 cm or identified gastrocnemius restriction on Silfverskiold test. Bilateral version is the entry-level gastrocnemius stretch. Progress to ex_042 (unilateral) when WBLT approaches 10 cm. Confirm gastrocnemius is the restricted structure before prescribing (compare WBLT knee straight vs. knee bent)."
+  },
+  {
+    "id": "ex_042",
+    "exercise_name": "Single-Leg Gastrocnemius Wall Stretch (Unilateral, Straight Knee)",
+    "category": "flexibility_mobility",
+    "difficulty_level": 2,
+    "target_tissue": "gastrocnemius, Achilles tendon",
+    "region_bias": [
+      "midportion"
+    ],
+    "loading_profile": "stretching",
+    "irritability_appropriateness": [
+      "moderate",
+      "low"
+    ],
+    "insertional_safe": false,
+    "requires_dorsiflexion_depth": "moderate",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "slow",
+    "unilateral_or_bilateral": "unilateral",
+    "requires_full_rom": false,
+    "max_load_potential": "low",
+    "impact_level": "none",
+    "required_equipment": "wall",
+    "dosage_defaults": {
+      "sets": 3,
+      "reps_or_hold_time": "30\u201345s hold",
+      "tempo": "static hold",
+      "rest": "30s",
+      "weekly_frequency": "2\u20133x daily"
+    },
+    "progression_options": [
+      "ex_046",
+      "ex_047"
+    ],
+    "regression_options": [
+      "ex_041"
+    ],
+    "setup_instructions": "Stand facing a wall approximately 60\u201380 cm away. Place both hands on the wall at shoulder height. Step the affected (stretching) leg back so the heel is flat on the floor and the knee is fully extended. The front (non-stretching) leg is slightly bent for balance. Keep the rear heel flat on the floor and lean forward until a firm calf stretch is felt.",
+    "execution_cues": [
+      "Keep the rear heel firmly flat on the floor \u2014 this is the critical cue",
+      "Keep the rear knee fully straight throughout the hold",
+      "Drive the hip of the rear leg forward to deepen the stretch",
+      "Keep the rear foot pointed straight ahead",
+      "Do not allow the rear foot to rotate outward",
+      "Breathe normally throughout the hold"
+    ],
+    "common_compensations": [
+      "Rear heel lifting \u2014 immediately reduces stretch on gastrocnemius",
+      "Rear knee bending \u2014 switches stretch target from gastrocnemius to soleus",
+      "Rear foot toe flare \u2014 reduces stretch intensity",
+      "Trunk lean rather than hip drive \u2014 reduces effectiveness"
+    ],
+    "contraindications_or_cautions": "CONTRAINDICATED for insertional Achilles presentations. Full dorsiflexion range compresses the tendon at the calcaneal insertion. Unilateral stretch applies more isolated load through the affected limb \u2014 reduce to bilateral (ex_041) if this exercise provokes symptoms >3/10.",
+    "decision_rules_tags": [
+      "stretching",
+      "wblt_indicated",
+      "gastroc_stretch",
+      "insertional_contraindicated"
+    ],
+    "patient_facing_explanation": "This is the single-leg version of the gastrocnemius stretch, which means all of the stretch is directed through your affected leg. It is more targeted than the bilateral version and is particularly useful when one leg is measurably tighter than the other. Keep your knee completely straight and your heel firmly on the floor to stretch the right muscle.",
+    "clinician_notes": "CONTRAINDICATED for insertional Achilles presentations. Full dorsiflexion range compresses the tendon at the calcaneal insertion. Progress from ex_041 when bilateral WBLT is approaching 10 cm but side-to-side asymmetry \u22652 cm persists. Unilateral stretch allows targeted management of asymmetric restriction. Monitor for symptom provocation in first session. Progress to ex_046 (WBLT self-mobilization) when WBLT \u226510 cm to address any residual joint mobility contribution."
+  },
+  {
+    "id": "ex_043",
+    "exercise_name": "Standing Bent-Knee Soleus Stretch (Bilateral)",
+    "category": "flexibility_mobility",
+    "difficulty_level": 1,
+    "target_tissue": "soleus, Achilles tendon",
+    "region_bias": [
+      "midportion",
+      "insertional"
+    ],
+    "loading_profile": "stretching",
+    "irritability_appropriateness": [
+      "high",
+      "moderate",
+      "low"
+    ],
+    "insertional_safe": true,
+    "requires_dorsiflexion_depth": "low",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "slow",
+    "unilateral_or_bilateral": "bilateral",
+    "requires_full_rom": false,
+    "max_load_potential": "low",
+    "impact_level": "none",
+    "required_equipment": "wall",
+    "dosage_defaults": {
+      "sets": 3,
+      "reps_or_hold_time": "30\u201345s hold",
+      "tempo": "static hold",
+      "rest": "30s",
+      "weekly_frequency": "2\u20133x daily"
+    },
+    "progression_options": [
+      "ex_044"
+    ],
+    "regression_options": [
+      "ex_045"
+    ],
+    "setup_instructions": "Stand facing a wall approximately 40\u201350 cm away. Place both hands on the wall at shoulder height. Step one foot back (both feet can remain close together for bilateral version). Bend both knees to approximately 30\u201340 degrees. Keep both heels flat on the floor. Gently drive the knees forward toward the wall, maintaining the bent-knee position, until a deep stretch is felt lower in the calf (below the gastrocnemius belly).",
+    "execution_cues": [
+      "Keep both heels flat on the floor throughout the hold",
+      "Maintain a consistent knee bend of approximately 30\u201340 degrees \u2014 do not straighten knees",
+      "Drive the knees forward (not just body lean) to deepen the stretch",
+      "The stretch should be felt lower and deeper in the calf than a straight-knee stretch",
+      "Keep feet hip-width apart and toes pointing forward",
+      "Breathe normally throughout"
+    ],
+    "common_compensations": [
+      "Knees straightening during the hold \u2014 shifts stretch to gastrocnemius and reduces soleus isolation",
+      "Heels lifting off the floor \u2014 reduces stretch on soleus",
+      "Excessive forward trunk lean \u2014 reduces control and effectiveness",
+      "Knees caving inward (valgus) \u2014 add ankle/knee alignment cue"
+    ],
+    "contraindications_or_cautions": "Safe for insertional presentations \u2014 bent-knee position reduces calcaneal compression by reducing passive dorsiflexion demand and slackening the gastrocnemius contribution. If stretch provokes insertional pain, reduce knee bend depth or switch to ex_045 (seated).",
+    "decision_rules_tags": [
+      "stretching",
+      "wblt_indicated",
+      "soleus_stretch",
+      "high_irritability_safe"
+    ],
+    "patient_facing_explanation": "This stretch targets the deeper of your two calf muscles \u2014 the soleus \u2014 which sits underneath the gastrocnemius and connects directly to your Achilles tendon near the heel. Because the soleus crosses only the ankle (not the knee), bending the knee removes the gastrocnemius from the equation and lets you stretch the soleus in isolation. This stretch is safe even when your Achilles is most sensitive.",
+    "clinician_notes": "Safe for insertional presentations \u2014 bent-knee position reduces calcaneal compression. Preferred first-line stretch for insertional Achilles tendinopathy when stretching is indicated. Also appropriate for high irritability midportion presentations before progressing to straight-knee variants. Use Silfverskiold test to confirm soleus contribution \u2014 if dorsiflexion remains restricted with knee flexed, soleus is implicated. Progress to ex_044 (unilateral) when bilateral WBLT (knee flexed) approaches 10 cm with asymmetry \u22652 cm."
+  },
+  {
+    "id": "ex_044",
+    "exercise_name": "Single-Leg Bent-Knee Soleus Wall Stretch (Unilateral)",
+    "category": "flexibility_mobility",
+    "difficulty_level": 2,
+    "target_tissue": "soleus, Achilles tendon",
+    "region_bias": [
+      "midportion",
+      "insertional"
+    ],
+    "loading_profile": "stretching",
+    "irritability_appropriateness": [
+      "moderate",
+      "low"
+    ],
+    "insertional_safe": true,
+    "requires_dorsiflexion_depth": "low",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "slow",
+    "unilateral_or_bilateral": "unilateral",
+    "requires_full_rom": false,
+    "max_load_potential": "low",
+    "impact_level": "none",
+    "required_equipment": "wall",
+    "dosage_defaults": {
+      "sets": 3,
+      "reps_or_hold_time": "30\u201345s hold",
+      "tempo": "static hold",
+      "rest": "30s",
+      "weekly_frequency": "2\u20133x daily"
+    },
+    "progression_options": [],
+    "regression_options": [
+      "ex_043",
+      "ex_045"
+    ],
+    "setup_instructions": "Stand facing a wall with both hands on the wall for support. Place the affected foot approximately 20\u201330 cm from the wall. Bend the affected knee to approximately 30\u201340 degrees, keeping the heel flat on the floor. Shift the bent knee forward toward the wall until a deep stretch is felt in the lower calf. The front leg is in the stretching position; the back leg provides light balance support.",
+    "execution_cues": [
+      "Keep the heel of the stretching leg firmly on the floor",
+      "Maintain the knee bent to 30\u201340 degrees throughout \u2014 do not allow the knee to straighten",
+      "Drive the knee forward over the toe to deepen the stretch",
+      "Keep the foot pointed straight ahead \u2014 avoid toe flare",
+      "The stretch is felt deep and low in the calf, close to the heel",
+      "Breathe normally throughout the hold"
+    ],
+    "common_compensations": [
+      "Knee straightening \u2014 reduces soleus isolation and shifts tension to gastrocnemius",
+      "Heel lifting \u2014 immediately reduces effectiveness of soleus stretch",
+      "Foot rotating outward \u2014 reduces stretch quality",
+      "Insufficient forward knee drive \u2014 inadequate stretch depth"
+    ],
+    "contraindications_or_cautions": "Safe for insertional presentations \u2014 bent-knee position reduces calcaneal compression. Reduce to bilateral (ex_043) if unilateral loading provokes symptoms >3/10. Reduce to seated (ex_045) if standing position is not tolerated.",
+    "decision_rules_tags": [
+      "stretching",
+      "wblt_indicated",
+      "soleus_stretch"
+    ],
+    "patient_facing_explanation": "This is the single-leg version of the bent-knee soleus stretch, targeting the deep soleus muscle on your affected side specifically. The bent knee keeps the stretch focused on the soleus rather than the gastrocnemius. It is appropriate when one side is measurably tighter than the other or when you have progressed beyond the bilateral version.",
+    "clinician_notes": "Safe for insertional presentations \u2014 bent-knee position reduces calcaneal compression. Progress from ex_043 when bilateral soleus stretch is comfortable and WBLT asymmetry \u22652 cm persists between sides. Unilateral stretch intensifies the load through the affected limb. This is an important exercise for insertional presentations where gastrocnemius stretching is contraindicated but soleus restriction persists. Monitor closely on first session."
+  },
+  {
+    "id": "ex_045",
+    "exercise_name": "Seated Calf Stretch with Towel or Strap",
+    "category": "flexibility_mobility",
+    "difficulty_level": 1,
+    "target_tissue": "gastrocnemius, soleus, Achilles tendon",
+    "region_bias": [
+      "midportion",
+      "insertional"
+    ],
+    "loading_profile": "stretching",
+    "irritability_appropriateness": [
+      "high",
+      "moderate",
+      "low"
+    ],
+    "insertional_safe": true,
+    "requires_dorsiflexion_depth": "low",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "slow",
+    "unilateral_or_bilateral": "unilateral",
+    "requires_full_rom": false,
+    "max_load_potential": "low",
+    "impact_level": "none",
+    "required_equipment": "towel or strap",
+    "dosage_defaults": {
+      "sets": 3,
+      "reps_or_hold_time": "30\u201345s hold",
+      "tempo": "static hold",
+      "rest": "30s",
+      "weekly_frequency": "2\u20133x daily"
+    },
+    "progression_options": [
+      "ex_043",
+      "ex_041"
+    ],
+    "regression_options": [],
+    "setup_instructions": "Sit on the floor or the edge of a firm surface with the affected leg extended in front of you. Loop a towel or resistance band around the ball of the foot. Hold both ends of the towel with hands. Gently pull the towel to draw the foot into dorsiflexion (toes toward you) until a comfortable stretch is felt in the calf. Control the stretch with hand tension.",
+    "execution_cues": [
+      "Keep the knee extended (straight) for gastrocnemius bias, or slightly bent for soleus bias",
+      "Pull the towel gently and steadily \u2014 do not yank or bounce",
+      "Hold the end-point of comfortable stretch for the prescribed duration",
+      "Relax the foot actively into the towel rather than just pulling passively",
+      "Keep the lower back straight \u2014 do not slump",
+      "Breathe normally throughout the hold"
+    ],
+    "common_compensations": [
+      "Pulling into pain rather than comfortable stretch",
+      "Knee bending when trying to stretch gastrocnemius \u2014 reduces effectiveness",
+      "Trunk rounding \u2014 reduces stretch quality and may cause back discomfort",
+      "Asymmetric pull (one hand harder) \u2014 creates ankle inversion during stretch"
+    ],
+    "contraindications_or_cautions": "Safe for insertional presentations \u2014 non-weight-bearing, clinician-controlled ROM prevents excessive dorsiflexion force. Patient controls the end-range actively via towel tension. Preferred initial stretching option for high irritability presentations or when standing stretches are not tolerated. If foot dorsiflexion provokes insertional pain even with minimal tension, cease and reassess.",
+    "decision_rules_tags": [
+      "stretching",
+      "wblt_indicated",
+      "mobility_stretch",
+      "high_irritability_safe"
+    ],
+    "patient_facing_explanation": "This gentle non-weight-bearing calf stretch uses a towel or band to bring your foot into the stretched position while you are sitting down. Because you are not standing, there is no body weight loading through your ankle, and you have full control over how far the stretch goes. This makes it the safest stretching option and the one most suitable when your tendon is most sensitive.",
+    "clinician_notes": "Safe for insertional presentations \u2014 non-weight-bearing, controlled ROM prevents excessive dorsiflexion force. The gold-standard regression for all standing calf stretches. Use as the primary stretching option in high irritability presentations or where standing stretches provoke symptoms. Progresses to ex_043 (bilateral bent-knee) when tolerated, or ex_041 (bilateral straight-knee) for midportion with low irritability. Also useful for morning stretching in bed before first steps."
+  },
+  {
+    "id": "ex_046",
+    "exercise_name": "Knee-to-Wall WBLT Self-Mobilization",
+    "category": "flexibility_mobility",
+    "difficulty_level": 2,
+    "target_tissue": "gastrocnemius, ankle joint capsule, Achilles tendon",
+    "region_bias": [
+      "midportion"
+    ],
+    "loading_profile": "stretching",
+    "irritability_appropriateness": [
+      "moderate",
+      "low"
+    ],
+    "insertional_safe": false,
+    "requires_dorsiflexion_depth": "moderate",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "slow",
+    "unilateral_or_bilateral": "unilateral",
+    "requires_full_rom": false,
+    "max_load_potential": "low",
+    "impact_level": "none",
+    "required_equipment": "wall",
+    "dosage_defaults": {
+      "sets": 3,
+      "reps_or_hold_time": "30\u201345s hold",
+      "tempo": "static hold",
+      "rest": "30s",
+      "weekly_frequency": "2\u20133x daily"
+    },
+    "progression_options": [
+      "ex_047"
+    ],
+    "regression_options": [
+      "ex_041",
+      "ex_042"
+    ],
+    "setup_instructions": "Stand facing a wall. Place the affected foot directly in front of the wall, with the great toe approximately 8\u201310 cm from the wall. Keep the heel flat on the floor. Lunge the knee forward to touch the wall while keeping the heel down. If the knee reaches the wall, move the foot back 1\u20132 cm and repeat until the furthest position is found where heel contact can just be maintained. This simultaneously stretches the calf and mobilises the ankle joint \u2014 mirror the WBLT assessment. Hold at end-range for the prescribed duration or perform slow reciprocal touches.",
+    "execution_cues": [
+      "Keep the heel firmly on the floor \u2014 do not allow it to lift",
+      "Drive the knee directly over the second toe \u2014 avoid knee valgus collapse",
+      "Find the position where the heel just barely stays down \u2014 this is your working range",
+      "Hold the end position or perform slow controlled knee drives to the wall",
+      "Keep the trunk upright throughout",
+      "Measure the toe-to-wall distance \u2014 use it to track weekly progress"
+    ],
+    "common_compensations": [
+      "Heel lifting as the foot moves back \u2014 invalidates the stretch and measure",
+      "Knee caving inward (valgus) \u2014 add 'knee over second toe' cue",
+      "Moving the foot too far from the wall \u2014 reduces training stimulus",
+      "Bouncing the knee \u2014 use sustained holds or slow controlled repetitions"
+    ],
+    "contraindications_or_cautions": "CONTRAINDICATED for insertional Achilles presentations. Full dorsiflexion range compresses the tendon at the calcaneal insertion. This exercise targets progressive end-range dorsiflexion and is specifically contraindicated where insertional compression is the mechanism of pathology. Use ex_043 or ex_044 instead for insertional presentations.",
+    "decision_rules_tags": [
+      "stretching",
+      "wblt_indicated",
+      "mobility_stretch",
+      "insertional_contraindicated"
+    ],
+    "patient_facing_explanation": "This exercise is the active version of the knee-to-wall test your clinician used to assess your ankle flexibility. By slowly working your foot further from the wall over time, you are gently improving the mobility of both your calf muscles and your ankle joint itself. It doubles as both a stretching exercise and a way to track your own progress at home. Record the toe-to-wall distance each week.",
+    "clinician_notes": "CONTRAINDICATED for insertional Achilles presentations. Full dorsiflexion range compresses the tendon at the calcaneal insertion. This exercise addresses both gastrocnemius extensibility and talocrural joint mobility simultaneously \u2014 making it more comprehensive than isolated muscle stretching. Particularly useful when WBLT fails to improve with isolated muscle stretching (suggesting a joint mobility rather than musculotendinous restriction component). Can be performed as measured self-assessment: patient records toe-to-wall distance weekly for home monitoring. Progress to ex_047 (incline board) when WBLT \u226512\u201314 cm and patient targets further ROM gain for sport return."
+  },
+  {
+    "id": "ex_047",
+    "exercise_name": "Incline Board Gastrocnemius Stretch",
+    "category": "flexibility_mobility",
+    "difficulty_level": 3,
+    "target_tissue": "gastrocnemius, Achilles tendon",
+    "region_bias": [
+      "midportion"
+    ],
+    "loading_profile": "stretching",
+    "irritability_appropriateness": [
+      "low"
+    ],
+    "insertional_safe": false,
+    "requires_dorsiflexion_depth": "high",
+    "stretch_shortening_cycle": false,
+    "rate_of_loading": "slow",
+    "unilateral_or_bilateral": "bilateral",
+    "requires_full_rom": false,
+    "max_load_potential": "low",
+    "impact_level": "none",
+    "required_equipment": "incline board or wedge",
+    "dosage_defaults": {
+      "sets": 3,
+      "reps_or_hold_time": "45s hold",
+      "tempo": "static hold",
+      "rest": "30s",
+      "weekly_frequency": "1\u20132x daily"
+    },
+    "progression_options": [],
+    "regression_options": [
+      "ex_046",
+      "ex_042"
+    ],
+    "setup_instructions": "Place the incline board (or wedge) on a flat floor at a 15\u201330 degree incline angle. Stand with one or both feet on the board with the heel at the lower end and the toes elevated. Keep the knees fully extended (straight). Stand upright and allow body weight to provide a sustained dorsiflexion stretch through the calf and Achilles tendon. Use a wall or support for balance as required. Ensure the incline is at a degree that provides a meaningful but not painful stretch.",
+    "execution_cues": [
+      "Keep the knees fully straight \u2014 do not bend the knees",
+      "Stand upright \u2014 resist the urge to lean forward",
+      "Distribute weight evenly across the foot",
+      "Allow body weight to provide the stretch \u2014 do not force additional range",
+      "Breathe normally throughout the hold",
+      "Start at a lower incline angle and progress as tolerance improves"
+    ],
+    "common_compensations": [
+      "Knees bending \u2014 significantly reduces gastrocnemius stretch",
+      "Leaning forward \u2014 reduces effectiveness and alters stretch target",
+      "Using too steep an incline on first attempt \u2014 provokes pain",
+      "Weight shifting to the forefoot only \u2014 reduces stretch depth"
+    ],
+    "contraindications_or_cautions": "CONTRAINDICATED for insertional Achilles presentations. Full dorsiflexion range compresses the tendon at the calcaneal insertion. The incline board maintains sustained high-range dorsiflexion \u2014 this is the highest-demand dorsiflexion exercise in the programme. Prescribe only in low irritability midportion presentations with established WBLT improvement. Do not prescribe if patient has not yet tolerated ex_041 or ex_046 without symptoms.",
+    "decision_rules_tags": [
+      "stretching",
+      "wblt_indicated",
+      "gastroc_stretch",
+      "insertional_contraindicated"
+    ],
+    "patient_facing_explanation": "The incline board stretch places your foot in a sustained dorsiflexed position using a wedge, allowing your body weight to provide a deep, prolonged stretch to the gastrocnemius muscle and Achilles tendon. This is the most intensive of the stretching exercises in the programme and is appropriate only once your tendon has settled and your ankle flexibility is improving. Start with a shallower angle and build up gradually.",
+    "clinician_notes": "CONTRAINDICATED for insertional Achilles presentations. Full dorsiflexion range compresses the tendon at the calcaneal insertion. This is the highest dorsiflexion demand stretch in the flexibility programme \u2014 prescribe as a final progression for midportion presentations targeting sports return or where significant gastrocnemius restriction persists despite wall stretching. Progress from ex_046 when WBLT \u226512 cm and sport-specific demands require further flexibility. Can be combined with eccentric loading (heel drop on incline board) but this represents a separate loading exercise. Typically prescribed at low irritability stage only."
+  }
+]

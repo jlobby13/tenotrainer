@@ -260,6 +260,63 @@
     </div>
     {% endif %}
 
+    {% if ex_progression_recs %}
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div class="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
+        <h3 class="font-bold text-gray-800 text-sm">Exercise Recommendations — Next Session</h3>
+        <span class="text-[10px] px-2 py-0.5 bg-brand-100 text-brand-700 rounded-full font-bold">NEW</span>
+      </div>
+      <div class="divide-y divide-gray-50">
+        {% for rec in ex_progression_recs %}
+        {% set dec = rec.decision %}
+        <div class="px-5 py-3 flex items-start gap-4">
+          <!-- Decision badge -->
+          <div class="shrink-0 mt-0.5">
+            {% if dec == 'PROGRESS' %}
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-green-100 text-green-700 text-xs font-bold">
+              ↑ Progress
+            </span>
+            {% elif dec == 'REGRESS' %}
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-orange-100 text-orange-700 text-xs font-bold">
+              ↓ Regress
+            </span>
+            {% elif dec == 'HOLD' %}
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-100 text-red-700 text-xs font-bold">
+              ⏸ Hold
+            </span>
+            {% else %}
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gray-100 text-gray-600 text-xs font-bold">
+              → Stay
+            </span>
+            {% endif %}
+          </div>
+          <!-- Exercise detail -->
+          <div class="flex-1 min-w-0">
+            <p class="text-xs font-semibold text-gray-800">
+              {{ rec.current_name }}
+              {% if dec == 'PROGRESS' and rec.target_id != rec.current_id %}
+              <span class="text-gray-400 font-normal mx-1">→</span>
+              <span class="text-green-700">{{ rec.target_name }}</span>
+              {% elif dec == 'REGRESS' and rec.target_id != rec.current_id %}
+              <span class="text-gray-400 font-normal mx-1">→</span>
+              <span class="text-orange-700">{{ rec.target_name }}</span>
+              {% endif %}
+            </p>
+            <p class="text-xs text-gray-500 mt-0.5 leading-relaxed">{{ rec.rationale }}</p>
+            <p class="text-[10px] text-gray-400 mt-1">{{ rec.sessions_at }} session{{ 's' if rec.sessions_at != 1 else '' }} logged at this exercise</p>
+          </div>
+          {% if rec.target_id != rec.current_id %}
+          <a href="/exercise-library#{{ rec.target_id }}"
+             class="shrink-0 text-[11px] px-3 py-1.5 rounded-lg bg-brand-50 text-brand-700 font-medium hover:bg-brand-100 transition-colors border border-brand-200">
+            View →
+          </a>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
     <div class="flex gap-3">
       <a href="/dashboard" class="px-5 py-2 bg-brand-600 text-white rounded-lg text-sm font-semibold hover:bg-brand-700 transition-colors">
         View Dashboard

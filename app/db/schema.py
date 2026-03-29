@@ -119,4 +119,36 @@ CREATE TABLE IF NOT EXISTS knowledge_entries (
     contraindications TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS exercises (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ex_id TEXT UNIQUE NOT NULL,
+    exercise_name TEXT NOT NULL,
+    category TEXT NOT NULL,
+    difficulty_level INTEGER NOT NULL DEFAULT 1,
+    target_tissue TEXT,
+    region_bias TEXT NOT NULL DEFAULT '[]',
+    loading_profile TEXT NOT NULL,
+    irritability_appropriateness TEXT NOT NULL DEFAULT '[]',
+    insertional_safe INTEGER NOT NULL DEFAULT 1,
+    requires_dorsiflexion_depth TEXT NOT NULL DEFAULT 'none',
+    stretch_shortening_cycle INTEGER NOT NULL DEFAULT 0,
+    rate_of_loading TEXT NOT NULL DEFAULT 'slow',
+    unilateral_or_bilateral TEXT NOT NULL DEFAULT 'bilateral',
+    requires_full_rom INTEGER NOT NULL DEFAULT 0,
+    max_load_potential TEXT,
+    impact_level TEXT NOT NULL DEFAULT 'none',
+    required_equipment TEXT,
+    dosage_defaults TEXT NOT NULL DEFAULT '{}',
+    progression_options TEXT NOT NULL DEFAULT '[]',
+    regression_options TEXT NOT NULL DEFAULT '[]',
+    setup_instructions TEXT,
+    execution_cues TEXT NOT NULL DEFAULT '[]',
+    common_compensations TEXT NOT NULL DEFAULT '[]',
+    contraindications_or_cautions TEXT,
+    decision_rules_tags TEXT NOT NULL DEFAULT '[]',
+    patient_facing_explanation TEXT,
+    clinician_notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 """

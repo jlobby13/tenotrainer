@@ -796,6 +796,404 @@ def evaluate_session_tolerance(report: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Exercise Library — Progression / Regression Engine
+# ---------------------------------------------------------------------------
+
+# Decision constants for exercise progression
+class ExerciseDecision:
+    PROGRESS  = "PROGRESS"
+    STAY      = "STAY"
+    REGRESS   = "REGRESS"
+    HOLD      = "HOLD"       # Stay but reduce dose — irritability too high to progress or regress safely
+
+
+# ---------------------------------------------------------------------------
+# WBLT — Dorsiflexion Restriction Assessment and Stretch Indication
+# ---------------------------------------------------------------------------
+
+# Evidence-based WBLT thresholds (cm from wall)
+# Sources: Bennell et al. 1998, Gatt et al. 2017, Riddle et al. 2003
+WBLT_NORMAL_CM = 10           # ≥10 cm = normal
+WBLT_MILD_RESTRICTION_CM = 8  # 8–9.9 cm = mild restriction
+WBLT_MOD_RESTRICTION_CM = 5   # 5–7.9 cm = moderate restriction
+                               # <5 cm = severe restriction
+WBLT_ASYMMETRY_THRESHOLD = 2  # ≥2 cm side-to-side = clinically significant
+
+
+def classify_wblt(
+    wblt_cm: Optional[float],
+    wblt_cm_unaffected: Optional[float] = None,
+) -> dict:
+    """
+    Classify dorsiflexion restriction severity from WBLT measurements.
+
+    Returns dict with:
+      severity        : "normal" | "mild" | "moderate" | "severe" | "unknown"
+      has_asymmetry   : bool
+      asymmetry_cm    : float | None
+      stretch_indicated : bool
+      stretch_priority  : "primary" | "adjunct" | "not_indicated"
+      rationale       : str
+    """
+    if wblt_cm is None:
+        return {
+            "severity": "unknown",
+            "has_asymmetry": False,
+            "asymmetry_cm": None,
+            "stretch_indicated": False,
+            "stretch_priority": "not_indicated",
+            "rationale": "No WBLT measurement recorded. Reassess dorsiflexion range to determine stretch indication.",
+        }
+
+    wblt_cm = float(wblt_cm)
+
+    # Severity
+    if wblt_cm >= WBLT_NORMAL_CM:
+        severity = "normal"
+    elif wblt_cm >= WBLT_MILD_RESTRICTION_CM:
+        severity = "mild"
+    elif wblt_cm >= WBLT_MOD_RESTRICTION_CM:
+        severity = "moderate"
+    else:
+        severity = "severe"
+
+    # Asymmetry
+    asymmetry_cm = None
+    has_asymmetry = False
+    if wblt_cm_unaffected is not None:
+        asymmetry_cm = round(float(wblt_cm_unaffected) - wblt_cm, 1)
+        has_asymmetry = asymmetry_cm >= WBLT_ASYMMETRY_THRESHOLD
+
+    # Stretch indication
+    if severity == "normal" and not has_asymmetry:
+        stretch_indicated = False
+        stretch_priority = "not_indicated"
+        rationale = (
+            f"WBLT {wblt_cm:.1f} cm — within normal range (≥{WBLT_NORMAL_CM} cm). "
+            "Dorsiflexion restriction is not a primary impairment. "
+            "Stretching is not a priority for this presentation."
+        )
+    elif severity == "normal" and has_asymmetry:
+        stretch_indicated = True
+        stretch_priority = "adjunct"
+        rationale = (
+            f"WBLT {wblt_cm:.1f} cm (affected) vs {wblt_cm_unaffected:.1f} cm (unaffected) — "
+            f"{asymmetry_cm:.1f} cm side-to-side deficit exceeds the {WBLT_ASYMMETRY_THRESHOLD} cm clinical threshold. "
+            "Include calf stretching as an adjunct to address the asymmetry."
+        )
+    elif severity == "mild":
+        stretch_indicated = True
+        stretch_priority = "adjunct"
+        rationale = (
+            f"WBLT {wblt_cm:.1f} cm — mild dorsiflexion restriction ({WBLT_MILD_RESTRICTION_CM}–{WBLT_NORMAL_CM - 0.1:.1f} cm range). "
+            + (f"Side-to-side deficit of {asymmetry_cm:.1f} cm also present. " if has_asymmetry else "")
+            + "Include calf stretching as an adjunct alongside loading exercises. "
+            "Gastrocnemius and soleus stretching recommended to restore ROM and reduce cumulative tendon load."
+        )
+    else:  # moderate or severe
+        stretch_indicated = True
+        stretch_priority = "primary"
+        rationale = (
+            f"WBLT {wblt_cm:.1f} cm — {'moderate' if severity == 'moderate' else 'severe'} dorsiflexion restriction "
+            f"({'<' + str(WBLT_MOD_RESTRICTION_CM) if severity == 'severe' else str(WBLT_MOD_RESTRICTION_CM) + '–' + str(WBLT_MILD_RESTRICTION_CM - 0.1)[:3]} cm range). "
+            + (f"Side-to-side deficit of {asymmetry_cm:.1f} cm. " if has_asymmetry else "")
+            + "Dorsiflexion restriction is a primary impairment. Calf stretching should be a priority alongside loading. "
+            "Restricted dorsiflexion prolongs peak Achilles tendon strain during gait and increases cumulative load."
+        )
+
+    return {
+        "severity": severity,
+        "has_asymmetry": has_asymmetry,
+        "asymmetry_cm": asymmetry_cm,
+        "stretch_indicated": stretch_indicated,
+        "stretch_priority": stretch_priority,
+        "rationale": rationale,
+    }
+
+
+def select_stretch_exercises(
+    exercises: list[dict],
+    wblt_result: dict,
+    insertional: bool,
+) -> list[dict]:
+    """
+    Select appropriate stretching exercises based on WBLT result and insertional status.
+
+    Rules:
+    - If not stretch_indicated: return []
+    - If insertional: only exercises with insertional_safe=True (bent-knee / non-WB stretches)
+    - If not insertional: include gastroc and soleus stretches graded by severity
+    - Severe restriction → include all stretch types (primary priority)
+    - Mild restriction   → soleus + one gastroc stretch (adjunct)
+    """
+    if not wblt_result.get("stretch_indicated"):
+        return []
+
+    stretch_exs = [
+        ex for ex in exercises
+        if ex.get("category") == "flexibility_mobility"
+        and "wblt_indicated" in ex.get("decision_rules_tags", [])
+    ]
+
+    if insertional:
+        # Only insertional-safe stretches (bent-knee, seated, non-end-range)
+        stretch_exs = [ex for ex in stretch_exs if ex.get("insertional_safe")]
+
+    severity = wblt_result.get("severity", "mild")
+
+    # For mild/adjunct: prefer bilateral and lower difficulty first
+    stretch_exs.sort(key=lambda ex: (ex.get("difficulty_level", 1), ex.get("exercise_name", "")))
+
+    if severity in ("moderate", "severe"):
+        return stretch_exs  # All appropriate stretches
+    else:
+        # Mild/adjunct: one soleus + one gastroc (if non-insertional)
+        out = []
+        has_soleus = has_gastroc = False
+        for ex in stretch_exs:
+            tags = ex.get("decision_rules_tags", [])
+            if "soleus_stretch" in tags and not has_soleus:
+                out.append(ex)
+                has_soleus = True
+            elif "gastroc_stretch" in tags and not has_gastroc and not insertional:
+                out.append(ex)
+                has_gastroc = True
+            if has_soleus and (has_gastroc or insertional):
+                break
+        return out
+
+
+def filter_exercises_by_state(
+    exercises: list[dict],
+    irritability: str,
+    insertional: bool,
+    available_equipment: Optional[list[str]] = None,
+) -> list[dict]:
+    """
+    Filter exercise library entries to those appropriate for the current patient state.
+
+    Args:
+        exercises:          Full exercise library as list of dicts (pre-loaded from DB).
+        irritability:       "high" | "moderate" | "low"
+        insertional:        True if patient has insertional Achilles presentation.
+        available_equipment: List of available equipment strings. None means no restriction.
+
+    Returns subset of exercises that match all criteria.
+    """
+    out = []
+    for ex in exercises:
+        irr_list = ex.get("irritability_appropriateness", [])
+        if isinstance(irr_list, str):
+            try:
+                irr_list = json.loads(irr_list)
+            except (json.JSONDecodeError, TypeError):
+                irr_list = []
+
+        # Filter: exercise must be appropriate for this irritability level
+        if irritability not in irr_list:
+            continue
+
+        # Filter: insertional safety
+        if insertional and not ex.get("insertional_safe", True):
+            continue
+
+        # Filter: equipment (skip if equipment required but not available)
+        if available_equipment is not None:
+            req = (ex.get("required_equipment") or "").lower()
+            bodyweight_only = req in ("", "none", "bodyweight", "wall or support surface")
+            if not bodyweight_only:
+                # Check if any piece of available equipment satisfies the requirement
+                match = any(eq.lower() in req or req in eq.lower() for eq in available_equipment)
+                if not match:
+                    continue
+
+        out.append(ex)
+
+    return out
+
+
+def evaluate_exercise_progression(
+    current_exercise: dict,
+    session_signal: str,        # "go" | "stay" | "caution" | "stop"
+    irritability: str,
+    insertional: bool,
+    sessions_at_current: int,
+    all_exercises: Optional[list[dict]] = None,
+) -> dict:
+    """
+    Determine whether to progress, stay, or regress on a specific exercise.
+
+    Uses:
+      - session_signal  from evaluate_session_tolerance()
+      - irritability    re-classified from most recent log
+      - insertional     from onboarding (presentation type)
+      - sessions_at_current  number of times this exercise has been performed
+
+    Returns dict with:
+      decision     : PROGRESS | STAY | REGRESS | HOLD
+      target_ex_id : exercise ID to assign next session (may be same as current)
+      rationale    : plain-text explanation
+    """
+    ex_id      = current_exercise.get("ex_id") or current_exercise.get("id", "")
+    ex_name    = current_exercise.get("exercise_name", ex_id)
+    prog_opts  = current_exercise.get("progression_options", [])
+    regr_opts  = current_exercise.get("regression_options", [])
+    if isinstance(prog_opts, str):
+        try: prog_opts = json.loads(prog_opts)
+        except Exception: prog_opts = []
+    if isinstance(regr_opts, str):
+        try: regr_opts = json.loads(regr_opts)
+        except Exception: regr_opts = []
+
+    irr_list = current_exercise.get("irritability_appropriateness", [])
+    if isinstance(irr_list, str):
+        try: irr_list = json.loads(irr_list)
+        except Exception: irr_list = []
+
+    # ── Safety override: insertional + high dorsiflexion exercise ──
+    requires_df = current_exercise.get("requires_dorsiflexion_depth", "none")
+    if insertional and requires_df in ("moderate", "high"):
+        # Even if signal is GO — this exercise is not safe for insertional presentation
+        target = regr_opts[0] if regr_opts else ex_id
+        return {
+            "decision":     ExerciseDecision.REGRESS,
+            "target_ex_id": target,
+            "rationale": (
+                f"{ex_name} requires {'moderate' if requires_df == 'moderate' else 'deep'} dorsiflexion, "
+                "which compresses the insertion of the Achilles tendon and is contraindicated for insertional "
+                "presentations. Regressing to a safer alternative."
+            ),
+        }
+
+    # ── STOP signal → REGRESS immediately ──
+    if session_signal == "stop":
+        target = regr_opts[0] if regr_opts else ex_id
+        return {
+            "decision":     ExerciseDecision.REGRESS if regr_opts else ExerciseDecision.HOLD,
+            "target_ex_id": target,
+            "rationale": (
+                "Session was stopped due to adverse pain response. "
+                "Regressing to a less demanding exercise to protect the tendon during recovery."
+            ),
+        }
+
+    # ── CAUTION signal → STAY (do not progress) ──
+    if session_signal == "caution":
+        return {
+            "decision":     ExerciseDecision.STAY,
+            "target_ex_id": ex_id,
+            "rationale": (
+                "Session signal is CAUTION — pain or compliance issues prevent progression. "
+                "Repeat this exercise at the same dose next session and re-evaluate."
+            ),
+        }
+
+    # ── Irritability mismatch: current exercise is no longer appropriate ──
+    # E.g., irritability increased since last session and exercise is not high-irritability safe
+    if irritability == Irritability.HIGH and "high" not in irr_list:
+        target = regr_opts[0] if regr_opts else ex_id
+        return {
+            "decision":     ExerciseDecision.REGRESS,
+            "target_ex_id": target,
+            "rationale": (
+                f"Irritability has increased to HIGH. {ex_name} is not rated appropriate for high irritability. "
+                "Regressing to a lower-load option to protect the tendon."
+            ),
+        }
+
+    # ── STAY signal → STAY (no progression) ──
+    if session_signal == "stay":
+        return {
+            "decision":     ExerciseDecision.STAY,
+            "target_ex_id": ex_id,
+            "rationale": (
+                "Session completed with acceptable response but not within optimal parameters. "
+                "Repeat this exercise at the current dose before considering progression."
+            ),
+        }
+
+    # ── GO signal: assess readiness to progress ──
+    # Minimum exposure gate: require ≥ 3 sessions at this exercise before progression
+    if sessions_at_current < 3:
+        return {
+            "decision":     ExerciseDecision.STAY,
+            "target_ex_id": ex_id,
+            "rationale": (
+                f"GO signal received. Only {sessions_at_current} session(s) at {ex_name}. "
+                "A minimum of 3 consistent sessions is required before progressing. "
+                "Continue current exercise to build adequate tendon adaptation."
+            ),
+        }
+
+    # Ready to progress — find a valid progression target
+    if prog_opts:
+        # If insertional, filter out progressions that require high dorsiflexion
+        valid_progs = prog_opts
+        if insertional and all_exercises:
+            ex_map = {e.get("ex_id") or e.get("id"): e for e in all_exercises}
+            valid_progs = [
+                eid for eid in prog_opts
+                if ex_map.get(eid, {}).get("requires_dorsiflexion_depth", "none") not in ("moderate", "high")
+            ]
+        target = valid_progs[0] if valid_progs else ex_id
+        progressed = target != ex_id
+        return {
+            "decision":     ExerciseDecision.PROGRESS if progressed else ExerciseDecision.STAY,
+            "target_ex_id": target,
+            "rationale": (
+                (
+                    f"All progression criteria met. Advancing from {ex_name} to the next level exercise. "
+                    "Continue to monitor pain response — acceptable pain during loading is ≤3/10."
+                ) if progressed else (
+                    f"GO signal received but no valid progression found from {ex_name} "
+                    "(all options filtered for insertional safety). Staying at current exercise."
+                )
+            ),
+        }
+
+    # No progression options defined — stay at current exercise
+    return {
+        "decision":     ExerciseDecision.STAY,
+        "target_ex_id": ex_id,
+        "rationale": (
+            f"GO signal received but {ex_name} has no defined progression options. "
+            "Continue current exercise and discuss advancement with your clinician."
+        ),
+    }
+
+
+def select_initial_exercises(
+    exercises: list[dict],
+    irritability: str,
+    stage: int,
+    insertional: bool,
+    available_equipment: Optional[list[str]] = None,
+    limit: int = 4,
+) -> list[dict]:
+    """
+    Select the initial set of exercises for a new rehab plan.
+
+    Filters by irritability, insertional safety, and stage-appropriate difficulty level.
+    Returns up to `limit` exercises ordered by difficulty_level (easiest first).
+
+    Stage → max difficulty_level mapping:
+      Stage 1 → levels 1–2
+      Stage 2 → levels 2–4
+      Stage 3 → levels 5–8
+    """
+    STAGE_DIFFICULTY_MAP = {1: (1, 2), 2: (2, 4), 3: (5, 8)}
+    min_diff, max_diff = STAGE_DIFFICULTY_MAP.get(stage, (1, 2))
+
+    candidates = filter_exercises_by_state(exercises, irritability, insertional, available_equipment)
+    candidates = [
+        ex for ex in candidates
+        if min_diff <= ex.get("difficulty_level", 1) <= max_diff
+    ]
+    candidates.sort(key=lambda ex: ex.get("difficulty_level", 1))
+    return candidates[:limit]
+
+
+# ---------------------------------------------------------------------------
 # Recovery Timeline
 # ---------------------------------------------------------------------------
 

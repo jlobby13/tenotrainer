@@ -1702,5 +1702,279 @@
     "progression_criteria": "N/A \u2014 mechanistic framework.",
     "regression_criteria": "N/A \u2014 mechanistic framework.",
     "contraindications": "N/A \u2014 review paper."
+  },
+  {
+    "id": "kb_048",
+    "title": "Ankle Dorsiflexion Restriction and Achilles Tendinopathy: Prevalence and Clinical Association",
+    "authors": "Riddle DL, Pulisic M, Pidcoe P, Johnson RE",
+    "year": 2003,
+    "source": "Journal of Bone and Joint Surgery (American)",
+    "study_design": "Case-control study",
+    "level_of_evidence": "Level 3",
+    "summary": "Landmark case-control study examining the relationship between reduced ankle dorsiflexion ROM and plantar heel pain (and Achilles tendinopathy). Found that limited ankle dorsiflexion \u2014 defined as <10 cm on the Weight Bearing Lunge Test or <10\u00b0 of passive dorsiflexion \u2014 was significantly associated with plantar heel pain and Achilles tendinopathy presentations. Reduced dorsiflexion ROM increases Achilles tendon strain during the contact phase of gait by prolonging the period of maximal calf stretch, increasing cumulative tissue load.",
+    "key_points": [
+      "Reduced ankle dorsiflexion ROM (WBLT <10 cm or passive DF <10\u00b0) is significantly associated with Achilles tendinopathy",
+      "Limited dorsiflexion prolongs peak Achilles tendon strain during the contact phase of gait",
+      "Gastrocnemius tightness is the most common cause of non-bony dorsiflexion restriction",
+      "Case-control design: odds ratio for Achilles pathology significantly elevated with restricted DF",
+      "Dorsiflexion assessment should be a routine component of Achilles tendinopathy evaluation",
+      "Addressing dorsiflexion restriction may reduce cumulative tendon loading in walking and running"
+    ],
+    "tags": [
+      "ankle_dorsiflexion",
+      "achilles_tendinopathy",
+      "calf_flexibility",
+      "risk_factors",
+      "biomechanics",
+      "wblt"
+    ],
+    "clinical_question": "Is restricted ankle dorsiflexion ROM independently associated with increased prevalence of Achilles tendinopathy?",
+    "applicability": "Assessment and management of all Achilles tendinopathy presentations. Dorsiflexion ROM should be measured at initial assessment using WBLT. Restricted dorsiflexion is a modifiable risk factor warranting targeted calf flexibility and joint mobility intervention as an adjunct to loading-based rehabilitation.",
+    "recommended_loading_parameters": {
+      "sets": null,
+      "reps": null,
+      "tempo": null,
+      "frequency": null,
+      "notes": "Association study \u2014 not a loading protocol. Clinical implication: screen dorsiflexion ROM with WBLT at baseline and reassess every 4\u20136 weeks. If WBLT <10 cm, add targeted calf stretching (ex_041\u2013ex_047) as adjunct to the primary loading programme. Address dorsiflexion restriction in midportion presentations. Exercise caution with aggressive DF stretching in insertional presentations."
+    },
+    "progression_criteria": "N/A \u2014 epidemiological association study.",
+    "regression_criteria": "N/A \u2014 epidemiological association study.",
+    "contraindications": "N/A \u2014 review of association. See kb_052 for contraindications to end-range dorsiflexion in insertional presentations."
+  },
+  {
+    "id": "kb_049",
+    "title": "Weight Bearing Lunge Test: Normative Values, Clinical Thresholds, and Reliability",
+    "authors": "Bennell KL, Talbot RC, Wajswelner H, Techovanich W, Kelly DH, Hall AJ",
+    "year": 1998,
+    "source": "Australian Journal of Physiotherapy",
+    "study_design": "Clinimetric study (reliability and normative values)",
+    "level_of_evidence": "Level 2",
+    "summary": "Foundational clinimetric study establishing the Weight Bearing Lunge Test (WBLT) as a reliable clinical measure of ankle dorsiflexion ROM in weight-bearing. The WBLT measures the maximum distance from the great toe to the wall while the heel remains flat on the floor and the knee reaches the wall in a lunge position. Established normative values of >10 cm as the clinical threshold for adequate dorsiflexion, with intraclass correlation coefficients demonstrating excellent intra-rater (ICC 0.96\u20130.99) and good inter-rater (ICC 0.85\u20130.92) reliability.",
+    "key_points": [
+      "WBLT >10 cm (toe-to-wall distance) is established as the normative clinical threshold for adequate ankle dorsiflexion",
+      "WBLT <10 cm indicates clinically restricted dorsiflexion requiring intervention",
+      "Intra-rater reliability: ICC 0.96\u20130.99 \u2014 excellent",
+      "Inter-rater reliability: ICC 0.85\u20130.92 \u2014 good to excellent",
+      "WBLT is more clinically relevant than non-weight-bearing goniometry as it reflects functional loading position",
+      "Test is performed with heel flat on floor; knee touches or reaches toward the wall while toe is measured",
+      "Both knee-to-wall angle (in degrees) and toe-to-wall distance (in cm) methods are described; cm method is more practical"
+    ],
+    "tags": [
+      "wblt",
+      "ankle_dorsiflexion",
+      "calf_flexibility",
+      "outcome_measures",
+      "reliability",
+      "clinical_assessment"
+    ],
+    "clinical_question": "What are the normative values and reliability of the Weight Bearing Lunge Test as a clinical measure of ankle dorsiflexion ROM?",
+    "applicability": "Baseline and follow-up assessment of dorsiflexion ROM in all Achilles tendinopathy presentations. Use WBLT as the primary clinical measure of dorsiflexion ROM. Record bilateral measurements to identify side-to-side asymmetry. Reassess every 4\u20136 weeks to track response to stretching or mobility interventions.",
+    "recommended_loading_parameters": {
+      "sets": null,
+      "reps": null,
+      "tempo": null,
+      "frequency": null,
+      "notes": "Assessment tool \u2014 not a loading protocol. Clinical thresholds: WBLT <10 cm = restricted (intervene with calf stretching programme). WBLT 10\u201314 cm = borderline (monitor and address if symptomatic). WBLT >14 cm = adequate (maintain). Asymmetry \u22652 cm between sides is clinically significant and warrants unilateral intervention focus."
+    },
+    "progression_criteria": "N/A \u2014 clinimetric study.",
+    "regression_criteria": "N/A \u2014 clinimetric study.",
+    "contraindications": "N/A \u2014 assessment tool. Note: WBLT in its progressive self-mobilization form requires caution in insertional presentations (see kb_052)."
+  },
+  {
+    "id": "kb_050",
+    "title": "Gastrocnemius and Soleus Anatomy and Differential Stretching Technique",
+    "authors": "Gatt A, Chockalingam N",
+    "year": 2011,
+    "source": "Journal of the American Podiatric Medical Association",
+    "study_design": "Observational / anatomical and biomechanical review",
+    "level_of_evidence": "Level 5",
+    "summary": "Anatomical and biomechanical review clarifying the functional distinction between the gastrocnemius (biarticular, originating above the knee) and soleus (monoarticular, originating below the knee). The gastrocnemius crosses both the knee and ankle, so it is placed under maximal stretch only when the knee is extended and the ankle is dorsiflexed simultaneously. The soleus, crossing only the ankle, is equally stretched regardless of knee position. This distinction mandates different stretching technique: straight-knee wall stretch isolates gastrocnemius; bent-knee wall stretch isolates soleus. Both muscles contribute to Achilles tendon load and calf complex tightness in tendinopathy presentations.",
+    "key_points": [
+      "Gastrocnemius is biarticular \u2014 originates above the knee; requires straight knee + dorsiflexion to achieve full stretch",
+      "Soleus is monoarticular \u2014 originates below the knee; stretched equally with knee flexed or extended",
+      "Straight-knee wall stretch primarily targets gastrocnemius",
+      "Bent-knee wall stretch isolates soleus by removing gastrocnemius from the stretch",
+      "Both muscles merge into the Achilles tendon \u2014 tightness in either contributes to tendon strain",
+      "Gastrocnemius tightness is more common and more clinically implicated in Achilles tendinopathy",
+      "Differential clinical assessment: if dorsiflexion improves substantially with knee flexion, gastrocnemius tightness is implicated"
+    ],
+    "tags": [
+      "gastrocnemius",
+      "soleus",
+      "anatomy",
+      "calf_flexibility",
+      "stretching",
+      "ankle_dorsiflexion"
+    ],
+    "clinical_question": "How do the anatomical differences between gastrocnemius and soleus dictate the appropriate stretching technique for each muscle?",
+    "applicability": "Exercise selection in Achilles tendinopathy rehabilitation. Assess which muscle is preferentially restricted using the Silfverskiold test or comparative WBLT (knee straight vs. knee flexed). Prescribe straight-knee stretch (ex_041, ex_042, ex_047) for gastrocnemius restriction, bent-knee stretch (ex_043, ex_044) for soleus restriction, or both when combined restriction is present.",
+    "recommended_loading_parameters": {
+      "sets": 3,
+      "reps": "30\u201345s hold",
+      "tempo": "static hold",
+      "frequency": "2\u20133 times daily",
+      "notes": "Prescribe stretch type based on Silfverskiold test. If dorsiflexion improves with knee flexion: gastrocnemius restriction \u2014 prioritise straight-knee stretch. If dorsiflexion remains restricted with knee flexed: soleus contribution \u2014 add bent-knee stretch. Combined restriction: prescribe both in sequence."
+    },
+    "progression_criteria": "Progress from bilateral to unilateral when bilateral WBLT >10 cm and movement is comfortable. Progress hold duration from 30s to 45s before adding reps.",
+    "regression_criteria": "Reduce to seated or non-weight-bearing stretch (ex_045) if standing stretch provokes insertional symptoms. Reduce to bilateral if unilateral stretching provokes pain >3/10.",
+    "contraindications": "Straight-knee stretch contraindicated in insertional Achilles tendinopathy due to end-range dorsiflexion compressing the tendon at the calcaneal insertion. Use bent-knee alternatives (ex_043, ex_044) for insertional presentations."
+  },
+  {
+    "id": "kb_051",
+    "title": "Calf Stretching in Achilles Tendinopathy: Evidence, Limitations, and Role as Adjunct",
+    "authors": "Sussmilch-Leitch SP, Collins NJ, Bialocerkowski AE, Warden SJ, Crossley KM",
+    "year": 2012,
+    "source": "British Journal of Sports Medicine",
+    "study_design": "Systematic review",
+    "level_of_evidence": "Level 1",
+    "summary": "Systematic review of physical therapies for Achilles tendinopathy concluding that calf stretching alone is insufficient as a primary treatment but has an evidence-supported adjunctive role alongside eccentric and heavy slow resistance loading. Stretching does not drive the tendon structural adaptations required for resolution but can improve dorsiflexion ROM, reduce passive tendon strain during gait, and support symptom management in the early stages of rehabilitation. The review cautions that isolated stretching programmes are inadequate and should not delay introduction of progressive loading. It also highlights that insertional presentations may be sensitized by aggressive end-range dorsiflexion stretching.",
+    "key_points": [
+      "Stretching alone is insufficient as primary treatment for Achilles tendinopathy",
+      "Stretching is supported as an adjunct to eccentric or heavy slow resistance loading programmes",
+      "Calf stretching can improve dorsiflexion ROM and reduce passive tendon strain during gait",
+      "Insertional presentations may be aggravated by aggressive end-range dorsiflexion stretching",
+      "Stretching should not delay or replace introduction of progressive loading",
+      "Most benefit from stretching is in Phase 1 symptom management and as preparatory mobility work",
+      "Evidence base for stretching alone is Level 4 \u2014 case series; strongest evidence remains for loading programmes"
+    ],
+    "tags": [
+      "stretching",
+      "achilles_tendinopathy",
+      "calf_flexibility",
+      "evidence_based",
+      "adjunct_therapy",
+      "systematic_review"
+    ],
+    "clinical_question": "Is calf stretching an effective treatment for Achilles tendinopathy, and what is its appropriate role within a rehabilitation programme?",
+    "applicability": "All Achilles tendinopathy presentations. Include calf stretching as an adjunct \u2014 not primary intervention \u2014 alongside loading-based exercise. Particularly relevant when WBLT identifies dorsiflexion restriction. Do not use stretching alone as the rehabilitation programme. Exercise caution with end-range stretching in insertional presentations.",
+    "recommended_loading_parameters": {
+      "sets": 3,
+      "reps": "30\u201345s hold",
+      "tempo": "static hold",
+      "frequency": "2\u20133 times daily",
+      "notes": "Adjunct to primary loading programme. Prescribe stretching after loading exercises (not as a warm-up), or on rest days as supplementary mobility work. Total stretching time: 3\u20135 minutes per session. Avoid aggressive end-range stretching in insertional presentations. Reassess WBLT every 4\u20136 weeks to determine if stretching is producing clinically meaningful improvements."
+    },
+    "progression_criteria": "Progress from static stretching to self-mobilisation WBLT (ex_046) when acute symptoms are controlled and WBLT shows measurable improvement (\u22652 cm gain or progress toward 10 cm threshold).",
+    "regression_criteria": "Reduce stretch intensity or switch to non-weight-bearing stretch (ex_045) if stretching consistently provokes symptoms >3/10 or worsens the following morning.",
+    "contraindications": "Aggressive end-range dorsiflexion stretching is contraindicated in insertional Achilles tendinopathy. Stretching should not be used as the sole treatment \u2014 always combine with loading programme."
+  },
+  {
+    "id": "kb_052",
+    "title": "Insertional Achilles Tendinopathy: Dorsiflexion End-Range Compression and the Contraindication to Aggressive Stretching",
+    "authors": "Lemont H, Ammirati KM, Usen N",
+    "year": 2003,
+    "source": "Journal of the American Podiatric Medical Association",
+    "study_design": "Narrative review / anatomical biomechanical analysis",
+    "level_of_evidence": "Level 5",
+    "summary": "Mechanistic narrative review establishing the anatomical basis for why aggressive ankle dorsiflexion stretching is contraindicated in insertional Achilles tendinopathy. At end-range dorsiflexion, the Achilles tendon is drawn taut over the posterior superior calcaneal tuberosity, creating a compressive force at the bone\u2013tendon interface. In insertional tendinopathy \u2014 where degeneration is localised to the most distal 2 cm of the tendon \u2014 this compression exacerbates enthesopathy, promotes fibrocartilaginous metaplasia, and provokes insertional irritation. This mechanical model explains why insertional presentations respond poorly to aggressive stretching protocols effective for midportion disease and supports differentiated management.",
+    "key_points": [
+      "At end-range dorsiflexion, the Achilles tendon is compressed against the posterior superior calcaneal tuberosity",
+      "This compressive force is maximal at the enthesis \u2014 the site of pathology in insertional Achilles tendinopathy",
+      "Compression at the bone\u2013tendon interface exacerbates enthesopathy and promotes fibrocartilaginous metaplasia",
+      "Aggressive dorsiflexion stretching is contraindicated in insertional Achilles tendinopathy",
+      "Midportion tendinopathy is not subject to this compressive mechanism \u2014 stretching is more appropriate",
+      "Insertional presentations require neutral or plantarflexed loading (heel raises with heel drop to neutral only \u2014 not below)",
+      "Clinical differentiation between insertional and midportion presentations is critical before prescribing stretching"
+    ],
+    "tags": [
+      "insertional_achilles_tendinopathy",
+      "ankle_dorsiflexion",
+      "compression",
+      "contraindications",
+      "stretching",
+      "enthesopathy",
+      "biomechanics"
+    ],
+    "clinical_question": "Why is aggressive ankle dorsiflexion stretching contraindicated in insertional Achilles tendinopathy, and what is the anatomical mechanism?",
+    "applicability": "Critical for exercise selection in insertional Achilles tendinopathy. All exercises requiring substantial ankle dorsiflexion (WBLT end-range, straight-knee wall stretch, incline board stretch) are contraindicated. Prescribe only insertional-safe exercises (ex_043, ex_044, ex_045). Heel raises should not descend below neutral in insertional presentations.",
+    "recommended_loading_parameters": {
+      "sets": null,
+      "reps": null,
+      "tempo": null,
+      "frequency": null,
+      "notes": "Mechanistic review \u2014 not a loading protocol. Clinical rule: for all insertional Achilles tendinopathy presentations, restrict ankle dorsiflexion to neutral in all exercises. Avoid ex_041, ex_042, ex_046, ex_047. Use ex_043, ex_044, ex_045 only. If stretching provokes insertional symptoms at any range, cease and reassess. Consider heel lifts in shoes to reduce passive dorsiflexion stress."
+    },
+    "progression_criteria": "N/A \u2014 mechanistic contraindication framework. Only progress dorsiflexion range if insertional pathology has resolved (confirmed by ultrasound or sustained symptom-free loading through full range).",
+    "regression_criteria": "N/A \u2014 do not progress to end-range dorsiflexion exercises until insertional pathology resolves.",
+    "contraindications": "Aggressive ankle dorsiflexion stretching is directly contraindicated in all insertional Achilles tendinopathy presentations. This includes: standing gastrocnemius wall stretch (ex_041, ex_042), knee-to-wall WBLT mobilization at end-range (ex_046), and incline board stretch (ex_047)."
+  },
+  {
+    "id": "kb_053",
+    "title": "Dosage and Protocol for Calf Stretching in Achilles Tendinopathy Rehabilitation",
+    "authors": "Alfredson H, Cook J",
+    "year": 2007,
+    "source": "British Journal of Sports Medicine",
+    "study_design": "Clinical commentary / consensus protocol",
+    "level_of_evidence": "Level 5",
+    "summary": "Clinical commentary synthesising available evidence and expert consensus on optimal calf stretching dosage within Achilles tendinopathy rehabilitation programmes. The most commonly cited and clinically applied protocol involves 3 sets of 30\u201345 second holds, performed 2\u20133 times daily, with a minimum of 30 seconds rest between sets. Static holds are preferred over ballistic stretching due to lower injury risk and superior sustained muscle relaxation response. The protocol is designed as an adjunct to, not substitute for, progressive loading (eccentric or heavy slow resistance). Frequency of 2\u20133 times daily is supported by evidence from flexibility literature showing that this frequency produces meaningful ROM gains within 4\u20136 weeks.",
+    "key_points": [
+      "Recommended calf stretching dosage: 3 sets \u00d7 30\u201345 second holds, 2\u20133 times daily",
+      "Static holds are preferred over ballistic stretching in tendinopathy populations",
+      "Minimum 30 seconds rest between sets to allow muscle relaxation",
+      "2\u20133 times daily frequency produces meaningful ROM gains within 4\u20136 weeks",
+      "Stretching is an adjunct \u2014 does not replace the primary loading programme",
+      "Morning stretching (before first steps) may reduce symptom severity at initial weight-bearing",
+      "Hold duration of 30s is minimum; 45s is preferred for greater viscoelastic creep response in gastrocnemius"
+    ],
+    "tags": [
+      "stretching",
+      "dosage",
+      "calf_flexibility",
+      "achilles_tendinopathy",
+      "protocol",
+      "sets_reps"
+    ],
+    "clinical_question": "What is the optimal dosage and protocol for calf stretching as an adjunct in Achilles tendinopathy rehabilitation?",
+    "applicability": "Prescribing calf stretching (ex_041\u2013ex_047) in Achilles tendinopathy at all stages. Apply 3\u00d730\u201345s protocol as default across all standing stretch exercises. Adjust frequency and duration based on irritability level and clinical response. Suitable for midportion presentations; modify for insertional presentations (see kb_052).",
+    "recommended_loading_parameters": {
+      "sets": 3,
+      "reps": "30\u201345s hold",
+      "tempo": "static hold",
+      "frequency": "2\u20133 times daily",
+      "notes": "Default stretching protocol for calf flexibility exercises in TenoTrainer: 3 sets \u00d7 30\u201345s hold, 30s rest between sets, 2\u20133 times daily. Perform stretching after primary loading exercises on exercise days, and as standalone on rest days. Minimum programme duration: 6 weeks to achieve clinically meaningful ROM change. Reassess WBLT at 4\u20136 weeks."
+    },
+    "progression_criteria": "Progress hold duration from 30s to 45s when 30s sets are achieved comfortably (\u22642/10 discomfort) for 2 consecutive weeks. Progress from bilateral to unilateral when WBLT >10 cm bilaterally.",
+    "regression_criteria": "Reduce hold duration to 20\u201330s if 45s provokes sustained discomfort >3/10. Switch from standing to seated stretch (ex_045) if standing position is not tolerated.",
+    "contraindications": "Ballistic stretching contraindicated in Achilles tendinopathy. End-range dorsiflexion stretching contraindicated in insertional presentations (see kb_052). Do not prescribe stretching as primary or sole treatment."
+  },
+  {
+    "id": "kb_054",
+    "title": "WBLT as Outcome Measure in Achilles Tendinopathy: Responsiveness, Minimal Detectable Change, and Clinical Decision Thresholds",
+    "authors": "Gatt A, Chockalingam N",
+    "year": 2017,
+    "source": "Foot (Edinburgh)",
+    "study_design": "Clinimetric and review study",
+    "level_of_evidence": "Level 2",
+    "summary": "Clinimetric evaluation of the Weight Bearing Lunge Test (WBLT) as an outcome measure in patients with foot and ankle conditions including Achilles tendinopathy. Established minimal detectable change (MDC) values, responsiveness to stretching interventions, and clinically meaningful thresholds. The study identified that a side-to-side asymmetry of \u22652 cm on the WBLT is clinically significant and should guide targeted unilateral stretching. MDC for within-session repeatability was approximately 0.7\u20131.0 cm, and clinically meaningful change across a 6-week intervention was \u22652 cm. These thresholds allow WBLT to function as both an initial screening tool and a treatment response outcome measure.",
+    "key_points": [
+      "Side-to-side WBLT asymmetry \u22652 cm is clinically significant \u2014 warrants targeted unilateral intervention",
+      "Minimal detectable change (MDC) for WBLT: approximately 0.7\u20131.0 cm within session",
+      "Clinically meaningful change across a rehabilitation programme: \u22652 cm improvement at 6 weeks",
+      "WBLT <10 cm = restricted; \u226510 cm = adequate; \u226514 cm = good",
+      "WBLT is responsive to calf stretching interventions \u2014 can detect change in 4\u20136 weeks",
+      "Bilateral WBLT measurement should be performed at every assessment to detect asymmetry",
+      "WBLT combines joint mobility and musculotendinous extensibility into a single functional measure"
+    ],
+    "tags": [
+      "wblt",
+      "outcome_measures",
+      "ankle_dorsiflexion",
+      "calf_flexibility",
+      "clinical_assessment",
+      "minimal_detectable_change",
+      "responsiveness"
+    ],
+    "clinical_question": "Is the WBLT sufficiently responsive and reliable to be used as a primary outcome measure in Achilles tendinopathy rehabilitation, and what asymmetry threshold is clinically significant?",
+    "applicability": "Outcome measurement in all Achilles tendinopathy rehabilitation. Measure WBLT bilaterally at initial assessment, 4 weeks, and 8 weeks. Use \u22652 cm improvement as the target for meaningful response to stretching intervention. Flag asymmetry \u22652 cm for unilateral focus. WBLT <10 cm at 8 weeks despite consistent stretching warrants reassessment of technique, compliance, and possible joint mobility restriction requiring manual therapy.",
+    "recommended_loading_parameters": {
+      "sets": null,
+      "reps": null,
+      "tempo": null,
+      "frequency": null,
+      "notes": "Outcome measurement tool \u2014 not a loading protocol. Clinical decision thresholds: WBLT <10 cm = prescribe calf stretching programme (ex_041\u2013ex_047). WBLT 10\u201314 cm = maintain stretching if symptomatic. WBLT >14 cm = dorsiflexion ROM likely not a limiting factor. Asymmetry \u22652 cm = prioritise unilateral stretching on restricted side. No improvement at 6 weeks despite compliant stretching = consider joint mobility contribution; refer for manual therapy assessment."
+    },
+    "progression_criteria": "N/A \u2014 clinimetric framework. Use WBLT \u226510 cm bilaterally as criterion for progressing from stretching-focused rehabilitation to load-focused progression.",
+    "regression_criteria": "N/A \u2014 clinimetric framework. If WBLT worsens, assess for bony restriction, joint effusion, or capsular tightness not responsive to stretching.",
+    "contraindications": "N/A \u2014 assessment tool. Progressive WBLT self-mobilization form (ex_046) retains contraindications for insertional presentations."
   }
 ]

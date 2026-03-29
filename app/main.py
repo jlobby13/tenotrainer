@@ -36,6 +36,12 @@ from app.engine.rules import (
     has_conservative_bias,
     compute_recovery_timeline,
     evaluate_session_tolerance,
+    filter_exercises_by_state,
+    select_initial_exercises,
+    evaluate_exercise_progression,
+    classify_wblt,
+    select_stretch_exercises,
+    ExerciseDecision,
     Irritability,
     Decision,
 )
@@ -1060,6 +1066,58 @@ async def daily_log_post(
         }
         session_tolerance = evaluate_session_tolerance(session_report)
 
+        # Exercise-level progression recommendations
+        ex_progression_recs = []
+        try:
+            all_lib_exercises = await _load_exercises_from_db(db)
+            lib_ex_map = {ex["ex_id"]: ex for ex in all_lib_exercises}
+
+            # Determine insertional status from risk factors
+            _rf_list = []
+            if onboarding_row:
+                _o = parse_json_fields(row_to_dict(onboarding_row), ["risk_factors"])
+                _rf_list = _o.get("risk_factors", [])
+            is_insertional_now = "insertional" in [r.lower() for r in _rf_list]
+
+            # For each exercise in the current plan that was logged this session
+            for logged_ex in exercise_compliance.get("exercises", []):
+                ex_id = logged_ex.get("exercise_id") or logged_ex.get("id", "")
+                lib_ex = lib_ex_map.get(ex_id)
+                if not lib_ex:
+                    continue
+
+                # Count how many sessions this exercise has been logged
+                cursor = await db.execute(
+                    """SELECT COUNT(*) as cnt FROM daily_logs
+                       WHERE user_id = ? AND exercise_log LIKE ?""",
+                    (user["id"], f'%"{ex_id}"%'),
+                )
+                cnt_row = await cursor.fetchone()
+                sessions_at = (cnt_row[0] if cnt_row else 0) + 1  # +1 for this session
+
+                rec = evaluate_exercise_progression(
+                    current_exercise=lib_ex,
+                    session_signal=session_tolerance["signal"],
+                    irritability=new_irritability,
+                    insertional=is_insertional_now,
+                    sessions_at_current=sessions_at,
+                    all_exercises=all_lib_exercises,
+                )
+                # Resolve target exercise name
+                target_ex = lib_ex_map.get(rec["target_ex_id"])
+                ex_progression_recs.append({
+                    "current_name": lib_ex["exercise_name"],
+                    "current_id":   ex_id,
+                    "decision":     rec["decision"],
+                    "target_id":    rec["target_ex_id"],
+                    "target_name":  target_ex["exercise_name"] if target_ex else rec["target_ex_id"],
+                    "rationale":    rec["rationale"],
+                    "sessions_at":  sessions_at,
+                })
+        except Exception as _exc:
+            logger.warning(f"Exercise progression engine error: {_exc}")
+            ex_progression_recs = []
+
         # Run progression decision engine
         progression = run_decision_engine(
             recent_logs=all_logs[-8:],
@@ -1140,6 +1198,7 @@ async def daily_log_post(
             "next_day_pain": next_day_pain,
             "loading_context_changes": loading_context_changes,
             "exercise_compliance": exercise_compliance,
+            "ex_progression_recs": ex_progression_recs,
         },
     )
 
@@ -1411,3 +1470,253 @@ async def progression_check_api(
         "rationale": assessment.rationale,
         "can_progress_stage": assessment.can_progress_stage,
     }
+
+
+# ---------------------------------------------------------------------------
+# Exercise Library
+# ---------------------------------------------------------------------------
+
+async def _load_exercises_from_db(db: aiosqlite.Connection) -> list[dict]:
+    """Fetch all exercises from DB and deserialise JSON fields."""
+    JSON_FIELDS = [
+        "region_bias", "irritability_appropriateness", "dosage_defaults",
+        "progression_options", "regression_options", "execution_cues",
+        "common_compensations", "decision_rules_tags",
+    ]
+    cursor = await db.execute(
+        "SELECT * FROM exercises ORDER BY difficulty_level ASC, category ASC"
+    )
+    rows = await cursor.fetchall()
+    exercises = []
+    for row in rows:
+        ex = row_to_dict(row)
+        ex = parse_json_fields(ex, JSON_FIELDS)
+        # Normalise booleans from INTEGER
+        ex["insertional_safe"] = bool(ex.get("insertional_safe", 1))
+        ex["stretch_shortening_cycle"] = bool(ex.get("stretch_shortening_cycle", 0))
+        ex["requires_full_rom"] = bool(ex.get("requires_full_rom", 0))
+        exercises.append(ex)
+    return exercises
+
+
+@app.get("/exercise-library", response_class=HTMLResponse)
+async def exercise_library_page(
+    request: Request,
+    teno_session: Optional[str] = Cookie(default=None),
+    irritability: Optional[str] = None,
+    category: Optional[str] = None,
+    insertional_only: Optional[str] = None,
+    impact: Optional[str] = None,
+):
+    user = await get_current_user(teno_session)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    db = await get_db()
+    try:
+        exercises = await _load_exercises_from_db(db)
+
+        # Load current patient state for smart recommendations
+        cursor = await db.execute(
+            "SELECT * FROM rehab_plans WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
+            (user["id"],),
+        )
+        plan_row = await cursor.fetchone()
+        cursor = await db.execute(
+            "SELECT * FROM onboarding_assessments WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
+            (user["id"],),
+        )
+        onboarding_row = await cursor.fetchone()
+    finally:
+        await db.close()
+
+    current_irritability = Irritability.MODERATE
+    current_stage = 1
+    is_insertional = False
+
+    if plan_row:
+        p = row_to_dict(plan_row)
+        current_irritability = p.get("irritability", Irritability.MODERATE)
+        current_stage = p.get("stage", 1)
+
+    wblt_cm = None
+    wblt_cm_unaffected = None
+    calf_raise_reps = None
+    calf_raise_reps_unaffected = None
+    single_leg_hop_cm = None
+    double_leg_hop_cm = None
+    single_leg_hop_endurance_reps = None
+    double_leg_hop_endurance_reps = None
+
+    if onboarding_row:
+        o = row_to_dict(onboarding_row)
+        o = parse_json_fields(o, ["risk_factors", "functional_tests"])
+        rf = o.get("risk_factors", [])
+        is_insertional = "insertional" in [r.lower() for r in rf]
+        ft = o.get("functional_tests", {}) or {}
+        if isinstance(ft, str):
+            try: ft = json.loads(ft)
+            except Exception: ft = {}
+
+        # WBLT
+        wblt_cm = ft.get("wblt_cm") or o.get("wblt_cm")
+        wblt_cm_unaffected = ft.get("wblt_cm_unaffected") or o.get("wblt_cm_unaffected")
+
+        # Calf raise — affected stored in top-level column, unaffected in functional_tests
+        calf_raise_reps = o.get("calf_raise_reps")
+        calf_raise_reps_unaffected = ft.get("calf_raise_reps_unaffected")
+
+        # Hop tests
+        single_leg_hop_cm = ft.get("single_leg_hop_cm")
+        double_leg_hop_cm = ft.get("double_leg_hop_cm")
+        single_leg_hop_endurance_reps = ft.get("single_leg_hop_endurance_reps")
+        double_leg_hop_endurance_reps = ft.get("double_leg_hop_endurance_reps")
+
+    def _lsi(affected, unaffected):
+        """Limb Symmetry Index as integer percent, or None."""
+        try:
+            return round((float(affected) / float(unaffected)) * 100)
+        except (TypeError, ZeroDivisionError):
+            return None
+
+    # Pre-compute LSI values
+    calf_raise_lsi = _lsi(calf_raise_reps, calf_raise_reps_unaffected)
+    hop_distance_lsi = _lsi(single_leg_hop_cm, double_leg_hop_cm)
+    hop_endurance_lsi = _lsi(single_leg_hop_endurance_reps, double_leg_hop_endurance_reps)
+
+    # WBLT classification and stretch indication
+    wblt_result = classify_wblt(wblt_cm, wblt_cm_unaffected)
+
+    # Build exercise map for progression/regression lookups
+    ex_map = {ex["ex_id"]: ex for ex in exercises}
+
+    # Recommended loading exercises for this patient (exclude flexibility_mobility from general recs)
+    loading_exercises = [ex for ex in exercises if ex.get("category") != "flexibility_mobility"]
+    recommended_ids = {
+        ex["ex_id"] for ex in select_initial_exercises(
+            loading_exercises, current_irritability, current_stage, is_insertional, limit=6
+        )
+    }
+
+    # Recommended stretch exercises based on WBLT
+    stretch_recs = select_stretch_exercises(exercises, wblt_result, is_insertional)
+    for ex in stretch_recs:
+        recommended_ids.add(ex["ex_id"])
+
+    # Build enriched top-recommendations list with reasons from each rule engine signal
+    _LOADING_REASON = {
+        "symptom_modulation": "Symptom modulation — isometric loading reduces pain without provocative stress",
+        "slow_strength":      "Slow strength loading — primary tendon adaptation driver for your current stage",
+        "eccentric_loading":  "Eccentric loading — targeted tendon remodelling and stiffness development",
+        "heavy_dynamic":      "Heavy dynamic loading — maximum tendon load capacity development",
+        "fast_dynamic":       "Fast dynamic loading — bridging slow strength to reactive demands",
+        "reactive_plyometric":"Reactive strength — energy storage and return capacity",
+        "running_sport_reentry": "Running re-entry — progressive return to sport loading",
+        "accessory":          "Accessory — impairment-targeted support work",
+    }
+    _IRRITABILITY_REASON = {
+        "high":     "High irritability — only low-load, pain-modulating exercises selected",
+        "moderate": "Moderate irritability — graduated loading with pain monitoring",
+        "low":      "Low irritability — full progressive loading appropriate",
+    }
+    _STRETCH_REASON = {
+        "primary": "WBLT {val} cm — severe dorsiflexion restriction, stretching is a primary impairment target",
+        "adjunct": "WBLT {val} cm — dorsiflexion restriction present, stretching included as adjunct",
+    }
+
+    top_recommendations = []
+
+    # Loading exercises — up to 4, with per-exercise reason
+    loading_recs = select_initial_exercises(
+        loading_exercises, current_irritability, current_stage, is_insertional, limit=4
+    )
+    for ex in loading_recs:
+        cat_reason = _LOADING_REASON.get(ex.get("category", ""), "Selected based on current rehab stage")
+        irr_reason = _IRRITABILITY_REASON.get(current_irritability, "")
+        insertional_note = " Insertional-safe variant selected." if is_insertional and ex.get("insertional_safe") else ""
+        top_recommendations.append({
+            "exercise":  ex,
+            "reason":    cat_reason + insertional_note,
+            "sub_reason": irr_reason,
+            "badge":     "loading",
+        })
+
+    # Stretch exercises — up to 2 if indicated (avoids overwhelming the section)
+    for ex in stretch_recs[:2]:
+        priority = wblt_result.get("stretch_priority", "adjunct")
+        val_str = f"{wblt_cm:.0f}" if wblt_cm else "?"
+        stretch_reason = _STRETCH_REASON.get(priority, "").format(val=val_str)
+        insertional_note = " Bent-knee / non-weight-bearing variant — safe for insertional presentation." if is_insertional else ""
+        top_recommendations.append({
+            "exercise":  ex,
+            "reason":    stretch_reason + insertional_note,
+            "sub_reason": "Restricted dorsiflexion increases cumulative Achilles tendon load during gait",
+            "badge":     "stretch",
+        })
+
+    # Apply UI filters
+    filtered = exercises
+    if irritability:
+        filtered = [ex for ex in filtered if irritability in ex.get("irritability_appropriateness", [])]
+    if category:
+        filtered = [ex for ex in filtered if ex.get("category") == category]
+    if insertional_only == "1":
+        filtered = [ex for ex in filtered if ex.get("insertional_safe")]
+    if impact:
+        filtered = [ex for ex in filtered if ex.get("impact_level") == impact]
+
+    # Group by category for display
+    CATEGORY_LABELS = {
+        "symptom_modulation":    "Symptom Modulation / Low-Load Tolerance",
+        "slow_strength":         "Slow Strength Loading",
+        "eccentric_loading":     "Eccentric-Biased Loading",
+        "heavy_dynamic":         "Heavy Dynamic Loading",
+        "fast_dynamic":          "Fast Dynamic Loading",
+        "reactive_plyometric":   "Reactive Strength / Plyometric Loading",
+        "running_sport_reentry": "Running / Sport Re-entry",
+        "accessory":             "Accessory & Impairment-Targeted Work",
+        "flexibility_mobility":  "Flexibility & Mobility (WBLT-Indicated)",
+    }
+    CATEGORY_ORDER = list(CATEGORY_LABELS.keys())
+
+    grouped: dict[str, list[dict]] = {cat: [] for cat in CATEGORY_ORDER}
+    for ex in filtered:
+        cat = ex.get("category", "accessory")
+        if cat in grouped:
+            grouped[cat].append(ex)
+
+    return templates.TemplateResponse(
+        request, "exercise_library.html",
+        context={
+            "user": user,
+            "exercises": filtered,
+            "grouped": grouped,
+            "ex_map": ex_map,
+            "category_labels": CATEGORY_LABELS,
+            "category_order": CATEGORY_ORDER,
+            "recommended_ids": recommended_ids,
+            "current_irritability": current_irritability,
+            "current_stage": current_stage,
+            "is_insertional": is_insertional,
+            "total_exercises": len(exercises),
+            "filter_irritability": irritability or "",
+            "filter_category": category or "",
+            "filter_insertional_only": insertional_only or "",
+            "filter_impact": impact or "",
+            "top_recommendations": top_recommendations,
+            "wblt_result": wblt_result,
+            "wblt_cm": wblt_cm,
+            "wblt_cm_unaffected": wblt_cm_unaffected,
+            "stretch_recs": stretch_recs,
+            "calf_raise_reps": calf_raise_reps,
+            "calf_raise_reps_unaffected": calf_raise_reps_unaffected,
+            "calf_raise_lsi": calf_raise_lsi,
+            "single_leg_hop_cm": single_leg_hop_cm,
+            "double_leg_hop_cm": double_leg_hop_cm,
+            "hop_distance_lsi": hop_distance_lsi,
+            "single_leg_hop_endurance_reps": single_leg_hop_endurance_reps,
+            "double_leg_hop_endurance_reps": double_leg_hop_endurance_reps,
+            "hop_endurance_lsi": hop_endurance_lsi,
+            "has_onboarding": onboarding_row is not None,
+        },
+    )
