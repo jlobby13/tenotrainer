@@ -864,6 +864,61 @@ async def dashboard(
 # GET /daily-log
 # ---------------------------------------------------------------------------
 
+def _build_session_plan(
+    lib_exercises: list[dict],
+    irritability: str,
+    stage: int,
+    insertional: bool,
+    wblt_result: dict,
+) -> list[dict]:
+    """
+    Build an ordered session plan from the exercise library rule engines.
+    Returns list of dicts: {exercise, source, reason, dosage}.
+    """
+    _CATEGORY_REASON = {
+        "symptom_modulation": "Pain modulation — isometric loading to reduce irritability",
+        "slow_strength":      "Slow strength — primary tendon adaptation loading",
+        "eccentric_loading":  "Eccentric loading — tendon remodelling and stiffness",
+        "heavy_dynamic":      "Heavy dynamic — maximum load capacity development",
+        "fast_dynamic":       "Fast dynamic — bridging to reactive demands",
+        "reactive_plyometric":"Reactive strength — energy storage and return",
+        "running_sport_reentry": "Running re-entry — progressive sport loading",
+        "accessory":          "Accessory — targeted impairment support",
+    }
+    _STRETCH_REASON = {
+        "primary": "WBLT restriction — dorsiflexion is a primary impairment target",
+        "adjunct": "WBLT restriction — dorsiflexion mobility support",
+    }
+
+    loading = [ex for ex in lib_exercises if ex.get("category") != "flexibility_mobility"]
+    loading_recs = select_initial_exercises(loading, irritability, stage, insertional, limit=4)
+
+    stretch_recs = select_stretch_exercises(lib_exercises, wblt_result, insertional)
+    # Limit stretches: 1 if adjunct, 2 if primary
+    stretch_limit = 2 if wblt_result.get("stretch_priority") == "primary" else 1
+    stretch_recs = stretch_recs[:stretch_limit] if wblt_result.get("stretch_indicated") else []
+
+    plan = []
+    for ex in loading_recs:
+        dosage = ex.get("dosage_defaults", {})
+        plan.append({
+            "exercise": ex,
+            "source": "loading",
+            "reason": _CATEGORY_REASON.get(ex.get("category", ""), "Selected for current stage"),
+            "dosage": dosage,
+        })
+    for ex in stretch_recs:
+        dosage = ex.get("dosage_defaults", {})
+        priority = wblt_result.get("stretch_priority", "adjunct")
+        plan.append({
+            "exercise": ex,
+            "source": "stretch",
+            "reason": _STRETCH_REASON.get(priority, "Stretch indicated"),
+            "dosage": dosage,
+        })
+    return plan
+
+
 @app.get("/daily-log", response_class=HTMLResponse)
 async def daily_log_get(
     request: Request,
@@ -881,29 +936,59 @@ async def daily_log_get(
             (user["id"],),
         )
         plan_row = await cursor.fetchone()
-        current_exercises = []
+        current_irritability = Irritability.MODERATE
+        current_stage = 1
         if plan_row:
-            plan = parse_json_fields(row_to_dict(plan_row), ["exercises"])
-            current_exercises = plan.get("exercises", [])
+            p = row_to_dict(plan_row)
+            current_irritability = p.get("irritability", Irritability.MODERATE)
+            current_stage = p.get("stage", 1)
 
-        # Baseline from most recent onboarding assessment
         cursor = await db.execute(
-            "SELECT morning_stiffness, next_day_pain FROM onboarding_assessments WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
+            "SELECT * FROM onboarding_assessments WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
             (user["id"],),
         )
         ob_row = await cursor.fetchone()
-        baseline_morning_pain = ob_row["next_day_pain"] if ob_row else 0
-        baseline_morning_stiffness = ob_row["morning_stiffness"] if ob_row else 0
+        baseline_morning_pain = 0
+        baseline_morning_stiffness = 0
+        is_insertional = False
+        wblt_cm = None
+        wblt_cm_unaffected = None
+
+        if ob_row:
+            o = parse_json_fields(row_to_dict(ob_row), ["risk_factors", "functional_tests"])
+            baseline_morning_pain = o.get("next_day_pain", 0)
+            baseline_morning_stiffness = o.get("morning_stiffness", 0)
+            rf = o.get("risk_factors", [])
+            is_insertional = "insertional" in [r.lower() for r in rf]
+            ft = o.get("functional_tests", {}) or {}
+            wblt_cm = ft.get("wblt_cm") or o.get("wblt_cm")
+            wblt_cm_unaffected = ft.get("wblt_cm_unaffected") or o.get("wblt_cm_unaffected")
+
+        lib_exercises = await _load_exercises_from_db(db)
     finally:
         await db.close()
+
+    wblt_result = classify_wblt(wblt_cm, wblt_cm_unaffected)
+    session_plan = _build_session_plan(
+        lib_exercises, current_irritability, current_stage, is_insertional, wblt_result
+    )
+    session_plan_ids = ",".join(item["exercise"]["ex_id"] for item in session_plan)
 
     return templates.TemplateResponse(
         request, "daily_log.html",
         context={
             "user": user,
-            "current_exercises": current_exercises,
+            "session_plan": session_plan,
+            "session_plan_ids": session_plan_ids,
+            "current_irritability": current_irritability,
+            "current_stage": current_stage,
+            "is_insertional": is_insertional,
+            "wblt_result": wblt_result,
+            "wblt_cm": wblt_cm,
             "baseline_morning_pain": baseline_morning_pain,
             "baseline_morning_stiffness": baseline_morning_stiffness,
+            "has_plan": plan_row is not None,
+            "has_onboarding": ob_row is not None,
         },
     )
 
@@ -934,6 +1019,7 @@ async def daily_log_post(
     change_surface: Optional[str] = Form(default=None),
     change_footwear: Optional[str] = Form(default=None),
     load_context_notes: Optional[str] = Form(default=""),
+    session_plan_ids: Optional[str] = Form(default=""),
 ):
     # Capture full form data for dynamic exercise fields
     form_data = await request.form()
@@ -1024,8 +1110,28 @@ async def daily_log_post(
             "notes": load_context_notes or "",
         })
 
-        # Compute exercise dosage compliance
-        exercise_compliance = compute_exercise_compliance(current_exercises, form_data)
+        # Resolve exercises for compliance: prefer library plan from form if available
+        lib_exercises_for_compliance = await _load_exercises_from_db(db)
+        lib_ex_map = {ex["ex_id"]: ex for ex in lib_exercises_for_compliance}
+        if session_plan_ids:
+            ids = [i.strip() for i in session_plan_ids.split(",") if i.strip()]
+            compliance_exercises = []
+            for ex_id in ids:
+                lib_ex = lib_ex_map.get(ex_id)
+                if lib_ex:
+                    dosage = lib_ex.get("dosage_defaults", {})
+                    compliance_exercises.append({
+                        "id": lib_ex["ex_id"],
+                        "name": lib_ex["exercise_name"],
+                        "type": lib_ex.get("loading_profile", ""),
+                        "sets": dosage.get("sets", 3),
+                        "reps": dosage.get("reps_or_hold_time", ""),
+                        "tempo": dosage.get("tempo", ""),
+                    })
+        else:
+            compliance_exercises = current_exercises
+
+        exercise_compliance = compute_exercise_compliance(compliance_exercises, form_data)
         exercise_log_json = json.dumps(exercise_compliance)
 
         # Build and run session tolerance engine
@@ -1184,6 +1290,24 @@ async def daily_log_post(
     finally:
         await db.close()
 
+    # Build next-session plan using updated irritability + stage
+    next_stage = progression.proposed_stage if progression.can_progress_stage else current_stage
+    try:
+        lib_all = await _load_exercises_from_db(await get_db())
+    except Exception:
+        lib_all = []
+    _next_wblt = classify_wblt(
+        onboarding_row and parse_json_fields(row_to_dict(onboarding_row), ["functional_tests"]).get("functional_tests", {}).get("wblt_cm"),
+        onboarding_row and parse_json_fields(row_to_dict(onboarding_row), ["functional_tests"]).get("functional_tests", {}).get("wblt_cm_unaffected"),
+    ) if onboarding_row else classify_wblt(None, None)
+    _is_insertional_post = False
+    if onboarding_row:
+        _o2 = parse_json_fields(row_to_dict(onboarding_row), ["risk_factors"])
+        _is_insertional_post = "insertional" in [r.lower() for r in _o2.get("risk_factors", [])]
+    next_session_plan = _build_session_plan(
+        lib_all, new_irritability, next_stage, _is_insertional_post, _next_wblt
+    )
+
     return templates.TemplateResponse(
         request, "daily_log.html",
         context={
@@ -1199,6 +1323,8 @@ async def daily_log_post(
             "loading_context_changes": loading_context_changes,
             "exercise_compliance": exercise_compliance,
             "ex_progression_recs": ex_progression_recs,
+            "next_session_plan": next_session_plan,
+            "next_stage": next_stage,
         },
     )
 

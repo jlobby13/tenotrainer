@@ -1,591 +1,708 @@
 {% extends "base.html" %}
-{% block title %}Log Session — TenoTrainer{% endblock %}
+{% block title %}Track Session — TenoTrainer{% endblock %}
 
 {% block content %}
 <div class="max-w-2xl mx-auto">
-  <h1 class="text-3xl font-bold text-gray-900 mb-2">Log Today's Session</h1>
-  <p class="text-gray-600 mb-6">
-    Record your pain and performance after each exercise session. This data drives irritability
-    re-classification and the progression decision engine.
-  </p>
 
-  {% if halt %}
-  <!-- Red Flag Halt -->
-  <div class="bg-red-50 border-2 border-red-500 rounded-xl p-6 mb-6">
-    <h2 class="text-2xl font-bold text-red-700 mb-3">SAFETY ALERT — Stop &amp; Seek Medical Help</h2>
-    <p class="text-red-800 mb-3">
-      Your notes contain potential warning signs. Do not self-manage until assessed by a clinician.
-    </p>
-    <ul class="list-disc list-inside text-red-700">
-      {% for flag in red_flags %}
-      <li>{{ flag }}</li>
-      {% endfor %}
-    </ul>
+{# ============================================================ #}
+{# RED FLAG HALT                                                #}
+{# ============================================================ #}
+{% if halt %}
+<div class="bg-red-50 border-2 border-red-500 rounded-2xl p-6 mb-6">
+  <h2 class="text-2xl font-black text-red-700 mb-3">SAFETY ALERT — Stop &amp; Seek Medical Help</h2>
+  <p class="text-red-800 mb-3">
+    Your notes contain potential warning signs. Do not self-manage until assessed by a clinician.
+  </p>
+  <ul class="list-disc list-inside text-red-700 space-y-1">
+    {% for flag in red_flags %}<li>{{ flag }}</li>{% endfor %}
+  </ul>
+</div>
+
+{# ============================================================ #}
+{# POST RESULT                                                  #}
+{# ============================================================ #}
+{% elif submitted %}
+
+{# ── Signal config ── #}
+{% set sig_cfg = {
+  'go':      {'label': 'GO',      'icon': '✓', 'hdr': 'bg-green-600',  'bg': 'bg-green-50',  'border': 'border-green-300',  'title': 'text-green-800',  'sub': 'text-green-700'},
+  'stay':    {'label': 'STAY',    'icon': '→', 'hdr': 'bg-blue-600',   'bg': 'bg-blue-50',   'border': 'border-blue-300',   'title': 'text-blue-800',   'sub': 'text-blue-700'},
+  'caution': {'label': 'CAUTION', 'icon': '⚠', 'hdr': 'bg-yellow-500', 'bg': 'bg-yellow-50', 'border': 'border-yellow-400', 'title': 'text-yellow-800', 'sub': 'text-yellow-700'},
+  'stop':    {'label': 'STOP',    'icon': '✕', 'hdr': 'bg-red-600',    'bg': 'bg-red-50',    'border': 'border-red-400',    'title': 'text-red-800',    'sub': 'text-red-700'},
+} %}
+{% set sc = sig_cfg[session_tolerance.signal] %}
+
+{# ── Dose bar values ── #}
+{% set p_sets = session_report.prescribed.sets %}
+{% set c_sets = session_report.completed.sets %}
+{% set dose_pct = [((c_sets / p_sets * 100) | round | int), 150] | min if p_sets > 0 else 0 %}
+{% set bar_pct  = [dose_pct, 100] | min %}
+{% set bar_color = 'bg-yellow-400' if dose_pct > 120 else ('bg-red-400' if dose_pct < 80 else 'bg-green-400') %}
+
+{# ── Symptom delta values ── #}
+{% set pain_change  = session_report.symptoms.nextMorningPain - session_report.baseline.usualMorningPain %}
+{% set stiff_change = session_report.symptoms.nextMorningStiffness - session_report.baseline.usualMorningStiffness %}
+
+<div class="space-y-4 mb-6">
+
+  {# ── Session Tolerance Card ── #}
+  <div class="rounded-2xl border-2 {{ sc.border }} {{ sc.bg }} overflow-hidden shadow-sm">
+    <div class="{{ sc.hdr }} px-5 py-4 flex items-center justify-between">
+      <div>
+        <p class="text-xs font-semibold text-white/60 uppercase tracking-wider mb-0.5">Session Tolerance</p>
+        <h2 class="text-xl font-black text-white">
+          {% if session_tolerance.signal == 'go' %}Well Tolerated
+          {% elif session_tolerance.signal == 'stay' %}Acceptable Response
+          {% elif session_tolerance.signal == 'caution' %}Caution — Modify Next Session
+          {% else %}Stop — Safety Threshold Breached{% endif %}
+        </h2>
+      </div>
+      <div class="flex items-center gap-2 bg-white/20 text-white px-4 py-2 rounded-full font-black text-lg shadow-inner shrink-0">
+        <span>{{ sc.icon }}</span><span>{{ sc.label }}</span>
+      </div>
+    </div>
+
+    <div class="p-5 space-y-4">
+      {# Dose bar #}
+      <div>
+        <div class="flex justify-between text-xs text-gray-500 mb-1">
+          <span>Dose: <strong>{{ c_sets }}</strong> / {{ p_sets }} sets</span>
+          <span class="{{ 'font-bold text-yellow-700' if (dose_pct > 120 or dose_pct < 80) else 'text-gray-500' }}">{{ dose_pct }}%</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-2.5 relative overflow-hidden">
+          <div class="h-2.5 rounded-full {{ bar_color }}" style="width:{{ bar_pct }}%"></div>
+          <div class="absolute top-0 h-full w-0.5 bg-gray-400 opacity-50" style="left:80%"></div>
+          <div class="absolute top-0 h-full w-0.5 bg-gray-400 opacity-50" style="left:100%"></div>
+        </div>
+        <div class="flex text-[10px] text-gray-400 mt-0.5">
+          <span>0%</span><span class="ml-auto">80% &nbsp; 100% &nbsp; 120%+</span>
+        </div>
+      </div>
+
+      {# Symptom pills #}
+      <div class="flex flex-wrap gap-2 items-center">
+        {% macro pain_pill(label, val) %}
+          {% set c = 'bg-red-100 text-red-700' if val >= 6 else ('bg-yellow-100 text-yellow-700' if val >= 4 else 'bg-green-100 text-green-700') %}
+          <div class="flex items-center gap-1 px-2 py-1 rounded-lg text-xs {{ c }}">
+            <span class="text-gray-500 font-normal">{{ label }}</span>
+            <span class="font-bold">{{ val }}/10</span>
+          </div>
+        {% endmacro %}
+        {% macro delta_pill(label, val) %}
+          {% set c = 'bg-red-100 text-red-700' if val >= 2 else ('bg-yellow-100 text-yellow-700' if val >= 1 else 'bg-green-100 text-green-700') %}
+          <div class="flex items-center gap-1 px-2 py-1 rounded-lg text-xs {{ c }}">
+            <span class="text-gray-500 font-normal">{{ label }}</span>
+            <span class="font-bold">{{ '+' if val > 0 else '' }}{{ val }}</span>
+          </div>
+        {% endmacro %}
+        {{ pain_pill('During', session_report.symptoms.painDuring) }}
+        {{ pain_pill('After', session_report.symptoms.painAfter) }}
+        {{ pain_pill('Next AM', session_report.symptoms.nextMorningPain) }}
+        {{ delta_pill('Pain Δ', pain_change) }}
+        {{ delta_pill('Stiff Δ', stiff_change) }}
+        {% if session_report.symptoms.sharpPain %}<span class="px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700 rounded-full">Sharp pain</span>{% endif %}
+        {% if session_report.completed.abandonedDueToPain %}<span class="px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700 rounded-full">Abandoned</span>{% endif %}
+        {% if session_report.symptoms.limpOrFunctionLoss %}<span class="px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700 rounded-full">Limp</span>{% endif %}
+        {% if session_report.symptoms.swellingIncrease %}<span class="px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700 rounded-full">Swelling</span>{% endif %}
+      </div>
+
+      <hr class="border-gray-200" />
+
+      <div class="space-y-3">
+        <div>
+          <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Why this signal</p>
+          <p class="text-sm font-medium {{ sc.title }} leading-snug">{{ session_tolerance.reason }}</p>
+        </div>
+        <div class="bg-white/70 rounded-xl px-4 py-3">
+          <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Next session action</p>
+          <p class="text-sm text-gray-700 leading-snug">{{ session_tolerance.action }}</p>
+        </div>
+      </div>
+    </div>
   </div>
 
-  {% elif submitted %}
-  <!-- Result Panel -->
-
-  {# ── Signal config ── #}
-  {% set sig_cfg = {
-    'go':      {'label': 'GO',      'icon': '✓', 'hdr': 'bg-green-600',  'bg': 'bg-green-50',  'border': 'border-green-300',  'title': 'text-green-800',  'sub': 'text-green-700'},
-    'stay':    {'label': 'STAY',    'icon': '→', 'hdr': 'bg-blue-600',   'bg': 'bg-blue-50',   'border': 'border-blue-300',   'title': 'text-blue-800',   'sub': 'text-blue-700'},
-    'caution': {'label': 'CAUTION', 'icon': '⚠', 'hdr': 'bg-yellow-500', 'bg': 'bg-yellow-50', 'border': 'border-yellow-400', 'title': 'text-yellow-800', 'sub': 'text-yellow-700'},
-    'stop':    {'label': 'STOP',    'icon': '✕', 'hdr': 'bg-red-600',    'bg': 'bg-red-50',    'border': 'border-red-400',    'title': 'text-red-800',    'sub': 'text-red-700'},
-  } %}
-  {% set sc = sig_cfg[session_tolerance.signal] %}
-
-  {# ── Dose bar values ── #}
-  {% set p_sets = session_report.prescribed.sets %}
-  {% set c_sets = session_report.completed.sets %}
-  {% set dose_pct = [((c_sets / p_sets * 100) | round | int), 150] | min if p_sets > 0 else 0 %}
-  {% set bar_pct  = [dose_pct, 100] | min %}
-  {% set bar_color = 'bg-yellow-400' if dose_pct > 120 else ('bg-red-400' if dose_pct < 80 else 'bg-green-400') %}
-
-  {# ── Symptom delta values ── #}
-  {% set pain_change  = session_report.symptoms.nextMorningPain - session_report.baseline.usualMorningPain %}
-  {% set stiff_change = session_report.symptoms.nextMorningStiffness - session_report.baseline.usualMorningStiffness %}
-
-  <div class="space-y-4 mb-6">
-
-    {# ── Session Tolerance Card ── #}
-    <div class="rounded-2xl border-2 {{ sc.border }} {{ sc.bg }} overflow-hidden shadow-sm">
-
-      {# Coloured header #}
-      <div class="{{ sc.hdr }} px-5 py-4 flex items-center justify-between">
-        <div>
-          <p class="text-xs font-semibold text-white/60 uppercase tracking-wider mb-0.5">Session Tolerance</p>
-          <h2 class="text-xl font-black text-white">
-            {% if session_tolerance.signal == 'go' %}Well Tolerated
-            {% elif session_tolerance.signal == 'stay' %}Acceptable Response
-            {% elif session_tolerance.signal == 'caution' %}Caution — Modify Next Session
-            {% else %}Stop — Safety Threshold Breached{% endif %}
-          </h2>
-        </div>
-        <div class="flex items-center gap-2 bg-white/20 text-white px-4 py-2 rounded-full font-black text-lg shadow-inner shrink-0">
-          <span>{{ sc.icon }}</span>
-          <span>{{ sc.label }}</span>
-        </div>
+  {# ── Next Session Plan (centrepiece) ── #}
+  {% if next_session_plan %}
+  <div class="bg-white rounded-2xl border-2 border-brand-200 shadow-sm overflow-hidden">
+    <div class="bg-brand-600 px-5 py-4 flex items-center justify-between">
+      <div>
+        <p class="text-xs font-semibold text-white/60 uppercase tracking-wider mb-0.5">Personalised Plan</p>
+        <h2 class="text-lg font-black text-white">Your Next Session</h2>
       </div>
-
-      <div class="p-5 space-y-4">
-
-        {# Dose bar #}
-        <div>
-          <div class="flex justify-between text-xs text-gray-500 mb-1">
-            <span>Dose: <strong>{{ c_sets }}</strong> / {{ p_sets }} sets</span>
-            <span class="{{ 'font-bold text-yellow-700' if (dose_pct > 120 or dose_pct < 80) else 'text-gray-500' }}">{{ dose_pct }}%</span>
-          </div>
-          <div class="w-full bg-gray-200 rounded-full h-2.5 relative overflow-hidden">
-            <div class="h-2.5 rounded-full {{ bar_color }}" style="width:{{ bar_pct }}%"></div>
-            <div class="absolute top-0 h-full w-0.5 bg-gray-400 opacity-50" style="left:80%"></div>
-            <div class="absolute top-0 h-full w-0.5 bg-gray-400 opacity-50" style="left:100%"></div>
-          </div>
-          <div class="flex text-[10px] text-gray-400 mt-0.5">
-            <span>0%</span>
-            <span class="ml-auto">80% &nbsp; 100% &nbsp; 120%+</span>
-          </div>
-        </div>
-
-        {# Symptom pills #}
-        <div class="flex flex-wrap gap-2 items-center">
-          {% macro pain_pill(label, val) %}
-            {% set c = 'bg-red-100 text-red-700' if val >= 6 else ('bg-yellow-100 text-yellow-700' if val >= 4 else 'bg-green-100 text-green-700') %}
-            <div class="flex items-center gap-1 px-2 py-1 rounded-lg text-xs {{ c }}">
-              <span class="text-gray-500 font-normal">{{ label }}</span>
-              <span class="font-bold">{{ val }}/10</span>
-            </div>
-          {% endmacro %}
-          {% macro delta_pill(label, val) %}
-            {% set c = 'bg-red-100 text-red-700' if val >= 2 else ('bg-yellow-100 text-yellow-700' if val >= 1 else 'bg-green-100 text-green-700') %}
-            <div class="flex items-center gap-1 px-2 py-1 rounded-lg text-xs {{ c }}">
-              <span class="text-gray-500 font-normal">{{ label }}</span>
-              <span class="font-bold">{{ '+' if val > 0 else '' }}{{ val }}</span>
-            </div>
-          {% endmacro %}
-          {{ pain_pill('During', session_report.symptoms.painDuring) }}
-          {{ pain_pill('After', session_report.symptoms.painAfter) }}
-          {{ pain_pill('Next AM', session_report.symptoms.nextMorningPain) }}
-          {{ delta_pill('Pain Δ', pain_change) }}
-          {{ delta_pill('Stiff Δ', stiff_change) }}
-          {% if session_report.symptoms.sharpPain %}
-          <span class="px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700 rounded-full">Sharp pain</span>
-          {% endif %}
-          {% if session_report.completed.abandonedDueToPain %}
-          <span class="px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700 rounded-full">Abandoned</span>
-          {% endif %}
-          {% if session_report.symptoms.limpOrFunctionLoss %}
-          <span class="px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700 rounded-full">Limp</span>
-          {% endif %}
-          {% if session_report.symptoms.swellingIncrease %}
-          <span class="px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700 rounded-full">Swelling</span>
-          {% endif %}
-        </div>
-
-        <hr class="border-gray-200" />
-
-        {# Reason + action #}
-        <div class="space-y-3">
-          <div>
-            <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Why this signal</p>
-            <p class="text-sm font-medium {{ sc.title }} leading-snug">{{ session_tolerance.reason }}</p>
-          </div>
-          <div class="bg-white/70 rounded-xl px-4 py-3">
-            <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Next session action</p>
-            <p class="text-sm text-gray-700 leading-snug">{{ session_tolerance.action }}</p>
-          </div>
-        </div>
-
-      </div>
-    </div>
-
-    {# ── Irritability re-classification ── #}
-    {% set irr_colour = {'high': 'red', 'moderate': 'yellow', 'low': 'green'} %}
-    {% set ic = irr_colour.get(new_irritability, 'gray') %}
-    <div class="bg-{{ ic }}-50 border border-{{ ic }}-200 rounded-xl p-4">
-      <div class="font-semibold text-{{ ic }}-800 mb-1">
-        Irritability re-classified: <span class="uppercase font-black">{{ new_irritability }}</span>
-      </div>
-      <p class="text-xs text-{{ ic }}-700">
-        Based on: Pain during={{ pain_during }}/10,
-        Pain after={{ pain_after }}/10,
-        Next-day={{ next_day_pain }}/10.
-      </p>
-    </div>
-
-    <!-- Dosage Compliance -->
-    {% if exercise_compliance and exercise_compliance.exercises %}
-    {% set oc = exercise_compliance.overall_compliance %}
-    <div class="bg-white border border-gray-200 rounded-xl p-5">
-      <div class="flex items-center justify-between mb-4">
-        <div class="font-bold text-gray-800 text-lg">Exercise Dosage Compliance</div>
-        {% if oc is not none %}
-        <span class="px-3 py-1 text-sm font-bold rounded-full
-          {% if oc > 120 %}bg-yellow-100 text-yellow-700
-          {% elif oc >= 90 %}bg-green-100 text-green-700
-          {% elif oc >= 70 %}bg-yellow-100 text-yellow-700
-          {% else %}bg-red-100 text-red-700{% endif %}">
-          {{ oc }}% overall{% if oc > 100 %} ↑{% endif %}
+      <div class="flex items-center gap-2">
+        {% set irr_colors = {'high': 'bg-red-400', 'moderate': 'bg-yellow-400', 'low': 'bg-green-400'} %}
+        <span class="px-3 py-1 rounded-full text-xs font-bold text-white {{ irr_colors.get(new_irritability, 'bg-gray-400') }} uppercase">
+          {{ new_irritability }}
         </span>
-        {% endif %}
+        <span class="px-3 py-1 rounded-full text-xs font-bold bg-white/20 text-white">Stage {{ next_stage }}</span>
       </div>
-
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead>
-            <tr class="text-xs text-gray-500 border-b border-gray-200">
-              <th class="text-left pb-2 pr-3">Exercise</th>
-              <th class="text-center pb-2 px-2">Prescribed</th>
-              <th class="text-center pb-2 px-2">Completed</th>
-              <th class="text-center pb-2 px-2">Load</th>
-              <th class="text-center pb-2 pl-2">Sets %</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for ex in exercise_compliance.exercises %}
-            <tr class="border-b border-gray-50">
-              <td class="py-2 pr-3 text-gray-800 font-medium">{{ ex.name }}</td>
-              <td class="text-center py-2 px-2 text-gray-500 text-xs">
-                {{ ex.prescribed_sets }}&times;{{ ex.prescribed_reps }}
-              </td>
-              <td class="text-center py-2 px-2 text-gray-700 text-xs">
-                {% if ex.sets_done is not none or ex.reps_done %}
-                  {{ ex.sets_done if ex.sets_done is not none else '—' }}&times;{{ ex.reps_done or '—' }}
-                {% else %}
-                  <span class="text-gray-400">not logged</span>
-                {% endif %}
-              </td>
-              <td class="text-center py-2 px-2 text-gray-500 text-xs">
-                {{ ex.load_kg ~ ' kg' if ex.load_kg else '—' }}
-              </td>
-              <td class="text-center py-2 pl-2">
-                {% if ex.sets_compliance is not none %}
-                <span class="px-2 py-0.5 rounded text-xs font-bold
-                  {% if ex.sets_compliance > 120 %}bg-yellow-100 text-yellow-700
-                  {% elif ex.sets_compliance >= 90 %}bg-green-100 text-green-700
-                  {% elif ex.sets_compliance >= 70 %}bg-yellow-100 text-yellow-700
-                  {% else %}bg-red-100 text-red-700{% endif %}">
-                  {{ ex.sets_compliance }}%{% if ex.sets_compliance > 100 %} ↑{% endif %}
-                </span>
-                {% else %}
-                <span class="text-gray-400 text-xs">—</span>
-                {% endif %}
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-
-      {% if oc is not none %}
-      {% if oc > 120 %}
-      <p class="text-xs text-yellow-700 mt-3 bg-yellow-50 rounded-lg px-3 py-2">
-        Overdose recorded — {{ oc }}% of prescribed sets completed ({{ oc - 100 }}% above prescription). Excess loading risks a delayed adverse tendon response. Return to the prescribed dose next session.
-      </p>
-      {% elif oc < 70 %}
-      <p class="text-xs text-red-600 mt-3 bg-red-50 rounded-lg px-3 py-2">
-        Significant under-dosing recorded. Consistent under-dosing may slow tendon adaptation. If due to pain or fatigue, this is captured in your pain scores above — otherwise, aim to complete the full prescription next session.
-      </p>
-      {% elif oc < 90 %}
-      <p class="text-xs text-amber-600 mt-3 bg-amber-50 rounded-lg px-3 py-2">
-        Partial session completed. Continue with the full prescribed dose next session if symptoms allow.
-      </p>
-      {% else %}
-      <p class="text-xs text-green-600 mt-3 bg-green-50 rounded-lg px-3 py-2">
-        Full prescribed dosage completed. Consistent adherence supports optimal tendon adaptation.
-      </p>
-      {% endif %}
-      {% endif %}
     </div>
-    {% endif %}
-
-    {% if loading_context_changes %}
-    {% set change_labels = {"sport": "sport/activity", "surface": "training surface", "footwear": "footwear"} %}
-    <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
-      <div class="font-semibold text-amber-800 mb-1">Loading profile change recorded</div>
-      <p class="text-xs text-amber-700">
-        Change in: {{ loading_context_changes | map('lower') | map('replace', 'sport', 'sport/activity') | map('replace', 'surface', 'training surface') | join(', ') }}.
-        This was factored into today's risk assessment.
-      </p>
-    </div>
-    {% endif %}
-
-    {% if progression.can_progress_stage %}
-    <div class="bg-green-50 border border-green-300 rounded-xl p-4">
-      <div class="font-bold text-green-800 mb-1">Stage Progression!</div>
-      <p class="text-sm text-green-700">
-        All progression criteria met. You are advancing from Stage {{ progression.current_stage }}
-        to Stage {{ progression.proposed_stage }}. A new plan has been generated.
-      </p>
-    </div>
-    {% endif %}
-
-    {% if ex_progression_recs %}
-    <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-      <div class="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
-        <h3 class="font-bold text-gray-800 text-sm">Exercise Recommendations — Next Session</h3>
-        <span class="text-[10px] px-2 py-0.5 bg-brand-100 text-brand-700 rounded-full font-bold">NEW</span>
-      </div>
-      <div class="divide-y divide-gray-50">
-        {% for rec in ex_progression_recs %}
-        {% set dec = rec.decision %}
-        <div class="px-5 py-3 flex items-start gap-4">
-          <!-- Decision badge -->
-          <div class="shrink-0 mt-0.5">
-            {% if dec == 'PROGRESS' %}
-            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-green-100 text-green-700 text-xs font-bold">
-              ↑ Progress
-            </span>
-            {% elif dec == 'REGRESS' %}
-            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-orange-100 text-orange-700 text-xs font-bold">
-              ↓ Regress
-            </span>
-            {% elif dec == 'HOLD' %}
-            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-100 text-red-700 text-xs font-bold">
-              ⏸ Hold
-            </span>
-            {% else %}
-            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gray-100 text-gray-600 text-xs font-bold">
-              → Stay
-            </span>
-            {% endif %}
-          </div>
-          <!-- Exercise detail -->
+    <div class="divide-y divide-gray-50">
+      {% for item in next_session_plan %}
+      {% set ex = item.exercise %}
+      {% set dos = item.dosage %}
+      {% set cat_colors = {
+        'symptom_modulation': 'bg-purple-100 text-purple-700',
+        'slow_strength': 'bg-brand-100 text-brand-700',
+        'eccentric_loading': 'bg-indigo-100 text-indigo-700',
+        'heavy_dynamic': 'bg-blue-100 text-blue-700',
+        'fast_dynamic': 'bg-cyan-100 text-cyan-700',
+        'reactive_plyometric': 'bg-orange-100 text-orange-700',
+        'running_sport_reentry': 'bg-green-100 text-green-700',
+        'accessory': 'bg-gray-100 text-gray-600',
+        'flexibility_mobility': 'bg-teal-100 text-teal-700',
+      } %}
+      <div class="px-5 py-4">
+        <div class="flex items-start justify-between gap-3">
           <div class="flex-1 min-w-0">
-            <p class="text-xs font-semibold text-gray-800">
-              {{ rec.current_name }}
-              {% if dec == 'PROGRESS' and rec.target_id != rec.current_id %}
-              <span class="text-gray-400 font-normal mx-1">→</span>
-              <span class="text-green-700">{{ rec.target_name }}</span>
-              {% elif dec == 'REGRESS' and rec.target_id != rec.current_id %}
-              <span class="text-gray-400 font-normal mx-1">→</span>
-              <span class="text-orange-700">{{ rec.target_name }}</span>
+            <div class="flex items-center gap-2 mb-1 flex-wrap">
+              <span class="font-semibold text-gray-900 text-sm">{{ ex.exercise_name }}</span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold {{ cat_colors.get(ex.category, 'bg-gray-100 text-gray-600') }} capitalize">
+                {{ ex.category | replace('_', ' ') }}
+              </span>
+              {% if item.source == 'stretch' %}
+              <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-teal-100 text-teal-700">Stretch</span>
               {% endif %}
-            </p>
-            <p class="text-xs text-gray-500 mt-0.5 leading-relaxed">{{ rec.rationale }}</p>
-            <p class="text-[10px] text-gray-400 mt-1">{{ rec.sessions_at }} session{{ 's' if rec.sessions_at != 1 else '' }} logged at this exercise</p>
+              {% if not ex.insertional_safe %}
+              <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700">Mid-portion</span>
+              {% endif %}
+            </div>
+            <p class="text-xs text-gray-500 mb-2">{{ item.reason }}</p>
+            <div class="flex items-center gap-4 text-xs">
+              <span class="font-semibold text-gray-800">
+                {{ dos.sets if dos.sets else '3' }} sets &times; {{ dos.reps_or_hold_time if dos.reps_or_hold_time else '—' }}
+              </span>
+              {% if dos.tempo and dos.tempo not in ['hold', 'reactive', 'normal'] %}
+              <span class="text-gray-500">{{ dos.tempo }} tempo</span>
+              {% endif %}
+              {% if dos.notes %}
+              <span class="text-gray-400 italic">{{ dos.notes }}</span>
+              {% endif %}
+            </div>
           </div>
-          {% if rec.target_id != rec.current_id %}
-          <a href="/exercise-library#{{ rec.target_id }}"
+          <a href="/exercise-library#{{ ex.ex_id }}"
              class="shrink-0 text-[11px] px-3 py-1.5 rounded-lg bg-brand-50 text-brand-700 font-medium hover:bg-brand-100 transition-colors border border-brand-200">
             View →
           </a>
-          {% endif %}
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-    {% endif %}
-
-    <div class="flex gap-3">
-      <a href="/dashboard" class="px-5 py-2 bg-brand-600 text-white rounded-lg text-sm font-semibold hover:bg-brand-700 transition-colors">
-        View Dashboard
-      </a>
-      <a href="/daily-log" class="px-5 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 transition-colors">
-        Log Another Session
-      </a>
-    </div>
-  </div>
-
-  {% else %}
-  <!-- Log Form -->
-  <form method="POST" action="/daily-log" class="space-y-6">
-
-    <!-- Exercise Dosage -->
-    {% if current_exercises %}
-    <div class="bg-white rounded-xl shadow p-6 border border-gray-100">
-      <h2 class="text-xl font-bold text-gray-800 mb-1">Exercise Dosage</h2>
-      <p class="text-sm text-gray-500 mb-5">
-        Log what you actually completed for each exercise. This is compared against your prescribed dosage to track adherence and inform future loading decisions.
-      </p>
-
-      <div class="space-y-5">
-        {% for ex in current_exercises %}
-        <div class="border border-gray-200 rounded-xl p-4 bg-gray-50">
-          <!-- Exercise header -->
-          <div class="flex items-center gap-2 mb-1">
-            <span class="font-semibold text-gray-900">{{ ex.name }}</span>
-            <span class="text-xs px-2 py-0.5 bg-brand-100 text-brand-700 rounded-full capitalize">
-              {{ ex.type | replace("_", " ") }}
-            </span>
-          </div>
-          <!-- Prescribed dose -->
-          <p class="text-xs text-gray-500 mb-4">
-            <strong>Prescribed:</strong>
-            {{ ex.sets }} sets &times; {{ ex.reps }}
-            {% if ex.tempo and ex.tempo not in ["hold", "reactive"] %}
-            &mdash; tempo {{ ex.tempo }}
-            {% endif %}
-            {% if ex.dosing_note %}
-            &mdash; <span class="italic">{{ ex.dosing_note }}</span>
-            {% endif %}
-          </p>
-
-          <!-- Input grid -->
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">
-                Sets completed <span class="text-gray-400 font-normal">(prescribed: {{ ex.sets }})</span>
-              </label>
-              <input type="number" name="ex_{{ loop.index0 }}_sets_done"
-                     min="0" max="20" placeholder="{{ ex.sets }}"
-                     class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none bg-white" />
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">
-                Reps / duration <span class="text-gray-400 font-normal">(prescribed: {{ ex.reps }})</span>
-              </label>
-              <input type="text" name="ex_{{ loop.index0 }}_reps_done"
-                     placeholder="{{ ex.reps }}"
-                     class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none bg-white" />
-            </div>
-            {% if ex.type in ["heavy_slow_resistance", "eccentric"] %}
-            <div class="col-span-2">
-              <label class="block text-xs font-medium text-gray-600 mb-1">
-                Load used <span class="text-gray-400 font-normal">— kg (optional)</span>
-              </label>
-              <input type="number" name="ex_{{ loop.index0 }}_load_kg"
-                     min="0" step="0.5" placeholder="e.g. 10"
-                     class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none bg-white" />
-            </div>
-            {% endif %}
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-    {% endif %}
-
-    <!-- Pain Scores -->
-    <div class="bg-white rounded-xl shadow p-6 border border-gray-100">
-      <h2 class="text-xl font-bold text-gray-800 mb-1">Pain &amp; Symptom Scores</h2>
-      <p class="text-sm text-gray-500 mb-4">Rate pain 0 (none) to 10 (worst imaginable). These scores are fed directly into the session tolerance engine.</p>
-
-      {% set pain_items = [
-        ("pain_during",        "Pain DURING today's exercise session"),
-        ("pain_after",         "Pain in the hour AFTER exercise"),
-        ("pain_later_same_day","Pain later the SAME day (evening)"),
-        ("next_day_pain",      "Pain this MORNING — next-day response"),
-        ("next_morning_stiffness", "Stiffness this MORNING — next-day response"),
-      ] %}
-
-      {% for field, label in pain_items %}
-      <div class="mb-5">
-        <label class="block text-sm font-medium text-gray-700 mb-2">{{ label }}</label>
-        <div class="flex items-center gap-3">
-          <span class="text-xs text-gray-500 w-12 text-right">0</span>
-          <input type="range" name="{{ field }}" min="0" max="10" value="0"
-                 class="flex-1 accent-brand-600"
-                 oninput="document.getElementById('{{ field }}_val').textContent = this.value" />
-          <span class="text-xs text-gray-500 w-12">10</span>
-          <span id="{{ field }}_val"
-                class="w-8 text-center font-bold text-brand-700 bg-brand-50 rounded px-1 py-0.5 text-sm">0</span>
         </div>
       </div>
       {% endfor %}
+    </div>
+  </div>
+  {% endif %}
 
-      {% if baseline_morning_pain is defined or baseline_morning_stiffness is defined %}
-      <p class="text-xs text-gray-400 mt-1">
-        Your baseline (from assessment): morning pain {{ baseline_morning_pain }}/10, morning stiffness {{ baseline_morning_stiffness }}/10.
-        The engine compares your next-morning scores against these values.
-      </p>
+  {# ── Irritability re-classification (compact) ── #}
+  {% set irr_colour = {'high': 'red', 'moderate': 'yellow', 'low': 'green'} %}
+  {% set ic = irr_colour.get(new_irritability, 'gray') %}
+  <div class="flex items-center gap-3 bg-{{ ic }}-50 border border-{{ ic }}-200 rounded-xl px-4 py-3">
+    <div class="flex-1">
+      <span class="text-xs font-bold text-{{ ic }}-800 uppercase tracking-wide">Irritability: {{ new_irritability }}</span>
+      <span class="text-xs text-{{ ic }}-600 ml-2">During {{ pain_during }}/10 · After {{ pain_after }}/10 · Next AM {{ next_day_pain }}/10</span>
+    </div>
+  </div>
+
+  {# ── Dosage Compliance ── #}
+  {% if exercise_compliance and exercise_compliance.exercises %}
+  {% set oc = exercise_compliance.overall_compliance %}
+  <div class="bg-white border border-gray-200 rounded-xl p-5">
+    <div class="flex items-center justify-between mb-3">
+      <div class="font-semibold text-gray-800">Dosage Compliance</div>
+      {% if oc is not none %}
+      <span class="px-3 py-1 text-xs font-bold rounded-full
+        {% if oc > 120 %}bg-yellow-100 text-yellow-700
+        {% elif oc >= 90 %}bg-green-100 text-green-700
+        {% elif oc >= 70 %}bg-yellow-100 text-yellow-700
+        {% else %}bg-red-100 text-red-700{% endif %}">
+        {{ oc }}% overall{% if oc > 100 %} ↑{% endif %}
+      </span>
       {% endif %}
     </div>
-
-    <!-- Symptom Flags -->
-    <div class="bg-white rounded-xl shadow p-6 border border-gray-100">
-      <h2 class="text-xl font-bold text-gray-800 mb-1">Symptom Flags</h2>
-      <p class="text-sm text-gray-500 mb-4">
-        Tick any that apply to today's session. These flags are evaluated by the safety rules before the tolerance signal is assigned.
-      </p>
-      <div class="space-y-3">
-
-        <label class="flex items-start gap-3 cursor-pointer">
-          <input type="checkbox" name="abandoned_due_to_pain" value="1"
-                 class="mt-0.5 accent-brand-600 w-4 h-4 shrink-0" />
-          <div>
-            <span class="text-sm font-medium text-gray-700">I stopped the session early due to pain</span>
-            <p class="text-xs text-gray-400 mt-0.5">Session was abandoned before completing the prescribed sets</p>
-          </div>
-        </label>
-
-        <label class="flex items-start gap-3 cursor-pointer">
-          <input type="checkbox" name="sharp_pain" value="1"
-                 class="mt-0.5 accent-brand-600 w-4 h-4 shrink-0" />
-          <div>
-            <span class="text-sm font-medium text-gray-700">I experienced sharp pain during the session</span>
-            <p class="text-xs text-gray-400 mt-0.5">Sudden or stabbing pain, distinct from the usual exercise discomfort</p>
-          </div>
-        </label>
-
-        <label class="flex items-start gap-3 cursor-pointer">
-          <input type="checkbox" name="swelling_increase" value="1"
-                 class="mt-0.5 accent-brand-600 w-4 h-4 shrink-0" />
-          <div>
-            <span class="text-sm font-medium text-gray-700">Swelling increased after the session</span>
-            <p class="text-xs text-gray-400 mt-0.5">Noticeable puffiness or swelling around the tendon or ankle</p>
-          </div>
-        </label>
-
-        <label class="flex items-start gap-3 cursor-pointer">
-          <input type="checkbox" name="limp_or_function_loss" value="1"
-                 class="mt-0.5 accent-brand-600 w-4 h-4 shrink-0" />
-          <div>
-            <span class="text-sm font-medium text-gray-700">I was limping or had difficulty walking after</span>
-            <p class="text-xs text-gray-400 mt-0.5">Altered gait or reduced ability to weight-bear normally</p>
-          </div>
-        </label>
-
-      </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-xs text-gray-400 border-b border-gray-100">
+            <th class="text-left pb-2 pr-3">Exercise</th>
+            <th class="text-center pb-2 px-2">Prescribed</th>
+            <th class="text-center pb-2 px-2">Completed</th>
+            <th class="text-center pb-2 px-2">Load</th>
+            <th class="text-center pb-2 pl-2">Sets %</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ex in exercise_compliance.exercises %}
+          <tr class="border-b border-gray-50">
+            <td class="py-2 pr-3 text-gray-800 font-medium text-xs">{{ ex.name }}</td>
+            <td class="text-center py-2 px-2 text-gray-400 text-xs">{{ ex.prescribed_sets }}&times;{{ ex.prescribed_reps }}</td>
+            <td class="text-center py-2 px-2 text-gray-700 text-xs">
+              {% if ex.sets_done is not none or ex.reps_done %}
+                {{ ex.sets_done if ex.sets_done is not none else '—' }}&times;{{ ex.reps_done or '—' }}
+              {% else %}<span class="text-gray-400">—</span>{% endif %}
+            </td>
+            <td class="text-center py-2 px-2 text-gray-400 text-xs">{{ ex.load_kg ~ ' kg' if ex.load_kg else '—' }}</td>
+            <td class="text-center py-2 pl-2">
+              {% if ex.sets_compliance is not none %}
+              <span class="px-2 py-0.5 rounded text-xs font-bold
+                {% if ex.sets_compliance > 120 %}bg-yellow-100 text-yellow-700
+                {% elif ex.sets_compliance >= 90 %}bg-green-100 text-green-700
+                {% elif ex.sets_compliance >= 70 %}bg-yellow-100 text-yellow-700
+                {% else %}bg-red-100 text-red-700{% endif %}">
+                {{ ex.sets_compliance }}%{% if ex.sets_compliance > 100 %} ↑{% endif %}
+              </span>
+              {% else %}<span class="text-gray-400 text-xs">—</span>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
+    {% if oc is not none %}
+    <p class="text-xs mt-3 px-3 py-2 rounded-lg
+      {% if oc > 120 %}bg-yellow-50 text-yellow-700
+      {% elif oc < 70 %}bg-red-50 text-red-600
+      {% elif oc < 90 %}bg-amber-50 text-amber-600
+      {% else %}bg-green-50 text-green-600{% endif %}">
+      {% if oc > 120 %}Overdose recorded ({{ oc - 100 }}% above prescription). Return to prescribed dose next session.
+      {% elif oc < 70 %}Significant under-dosing. Aim for the full prescription next session.
+      {% elif oc < 90 %}Partial session. Continue with full prescribed dose if symptoms allow.
+      {% else %}Full prescription completed. Consistent adherence supports optimal tendon adaptation.{% endif %}
+    </p>
+    {% endif %}
+  </div>
+  {% endif %}
 
-    <!-- Session Feel -->
-    <div class="bg-white rounded-xl shadow p-6 border border-gray-100">
-      <h2 class="text-xl font-bold text-gray-800 mb-4">How Did It Feel?</h2>
+  {# ── Loading context change ── #}
+  {% if loading_context_changes %}
+  <div class="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+    <span class="font-semibold text-amber-800 text-sm">Loading profile change: </span>
+    <span class="text-xs text-amber-700">{{ loading_context_changes | join(', ') }} — factored into today's risk assessment.</span>
+  </div>
+  {% endif %}
 
-      <div class="mb-5">
-        <label class="block text-sm font-medium text-gray-700 mb-2">
-          Exercise difficulty (1 = very easy, 10 = maximum effort)
-        </label>
-        <div class="flex items-center gap-3">
-          <span class="text-xs text-gray-500 w-16 text-right">Very easy</span>
-          <input type="range" name="difficulty" min="1" max="10" value="5"
-                 class="flex-1 accent-brand-600"
-                 oninput="document.getElementById('diff_val').textContent = this.value" />
-          <span class="text-xs text-gray-500 w-16">Max effort</span>
-          <span id="diff_val"
-                class="w-8 text-center font-bold text-brand-700 bg-brand-50 rounded px-1 py-0.5 text-sm">5</span>
+  {# ── Stage progression ── #}
+  {% if progression.can_progress_stage %}
+  <div class="bg-green-50 border border-green-300 rounded-xl px-4 py-3">
+    <div class="font-bold text-green-800 text-sm mb-0.5">Stage Progression!</div>
+    <p class="text-xs text-green-700">Advancing from Stage {{ progression.current_stage }} to Stage {{ progression.proposed_stage }}. New plan generated above.</p>
+  </div>
+  {% endif %}
+
+  {# ── Exercise progression recs (compact, below next plan) ── #}
+  {% if ex_progression_recs %}
+  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="px-5 py-3 border-b border-gray-100">
+      <h3 class="font-semibold text-gray-700 text-sm">Exercise Progression Notes</h3>
+    </div>
+    <div class="divide-y divide-gray-50">
+      {% for rec in ex_progression_recs %}
+      {% set dec = rec.decision %}
+      <div class="px-5 py-3 flex items-start gap-3">
+        <div class="shrink-0 mt-0.5">
+          {% if dec == 'PROGRESS' %}<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-100 text-green-700 text-[10px] font-bold">↑ Progress</span>
+          {% elif dec == 'REGRESS' %}<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-orange-100 text-orange-700 text-[10px] font-bold">↓ Regress</span>
+          {% elif dec == 'HOLD' %}<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-100 text-red-700 text-[10px] font-bold">⏸ Hold</span>
+          {% else %}<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-gray-100 text-gray-600 text-[10px] font-bold">→ Stay</span>
+          {% endif %}
         </div>
-      </div>
-
-      <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-2">
-          Confidence in rehab (1 = not at all, 10 = very confident)
-        </label>
-        <div class="flex items-center gap-3">
-          <span class="text-xs text-gray-500 w-16 text-right">Not at all</span>
-          <input type="range" name="confidence" min="1" max="10" value="7"
-                 class="flex-1 accent-brand-600"
-                 oninput="document.getElementById('conf_val').textContent = this.value" />
-          <span class="text-xs text-gray-500 w-16">Very high</span>
-          <span id="conf_val"
-                class="w-8 text-center font-bold text-brand-700 bg-brand-50 rounded px-1 py-0.5 text-sm">7</span>
+        <div class="flex-1 min-w-0">
+          <p class="text-xs font-medium text-gray-800">
+            {{ rec.current_name }}
+            {% if rec.target_id != rec.current_id %}
+            <span class="text-gray-400 mx-1">→</span>
+            <span class="{{ 'text-green-700' if dec == 'PROGRESS' else 'text-orange-700' }}">{{ rec.target_name }}</span>
+            {% endif %}
+          </p>
+          <p class="text-[11px] text-gray-500 mt-0.5">{{ rec.rationale }}</p>
         </div>
+        {% if rec.target_id != rec.current_id %}
+        <a href="/exercise-library#{{ rec.target_id }}" class="shrink-0 text-[10px] px-2 py-1 rounded bg-brand-50 text-brand-700 border border-brand-200 hover:bg-brand-100 transition-colors">View →</a>
+        {% endif %}
       </div>
-
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
-        <textarea name="notes" rows="2" placeholder="Any observations about today's session..."
-                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none"></textarea>
-      </div>
+      {% endfor %}
     </div>
+  </div>
+  {% endif %}
 
-    <!-- Session Context — Loading Profile Changes -->
-    <div class="bg-white rounded-xl shadow p-6 border border-gray-100">
-      <h2 class="text-xl font-bold text-gray-800 mb-1">Session Context</h2>
-      <p class="text-sm text-gray-500 mb-4">
-        Did anything change about how or where you trained today? Changes in sport, surface, or footwear introduce novel mechanical demands on the tendon and are factored into the loading risk assessment.
-      </p>
+  {# ── Action buttons ── #}
+  <div class="flex gap-3 pt-2">
+    <a href="/dashboard" class="px-5 py-2.5 bg-brand-600 text-white font-semibold rounded-lg text-sm hover:bg-brand-700 transition-colors shadow-sm">View Dashboard</a>
+    <a href="/daily-log" class="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 transition-colors">Log Another Session</a>
+  </div>
 
-      <div class="space-y-3 mb-4">
-        <label class="flex items-start gap-3 cursor-pointer group">
-          <input type="checkbox" name="change_sport" value="1"
-                 class="mt-0.5 accent-brand-600 w-4 h-4 shrink-0" />
-          <div>
-            <span class="text-sm font-medium text-gray-700">Change in sport or activity type</span>
-            <p class="text-xs text-gray-400 mt-0.5">e.g. switched from running to basketball, started court sport after gym-based rehab</p>
-          </div>
-        </label>
+</div>
 
-        <label class="flex items-start gap-3 cursor-pointer group">
-          <input type="checkbox" name="change_surface" value="1"
-                 class="mt-0.5 accent-brand-600 w-4 h-4 shrink-0" />
-          <div>
-            <span class="text-sm font-medium text-gray-700">Change in training surface</span>
-            <p class="text-xs text-gray-400 mt-0.5">e.g. grass to concrete, treadmill to road, flat to incline</p>
-          </div>
-        </label>
+{# ============================================================ #}
+{# GET FORM                                                     #}
+{# ============================================================ #}
+{% else %}
 
-        <label class="flex items-start gap-3 cursor-pointer group">
-          <input type="checkbox" name="change_footwear" value="1"
-                 class="mt-0.5 accent-brand-600 w-4 h-4 shrink-0" />
-          <div>
-            <span class="text-sm font-medium text-gray-700">Change in footwear</span>
-            <p class="text-xs text-gray-400 mt-0.5">e.g. new shoes, less heel drop, orthotics added or removed, barefoot training</p>
-          </div>
-        </label>
-      </div>
-
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">
-          Describe the change <span class="text-gray-400 font-normal">— optional</span>
-        </label>
-        <input type="text" name="load_context_notes"
-               placeholder="e.g. 'First run on concrete after 4 weeks on treadmill'"
-               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
-      </div>
+  {# ── Status header ── #}
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 leading-tight">Track Session</h1>
+      <p class="text-sm text-gray-500 mt-0.5">Log your session and get a personalised next-session plan.</p>
     </div>
+    <div class="flex items-center gap-2 flex-wrap justify-end">
+      {% if current_irritability %}
+      {% set ibg = {'high': 'bg-red-100 text-red-700', 'moderate': 'bg-yellow-100 text-yellow-700', 'low': 'bg-green-100 text-green-700'} %}
+      <span class="text-xs px-3 py-1.5 rounded-full font-semibold {{ ibg.get(current_irritability, 'bg-gray-100 text-gray-600') }} uppercase">{{ current_irritability }}</span>
+      {% endif %}
+      {% if current_stage %}
+      <span class="text-xs px-3 py-1.5 rounded-full font-semibold bg-brand-100 text-brand-700">Stage {{ current_stage }}</span>
+      {% endif %}
+      {% if is_insertional %}
+      <span class="text-xs px-3 py-1.5 rounded-full font-semibold bg-amber-100 text-amber-700">Insertional</span>
+      {% endif %}
+    </div>
+  </div>
 
-    <!-- Safety check -->
-    <div class="bg-red-50 border border-red-200 rounded-xl p-4">
-      <h3 class="text-sm font-bold text-red-800 mb-2">Safety Check</h3>
-      <p class="text-xs text-red-700 mb-2">
-        If you experienced sudden pain, a popping sound, inability to point your foot, or visible
-        tendon deformity — do NOT continue. Describe below to trigger a safety halt.
+  {% if not has_onboarding %}
+  <div class="bg-amber-50 border border-amber-300 rounded-xl p-5 mb-6">
+    <div class="font-semibold text-amber-800 mb-1">Complete your assessment first</div>
+    <p class="text-sm text-amber-700">A personalised session plan requires your initial assessment data.</p>
+    <a href="/onboarding" class="inline-block mt-3 px-4 py-2 bg-amber-600 text-white text-sm font-semibold rounded-lg hover:bg-amber-700 transition-colors">Start Assessment →</a>
+  </div>
+  {% endif %}
+
+  <form method="POST" action="/daily-log" class="space-y-5">
+
+    {# ── Hidden: session plan IDs ── #}
+    <input type="hidden" name="session_plan_ids" value="{{ session_plan_ids }}" />
+
+    {# ── Safety Check ── #}
+    <div class="bg-red-50 border border-red-200 rounded-2xl p-4">
+      <h3 class="text-sm font-bold text-red-800 mb-1">Safety Check</h3>
+      <p class="text-[11px] text-red-600 mb-2">
+        Sudden severe pain · popping sound · inability to point your foot · visible tendon deformity — describe below to trigger an immediate safety halt.
       </p>
       <input type="text" name="red_flag_notes"
              placeholder="Describe any concerning symptoms (e.g. 'heard a pop')"
              class="w-full border border-red-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-400 focus:outline-none bg-white" />
     </div>
 
-    <div class="flex justify-end">
+    {# ── Coaching guidance ── #}
+    <div class="bg-brand-50 border border-brand-200 rounded-2xl p-4 space-y-3">
+      <div class="flex items-start gap-3">
+        <div class="shrink-0 w-7 h-7 rounded-full bg-brand-600 flex items-center justify-center text-white text-xs font-black mt-0.5">1</div>
+        <div>
+          <p class="text-sm font-semibold text-brand-900">Aim for the full prescription — but listen to your tendon</p>
+          <p class="text-xs text-brand-700 mt-0.5 leading-relaxed">
+            Each exercise has a prescribed dose based on your current stage and irritability. Work through the full sets and reps where you can.
+            Some discomfort during loading is normal and expected — tendons respond to progressive stress.
+          </p>
+        </div>
+      </div>
+      <div class="flex items-start gap-3">
+        <div class="shrink-0 w-7 h-7 rounded-full bg-brand-600 flex items-center justify-center text-white text-xs font-black mt-0.5">2</div>
+        <div>
+          <p class="text-sm font-semibold text-brand-900">Pain rising above 4–5/10? Modify the set, don't push through</p>
+          <p class="text-xs text-brand-700 mt-0.5 leading-relaxed">
+            If pain climbs above a 4–5 out of 10 during a set, reduce your reps, take a longer rest, or lighten the load for that exercise.
+            Do not force the full dose if symptoms escalate — log what you actually completed and record your pain scores honestly below.
+            A modified session is always better than no session.
+          </p>
+        </div>
+      </div>
+      <div class="flex items-start gap-3">
+        <div class="shrink-0 w-7 h-7 rounded-full bg-brand-600 flex items-center justify-center text-white text-xs font-black mt-0.5">3</div>
+        <div>
+          <p class="text-sm font-semibold text-brand-900">Your logs drive the plan — honest data = better decisions</p>
+          <p class="text-xs text-brand-700 mt-0.5 leading-relaxed">
+            Log exactly what you completed, including partial sets. If next-morning pain or stiffness is worse than usual,
+            the engine will automatically adjust your next session. The system only works when the data reflects what actually happened.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    {# ── Today's Session Plan ── #}
+    {% if session_plan %}
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div class="bg-brand-700 px-5 py-3 flex items-center justify-between">
+        <div>
+          <h2 class="font-bold text-white text-base">Today's Session Plan</h2>
+          <p class="text-xs text-brand-200 mt-0.5">Log what you actually completed. Partial sets and modified doses are valid — record them.</p>
+        </div>
+        <span class="text-xs text-brand-200">{{ session_plan | length }} exercise{{ 's' if session_plan | length != 1 else '' }}</span>
+      </div>
+
+      <div class="divide-y divide-gray-50">
+        {% for item in session_plan %}
+        {% set ex = item.exercise %}
+        {% set dos = item.dosage %}
+        {% set cat_colors = {
+          'symptom_modulation': 'bg-purple-100 text-purple-700',
+          'slow_strength': 'bg-brand-100 text-brand-700',
+          'eccentric_loading': 'bg-indigo-100 text-indigo-700',
+          'heavy_dynamic': 'bg-blue-100 text-blue-700',
+          'fast_dynamic': 'bg-cyan-100 text-cyan-700',
+          'reactive_plyometric': 'bg-orange-100 text-orange-700',
+          'running_sport_reentry': 'bg-green-100 text-green-700',
+          'accessory': 'bg-gray-100 text-gray-600',
+          'flexibility_mobility': 'bg-teal-100 text-teal-700',
+        } %}
+        <div class="px-5 py-4">
+          {# Exercise header #}
+          <div class="flex items-start justify-between gap-2 mb-3">
+            <div>
+              <div class="flex items-center gap-2 flex-wrap mb-1">
+                <span class="font-semibold text-gray-900 text-sm">{{ ex.exercise_name }}</span>
+                <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold {{ cat_colors.get(ex.category, 'bg-gray-100 text-gray-600') }} capitalize">
+                  {{ ex.category | replace('_', ' ') }}
+                </span>
+                {% if item.source == 'stretch' %}<span class="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-teal-100 text-teal-700">Stretch</span>{% endif %}
+                {% if not ex.insertional_safe %}<span class="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700">Mid-portion</span>{% endif %}
+              </div>
+              <p class="text-[11px] text-gray-500">{{ item.reason }}</p>
+            </div>
+            <a href="/exercise-library#{{ ex.ex_id }}" target="_blank"
+               class="shrink-0 text-[10px] px-2.5 py-1 rounded-lg bg-gray-100 text-gray-500 hover:bg-brand-50 hover:text-brand-700 transition-colors border border-gray-200">
+              How-to →
+            </a>
+          </div>
+
+          {# Prescribed dose banner #}
+          <div class="bg-brand-50 border border-brand-100 rounded-lg px-3 py-2 mb-3 flex items-center gap-4 text-xs">
+            <span class="text-brand-700 font-semibold">
+              Prescribed: {{ dos.sets if dos.sets else '3' }} × {{ dos.reps_or_hold_time if dos.reps_or_hold_time else '—' }}
+            </span>
+            {% if dos.tempo and dos.tempo not in ['hold', 'reactive', 'normal'] %}
+            <span class="text-brand-500">{{ dos.tempo }} tempo</span>
+            {% endif %}
+            {% if dos.notes %}
+            <span class="text-brand-400 italic truncate">{{ dos.notes }}</span>
+            {% endif %}
+          </div>
+
+          {# Input row #}
+          <div class="grid grid-cols-3 gap-3">
+            <div>
+              <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                Sets done <span class="text-gray-400 font-normal normal-case">(rx: {{ dos.sets if dos.sets else '3' }})</span>
+              </label>
+              <input type="number" name="ex_{{ loop.index0 }}_sets_done"
+                     min="0" max="20" placeholder="{{ dos.sets if dos.sets else '3' }}"
+                     class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none bg-white" />
+            </div>
+            <div>
+              <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                Reps / hold <span class="text-gray-400 font-normal normal-case">(rx: {{ dos.reps_or_hold_time if dos.reps_or_hold_time else '—' }})</span>
+              </label>
+              <input type="text" name="ex_{{ loop.index0 }}_reps_done"
+                     placeholder="{{ dos.reps_or_hold_time if dos.reps_or_hold_time else '' }}"
+                     class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none bg-white" />
+            </div>
+            {% if ex.category in ['slow_strength', 'eccentric_loading', 'heavy_dynamic'] or item.source == 'loading' %}
+            <div>
+              <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Load (kg)</label>
+              <input type="number" name="ex_{{ loop.index0 }}_load_kg"
+                     min="0" step="0.5" placeholder="optional"
+                     class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none bg-white" />
+            </div>
+            {% else %}
+            <div></div>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    {% else %}
+    <div class="bg-gray-50 border border-gray-200 rounded-xl p-5 text-center">
+      <p class="text-sm text-gray-500">No session plan available. Complete your assessment to generate a personalised plan.</p>
+    </div>
+    {% endif %}
+
+    {# ── Pain & Symptom Scores ── #}
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="px-5 py-3 border-b border-gray-100">
+        <h2 class="font-bold text-gray-800">Pain &amp; Symptom Scores</h2>
+        <p class="text-xs text-gray-500 mt-0.5">0 = no pain · 10 = worst imaginable. These drive the tolerance engine.</p>
+      </div>
+      <div class="p-5 space-y-1">
+
+        {# During session group #}
+        <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-3">During session</p>
+
+        {% set pain_during_items = [
+          ("pain_during", "Pain during exercise"),
+        ] %}
+        {% for field, label in pain_during_items %}
+        <div class="mb-4">
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-gray-600 w-36 shrink-0">{{ label }}</span>
+            <input type="range" name="{{ field }}" min="0" max="10" value="0"
+                   class="flex-1 accent-brand-600 h-2"
+                   oninput="document.getElementById('{{ field }}_val').textContent = this.value" />
+            <span id="{{ field }}_val" class="w-8 text-center font-bold text-brand-700 bg-brand-50 rounded px-1 py-0.5 text-sm shrink-0">0</span>
+          </div>
+        </div>
+        {% endfor %}
+
+        {# After session group #}
+        <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-3 pt-2 border-t border-gray-50">After session</p>
+
+        {% set pain_after_items = [
+          ("pain_after",          "Pain in the hour after"),
+          ("pain_later_same_day", "Pain later same day (evening)"),
+          ("next_day_pain",       "Pain next morning"),
+          ("next_morning_stiffness", "Stiffness next morning"),
+        ] %}
+        {% for field, label in pain_after_items %}
+        <div class="mb-4">
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-gray-600 w-36 shrink-0">{{ label }}</span>
+            <input type="range" name="{{ field }}" min="0" max="10" value="0"
+                   class="flex-1 accent-brand-600 h-2"
+                   oninput="document.getElementById('{{ field }}_val').textContent = this.value" />
+            <span id="{{ field }}_val" class="w-8 text-center font-bold text-brand-700 bg-brand-50 rounded px-1 py-0.5 text-sm shrink-0">0</span>
+          </div>
+        </div>
+        {% endfor %}
+
+        {% if baseline_morning_pain is defined or baseline_morning_stiffness is defined %}
+        <p class="text-[10px] text-gray-400 pt-1 border-t border-gray-50">
+          Your baseline: morning pain {{ baseline_morning_pain }}/10 · stiffness {{ baseline_morning_stiffness }}/10
+        </p>
+        {% endif %}
+      </div>
+    </div>
+
+    {# ── Symptom Flags ── #}
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+      <h2 class="font-bold text-gray-800 mb-3">Symptom Flags</h2>
+      <div class="grid grid-cols-2 gap-3">
+        <label class="flex items-center gap-2.5 cursor-pointer p-3 border border-gray-200 rounded-xl hover:border-brand-300 hover:bg-brand-50 transition-colors group">
+          <input type="checkbox" name="abandoned_due_to_pain" value="1"
+                 class="accent-brand-600 w-4 h-4 shrink-0" />
+          <div>
+            <span class="text-sm font-medium text-gray-700 group-hover:text-brand-800">Stopped early due to pain</span>
+            <p class="text-[10px] text-gray-400 mt-0.5">Session abandoned before completing prescribed sets</p>
+          </div>
+        </label>
+        <label class="flex items-center gap-2.5 cursor-pointer p-3 border border-gray-200 rounded-xl hover:border-brand-300 hover:bg-brand-50 transition-colors group">
+          <input type="checkbox" name="sharp_pain" value="1"
+                 class="accent-brand-600 w-4 h-4 shrink-0" />
+          <div>
+            <span class="text-sm font-medium text-gray-700 group-hover:text-brand-800">Sharp pain during session</span>
+            <p class="text-[10px] text-gray-400 mt-0.5">Sudden or stabbing pain, distinct from usual discomfort</p>
+          </div>
+        </label>
+        <label class="flex items-center gap-2.5 cursor-pointer p-3 border border-gray-200 rounded-xl hover:border-brand-300 hover:bg-brand-50 transition-colors group">
+          <input type="checkbox" name="swelling_increase" value="1"
+                 class="accent-brand-600 w-4 h-4 shrink-0" />
+          <div>
+            <span class="text-sm font-medium text-gray-700 group-hover:text-brand-800">Swelling increased</span>
+            <p class="text-[10px] text-gray-400 mt-0.5">Puffiness around the tendon or ankle after session</p>
+          </div>
+        </label>
+        <label class="flex items-center gap-2.5 cursor-pointer p-3 border border-gray-200 rounded-xl hover:border-brand-300 hover:bg-brand-50 transition-colors group">
+          <input type="checkbox" name="limp_or_function_loss" value="1"
+                 class="accent-brand-600 w-4 h-4 shrink-0" />
+          <div>
+            <span class="text-sm font-medium text-gray-700 group-hover:text-brand-800">Limping / difficulty walking</span>
+            <p class="text-[10px] text-gray-400 mt-0.5">Altered gait or reduced ability to weight-bear</p>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    {# ── Session Feel ── #}
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+      <h2 class="font-bold text-gray-800 mb-4">How Did It Feel?</h2>
+      <div class="space-y-4">
+        <div>
+          <div class="flex justify-between text-xs text-gray-500 mb-1">
+            <span class="font-medium text-gray-700">Exercise difficulty</span>
+            <span class="text-gray-400">1 = very easy · 10 = max effort</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <input type="range" name="difficulty" min="1" max="10" value="5"
+                   class="flex-1 accent-brand-600 h-2"
+                   oninput="document.getElementById('diff_val').textContent = this.value" />
+            <span id="diff_val" class="w-8 text-center font-bold text-brand-700 bg-brand-50 rounded px-1 py-0.5 text-sm shrink-0">5</span>
+          </div>
+        </div>
+        <div>
+          <div class="flex justify-between text-xs text-gray-500 mb-1">
+            <span class="font-medium text-gray-700">Confidence in rehab</span>
+            <span class="text-gray-400">1 = not at all · 10 = very confident</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <input type="range" name="confidence" min="1" max="10" value="7"
+                   class="flex-1 accent-brand-600 h-2"
+                   oninput="document.getElementById('conf_val').textContent = this.value" />
+            <span id="conf_val" class="w-8 text-center font-bold text-brand-700 bg-brand-50 rounded px-1 py-0.5 text-sm shrink-0">7</span>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Notes <span class="text-gray-400 font-normal">— optional</span></label>
+          <textarea name="notes" rows="2" placeholder="Any observations about today's session..."
+                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none resize-none"></textarea>
+        </div>
+      </div>
+    </div>
+
+    {# ── Session Context (collapsible) ── #}
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <button type="button" onclick="toggleContext()"
+              class="w-full px-5 py-3 flex items-center justify-between text-left hover:bg-gray-50 transition-colors">
+        <div>
+          <span class="font-semibold text-gray-800 text-sm">Session Context</span>
+          <span class="text-xs text-gray-400 ml-2">Loading profile changes</span>
+        </div>
+        <span id="ctx-chevron" class="text-gray-400 text-xs transition-transform">▼</span>
+      </button>
+      <div id="ctx-panel" class="hidden px-5 pb-5 pt-1 border-t border-gray-50">
+        <p class="text-xs text-gray-500 mb-3">
+          Changes in sport, surface, or footwear introduce novel mechanical demands and are factored into the loading risk assessment.
+        </p>
+        <div class="grid grid-cols-3 gap-3 mb-4">
+          <label class="flex items-center gap-2 cursor-pointer p-2.5 border border-gray-200 rounded-lg hover:border-amber-300 hover:bg-amber-50 transition-colors">
+            <input type="checkbox" name="change_sport" value="1" class="accent-brand-600 w-4 h-4 shrink-0" />
+            <span class="text-xs font-medium text-gray-700">Sport / activity</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer p-2.5 border border-gray-200 rounded-lg hover:border-amber-300 hover:bg-amber-50 transition-colors">
+            <input type="checkbox" name="change_surface" value="1" class="accent-brand-600 w-4 h-4 shrink-0" />
+            <span class="text-xs font-medium text-gray-700">Surface</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer p-2.5 border border-gray-200 rounded-lg hover:border-amber-300 hover:bg-amber-50 transition-colors">
+            <input type="checkbox" name="change_footwear" value="1" class="accent-brand-600 w-4 h-4 shrink-0" />
+            <span class="text-xs font-medium text-gray-700">Footwear</span>
+          </label>
+        </div>
+        <input type="text" name="load_context_notes"
+               placeholder="e.g. 'First run on concrete after 4 weeks on treadmill'"
+               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+      </div>
+    </div>
+
+    {# ── Submit ── #}
+    <div class="flex justify-end pt-1">
       <button type="submit"
-              class="px-8 py-3 bg-brand-600 text-white font-semibold rounded-lg hover:bg-brand-700 transition-colors shadow-md">
-        Submit &amp; Get Decision
+              class="px-8 py-3 bg-brand-600 text-white font-bold rounded-xl hover:bg-brand-700 transition-colors shadow-md text-sm">
+        Submit &amp; Get Plan →
       </button>
     </div>
 
   </form>
-  {% endif %}
+{% endif %}
+
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleContext() {
+  const panel = document.getElementById('ctx-panel');
+  const chevron = document.getElementById('ctx-chevron');
+  if (panel.classList.contains('hidden')) {
+    panel.classList.remove('hidden');
+    chevron.style.transform = 'rotate(180deg)';
+  } else {
+    panel.classList.add('hidden');
+    chevron.style.transform = 'rotate(0deg)';
+  }
+}
+</script>
 {% endblock %}
