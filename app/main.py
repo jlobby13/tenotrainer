@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import secrets
 import uuid
 from datetime import datetime
@@ -862,6 +863,21 @@ async def dashboard(
             risk_factors=onboarding.get("risk_factors", []),
         )
 
+    # Adaptive weekly schedule — fetch KB evidence for current stage/irritability
+    sched_stage = rehab_state.get("current_stage", 1)
+    sched_irritability = rehab_state.get("current_irritability", "moderate")
+    sched_tags = select_relevant_kb_tags(sched_stage, sched_irritability)
+    sched_kb_entries = await get_kb_entries_by_tags(sched_tags)
+
+    weekly_schedule = _compute_adaptive_schedule(
+        stage=sched_stage,
+        irritability=sched_irritability,
+        decision=current_plan.get("decision", "STAY") if current_plan else "STAY",
+        recent_logs=recent_logs,
+        session_plan=rehab_state.get("session_plan", []),
+        kb_entries=sched_kb_entries,
+    )
+
     return templates.TemplateResponse(
         request, "dashboard.html",
         context={
@@ -876,10 +892,287 @@ async def dashboard(
             "has_onboarding": onboarding is not None,
             "goals": goals,
             "timeline": timeline,
+            "weekly_schedule": weekly_schedule,
             # Unified rehab state — same data as Track Session and Exercise Library
             **rehab_state,
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# Adaptive weekly schedule helper
+# ---------------------------------------------------------------------------
+
+def _parse_freq_to_per_week(freq_str: str) -> tuple[int, int] | None:
+    """
+    Parse a frequency string from KB recommended_loading_parameters.frequency
+    or exercise dosage_defaults.weekly_frequency into a (min, max) sessions/week range.
+
+    Returns None if the string is not a session-frequency (e.g. assessment intervals).
+
+    Examples:
+      "3 times per week"       → (3, 3)
+      "2-4 times per week"     → (2, 4)
+      "2–3 times per week"     → (2, 3)
+      "twice daily"            → (7, 14)   # lower-bound 1/day
+      "daily or twice daily"   → (7, 14)
+      "2–3 times daily"        → (7, 14)
+      "2–3x daily"             → (7, 14)
+      "1–2x daily"             → (7, 14)
+      "every other day"        → (3, 4)
+      "3x/week"                → (3, 3)
+      "2x/week"                → (2, 2)
+      "daily"                  → (7, 7)
+      "every 2-4 weeks"        → None      # assessment interval — skip
+    """
+    if not freq_str:
+        return None
+    s = freq_str.lower().strip()
+
+    # Skip assessment/review intervals
+    if re.search(r"every\s+\d+.{0,5}week", s) and "per week" not in s:
+        return None
+
+    # Daily variants
+    if re.search(r"(twice|2.{0,4}3\s*times?|2.{0,3}3x|1.{0,3}2x)\s*daily", s):
+        return (7, 14)
+    if re.search(r"\bdaily\b", s):
+        return (7, 7)
+
+    # "N times per week" or "N-M times per week"
+    m = re.search(r"(\d+)\s*[-–]\s*(\d+)\s*times?\s*per\s*week", s)
+    if m:
+        return (int(m.group(1)), int(m.group(2)))
+    m = re.search(r"(\d+)\s*times?\s*per\s*week", s)
+    if m:
+        n = int(m.group(1))
+        return (n, n)
+
+    # "Nx/week"
+    m = re.search(r"(\d+)\s*x\s*/?\s*week", s)
+    if m:
+        n = int(m.group(1))
+        return (n, n)
+
+    # "every other day" ≈ 3-4x/week
+    if "every other day" in s:
+        return (3, 4)
+
+    return None
+
+
+def _compute_adaptive_schedule(
+    stage: int,
+    irritability: str,
+    decision: str,
+    recent_logs: list,
+    session_plan: list,
+    kb_entries: list | None = None,
+) -> dict:
+    """
+    Compute the recommended weekly session frequency and day distribution,
+    adapting based on progression decision, recent pain response, exercise
+    compliance, KB evidence, and exercise-level frequency targets.
+
+    Returns a dict consumed directly by the dashboard template.
+    """
+
+    factors: list[dict] = []  # {text, level: 'good'|'caution'|'warning'}
+
+    # ── Full rest if engine says STOP ──────────────────────────────────────
+    if decision == "STOP":
+        return {
+            "session_days": [],
+            "sessions_per_week": 0,
+            "freq_note": "Full rest week — engine decision is STOP",
+            "factors": [{"text": "Engine decision STOP: complete rest indicated until clinician review", "level": "warning"}],
+            "avg_next_day_pain": None,
+            "avg_during_pain": None,
+            "avg_compliance": None,
+            "is_rest_week": True,
+            "evidence_sources": [],
+        }
+
+    # ── Evidence-based base frequency from KB + exercise library ──────────
+    evidence_sources: list[dict] = []
+    kb_freq_vals: list[int] = []  # midpoint values for consensus
+
+    if kb_entries:
+        for entry in kb_entries:
+            rlp = entry.get("recommended_loading_parameters") or {}
+            freq_str = rlp.get("frequency", "") if isinstance(rlp, dict) else ""
+            parsed = _parse_freq_to_per_week(freq_str)
+            if parsed:
+                lo, hi = parsed
+                mid = round((lo + hi) / 2)
+                # Cap daily+ protocols to session frequency for weekly planning
+                weekly_mid = min(mid, 7)
+                kb_freq_vals.append(weekly_mid)
+                evidence_sources.append({
+                    "title": entry.get("title", ""),
+                    "authors": entry.get("authors", ""),
+                    "year": entry.get("year", ""),
+                    "recommended_freq": freq_str,
+                    "parsed_per_week": weekly_mid,
+                })
+
+    # Exercise library frequency cross-reference
+    ex_freq_vals: list[int] = []
+    if session_plan:
+        for ex in session_plan:
+            dosage = ex.get("dosage_defaults") or {}
+            if isinstance(dosage, str):
+                try:
+                    dosage = json.loads(dosage)
+                except (json.JSONDecodeError, TypeError):
+                    dosage = {}
+            wf = dosage.get("weekly_frequency", "")
+            parsed = _parse_freq_to_per_week(wf)
+            if parsed:
+                lo, hi = parsed
+                ex_freq_vals.append(round((lo + hi) / 2))
+
+    # Determine base_freq: KB consensus → exercise consensus → fallback table
+    fallback_freq = {
+        (1, "high"): 4, (1, "moderate"): 5, (1, "low"): 6,
+        (2, "high"): 3, (2, "moderate"): 3, (2, "low"): 4,
+        (3, "high"): 2, (3, "moderate"): 3, (3, "low"): 3,
+    }.get((stage, irritability), 3)
+
+    if kb_freq_vals:
+        kb_consensus = round(sum(kb_freq_vals) / len(kb_freq_vals))
+        # Clamp to stage-appropriate range
+        stage_max = {1: 7, 2: 5, 3: 4}.get(stage, 5)
+        base_freq = max(2, min(kb_consensus, stage_max))
+        factors.append({
+            "text": f"KB evidence ({len(evidence_sources)} studies): median {kb_consensus}x/week for Stage {stage} — schedule anchored to evidence",
+            "level": "good",
+        })
+    elif ex_freq_vals:
+        base_freq = round(sum(ex_freq_vals) / len(ex_freq_vals))
+        base_freq = max(2, min(base_freq, 7))
+        factors.append({
+            "text": f"Exercise library defaults: avg {base_freq}x/week — no KB evidence for this stage/irritability combination",
+            "level": "caution",
+        })
+    else:
+        base_freq = fallback_freq
+        factors.append({
+            "text": "No KB or exercise frequency data available — using clinical defaults",
+            "level": "caution",
+        })
+
+    # ── Decision modifier ──────────────────────────────────────────────────
+    if decision == "CAUTION":
+        base_freq = max(2, base_freq - 1)
+        factors.append({"text": "Engine decision CAUTION — frequency reduced by 1 day", "level": "caution"})
+    elif decision == "GO":
+        factors.append({"text": "Engine decision GO — progressing at recommended frequency", "level": "good"})
+    else:  # STAY
+        factors.append({"text": "Engine decision STAY — maintaining current frequency", "level": "good"})
+
+    # ── Recent pain response (last 3 sessions) ─────────────────────────────
+    avg_next_day = None
+    avg_during = None
+    if recent_logs:
+        sample = recent_logs[:3]  # most recent first
+        avg_next_day = round(sum(l.get("next_day_pain", 0) for l in sample) / len(sample), 1)
+        avg_during   = round(sum(l.get("pain_during",   0) for l in sample) / len(sample), 1)
+
+        if avg_next_day > 5:
+            base_freq = max(2, base_freq - 1)
+            factors.append({
+                "text": f"High next-day pain avg ({avg_next_day}/10 over last {len(sample)} sessions) — frequency reduced",
+                "level": "warning",
+            })
+        elif avg_next_day > 3:
+            factors.append({
+                "text": f"Moderate next-day pain avg ({avg_next_day}/10) — monitoring response closely",
+                "level": "caution",
+            })
+        else:
+            factors.append({
+                "text": f"Good next-day pain response (avg {avg_next_day}/10) — schedule on track",
+                "level": "good",
+            })
+
+        if avg_during > 5:
+            base_freq = max(2, base_freq - 1)
+            factors.append({
+                "text": f"High in-session pain avg ({avg_during}/10) — frequency reduced; review exercise dosage",
+                "level": "warning",
+            })
+        elif avg_during > 3:
+            factors.append({
+                "text": f"Moderate in-session pain avg ({avg_during}/10) — stay within 3–4/10 working range",
+                "level": "caution",
+            })
+
+    # ── Compliance (last 3 sessions with exercise data) ────────────────────
+    avg_compliance = None
+    compliance_vals = []
+    for log in recent_logs[:5]:
+        try:
+            ex_log = json.loads(log.get("exercise_log") or "{}")
+            for ex in ex_log.get("exercises", []):
+                sc = ex.get("sets_compliance")
+                if sc is not None:
+                    compliance_vals.append(sc)
+        except (json.JSONDecodeError, TypeError):
+            continue
+
+    if compliance_vals:
+        avg_compliance = round(sum(compliance_vals) / len(compliance_vals), 1)
+        if avg_compliance < 60:
+            factors.append({
+                "text": f"Low exercise completion ({avg_compliance}% avg) — consider reducing load before increasing frequency",
+                "level": "warning",
+            })
+        elif avg_compliance < 85:
+            factors.append({
+                "text": f"Moderate exercise completion ({avg_compliance}% avg) — aim for ≥90% before progressing",
+                "level": "caution",
+            })
+        else:
+            factors.append({
+                "text": f"Strong exercise completion ({avg_compliance}% avg) — ready to progress",
+                "level": "good",
+            })
+
+    # ── Day distribution (maximise rest between sessions) ─────────────────
+    day_patterns = {
+        0: [],
+        1: [2],
+        2: [0, 3],
+        3: [0, 2, 4],
+        4: [0, 2, 3, 5],
+        5: [0, 1, 2, 4, 5],
+        6: [0, 1, 2, 3, 5, 6],
+        7: [0, 1, 2, 3, 4, 5, 6],
+    }
+    session_days = day_patterns.get(min(base_freq, 7), [0, 2, 4])
+
+    # ── Frequency note ─────────────────────────────────────────────────────
+    min_recovery_h = {1: 24, 2: 48, 3: 72}.get(stage, 48)
+    freq_note = f"{base_freq} day{'s' if base_freq != 1 else ''}/week"
+    if stage == 1:
+        freq_note += " — isometric loading; adjust daily based on morning pain"
+    elif stage == 2:
+        freq_note += f" — minimum {min_recovery_h} hr recovery between sessions"
+    else:
+        freq_note += f" — minimum {min_recovery_h} hr between plyometric/reactive sessions"
+
+    return {
+        "session_days": session_days,
+        "sessions_per_week": base_freq,
+        "freq_note": freq_note,
+        "factors": factors,
+        "avg_next_day_pain": avg_next_day,
+        "avg_during_pain": avg_during,
+        "avg_compliance": avg_compliance,
+        "is_rest_week": False,
+        "evidence_sources": evidence_sources,
+    }
 
 
 # ---------------------------------------------------------------------------

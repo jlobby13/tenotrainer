@@ -80,6 +80,7 @@
     <h2 class="text-lg font-bold text-gray-800 mb-4">Pain Trend</h2>
     {% if recent_logs %}
     <canvas id="painChart" height="180"></canvas>
+    <div id="painChart-ctrl"></div>
     {% else %}
     <div class="h-40 flex items-center justify-center text-gray-400 text-sm">
       No session data yet. Log your first session to see trends.
@@ -95,6 +96,7 @@
     </div>
     {% if visa_history %}
     <canvas id="visaChart" height="180"></canvas>
+    <div id="visaChart-ctrl"></div>
     {% else %}
     <div class="h-40 flex items-center justify-center text-gray-400 text-sm">
       No VISA-A scores yet. <a href="/visa-a" class="ml-1 text-brand-600 hover:underline">Complete now.</a>
@@ -120,6 +122,7 @@
       <h3 class="text-sm font-semibold text-gray-700 mb-2">Single-Leg Calf Raise (reps)</h3>
       <div id="snapCr" class="mb-3"></div>
       <canvas id="crChart" height="200"></canvas>
+      <div id="crChart-ctrl"></div>
     </div>
 
     <!-- WBLT -->
@@ -127,6 +130,7 @@
       <h3 class="text-sm font-semibold text-gray-700 mb-2">Weight Bearing Lunge Test (cm)</h3>
       <div id="snapWblt" class="mb-3"></div>
       <canvas id="wbltChart" height="200"></canvas>
+      <div id="wbltChart-ctrl"></div>
     </div>
 
     <!-- Hop Distance -->
@@ -134,6 +138,7 @@
       <h3 class="text-sm font-semibold text-gray-700 mb-2">Hop Distance — best of 3 (inches)</h3>
       <div id="snapHopDist" class="mb-3"></div>
       <canvas id="hopDistChart" height="200"></canvas>
+      <div id="hopDistChart-ctrl"></div>
     </div>
 
     <!-- Hop Endurance -->
@@ -141,6 +146,7 @@
       <h3 class="text-sm font-semibold text-gray-700 mb-2">In-Place Hop Endurance (reps)</h3>
       <div id="snapHopEnd" class="mb-3"></div>
       <canvas id="hopEndChart" height="200"></canvas>
+      <div id="hopEndChart-ctrl"></div>
     </div>
 
   </div>
@@ -163,6 +169,7 @@
       <p class="text-xs text-gray-400 mb-2">Single-leg raise reps (affected ÷ unaffected)</p>
       <div id="snapLsiCr" class="mb-3"></div>
       <canvas id="lsiCrChart" height="220"></canvas>
+      <div id="lsiCrChart-ctrl"></div>
       <p id="lsiCrEmpty" class="hidden text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 mt-2">
         No bilateral calf raise data yet. Enter both affected and unaffected reps during your next assessment to see LSI.
       </p>
@@ -173,6 +180,7 @@
       <p class="text-xs text-gray-400 mb-2">Dorsiflexion range (affected ÷ unaffected)</p>
       <div id="snapLsiWblt" class="mb-3"></div>
       <canvas id="lsiWbltChart" height="220"></canvas>
+      <div id="lsiWbltChart-ctrl"></div>
       <p id="lsiWbltEmpty" class="hidden text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 mt-2">
         No bilateral WBLT data yet. Enter both sides during your next assessment to see LSI.
       </p>
@@ -183,6 +191,7 @@
       <p class="text-xs text-gray-400 mb-2">Single-leg hop ÷ double-leg hop distance</p>
       <div id="snapLsiHop" class="mb-3"></div>
       <canvas id="lsiHopChart" height="220"></canvas>
+      <div id="lsiHopChart-ctrl"></div>
       <p id="lsiHopEmpty" class="hidden text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 mt-2">
         No bilateral hop data yet. Enter both double-leg and single-leg hop distances during your next assessment to see LSI.
       </p>
@@ -294,6 +303,251 @@
   </div>
 
 </div>
+
+<!-- Weekly Program -->
+{% if has_onboarding and session_plan %}
+{% set day_abbr  = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] %}
+{% set day_letter= ['M',   'T',   'W',   'T',   'F',   'S',   'S'  ] %}
+{% set session_idx = weekly_schedule.session_days %}
+{% set freq_note   = weekly_schedule.freq_note %}
+
+{# Factor level colours #}
+{% set lvl_bg  = {'good': 'bg-green-50',   'caution': 'bg-yellow-50',  'warning': 'bg-red-50'  } %}
+{% set lvl_dot = {'good': 'bg-green-500',  'caution': 'bg-yellow-500', 'warning': 'bg-red-500' } %}
+{% set lvl_txt = {'good': 'text-green-800','caution': 'text-yellow-800','warning': 'text-red-800'} %}
+
+<div class="bg-white rounded-2xl shadow border border-gray-100 mb-6 overflow-hidden">
+
+  {# Header #}
+  <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-3 flex-wrap">
+    <div>
+      <h2 id="prog-title" class="font-black text-gray-900 text-lg leading-tight">Weekly Program</h2>
+      <p class="text-xs text-gray-400 mt-0.5">{{ freq_note }}</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="text-xs px-2.5 py-1 rounded-full bg-brand-50 text-brand-700 font-semibold border border-brand-100">
+        {{ weekly_schedule.sessions_per_week }} sessions / week
+      </span>
+      <button type="button" id="prog-toggle-btn"
+              onclick="toggleMonthlyProgram()"
+              class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-brand-300 hover:text-brand-700 transition-colors font-medium">
+        <svg id="prog-toggle-icon" class="w-3.5 h-3.5 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+        </svg>
+        <span id="prog-toggle-label">Monthly view</span>
+      </button>
+    </div>
+  </div>
+
+  {# ── Adaptation factors strip ── #}
+  {% if weekly_schedule.factors %}
+  <div class="px-5 py-3 border-b border-gray-100 bg-gray-50">
+    <button type="button" onclick="toggleAdaptFactors()"
+            class="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-brand-700 transition-colors mb-0 w-full text-left">
+      <svg id="adapt-chevron" class="w-3.5 h-3.5 transition-transform duration-150" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+      </svg>
+      <span>Schedule adaptation factors</span>
+      {# Summary dots #}
+      <span class="flex items-center gap-1 ml-2">
+        {% for f in weekly_schedule.factors %}
+        <span class="w-2 h-2 rounded-full {{ lvl_dot.get(f.level, 'bg-gray-300') }}"></span>
+        {% endfor %}
+      </span>
+    </button>
+    <div id="adapt-factors" class="hidden mt-2 space-y-1.5">
+      {% for f in weekly_schedule.factors %}
+      <div class="flex items-start gap-2 px-3 py-2 rounded-lg {{ lvl_bg.get(f.level, 'bg-gray-50') }}">
+        <span class="mt-1 w-1.5 h-1.5 rounded-full shrink-0 {{ lvl_dot.get(f.level, 'bg-gray-400') }}"></span>
+        <p class="text-xs {{ lvl_txt.get(f.level, 'text-gray-700') }}">{{ f.text }}</p>
+      </div>
+      {% endfor %}
+      {% if weekly_schedule.avg_next_day_pain is not none or weekly_schedule.avg_compliance is not none %}
+      <div class="flex flex-wrap gap-4 pt-1 px-1">
+        {% if weekly_schedule.avg_next_day_pain is not none %}
+        <span class="text-[11px] text-gray-500">Next-day pain avg: <strong class="text-gray-700">{{ weekly_schedule.avg_next_day_pain }}/10</strong></span>
+        {% endif %}
+        {% if weekly_schedule.avg_during_pain is not none %}
+        <span class="text-[11px] text-gray-500">During pain avg: <strong class="text-gray-700">{{ weekly_schedule.avg_during_pain }}/10</strong></span>
+        {% endif %}
+        {% if weekly_schedule.avg_compliance is not none %}
+        <span class="text-[11px] text-gray-500">Exercise completion avg: <strong class="text-gray-700">{{ weekly_schedule.avg_compliance }}%</strong></span>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Evidence Base strip ── #}
+  {% if weekly_schedule.evidence_sources %}
+  <div class="px-5 py-3 border-b border-gray-100 bg-blue-50/40">
+    <button type="button" onclick="toggleEvidenceBase()"
+            class="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors w-full text-left">
+      <svg id="evidence-chevron" class="w-3.5 h-3.5 transition-transform duration-150" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+      </svg>
+      <span>Evidence base ({{ weekly_schedule.evidence_sources | length }} studies)</span>
+      <span class="ml-auto text-[10px] text-blue-400 font-normal normal-case">frequency grounded in KB</span>
+    </button>
+    <div id="evidence-base" class="hidden mt-2">
+      <div class="overflow-x-auto rounded-lg border border-blue-100">
+        <table class="text-xs w-full border-collapse">
+          <thead>
+            <tr class="bg-blue-100/60">
+              <th class="text-left px-3 py-2 font-semibold text-blue-800 border-b border-blue-100">Study</th>
+              <th class="text-left px-3 py-2 font-semibold text-blue-800 border-b border-blue-100 whitespace-nowrap">Authors</th>
+              <th class="text-center px-3 py-2 font-semibold text-blue-800 border-b border-blue-100">Year</th>
+              <th class="text-left px-3 py-2 font-semibold text-blue-800 border-b border-blue-100 whitespace-nowrap">Recommended Frequency</th>
+              <th class="text-center px-3 py-2 font-semibold text-blue-800 border-b border-blue-100 whitespace-nowrap">Sessions/week</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for src in weekly_schedule.evidence_sources %}
+            <tr class="border-b border-blue-50 hover:bg-blue-50/60 transition-colors last:border-0">
+              <td class="px-3 py-2 text-gray-700 font-medium leading-snug max-w-[220px]">{{ src.title }}</td>
+              <td class="px-3 py-2 text-gray-500 whitespace-nowrap">{{ src.authors }}</td>
+              <td class="px-3 py-2 text-center text-gray-500">{{ src.year }}</td>
+              <td class="px-3 py-2 text-gray-600 italic">{{ src.recommended_freq }}</td>
+              <td class="px-3 py-2 text-center">
+                <span class="px-2 py-0.5 bg-brand-100 text-brand-700 rounded-full font-bold text-[11px]">
+                  {{ src.parsed_per_week }}×
+                </span>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="text-[10px] text-blue-400 mt-1.5 px-0.5">Schedule frequency is derived from the consensus of these evidence sources, adjusted for stage, irritability, and your recent session data.</p>
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Full rest week (STOP decision) ── #}
+  {% if weekly_schedule.is_rest_week %}
+  <div class="px-5 py-8 text-center">
+    <p class="text-red-700 font-bold text-sm mb-1">Complete Rest Week</p>
+    <p class="text-xs text-red-500">Engine decision is STOP. Do not load the tendon until you have been reassessed.</p>
+  </div>
+  {% endif %}
+
+  {# ── Weekly panel (default visible) ── #}
+  <div id="prog-weekly" {% if weekly_schedule.is_rest_week %}class="hidden"{% endif %}>
+    <div class="overflow-x-auto px-5 py-4">
+      <div class="grid grid-cols-7 gap-2" style="min-width: 560px;">
+        {% for i in range(7) %}
+        {% set is_session = i in session_idx %}
+        <div class="flex flex-col rounded-xl border {% if is_session %}border-brand-200 bg-brand-50{% else %}border-gray-100 bg-gray-50{% endif %} overflow-hidden">
+          <div class="px-2 py-2 text-center border-b {% if is_session %}border-brand-200 bg-brand-600{% else %}border-gray-100 bg-gray-100{% endif %}">
+            <p class="text-[10px] font-bold uppercase tracking-widest {% if is_session %}text-white{% else %}text-gray-400{% endif %}">
+              {{ day_abbr[i] }}
+            </p>
+          </div>
+          <div class="px-2 py-2.5 flex-1">
+            {% if is_session %}
+              <p class="text-[9px] font-bold text-brand-600 uppercase tracking-wide mb-2 text-center">Session</p>
+              <ul class="space-y-1.5">
+                {% for item in session_plan %}
+                <li class="text-[10px] leading-tight text-gray-700">
+                  <span class="font-semibold block truncate">{{ item.exercise.exercise_name }}</span>
+                  <span class="text-gray-400">{{ item.dosage.sets if item.dosage.sets else '3' }} × {{ item.dosage.reps_or_hold_time if item.dosage.reps_or_hold_time else '—' }}</span>
+                </li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <div class="h-full flex flex-col items-center justify-center py-3 gap-1">
+                <svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z"/>
+                </svg>
+                <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Rest</p>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  {# ── Monthly panel (hidden by default) — 4-week grid ── #}
+  <div id="prog-monthly" class="hidden">
+    <div class="overflow-x-auto px-5 pt-4 pb-2">
+
+      {# Column headers #}
+      <div class="grid gap-1.5 mb-1.5" style="grid-template-columns: 56px repeat(7, 1fr); min-width: 600px;">
+        <div></div>
+        {% for abbr in day_abbr %}
+        <div class="text-center text-[10px] font-bold uppercase tracking-widest text-gray-400 py-1">{{ abbr }}</div>
+        {% endfor %}
+      </div>
+
+      {# 4 weeks #}
+      {% for week in range(1, 5) %}
+      <div class="grid gap-1.5 mb-1.5" style="grid-template-columns: 56px repeat(7, 1fr); min-width: 600px;">
+
+        {# Week label #}
+        <div class="flex items-center justify-center">
+          <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Wk {{ week }}</span>
+        </div>
+
+        {# 7 day cells #}
+        {% for i in range(7) %}
+        {% set is_session = i in session_idx %}
+        <div class="rounded-lg border {% if is_session %}border-brand-200 bg-brand-50{% else %}border-gray-100 bg-gray-50{% endif %} overflow-hidden">
+
+          {# Compact day header #}
+          <div class="py-1 text-center {% if is_session %}bg-brand-600{% else %}bg-gray-100{% endif %}">
+            <span class="text-[9px] font-bold uppercase tracking-widest {% if is_session %}text-white{% else %}text-gray-400{% endif %}">
+              {{ day_letter[i] }}
+            </span>
+          </div>
+
+          {# Cell content #}
+          <div class="px-1 py-1.5">
+            {% if is_session %}
+              <ul class="space-y-0.5">
+                {% for item in session_plan %}
+                <li class="text-[9px] leading-tight text-gray-600 truncate font-medium">
+                  {{ item.exercise.exercise_name }}
+                </li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <p class="text-[9px] text-gray-300 text-center font-semibold uppercase tracking-wide py-0.5">—</p>
+            {% endif %}
+          </div>
+
+        </div>
+        {% endfor %}
+
+      </div>
+      {% endfor %}
+
+    </div>
+
+    {# Month total #}
+    <div class="px-5 pt-1 pb-3 flex items-center gap-4">
+      <span class="text-xs text-gray-500">
+        <strong class="text-gray-800">{{ weekly_schedule.sessions_per_week * 4 }}</strong> sessions per month
+      </span>
+      <span class="text-gray-300">·</span>
+      <span class="text-xs text-gray-500">
+        <strong class="text-gray-800">{{ 28 - weekly_schedule.sessions_per_week * 4 }}</strong> rest days
+      </span>
+    </div>
+  </div>
+
+  {# Footer note #}
+  <div class="px-5 pb-4 pt-0 border-t border-gray-50">
+    <p class="text-[10px] text-gray-400 leading-relaxed pt-3">
+      Recommended schedule based on your current stage and irritability.
+      If next-day pain exceeds 3/10, treat that day as rest regardless of program.
+    </p>
+  </div>
+
+</div>
+{% endif %}
 
 <!-- Recovery Roadmap -->
 {% if timeline and goals %}
@@ -455,60 +709,134 @@
 
 {% block scripts %}
 <script>
+function toggleEvidenceBase() {
+  const panel   = document.getElementById('evidence-base');
+  const chevron = document.getElementById('evidence-chevron');
+  const open    = !panel.classList.contains('hidden');
+  panel.classList.toggle('hidden', open);
+  chevron.style.transform = open ? '' : 'rotate(180deg)';
+}
+
+function toggleAdaptFactors() {
+  const panel   = document.getElementById('adapt-factors');
+  const chevron = document.getElementById('adapt-chevron');
+  const open    = !panel.classList.contains('hidden');
+  panel.classList.toggle('hidden', open);
+  chevron.style.transform = open ? '' : 'rotate(180deg)';
+}
+
+function toggleMonthlyProgram() {
+  const weekly  = document.getElementById('prog-weekly');
+  const monthly = document.getElementById('prog-monthly');
+  const label   = document.getElementById('prog-toggle-label');
+  const title   = document.getElementById('prog-title');
+  const icon    = document.getElementById('prog-toggle-icon');
+  const showing = !monthly.classList.contains('hidden');
+  if (showing) {
+    monthly.classList.add('hidden');
+    weekly.classList.remove('hidden');
+    label.textContent = 'Monthly view';
+    title.textContent = 'Weekly Program';
+    icon.style.transform = '';
+  } else {
+    weekly.classList.add('hidden');
+    monthly.classList.remove('hidden');
+    label.textContent = 'Weekly view';
+    title.textContent = 'Monthly Program';
+    icon.style.transform = 'rotate(90deg)';
+  }
+}
+
+// ── Range-slider controller ───────────────────────────────────────────────────
+// Injects a window-size slider + scroll slider below any Chart.js instance.
+// fullDatasets: array of arrays, one per dataset, in the same order as chart.data.datasets
+function makeRangeCtrl(chartInst, ctrlId, fullLabels, fullDatasets) {
+  const total = fullLabels.length;
+  const ctrl  = document.getElementById(ctrlId);
+  if (!ctrl || total < 2) return;
+
+  const MIN_WIN = Math.max(2, Math.min(4, total));
+
+  ctrl.innerHTML = `
+    <div class="mt-3 pb-1 select-none space-y-2">
+      <div class="flex items-center justify-between text-[11px] text-gray-400 px-0.5">
+        <span id="${ctrlId}-lbl" class="font-medium text-gray-500"></span>
+        <span class="text-gray-300">window / scroll</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-[10px] text-gray-400 w-12 shrink-0 text-right">Window</span>
+        <input type="range" id="${ctrlId}-win"
+               min="${MIN_WIN}" max="${total}" value="${total}" step="1"
+               class="flex-1 h-1.5 rounded accent-brand-600 cursor-pointer">
+        <span id="${ctrlId}-win-lbl" class="text-[10px] text-gray-500 w-8 text-left"></span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-[10px] text-gray-400 w-12 shrink-0 text-right">Scroll</span>
+        <input type="range" id="${ctrlId}-start"
+               min="0" max="0" value="0" step="1"
+               class="flex-1 h-1.5 rounded accent-brand-500 cursor-pointer">
+        <span id="${ctrlId}-start-lbl" class="text-[10px] text-gray-500 w-8 text-left"></span>
+      </div>
+    </div>`;
+
+  const winSlider   = document.getElementById(`${ctrlId}-win`);
+  const startSlider = document.getElementById(`${ctrlId}-start`);
+  const lbl         = document.getElementById(`${ctrlId}-lbl`);
+  const winLbl      = document.getElementById(`${ctrlId}-win-lbl`);
+  const startLbl    = document.getElementById(`${ctrlId}-start-lbl`);
+
+  function apply() {
+    const win      = parseInt(winSlider.value);
+    const maxStart = Math.max(0, total - win);
+    startSlider.max      = maxStart;
+    startSlider.disabled = maxStart === 0;
+    if (parseInt(startSlider.value) > maxStart) startSlider.value = maxStart;
+    const start = parseInt(startSlider.value);
+    const end   = start + win;
+
+    lbl.textContent      = win >= total ? `All ${total} entries` : `Entries ${start + 1}–${end} of ${total}`;
+    winLbl.textContent   = win + 'x';
+    startLbl.textContent = start === 0 ? 'oldest' : start === maxStart ? 'latest' : `+${start}`;
+
+    chartInst.data.labels = fullLabels.slice(start, end);
+    chartInst.data.datasets.forEach((ds, i) => {
+      if (fullDatasets[i]) ds.data = fullDatasets[i].slice(start, end);
+    });
+    chartInst.update('none');
+  }
+
+  winSlider.addEventListener('input', apply);
+  startSlider.addEventListener('input', apply);
+
+  // Default: show latest entries (scroll to end)
+  startSlider.value = Math.max(0, total - parseInt(winSlider.value));
+  apply();
+}
+
+// ── Pain Trend ────────────────────────────────────────────────────────────────
 const chartData = {{ pain_chart_data | safe }};
 
 if (chartData.labels.length > 0) {
   const painCtx = document.getElementById('painChart');
   if (painCtx) {
-    new Chart(painCtx, {
+    const painChart = new Chart(painCtx, {
       type: 'line',
       data: {
         labels: chartData.labels,
         datasets: [
-          {
-            label: 'During',
-            data: chartData.during,
-            borderColor: '#dc2626',
-            backgroundColor: 'rgba(220,38,38,0.1)',
-            tension: 0.3,
-            fill: false,
-            pointRadius: 4,
-          },
-          {
-            label: 'After',
-            data: chartData.after,
-            borderColor: '#d97706',
-            backgroundColor: 'rgba(217,119,6,0.1)',
-            tension: 0.3,
-            fill: false,
-            pointRadius: 4,
-          },
-          {
-            label: 'Next Day',
-            data: chartData.next_day,
-            borderColor: '#7c3aed',
-            backgroundColor: 'rgba(124,58,237,0.1)',
-            tension: 0.3,
-            fill: false,
-            pointRadius: 4,
-          },
+          { label: 'During',   data: chartData.during,   borderColor: '#dc2626', backgroundColor: 'rgba(220,38,38,0.1)',  tension: 0.3, fill: false, pointRadius: 4 },
+          { label: 'After',    data: chartData.after,    borderColor: '#d97706', backgroundColor: 'rgba(217,119,6,0.1)',  tension: 0.3, fill: false, pointRadius: 4 },
+          { label: 'Next Day', data: chartData.next_day, borderColor: '#7c3aed', backgroundColor: 'rgba(124,58,237,0.1)', tension: 0.3, fill: false, pointRadius: 4 },
         ],
       },
       options: {
         responsive: true,
-        scales: {
-          y: {
-            min: 0, max: 10,
-            ticks: { stepSize: 2 },
-            title: { display: true, text: 'Pain (0–10)' }
-          }
-        },
-        plugins: {
-          legend: { position: 'bottom' },
-          tooltip: { mode: 'index', intersect: false }
-        }
+        scales: { y: { min: 0, max: 10, ticks: { stepSize: 2 }, title: { display: true, text: 'Pain (0–10)' } } },
+        plugins: { legend: { position: 'bottom' }, tooltip: { mode: 'index', intersect: false } }
       }
     });
+    makeRangeCtrl(painChart, 'painChart-ctrl', chartData.labels,
+      [chartData.during, chartData.after, chartData.next_day]);
   }
 }
 
@@ -517,44 +845,22 @@ const visaLabels = {{ visa_history | map(attribute='created_at') | list | map('t
 const visaScores = {{ visa_history | map(attribute='total_score') | list | tojson }};
 const visaCtx = document.getElementById('visaChart');
 if (visaCtx) {
-  new Chart(visaCtx, {
+  const visaChart = new Chart(visaCtx, {
     type: 'line',
     data: {
       labels: visaLabels,
-      datasets: [{
-        label: 'VISA-A Score',
-        data: visaScores,
-        borderColor: '#0284c7',
-        backgroundColor: 'rgba(2,132,199,0.1)',
-        tension: 0.3,
-        fill: true,
-        pointRadius: 5,
-      }]
+      datasets: [{ label: 'VISA-A Score', data: visaScores, borderColor: '#0284c7', backgroundColor: 'rgba(2,132,199,0.1)', tension: 0.3, fill: true, pointRadius: 5 }]
     },
     options: {
       responsive: true,
-      scales: {
-        y: {
-          min: 0, max: 80,
-          ticks: { stepSize: 10 },
-          title: { display: true, text: 'Score (0–80)' }
-        }
-      },
+      scales: { y: { min: 0, max: 80, ticks: { stepSize: 10 }, title: { display: true, text: 'Score (0–80)' } } },
       plugins: {
         legend: { position: 'bottom' },
-        annotation: {
-          annotations: {
-            goodLine: {
-              type: 'line', yMin: 64, yMax: 64,
-              borderColor: 'green', borderWidth: 1,
-              borderDash: [4, 4],
-              label: { content: 'Good function', display: true }
-            }
-          }
-        }
+        annotation: { annotations: { goodLine: { type: 'line', yMin: 64, yMax: 64, borderColor: 'green', borderWidth: 1, borderDash: [4, 4], label: { content: 'Good function', display: true } } } }
       }
     }
   });
+  makeRangeCtrl(visaChart, 'visaChart-ctrl', visaLabels, [visaScores]);
 }
 {% endif %}
 
@@ -691,14 +997,17 @@ function withLsiAxis(opts) {
   const ctx = document.getElementById('crChart');
   if (!ctx || !fc.labels.length) return;
   const datasets = [
-    { label: 'Affected', data: fc.calf_raise.affected, borderColor: '#dc2626', backgroundColor: 'rgba(220,38,38,0.08)', pointRadius: 5, tension: 0.2, fill: false },
+    { label: 'Affected',   data: fc.calf_raise.affected,   borderColor: '#dc2626', backgroundColor: 'rgba(220,38,38,0.08)', pointRadius: 5, tension: 0.2, fill: false },
     { label: 'Unaffected', data: fc.calf_raise.unaffected, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,0.08)', pointRadius: 5, tension: 0.2, fill: false },
   ];
   const hasBoth = fc.calf_raise.lsi.some(v => v !== null);
   if (hasBoth) datasets.push({ ...lsiDataset(fc.calf_raise.lsi) });
   const opts = fcLineOpts('Repetitions', 40);
   if (hasBoth) withLsiAxis(opts);
-  new Chart(ctx, { type: 'line', data: { labels: fc.labels, datasets }, options: opts });
+  const chart = new Chart(ctx, { type: 'line', data: { labels: fc.labels, datasets }, options: opts });
+  const fullDs = [fc.calf_raise.affected, fc.calf_raise.unaffected];
+  if (hasBoth) fullDs.push(fc.calf_raise.lsi);
+  makeRangeCtrl(chart, 'crChart-ctrl', fc.labels, fullDs);
 })();
 
 // WBLT
@@ -706,16 +1015,18 @@ function withLsiAxis(opts) {
   const ctx = document.getElementById('wbltChart');
   if (!ctx || !fc.labels.length) return;
   const datasets = [
-    { label: 'Affected', data: fc.wblt.affected, borderColor: '#7c3aed', backgroundColor: 'rgba(124,58,237,0.08)', pointRadius: 5, tension: 0.2, fill: false },
+    { label: 'Affected',   data: fc.wblt.affected,   borderColor: '#7c3aed', backgroundColor: 'rgba(124,58,237,0.08)', pointRadius: 5, tension: 0.2, fill: false },
     { label: 'Unaffected', data: fc.wblt.unaffected, borderColor: '#0ea5e9', backgroundColor: 'rgba(14,165,233,0.08)', pointRadius: 5, tension: 0.2, fill: false },
   ];
   const hasBoth = fc.wblt.lsi.some(v => v !== null);
   if (hasBoth) datasets.push({ ...lsiDataset(fc.wblt.lsi) });
   const opts = fcLineOpts('Distance (cm)', 20);
   if (hasBoth) withLsiAxis(opts);
-  // Reference line at 10 cm (clinical threshold)
   opts.plugins.annotation = { annotations: { threshold: { type: 'line', yMin: 10, yMax: 10, borderColor: '#f59e0b', borderWidth: 1.5, borderDash: [4,3], label: { content: '10 cm threshold', display: true, position: 'start', font: { size: 10 } } } } };
-  new Chart(ctx, { type: 'line', data: { labels: fc.labels, datasets }, options: opts });
+  const chart = new Chart(ctx, { type: 'line', data: { labels: fc.labels, datasets }, options: opts });
+  const fullDs = [fc.wblt.affected, fc.wblt.unaffected];
+  if (hasBoth) fullDs.push(fc.wblt.lsi);
+  makeRangeCtrl(chart, 'wbltChart-ctrl', fc.labels, fullDs);
 })();
 
 // Hop Distance
@@ -723,7 +1034,7 @@ function withLsiAxis(opts) {
   const ctx = document.getElementById('hopDistChart');
   if (!ctx || !fc.labels.length) return;
   const datasets = [
-    { label: 'Double-leg',           data: fc.hop_distance.double,     borderColor: '#0284c7', backgroundColor: 'rgba(2,132,199,0.08)',  pointRadius: 5, tension: 0.2, fill: false },
+    { label: 'Double-leg',            data: fc.hop_distance.double,     borderColor: '#0284c7', backgroundColor: 'rgba(2,132,199,0.08)',  pointRadius: 5, tension: 0.2, fill: false },
     { label: 'Single-leg (affected)', data: fc.hop_distance.single,     borderColor: '#ea580c', backgroundColor: 'rgba(234,88,12,0.08)',  pointRadius: 5, tension: 0.2, fill: false },
     { label: 'Single-leg (unaff.)',   data: fc.hop_distance.unaffected, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,0.08)',  pointRadius: 5, tension: 0.2, fill: false, borderDash: [5,3] },
   ];
@@ -734,7 +1045,10 @@ function withLsiAxis(opts) {
   opts.scales.y.ticks = { stepSize: 100 };
   if (hasBoth) withLsiAxis(opts);
   if (hasBoth) opts.plugins.annotation = { annotations: { lsi90: { type: 'line', yScaleID: 'lsi', yMin: 90, yMax: 90, borderColor: '#16a34a', borderWidth: 1.5, borderDash: [4,3], label: { content: 'LSI 90%', display: true, position: 'end', font: { size: 10 } } } } };
-  new Chart(ctx, { type: 'line', data: { labels: fc.labels, datasets }, options: opts });
+  const chart = new Chart(ctx, { type: 'line', data: { labels: fc.labels, datasets }, options: opts });
+  const fullDs = [fc.hop_distance.double, fc.hop_distance.single, fc.hop_distance.unaffected];
+  if (hasBoth) fullDs.push(fc.hop_distance.lsi);
+  makeRangeCtrl(chart, 'hopDistChart-ctrl', fc.labels, fullDs);
 })();
 
 // Hop Endurance
@@ -742,7 +1056,7 @@ function withLsiAxis(opts) {
   const ctx = document.getElementById('hopEndChart');
   if (!ctx || !fc.labels.length) return;
   const datasets = [
-    { label: 'Double-leg',           data: fc.hop_endurance.double,     borderColor: '#0284c7', backgroundColor: 'rgba(2,132,199,0.08)', pointRadius: 5, tension: 0.2, fill: false },
+    { label: 'Double-leg',            data: fc.hop_endurance.double,     borderColor: '#0284c7', backgroundColor: 'rgba(2,132,199,0.08)', pointRadius: 5, tension: 0.2, fill: false },
     { label: 'Single-leg (affected)', data: fc.hop_endurance.single,     borderColor: '#ea580c', backgroundColor: 'rgba(234,88,12,0.08)', pointRadius: 5, tension: 0.2, fill: false },
     { label: 'Single-leg (unaff.)',   data: fc.hop_endurance.unaffected, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,0.08)', pointRadius: 5, tension: 0.2, fill: false, borderDash: [5,3] },
   ];
@@ -753,7 +1067,10 @@ function withLsiAxis(opts) {
   opts.scales.y.ticks = { stepSize: 100 };
   if (hasBoth) withLsiAxis(opts);
   if (hasBoth) opts.plugins.annotation = { annotations: { lsi90: { type: 'line', yScaleID: 'lsi', yMin: 90, yMax: 90, borderColor: '#16a34a', borderWidth: 1.5, borderDash: [4,3], label: { content: 'LSI 90%', display: true, position: 'end', font: { size: 10 } } } } };
-  new Chart(ctx, { type: 'line', data: { labels: fc.labels, datasets }, options: opts });
+  const chart = new Chart(ctx, { type: 'line', data: { labels: fc.labels, datasets }, options: opts });
+  const fullDs = [fc.hop_endurance.double, fc.hop_endurance.single, fc.hop_endurance.unaffected];
+  if (hasBoth) fullDs.push(fc.hop_endurance.lsi);
+  makeRangeCtrl(chart, 'hopEndChart-ctrl', fc.labels, fullDs);
 })();
 
 // ── LSI Charts ───────────────────────────────────────────────────────────────
@@ -811,7 +1128,7 @@ function lsiDatasetStyle(data, colour) {
   };
 }
 
-function renderLsiChart(canvasId, emptyId, data, colour) {
+function renderLsiChart(canvasId, ctrlId, emptyId, data, colour) {
   const ctx = document.getElementById(canvasId);
   const emptyMsg = document.getElementById(emptyId);
   if (!ctx) return;
@@ -821,15 +1138,16 @@ function renderLsiChart(canvasId, emptyId, data, colour) {
     if (emptyMsg) emptyMsg.classList.remove('hidden');
     return;
   }
-  new Chart(ctx, {
+  const chart = new Chart(ctx, {
     type: 'line',
     data: { labels: fc.labels, datasets: [lsiDatasetStyle(data, colour)] },
     options: lsiChartOpts(),
   });
+  makeRangeCtrl(chart, ctrlId, fc.labels, [data]);
 }
 
-renderLsiChart('lsiCrChart',   'lsiCrEmpty',   fc.calf_raise.lsi,    'rgb(220, 38, 38)');
-renderLsiChart('lsiWbltChart', 'lsiWbltEmpty', fc.wblt.lsi,          'rgb(124, 58, 237)');
-renderLsiChart('lsiHopChart',  'lsiHopEmpty',  fc.hop_distance.lsi,  'rgb(2, 132, 199)');
+renderLsiChart('lsiCrChart',   'lsiCrChart-ctrl',   'lsiCrEmpty',   fc.calf_raise.lsi,   'rgb(220, 38, 38)');
+renderLsiChart('lsiWbltChart', 'lsiWbltChart-ctrl', 'lsiWbltEmpty', fc.wblt.lsi,         'rgb(124, 58, 237)');
+renderLsiChart('lsiHopChart',  'lsiHopChart-ctrl',  'lsiHopEmpty',  fc.hop_distance.lsi, 'rgb(2, 132, 199)');
 </script>
 {% endblock %}
