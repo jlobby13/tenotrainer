@@ -4,6 +4,8 @@
 {% block head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
 {% endblock %}
 
 {% block content %}
@@ -71,483 +73,6 @@
   </div>
 
 </div>
-
-<!-- Main 2-column layout -->
-<div class="grid md:grid-cols-2 gap-6 mb-6">
-
-  <!-- Pain Trend Chart -->
-  <div class="bg-white rounded-xl shadow p-5 border border-gray-100">
-    <h2 class="text-lg font-bold text-gray-800 mb-4">Pain Trend</h2>
-    {% if recent_logs %}
-    <canvas id="painChart" height="180"></canvas>
-    <div id="painChart-ctrl"></div>
-    {% else %}
-    <div class="h-40 flex items-center justify-center text-gray-400 text-sm">
-      No session data yet. Log your first session to see trends.
-    </div>
-    {% endif %}
-  </div>
-
-  <!-- VISA-A History -->
-  <div class="bg-white rounded-xl shadow p-5 border border-gray-100">
-    <div class="flex items-center justify-between mb-4">
-      <h2 class="text-lg font-bold text-gray-800">VISA-A Progress</h2>
-      <a href="/visa-a" class="text-xs text-brand-600 hover:underline">Take now</a>
-    </div>
-    {% if visa_history %}
-    <canvas id="visaChart" height="180"></canvas>
-    <div id="visaChart-ctrl"></div>
-    {% else %}
-    <div class="h-40 flex items-center justify-center text-gray-400 text-sm">
-      No VISA-A scores yet. <a href="/visa-a" class="ml-1 text-brand-600 hover:underline">Complete now.</a>
-    </div>
-    {% endif %}
-  </div>
-
-</div>
-
-<!-- Functional Capacity Tracking -->
-{% if has_onboarding %}
-<div class="bg-white rounded-xl shadow p-6 border border-gray-100 mb-6">
-  <div class="flex items-center justify-between mb-1">
-    <h2 class="text-lg font-bold text-gray-800">Functional Capacity Over Time</h2>
-    <a href="/onboarding" class="text-xs text-brand-600 hover:underline">Re-assess</a>
-  </div>
-  <p class="text-xs text-gray-400 mb-5">Reassess every 6–8 weeks to track adaptation. Each point represents a full assessment.</p>
-
-  <div class="grid md:grid-cols-2 gap-6">
-
-    <!-- Calf Raise -->
-    <div>
-      <h3 class="text-sm font-semibold text-gray-700 mb-2">Single-Leg Calf Raise (reps)</h3>
-      <div id="snapCr" class="mb-3"></div>
-      <canvas id="crChart" height="200"></canvas>
-      <div id="crChart-ctrl"></div>
-    </div>
-
-    <!-- WBLT -->
-    <div>
-      <h3 class="text-sm font-semibold text-gray-700 mb-2">Weight Bearing Lunge Test (cm)</h3>
-      <div id="snapWblt" class="mb-3"></div>
-      <canvas id="wbltChart" height="200"></canvas>
-      <div id="wbltChart-ctrl"></div>
-    </div>
-
-    <!-- Hop Distance -->
-    <div>
-      <h3 class="text-sm font-semibold text-gray-700 mb-2">Hop Distance — best of 3 (inches)</h3>
-      <div id="snapHopDist" class="mb-3"></div>
-      <canvas id="hopDistChart" height="200"></canvas>
-      <div id="hopDistChart-ctrl"></div>
-    </div>
-
-    <!-- Hop Endurance -->
-    <div>
-      <h3 class="text-sm font-semibold text-gray-700 mb-2">In-Place Hop Endurance (reps)</h3>
-      <div id="snapHopEnd" class="mb-3"></div>
-      <canvas id="hopEndChart" height="200"></canvas>
-      <div id="hopEndChart-ctrl"></div>
-    </div>
-
-  </div>
-</div>
-
-<!-- LSI Charts -->
-<div class="bg-white rounded-xl shadow p-6 border border-gray-100 mb-6">
-  <div class="mb-1">
-    <h2 class="text-lg font-bold text-gray-800">Limb Symmetry Index (LSI) Over Time</h2>
-  </div>
-  <p class="text-xs text-gray-400 mb-5">
-    LSI = (affected ÷ unaffected) × 100. Requires bilateral measurements at each assessment.
-    The dashed line marks the 90% clinical threshold — values below indicate a meaningful asymmetry.
-  </p>
-
-  <div class="grid md:grid-cols-3 gap-6">
-
-    <div>
-      <h3 class="text-sm font-semibold text-gray-700 mb-1">Calf Raise LSI</h3>
-      <p class="text-xs text-gray-400 mb-2">Single-leg raise reps (affected ÷ unaffected)</p>
-      <div id="snapLsiCr" class="mb-3"></div>
-      <canvas id="lsiCrChart" height="220"></canvas>
-      <div id="lsiCrChart-ctrl"></div>
-      <p id="lsiCrEmpty" class="hidden text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 mt-2">
-        No bilateral calf raise data yet. Enter both affected and unaffected reps during your next assessment to see LSI.
-      </p>
-    </div>
-
-    <div>
-      <h3 class="text-sm font-semibold text-gray-700 mb-1">WBLT LSI</h3>
-      <p class="text-xs text-gray-400 mb-2">Dorsiflexion range (affected ÷ unaffected)</p>
-      <div id="snapLsiWblt" class="mb-3"></div>
-      <canvas id="lsiWbltChart" height="220"></canvas>
-      <div id="lsiWbltChart-ctrl"></div>
-      <p id="lsiWbltEmpty" class="hidden text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 mt-2">
-        No bilateral WBLT data yet. Enter both sides during your next assessment to see LSI.
-      </p>
-    </div>
-
-    <div>
-      <h3 class="text-sm font-semibold text-gray-700 mb-1">Hop Distance LSI</h3>
-      <p class="text-xs text-gray-400 mb-2">Single-leg hop ÷ double-leg hop distance</p>
-      <div id="snapLsiHop" class="mb-3"></div>
-      <canvas id="lsiHopChart" height="220"></canvas>
-      <div id="lsiHopChart-ctrl"></div>
-      <p id="lsiHopEmpty" class="hidden text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 mt-2">
-        No bilateral hop data yet. Enter both double-leg and single-leg hop distances during your next assessment to see LSI.
-      </p>
-    </div>
-
-  </div>
-</div>
-{% endif %}
-
-<!-- Current Rehab Plan — rule-engine driven, unified with Track Session -->
-<div class="bg-white rounded-2xl shadow border border-gray-100 mb-6 overflow-hidden">
-
-  {# Header #}
-  <div class="bg-brand-700 px-5 py-4 flex items-start justify-between gap-3">
-    <div>
-      <h2 class="font-black text-white text-lg leading-tight">Current Rehab Plan</h2>
-      <p class="text-xs text-brand-200 mt-0.5">Personalised to your stage, irritability, and functional measures</p>
-    </div>
-    <div class="flex items-center gap-2 flex-wrap justify-end shrink-0">
-      {% set ibg = {'high': 'bg-red-400', 'moderate': 'bg-yellow-400', 'low': 'bg-green-400'} %}
-      <span class="text-xs px-2.5 py-1 rounded-full font-bold text-white {{ ibg.get(current_irritability, 'bg-gray-400') }} uppercase">
-        {{ current_irritability }}
-      </span>
-      <span class="text-xs px-2.5 py-1 rounded-full font-bold bg-white/20 text-white">Stage {{ current_stage }}</span>
-      {% if is_insertional %}
-      <span class="text-xs px-2.5 py-1 rounded-full font-bold bg-amber-400 text-white">Insertional</span>
-      {% endif %}
-    </div>
-  </div>
-
-  {# WBLT notice if stretch is indicated #}
-  {% if wblt_result and wblt_result.stretch_indicated %}
-  <div class="px-5 py-2 bg-teal-50 border-b border-teal-100 flex items-center gap-2 text-xs text-teal-800">
-    <span class="font-semibold">WBLT {{ wblt_cm }} cm</span>
-    <span class="text-teal-600">—</span>
-    <span>{{ wblt_result.rationale }}</span>
-    {% if wblt_result.stretch_priority == 'primary' %}
-    <span class="ml-auto px-2 py-0.5 rounded-full bg-teal-200 text-teal-800 font-bold text-[10px]">Stretch: Primary</span>
-    {% else %}
-    <span class="ml-auto px-2 py-0.5 rounded-full bg-teal-100 text-teal-700 font-bold text-[10px]">Stretch: Adjunct</span>
-    {% endif %}
-  </div>
-  {% endif %}
-
-  {# Exercise cards #}
-  {% if session_plan %}
-  {% set cat_colors = {
-    'symptom_modulation': 'bg-sky-200 text-sky-900',
-    'slow_strength': 'bg-sky-300 text-sky-900',
-    'eccentric_loading': 'bg-blue-200 text-blue-900',
-    'heavy_dynamic': 'bg-blue-300 text-blue-900',
-    'fast_dynamic': 'bg-indigo-200 text-indigo-900',
-    'reactive_plyometric': 'bg-indigo-300 text-indigo-900',
-    'running_sport_reentry': 'bg-violet-300 text-violet-900',
-    'accessory': 'bg-gray-100 text-gray-600',
-    'flexibility_mobility': 'bg-teal-100 text-teal-700',
-  } %}
-  <div class="divide-y divide-gray-50">
-    {% for item in session_plan %}
-    {% set ex = item.exercise %}
-    {% set dos = item.dosage %}
-    <div class="px-5 py-4 flex items-start gap-4">
-      <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-2 flex-wrap mb-1">
-          <span class="font-semibold text-gray-900 text-sm">{{ ex.exercise_name }}</span>
-          <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold {{ cat_colors.get(ex.category, 'bg-gray-100 text-gray-600') }} capitalize">
-            {{ ex.category | replace('_', ' ') }}
-          </span>
-          {% if item.source == 'stretch' %}
-          <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-teal-100 text-teal-700">Stretch</span>
-          {% endif %}
-          {% if not ex.insertional_safe %}
-          <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700">Mid-portion</span>
-          {% endif %}
-        </div>
-        <p class="text-[11px] text-gray-500 mb-2">{{ item.reason }}</p>
-        <div class="flex items-center gap-4 text-xs">
-          <span class="font-semibold text-gray-800">
-            {{ dos.sets if dos.sets else '3' }} sets &times; {{ dos.reps_or_hold_time if dos.reps_or_hold_time else '—' }}
-          </span>
-          {% if dos.tempo and dos.tempo not in ['hold', 'reactive', 'normal'] %}
-          <span class="text-gray-500">{{ dos.tempo }} tempo</span>
-          {% endif %}
-          {% if dos.notes %}
-          <span class="text-gray-400 italic truncate">{{ dos.notes }}</span>
-          {% endif %}
-        </div>
-      </div>
-      <a href="/exercise-library#{{ ex.ex_id }}"
-         class="shrink-0 text-[11px] px-2.5 py-1 rounded-lg bg-brand-50 text-brand-700 font-medium hover:bg-brand-100 transition-colors border border-brand-200">
-        View →
-      </a>
-    </div>
-    {% endfor %}
-  </div>
-  {% else %}
-  <div class="px-5 py-8 text-center text-gray-400 text-sm">
-    No plan generated yet. Complete your assessment to get a personalised exercise plan.
-  </div>
-  {% endif %}
-
-  {# Footer CTA #}
-  <div class="px-5 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-    <p class="text-xs text-gray-500">Log today's session to update your plan based on your response.</p>
-    <a href="/daily-log"
-       class="text-xs px-4 py-2 bg-brand-600 text-white font-semibold rounded-lg hover:bg-brand-700 transition-colors shadow-sm">
-      Track Session →
-    </a>
-  </div>
-
-</div>
-
-<!-- Weekly Program -->
-{% if has_onboarding and session_plan %}
-{% set day_abbr  = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] %}
-{% set day_letter= ['M',   'T',   'W',   'T',   'F',   'S',   'S'  ] %}
-{% set session_idx = weekly_schedule.session_days %}
-{% set freq_note   = weekly_schedule.freq_note %}
-
-{# Factor level colours #}
-{% set lvl_bg  = {'good': 'bg-green-50',   'caution': 'bg-yellow-50',  'warning': 'bg-red-50'  } %}
-{% set lvl_dot = {'good': 'bg-green-500',  'caution': 'bg-yellow-500', 'warning': 'bg-red-500' } %}
-{% set lvl_txt = {'good': 'text-green-800','caution': 'text-yellow-800','warning': 'text-red-800'} %}
-
-<div class="bg-white rounded-2xl shadow border border-gray-100 mb-6 overflow-hidden">
-
-  {# Header #}
-  <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-3 flex-wrap">
-    <div>
-      <h2 id="prog-title" class="font-black text-gray-900 text-lg leading-tight">Weekly Program</h2>
-      <p class="text-xs text-gray-400 mt-0.5">{{ freq_note }}</p>
-    </div>
-    <div class="flex items-center gap-3">
-      <span class="text-xs px-2.5 py-1 rounded-full bg-brand-50 text-brand-700 font-semibold border border-brand-100">
-        {{ weekly_schedule.sessions_per_week }} sessions / week
-      </span>
-      <button type="button" id="prog-toggle-btn"
-              onclick="toggleMonthlyProgram()"
-              class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-brand-300 hover:text-brand-700 transition-colors font-medium">
-        <svg id="prog-toggle-icon" class="w-3.5 h-3.5 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
-        </svg>
-        <span id="prog-toggle-label">Monthly view</span>
-      </button>
-    </div>
-  </div>
-
-  {# ── Adaptation factors strip ── #}
-  {% if weekly_schedule.factors %}
-  <div class="px-5 py-3 border-b border-gray-100 bg-gray-50">
-    <button type="button" onclick="toggleAdaptFactors()"
-            class="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-brand-700 transition-colors mb-0 w-full text-left">
-      <svg id="adapt-chevron" class="w-3.5 h-3.5 transition-transform duration-150" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
-      </svg>
-      <span>Schedule adaptation factors</span>
-      {# Summary dots #}
-      <span class="flex items-center gap-1 ml-2">
-        {% for f in weekly_schedule.factors %}
-        <span class="w-2 h-2 rounded-full {{ lvl_dot.get(f.level, 'bg-gray-300') }}"></span>
-        {% endfor %}
-      </span>
-    </button>
-    <div id="adapt-factors" class="hidden mt-2 space-y-1.5">
-      {% for f in weekly_schedule.factors %}
-      <div class="flex items-start gap-2 px-3 py-2 rounded-lg {{ lvl_bg.get(f.level, 'bg-gray-50') }}">
-        <span class="mt-1 w-1.5 h-1.5 rounded-full shrink-0 {{ lvl_dot.get(f.level, 'bg-gray-400') }}"></span>
-        <p class="text-xs {{ lvl_txt.get(f.level, 'text-gray-700') }}">{{ f.text }}</p>
-      </div>
-      {% endfor %}
-      {% if weekly_schedule.avg_next_day_pain is not none or weekly_schedule.avg_compliance is not none %}
-      <div class="flex flex-wrap gap-4 pt-1 px-1">
-        {% if weekly_schedule.avg_next_day_pain is not none %}
-        <span class="text-[11px] text-gray-500">Next-day pain avg: <strong class="text-gray-700">{{ weekly_schedule.avg_next_day_pain }}/10</strong></span>
-        {% endif %}
-        {% if weekly_schedule.avg_during_pain is not none %}
-        <span class="text-[11px] text-gray-500">During pain avg: <strong class="text-gray-700">{{ weekly_schedule.avg_during_pain }}/10</strong></span>
-        {% endif %}
-        {% if weekly_schedule.avg_compliance is not none %}
-        <span class="text-[11px] text-gray-500">Exercise completion avg: <strong class="text-gray-700">{{ weekly_schedule.avg_compliance }}%</strong></span>
-        {% endif %}
-      </div>
-      {% endif %}
-    </div>
-  </div>
-  {% endif %}
-
-  {# ── Evidence Base strip ── #}
-  {% if weekly_schedule.evidence_sources %}
-  <div class="px-5 py-3 border-b border-gray-100 bg-blue-50/40">
-    <button type="button" onclick="toggleEvidenceBase()"
-            class="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors w-full text-left">
-      <svg id="evidence-chevron" class="w-3.5 h-3.5 transition-transform duration-150" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
-      </svg>
-      <span>Evidence base ({{ weekly_schedule.evidence_sources | length }} studies)</span>
-      <span class="ml-auto text-[10px] text-blue-400 font-normal normal-case">frequency grounded in KB</span>
-    </button>
-    <div id="evidence-base" class="hidden mt-2">
-      <div class="overflow-x-auto rounded-lg border border-blue-100">
-        <table class="text-xs w-full border-collapse">
-          <thead>
-            <tr class="bg-blue-100/60">
-              <th class="text-left px-3 py-2 font-semibold text-blue-800 border-b border-blue-100">Study</th>
-              <th class="text-left px-3 py-2 font-semibold text-blue-800 border-b border-blue-100 whitespace-nowrap">Authors</th>
-              <th class="text-center px-3 py-2 font-semibold text-blue-800 border-b border-blue-100">Year</th>
-              <th class="text-left px-3 py-2 font-semibold text-blue-800 border-b border-blue-100 whitespace-nowrap">Recommended Frequency</th>
-              <th class="text-center px-3 py-2 font-semibold text-blue-800 border-b border-blue-100 whitespace-nowrap">Sessions/week</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for src in weekly_schedule.evidence_sources %}
-            <tr class="border-b border-blue-50 hover:bg-blue-50/60 transition-colors last:border-0">
-              <td class="px-3 py-2 text-gray-700 font-medium leading-snug max-w-[220px]">{{ src.title }}</td>
-              <td class="px-3 py-2 text-gray-500 whitespace-nowrap">{{ src.authors }}</td>
-              <td class="px-3 py-2 text-center text-gray-500">{{ src.year }}</td>
-              <td class="px-3 py-2 text-gray-600 italic">{{ src.recommended_freq }}</td>
-              <td class="px-3 py-2 text-center">
-                <span class="px-2 py-0.5 bg-brand-100 text-brand-700 rounded-full font-bold text-[11px]">
-                  {{ src.parsed_per_week }}×
-                </span>
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      <p class="text-[10px] text-blue-400 mt-1.5 px-0.5">Schedule frequency is derived from the consensus of these evidence sources, adjusted for stage, irritability, and your recent session data.</p>
-    </div>
-  </div>
-  {% endif %}
-
-  {# ── Full rest week (STOP decision) ── #}
-  {% if weekly_schedule.is_rest_week %}
-  <div class="px-5 py-8 text-center">
-    <p class="text-red-700 font-bold text-sm mb-1">Complete Rest Week</p>
-    <p class="text-xs text-red-500">Engine decision is STOP. Do not load the tendon until you have been reassessed.</p>
-  </div>
-  {% endif %}
-
-  {# ── Weekly panel (default visible) ── #}
-  <div id="prog-weekly" {% if weekly_schedule.is_rest_week %}class="hidden"{% endif %}>
-    <div class="overflow-x-auto px-5 py-4">
-      <div class="grid grid-cols-7 gap-2" style="min-width: 560px;">
-        {% for i in range(7) %}
-        {% set is_session = i in session_idx %}
-        <div class="flex flex-col rounded-xl border {% if is_session %}border-brand-200 bg-brand-50{% else %}border-gray-100 bg-gray-50{% endif %} overflow-hidden">
-          <div class="px-2 py-2 text-center border-b {% if is_session %}border-brand-200 bg-brand-600{% else %}border-gray-100 bg-gray-100{% endif %}">
-            <p class="text-[10px] font-bold uppercase tracking-widest {% if is_session %}text-white{% else %}text-gray-400{% endif %}">
-              {{ day_abbr[i] }}
-            </p>
-          </div>
-          <div class="px-2 py-2.5 flex-1">
-            {% if is_session %}
-              <p class="text-[9px] font-bold text-brand-600 uppercase tracking-wide mb-2 text-center">Session</p>
-              <ul class="space-y-1.5">
-                {% for item in session_plan %}
-                <li class="text-[10px] leading-tight text-gray-700">
-                  <span class="font-semibold block truncate">{{ item.exercise.exercise_name }}</span>
-                  <span class="text-gray-400">{{ item.dosage.sets if item.dosage.sets else '3' }} × {{ item.dosage.reps_or_hold_time if item.dosage.reps_or_hold_time else '—' }}</span>
-                </li>
-                {% endfor %}
-              </ul>
-            {% else %}
-              <div class="h-full flex flex-col items-center justify-center py-3 gap-1">
-                <svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z"/>
-                </svg>
-                <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Rest</p>
-              </div>
-            {% endif %}
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-  </div>
-
-  {# ── Monthly panel (hidden by default) — 4-week grid ── #}
-  <div id="prog-monthly" class="hidden">
-    <div class="overflow-x-auto px-5 pt-4 pb-2">
-
-      {# Column headers #}
-      <div class="grid gap-1.5 mb-1.5" style="grid-template-columns: 56px repeat(7, 1fr); min-width: 600px;">
-        <div></div>
-        {% for abbr in day_abbr %}
-        <div class="text-center text-[10px] font-bold uppercase tracking-widest text-gray-400 py-1">{{ abbr }}</div>
-        {% endfor %}
-      </div>
-
-      {# 4 weeks #}
-      {% for week in range(1, 5) %}
-      <div class="grid gap-1.5 mb-1.5" style="grid-template-columns: 56px repeat(7, 1fr); min-width: 600px;">
-
-        {# Week label #}
-        <div class="flex items-center justify-center">
-          <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Wk {{ week }}</span>
-        </div>
-
-        {# 7 day cells #}
-        {% for i in range(7) %}
-        {% set is_session = i in session_idx %}
-        <div class="rounded-lg border {% if is_session %}border-brand-200 bg-brand-50{% else %}border-gray-100 bg-gray-50{% endif %} overflow-hidden">
-
-          {# Compact day header #}
-          <div class="py-1 text-center {% if is_session %}bg-brand-600{% else %}bg-gray-100{% endif %}">
-            <span class="text-[9px] font-bold uppercase tracking-widest {% if is_session %}text-white{% else %}text-gray-400{% endif %}">
-              {{ day_letter[i] }}
-            </span>
-          </div>
-
-          {# Cell content #}
-          <div class="px-1 py-1.5">
-            {% if is_session %}
-              <ul class="space-y-0.5">
-                {% for item in session_plan %}
-                <li class="text-[9px] leading-tight text-gray-600 truncate font-medium">
-                  {{ item.exercise.exercise_name }}
-                </li>
-                {% endfor %}
-              </ul>
-            {% else %}
-              <p class="text-[9px] text-gray-300 text-center font-semibold uppercase tracking-wide py-0.5">—</p>
-            {% endif %}
-          </div>
-
-        </div>
-        {% endfor %}
-
-      </div>
-      {% endfor %}
-
-    </div>
-
-    {# Month total #}
-    <div class="px-5 pt-1 pb-3 flex items-center gap-4">
-      <span class="text-xs text-gray-500">
-        <strong class="text-gray-800">{{ weekly_schedule.sessions_per_week * 4 }}</strong> sessions per month
-      </span>
-      <span class="text-gray-300">·</span>
-      <span class="text-xs text-gray-500">
-        <strong class="text-gray-800">{{ 28 - weekly_schedule.sessions_per_week * 4 }}</strong> rest days
-      </span>
-    </div>
-  </div>
-
-  {# Footer note #}
-  <div class="px-5 pb-4 pt-0 border-t border-gray-50">
-    <p class="text-[10px] text-gray-400 leading-relaxed pt-3">
-      Recommended schedule based on your current stage and irritability.
-      If next-day pain exceeds 3/10, treat that day as rest regardless of program.
-    </p>
-  </div>
-
-</div>
-{% endif %}
 
 <!-- Recovery Roadmap -->
 {% if timeline and goals %}
@@ -627,67 +152,951 @@
 </div>
 {% endif %}
 
-<!-- Recent Logs Table -->
-{% if recent_logs %}
-<div class="bg-white rounded-xl shadow p-6 border border-gray-100 mb-6">
-  <div class="flex items-center justify-between mb-4">
-    <h2 class="text-lg font-bold text-gray-800">Recent Session Logs</h2>
-    <a href="/daily-log" class="text-xs text-brand-600 hover:underline">Log session</a>
+<!-- Pain Trend + VISA-A — side-by-side collapsible tiles -->
+<div class="grid md:grid-cols-2 gap-4 mb-4">
+
+  <!-- Pain Trend tile -->
+  <div class="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
+    <button type="button" onclick="toggleTile('tile-pain')"
+            class="w-full px-5 pt-4 pb-4 hover:bg-gray-50 transition-colors text-left focus:outline-none">
+
+      {# Title row #}
+      <div class="flex items-center justify-between gap-2 mb-3">
+        <div>
+          <h2 class="font-bold text-gray-900 text-sm">Pain Trend</h2>
+          <p class="text-[11px] text-gray-400 mt-0.5">Latest session pain scores</p>
+        </div>
+        <svg id="tile-pain-chev" class="w-4 h-4 text-gray-300 shrink-0 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </div>
+
+      {# Overview cards #}
+      {% if recent_logs %}
+      {% set lr  = recent_logs[0] %}
+      {% set lr2 = recent_logs[1] if recent_logs | length > 1 else none %}
+
+      {# Macro: single pain card #}
+      {% macro pain_card(label, val, prev_val, accent) %}
+      <div class="rounded-lg border border-{{ accent }}-100 bg-{{ accent }}-50 px-3 py-2.5 flex flex-col gap-0.5">
+        <p class="text-[10px] font-bold text-{{ accent }}-400 uppercase tracking-wide">{{ label }}</p>
+        <div class="flex items-end gap-1">
+          <p class="text-2xl font-black leading-none
+            {% if val >= 6 %}text-red-600{% elif val >= 4 %}text-yellow-600{% else %}text-green-600{% endif %}">
+            {{ val }}
+          </p>
+          <span class="text-xs text-gray-400 mb-0.5">/10</span>
+          {% if prev_val is not none %}
+            {% if val < prev_val %}
+              <span class="text-green-500 font-bold text-sm mb-0.5">↓</span>
+            {% elif val > prev_val %}
+              <span class="text-red-400 font-bold text-sm mb-0.5">↑</span>
+            {% else %}
+              <span class="text-gray-300 text-sm mb-0.5">→</span>
+            {% endif %}
+          {% endif %}
+        </div>
+        <div class="mt-1 h-1.5 w-full rounded-full bg-{{ accent }}-100 overflow-hidden">
+          <div class="h-full rounded-full
+            {% if val >= 6 %}bg-red-400{% elif val >= 4 %}bg-yellow-400{% else %}bg-green-400{% endif %}"
+            style="width:{{ (val / 10 * 100) | int }}%"></div>
+        </div>
+        <p class="text-[10px] {% if val >= 6 %}text-red-500{% elif val >= 4 %}text-yellow-600{% else %}text-green-600{% endif %}">
+          {% if val >= 6 %}High{% elif val >= 4 %}Moderate{% else %}Low{% endif %}
+        </p>
+      </div>
+      {% endmacro %}
+
+      <div class="grid grid-cols-3 gap-2">
+        {{ pain_card('During',   lr.pain_during,   lr2.pain_during   if lr2 else none, 'red')    }}
+        {{ pain_card('After',    lr.pain_after,    lr2.pain_after    if lr2 else none, 'orange') }}
+        {{ pain_card('Next Day', lr.next_day_pain, lr2.next_day_pain if lr2 else none, 'purple') }}
+      </div>
+
+      {% else %}
+      <p class="text-xs text-gray-400">No sessions logged yet.</p>
+      {% endif %}
+
+    </button>
+    <div id="tile-pain" class="hidden border-t border-gray-100 px-5 pt-4 pb-3">
+      {% if recent_logs %}
+      <canvas id="painChart" height="180"></canvas>
+      <div class="flex items-center justify-between mt-2 px-0.5">
+        <p class="text-[11px] text-gray-400">Scroll to zoom · drag to pan</p>
+        <button onclick="resetPainZoom()" class="text-[11px] px-2.5 py-1 rounded border border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-brand-300 hover:text-brand-600 transition-colors">
+          Reset zoom
+        </button>
+      </div>
+      {% else %}
+      <div class="h-32 flex items-center justify-center text-gray-400 text-sm">No session data yet.</div>
+      {% endif %}
+    </div>
   </div>
-  <div class="overflow-x-auto">
-    <table class="w-full text-sm">
-      <thead>
-        <tr class="text-left text-xs text-gray-500 border-b border-gray-200">
-          <th class="pb-2 pr-3">Date</th>
-          <th class="pb-2 pr-3">During</th>
-          <th class="pb-2 pr-3">After</th>
-          <th class="pb-2 pr-3">Next Day</th>
-          <th class="pb-2 pr-3">Difficulty</th>
-          <th class="pb-2">Confidence</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-gray-100">
-        {% for log in recent_logs[:6] %}
-        <tr class="text-gray-700">
-          <td class="py-2 pr-3 text-xs text-gray-500">{{ log.created_at[:10] }}</td>
-          <td class="py-2 pr-3">
-            <span class="{% if log.pain_during >= 6 %}text-red-600 font-bold{% elif log.pain_during >= 4 %}text-yellow-600{% else %}text-green-600{% endif %}">
-              {{ log.pain_during }}/10
-            </span>
-          </td>
-          <td class="py-2 pr-3">
-            <span class="{% if log.pain_after >= 6 %}text-red-600 font-bold{% elif log.pain_after >= 4 %}text-yellow-600{% else %}text-green-600{% endif %}">
-              {{ log.pain_after }}/10
-            </span>
-          </td>
-          <td class="py-2 pr-3">
-            <span class="{% if log.next_day_pain >= 6 %}text-red-600 font-bold{% elif log.next_day_pain >= 4 %}text-yellow-600{% else %}text-green-600{% endif %}">
-              {{ log.next_day_pain }}/10
-            </span>
-          </td>
-          <td class="py-2 pr-3 text-gray-600">{{ log.difficulty }}/10</td>
-          <td class="py-2 text-gray-600">{{ log.confidence }}/10</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+
+  <!-- VISA-A tile -->
+  <div class="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
+    <button type="button" onclick="toggleTile('tile-visa')"
+            class="w-full px-5 pt-4 pb-4 hover:bg-gray-50 transition-colors text-left focus:outline-none">
+
+      {# Title row #}
+      <div class="flex items-center justify-between gap-2 mb-3">
+        <div>
+          <h2 class="font-bold text-gray-900 text-sm">VISA-A Progress</h2>
+          <p class="text-[11px] text-gray-400 mt-0.5">Victorian Institute of Sport Assessment</p>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <a href="/visa-a" onclick="event.stopPropagation()"
+             class="px-2.5 py-1 bg-brand-600 text-white text-[11px] font-semibold rounded-lg hover:bg-brand-700 transition-colors shadow-sm">
+            Take now
+          </a>
+          <svg id="tile-visa-chev" class="w-4 h-4 text-gray-300 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </div>
+      </div>
+
+      {# Overview cards #}
+      {% if visa_history %}
+      {% set lv  = visa_history | last %}
+      {% set lv2 = visa_history[-2] if visa_history | length > 1 else none %}
+      {% set delta = (lv.total_score - lv2.total_score) if lv2 else none %}
+
+      <div class="grid grid-cols-3 gap-2">
+
+        {# Score card #}
+        <div class="rounded-lg border border-brand-100 bg-brand-50 px-3 py-2.5 flex flex-col gap-0.5">
+          <p class="text-[10px] font-bold text-brand-400 uppercase tracking-wide">Score</p>
+          <div class="flex items-end gap-1">
+            <p class="text-2xl font-black leading-none
+              {% if lv.total_score >= 64 %}text-green-600{% elif lv.total_score >= 40 %}text-yellow-600{% else %}text-red-600{% endif %}">
+              {{ lv.total_score }}
+            </p>
+            <span class="text-xs text-gray-400 mb-0.5">/80</span>
+          </div>
+          <div class="mt-1 h-1.5 w-full rounded-full bg-brand-100 overflow-hidden">
+            <div class="h-full rounded-full
+              {% if lv.total_score >= 64 %}bg-green-400{% elif lv.total_score >= 40 %}bg-yellow-400{% else %}bg-red-400{% endif %}"
+              style="width:{{ (lv.total_score / 80 * 100) | int }}%"></div>
+          </div>
+          <p class="text-[10px] {% if lv.total_score >= 64 %}text-green-600{% elif lv.total_score >= 40 %}text-yellow-600{% else %}text-red-500{% endif %}">
+            {% if lv.total_score >= 64 %}Mild/None{% elif lv.total_score >= 40 %}Moderate{% else %}Severe{% endif %}
+          </p>
+        </div>
+
+        {# Change card #}
+        <div class="rounded-lg border border-teal-100 bg-teal-50 px-3 py-2.5 flex flex-col gap-0.5">
+          <p class="text-[10px] font-bold text-teal-400 uppercase tracking-wide">Change</p>
+          {% if delta is not none %}
+          <div class="flex items-end gap-1">
+            <p class="text-2xl font-black leading-none
+              {% if delta > 0 %}text-green-600{% elif delta < 0 %}text-red-600{% else %}text-gray-500{% endif %}">
+              {% if delta > 0 %}+{% endif %}{{ delta }}
+            </p>
+            <span class="text-xs text-gray-400 mb-0.5">pts</span>
+          </div>
+          <p class="text-[10px] {% if delta > 0 %}text-green-600{% elif delta < 0 %}text-red-500{% else %}text-gray-400{% endif %}">
+            {% if delta > 0 %}Improving{% elif delta < 0 %}Declined{% else %}Unchanged{% endif %}
+          </p>
+          {% else %}
+          <p class="text-sm font-black text-gray-300 leading-none mt-1">—</p>
+          <p class="text-[10px] text-gray-300">First entry</p>
+          {% endif %}
+        </div>
+
+        {# Assessments card #}
+        <div class="rounded-lg border border-violet-100 bg-violet-50 px-3 py-2.5 flex flex-col gap-0.5">
+          <p class="text-[10px] font-bold text-violet-400 uppercase tracking-wide">Assessments</p>
+          <p class="text-2xl font-black leading-none text-violet-700 mt-0.5">{{ visa_history | length }}</p>
+          <p class="text-[10px] text-violet-400 mt-1">Total logged</p>
+        </div>
+
+      </div>
+
+      {% else %}
+      <p class="text-xs text-gray-400">No VISA-A scores yet. <a href="/visa-a" onclick="event.stopPropagation()" class="text-brand-600 hover:underline">Complete now.</a></p>
+      {% endif %}
+
+    </button>
+    <div id="tile-visa" class="hidden border-t border-gray-100 px-5 pt-4 pb-3">
+      {% if visa_history %}
+      <canvas id="visaChart" height="180"></canvas>
+      <div class="flex items-center justify-between mt-2 px-0.5">
+        <p class="text-[11px] text-gray-400">Scroll to zoom · drag to pan</p>
+        <button onclick="resetVisaZoom()" class="text-[11px] px-2.5 py-1 rounded border border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-brand-300 hover:text-brand-600 transition-colors">
+          Reset zoom
+        </button>
+      </div>
+      {% else %}
+      <div class="h-32 flex items-center justify-center text-sm text-gray-400">
+        No VISA-A scores yet. <a href="/onboarding" class="ml-1 text-brand-600 hover:underline">Complete now.</a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<!-- Functional Capacity tile -->
+{% if has_onboarding %}
+{% set ft = onboarding.functional_tests if (onboarding and onboarding.functional_tests is mapping) else {} %}
+<div class="bg-white rounded-xl shadow border border-gray-100 mb-4 overflow-hidden">
+  <button type="button" onclick="toggleTile('tile-fc')"
+          class="w-full px-5 pt-4 pb-4 hover:bg-gray-50 transition-colors text-left focus:outline-none">
+
+    {# Title row #}
+    <div class="flex items-center justify-between gap-3 mb-3">
+      <div>
+        <h2 class="font-bold text-gray-900 text-sm">Functional Capacity</h2>
+        {% if onboarding %}
+        <p class="text-[11px] text-gray-400 mt-0.5">Last assessed {{ onboarding.created_at[:10] }}</p>
+        {% else %}
+        <p class="text-[11px] text-gray-400 mt-0.5">Complete an assessment to see data</p>
+        {% endif %}
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <a href="/onboarding" onclick="event.stopPropagation()"
+           class="px-3 py-1.5 bg-brand-600 text-white text-xs font-semibold rounded-lg hover:bg-brand-700 transition-colors shadow-sm">
+          Re-assess
+        </a>
+        <svg id="tile-fc-chev" class="w-4 h-4 text-gray-300 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </div>
+    </div>
+
+    {# 4-metric overview grid #}
+    {% if onboarding %}
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+
+      {# Calf Raise #}
+      {% set cr = onboarding.calf_raise_reps %}
+      {% set cr_u = ft.calf_raise_reps_unaffected %}
+      {% set cr_lsi = ((cr | float / cr_u | float) * 100) | round(0) | int if (cr and cr_u and cr_u | float > 0) else none %}
+      <div class="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2.5 flex flex-col gap-0.5">
+        <p class="text-[10px] font-bold text-sky-500 uppercase tracking-wide">Calf Raise</p>
+        {% if cr is not none %}
+        <p class="text-xl font-black text-sky-800 leading-none">{{ cr }}<span class="text-xs font-normal text-sky-400 ml-0.5">reps</span></p>
+        {% else %}
+        <p class="text-xs text-sky-300 italic mt-0.5">No data</p>
+        {% endif %}
+      </div>
+
+      {# WBLT #}
+      {% set wblt = ft.wblt_cm %}
+      {% set wblt_u = ft.wblt_cm_unaffected %}
+      {% set wblt_lsi = ((wblt | float / wblt_u | float) * 100) | round(0) | int if (wblt and wblt_u and wblt_u | float > 0) else none %}
+      <div class="rounded-lg border border-violet-100 bg-violet-50 px-3 py-2.5 flex flex-col gap-0.5">
+        <p class="text-[10px] font-bold text-violet-500 uppercase tracking-wide">WBLT</p>
+        {% if wblt %}
+        <p class="text-xl font-black text-violet-800 leading-none">{{ wblt }}<span class="text-xs font-normal text-violet-400 ml-0.5">cm</span></p>
+        {% else %}
+        <p class="text-xs text-violet-300 italic mt-0.5">No data</p>
+        {% endif %}
+      </div>
+
+      {# Hop Distance #}
+      {% set hd = ft.single_leg_hop_cm %}
+      {% set hd_u = ft.single_leg_hop_cm_unaffected %}
+      {% set hd_lsi = ((hd | float / hd_u | float) * 100) | round(0) | int if (hd and hd_u and hd_u | float > 0) else none %}
+      <div class="rounded-lg border border-orange-100 bg-orange-50 px-3 py-2.5 flex flex-col gap-0.5">
+        <p class="text-[10px] font-bold text-orange-500 uppercase tracking-wide">Hop Distance</p>
+        {% if hd %}
+        <p class="text-xl font-black text-orange-800 leading-none">{{ hd }}<span class="text-xs font-normal text-orange-400 ml-0.5">in</span></p>
+        {% else %}
+        <p class="text-xs text-orange-300 italic mt-0.5">No data</p>
+        {% endif %}
+      </div>
+
+      {# Hop Endurance #}
+      {% set he = ft.single_leg_hop_endurance_reps %}
+      {% set he_u = ft.single_leg_hop_endurance_reps_unaffected %}
+      {% set he_lsi = ((he | float / he_u | float) * 100) | round(0) | int if (he and he_u and he_u | float > 0) else none %}
+      <div class="rounded-lg border border-teal-100 bg-teal-50 px-3 py-2.5 flex flex-col gap-0.5">
+        <p class="text-[10px] font-bold text-teal-500 uppercase tracking-wide">Hop Endurance</p>
+        {% if he %}
+        <p class="text-xl font-black text-teal-800 leading-none">{{ he }}<span class="text-xs font-normal text-teal-400 ml-0.5">reps</span></p>
+        {% else %}
+        <p class="text-xs text-teal-300 italic mt-0.5">No data</p>
+        {% endif %}
+      </div>
+
+    </div>
+    {% endif %}
+
+  </button>
+  <div id="tile-fc" class="hidden border-t border-gray-100 px-6 pt-4 pb-6">
+    <p class="text-xs text-gray-400 mb-5">Reassess every 6–8 weeks to track adaptation. Each point represents a full assessment.</p>
+    <div class="grid md:grid-cols-2 gap-6">
+      <div>
+        <h3 class="text-sm font-semibold text-gray-700 mb-2">Single-Leg Calf Raise (reps)</h3>
+        <div id="snapCr" class="mb-3"></div>
+        <canvas id="crChart" height="200"></canvas>
+      </div>
+      <div>
+        <h3 class="text-sm font-semibold text-gray-700 mb-2">Weight Bearing Lunge Test (cm)</h3>
+        <div id="snapWblt" class="mb-3"></div>
+        <canvas id="wbltChart" height="200"></canvas>
+      </div>
+      <div>
+        <h3 class="text-sm font-semibold text-gray-700 mb-2">Hop Distance — best of 3 (inches)</h3>
+        <div id="snapHopDist" class="mb-3"></div>
+        <canvas id="hopDistChart" height="200"></canvas>
+      </div>
+      <div>
+        <h3 class="text-sm font-semibold text-gray-700 mb-2">In-Place Hop Endurance (reps)</h3>
+        <div id="snapHopEnd" class="mb-3"></div>
+        <canvas id="hopEndChart" height="200"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- LSI tile -->
+<div class="bg-white rounded-xl shadow border border-gray-100 mb-4 overflow-hidden">
+  <button type="button" onclick="toggleTile('tile-lsi')"
+          class="w-full px-5 pt-4 pb-4 hover:bg-gray-50 transition-colors text-left focus:outline-none">
+
+    {# Title row #}
+    <div class="flex items-center justify-between gap-3 mb-3">
+      <div>
+        <h2 class="font-bold text-gray-900 text-sm">Limb Symmetry Index (LSI)</h2>
+        <p class="text-[11px] text-gray-400 mt-0.5">Target ≥ 90% across all metrics</p>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <a href="/onboarding" onclick="event.stopPropagation()"
+           class="px-3 py-1.5 bg-brand-600 text-white text-xs font-semibold rounded-lg hover:bg-brand-700 transition-colors shadow-sm">
+          Re-assess
+        </a>
+        <svg id="tile-lsi-chev" class="w-4 h-4 text-gray-300 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </div>
+    </div>
+
+    {# 4-metric LSI overview cards #}
+    {% set cr_lsi_val   = ((ft.get('calf_raise_reps', 0) | float / ft.get('calf_raise_reps_unaffected', 0) | float) * 100) | round(0) | int if (ft.get('calf_raise_reps') and ft.get('calf_raise_reps_unaffected') and ft.get('calf_raise_reps_unaffected') | float > 0) else none %}
+    {% set wblt_lsi_val = ((ft.get('wblt_cm', 0) | float / ft.get('wblt_cm_unaffected', 0) | float) * 100) | round(0) | int if (ft.get('wblt_cm') and ft.get('wblt_cm_unaffected') and ft.get('wblt_cm_unaffected') | float > 0) else none %}
+    {% set hopdist_lsi_val = ((ft.get('single_leg_hop_cm', 0) | float / ft.get('single_leg_hop_cm_unaffected', 0) | float) * 100) | round(0) | int if (ft.get('single_leg_hop_cm') and ft.get('single_leg_hop_cm_unaffected') and ft.get('single_leg_hop_cm_unaffected') | float > 0) else none %}
+    {% set hopend_lsi_val  = ((ft.get('single_leg_hop_endurance_reps', 0) | float / ft.get('single_leg_hop_endurance_reps_unaffected', 0) | float) * 100) | round(0) | int if (ft.get('single_leg_hop_endurance_reps') and ft.get('single_leg_hop_endurance_reps_unaffected') and ft.get('single_leg_hop_endurance_reps_unaffected') | float > 0) else none %}
+
+    {# Also pull calf raise from onboarding root if not in ft #}
+    {% if cr_lsi_val is none and onboarding and onboarding.calf_raise_reps and ft.get('calf_raise_reps_unaffected') and ft.get('calf_raise_reps_unaffected') | float > 0 %}
+      {% set cr_lsi_val = ((onboarding.calf_raise_reps | float / ft.get('calf_raise_reps_unaffected') | float) * 100) | round(0) | int %}
+    {% endif %}
+
+    {# Macro for a single LSI card #}
+    {% macro lsi_card(label, val, accent) %}
+    <div class="rounded-lg border border-{{ accent }}-100 bg-{{ accent }}-50 px-3 py-2.5 flex flex-col gap-0.5">
+      <p class="text-[10px] font-bold text-{{ accent }}-500 uppercase tracking-wide">{{ label }}</p>
+      {% if val is not none %}
+        <p class="text-xl font-black leading-none
+          {% if val >= 90 %}text-green-700{% elif val >= 75 %}text-yellow-700{% else %}text-red-600{% endif %}">
+          {{ val }}<span class="text-xs font-normal text-{{ accent }}-400 ml-0.5">%</span>
+        </p>
+        <div class="mt-1 h-1.5 w-full rounded-full bg-{{ accent }}-100 overflow-hidden">
+          <div class="h-full rounded-full {% if val >= 90 %}bg-green-500{% elif val >= 75 %}bg-yellow-400{% else %}bg-red-400{% endif %}"
+               style="width: {{ [val, 100] | min }}%"></div>
+        </div>
+        <p class="text-[10px] {% if val >= 90 %}text-green-600{% elif val >= 75 %}text-yellow-600{% else %}text-red-500{% endif %}">
+          {% if val >= 90 %}Symmetrical{% elif val >= 75 %}Mild deficit{% else %}Significant deficit{% endif %}
+        </p>
+      {% else %}
+        <p class="text-xs text-{{ accent }}-300 italic mt-0.5">No bilateral data</p>
+      {% endif %}
+    </div>
+    {% endmacro %}
+
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      {{ lsi_card('Calf Raise',    cr_lsi_val,      'sky')    }}
+      {{ lsi_card('WBLT',          wblt_lsi_val,    'violet') }}
+      {{ lsi_card('Hop Distance',  hopdist_lsi_val, 'orange') }}
+      {{ lsi_card('Hop Endurance', hopend_lsi_val,  'teal')   }}
+    </div>
+
+  </button>
+  <div id="tile-lsi" class="hidden border-t border-gray-100 px-6 pt-4 pb-6">
+    <p class="text-xs text-gray-400 mb-5">
+      LSI = (affected ÷ unaffected) × 100. Requires bilateral measurements at each assessment.
+      The dashed line marks the 90% clinical threshold — values below indicate a meaningful asymmetry.
+    </p>
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+      <div>
+        <h3 class="text-sm font-semibold text-gray-700 mb-1">Calf Raise LSI</h3>
+        <p class="text-xs text-gray-400 mb-2">Single-leg raise reps (affected ÷ unaffected)</p>
+        <div id="snapLsiCr" class="mb-3"></div>
+        <canvas id="lsiCrChart" height="220"></canvas>
+        <p id="lsiCrEmpty" class="hidden text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 mt-2">
+          No bilateral calf raise data yet. Enter both sides during your next assessment.
+        </p>
+      </div>
+      <div>
+        <h3 class="text-sm font-semibold text-gray-700 mb-1">WBLT LSI</h3>
+        <p class="text-xs text-gray-400 mb-2">Dorsiflexion range (affected ÷ unaffected)</p>
+        <div id="snapLsiWblt" class="mb-3"></div>
+        <canvas id="lsiWbltChart" height="220"></canvas>
+        <p id="lsiWbltEmpty" class="hidden text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 mt-2">
+          No bilateral WBLT data yet. Enter both sides during your next assessment.
+        </p>
+      </div>
+      <div>
+        <h3 class="text-sm font-semibold text-gray-700 mb-1">Hop Distance LSI</h3>
+        <p class="text-xs text-gray-400 mb-2">Single-leg hop distance (affected ÷ unaffected)</p>
+        <div id="snapLsiHopDist" class="mb-3"></div>
+        <canvas id="lsiHopDistChart" height="220"></canvas>
+        <p id="lsiHopDistEmpty" class="hidden text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 mt-2">
+          No bilateral hop distance data yet. Enter both sides during your next assessment.
+        </p>
+      </div>
+      <div>
+        <h3 class="text-sm font-semibold text-gray-700 mb-1">Hop Endurance LSI</h3>
+        <p class="text-xs text-gray-400 mb-2">Single-leg endurance reps (affected ÷ unaffected)</p>
+        <div id="snapLsiHopEnd" class="mb-3"></div>
+        <canvas id="lsiHopEndChart" height="220"></canvas>
+        <p id="lsiHopEndEmpty" class="hidden text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 mt-2">
+          No bilateral hop endurance data yet. Enter both sides during your next assessment.
+        </p>
+      </div>
+    </div>
   </div>
 </div>
 {% endif %}
 
-<!-- Progression History -->
-{% if progression_history %}
-<div class="bg-white rounded-xl shadow p-6 border border-gray-100 mb-6">
-  <h2 class="text-lg font-bold text-gray-800 mb-4">Progression History</h2>
-  <div class="space-y-2">
-    {% for prog in progression_history %}
-    {% set dc = {'GO': 'green', 'STAY': 'blue', 'CAUTION': 'yellow', 'STOP': 'red'}.get(prog.decision, 'gray') %}
-    <div class="flex items-center gap-3 text-sm">
-      <span class="px-2 py-0.5 bg-{{ dc }}-100 text-{{ dc }}-700 rounded font-bold text-xs">{{ prog.decision }}</span>
-      <span class="text-gray-600">Stage {{ prog.from_stage }} → Stage {{ prog.to_stage }}</span>
-      <span class="text-xs text-gray-400">{{ prog.created_at[:10] }}</span>
+<!-- Current Rehab Plan tile -->
+<div class="bg-white rounded-2xl shadow border border-gray-100 mb-4 overflow-hidden">
+
+  {# Clickable header — always visible, acts as overview #}
+  <button type="button" onclick="toggleTile('tile-plan')"
+          class="w-full bg-brand-700 px-5 py-4 flex items-start justify-between gap-3 hover:bg-brand-800 transition-colors text-left focus:outline-none">
+    <div>
+      <h2 class="font-black text-white text-base leading-tight">Current Rehab Plan</h2>
+      <p class="text-xs text-brand-200 mt-0.5">
+        {% if session_plan %}{{ session_plan | length }} exercise{{ 's' if session_plan | length != 1 }} — tap to view{% else %}No plan yet — complete assessment{% endif %}
+      </p>
+    </div>
+    <div class="flex items-center gap-2 flex-wrap justify-end shrink-0">
+      {% set ibg = {'high': 'bg-red-400', 'moderate': 'bg-yellow-400', 'low': 'bg-green-400'} %}
+      <span class="text-xs px-2.5 py-1 rounded-full font-bold text-white {{ ibg.get(current_irritability, 'bg-gray-400') }} uppercase">
+        {{ current_irritability }}
+      </span>
+      <span class="text-xs px-2.5 py-1 rounded-full font-bold bg-white/20 text-white">Stage {{ current_stage }}</span>
+      {% if is_insertional %}
+      <span class="text-xs px-2.5 py-1 rounded-full font-bold bg-amber-400 text-white">Insertional</span>
+      {% endif %}
+      <svg id="tile-plan-chev" class="w-4 h-4 text-brand-300 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+      </svg>
+    </div>
+  </button>
+
+  {# Collapsible body #}
+  <div id="tile-plan" class="hidden">
+
+    {# WBLT notice if stretch is indicated #}
+    {% if wblt_result and wblt_result.stretch_indicated %}
+    <div class="px-5 py-2 bg-teal-50 border-b border-teal-100 flex items-center gap-2 text-xs text-teal-800">
+      <span class="font-semibold">WBLT {{ wblt_cm }} cm</span>
+      <span class="text-teal-600">—</span>
+      <span>{{ wblt_result.rationale }}</span>
+      {% if wblt_result.stretch_priority == 'primary' %}
+      <span class="ml-auto px-2 py-0.5 rounded-full bg-teal-200 text-teal-800 font-bold text-[10px]">Stretch: Primary</span>
+      {% else %}
+      <span class="ml-auto px-2 py-0.5 rounded-full bg-teal-100 text-teal-700 font-bold text-[10px]">Stretch: Adjunct</span>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {# Exercise cards #}
+    {% if session_plan %}
+    {% set cat_colors = {
+      'symptom_modulation': 'bg-sky-200 text-sky-900',
+      'slow_strength': 'bg-sky-300 text-sky-900',
+      'eccentric_loading': 'bg-blue-200 text-blue-900',
+      'heavy_dynamic': 'bg-blue-300 text-blue-900',
+      'fast_dynamic': 'bg-indigo-200 text-indigo-900',
+      'reactive_plyometric': 'bg-indigo-300 text-indigo-900',
+      'running_sport_reentry': 'bg-violet-300 text-violet-900',
+      'accessory': 'bg-gray-100 text-gray-600',
+      'flexibility_mobility': 'bg-teal-100 text-teal-700',
+    } %}
+    <div class="divide-y divide-gray-50">
+      {% for item in session_plan %}
+      {% set ex = item.exercise %}
+      {% set dos = item.dosage %}
+      <div class="px-5 py-4 flex items-start gap-4">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap mb-1">
+            <span class="font-semibold text-gray-900 text-sm">{{ ex.exercise_name }}</span>
+            <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold {{ cat_colors.get(ex.category, 'bg-gray-100 text-gray-600') }} capitalize">
+              {{ ex.category | replace('_', ' ') }}
+            </span>
+            {% if item.source == 'stretch' %}
+            <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-teal-100 text-teal-700">Stretch</span>
+            {% endif %}
+            {% if not ex.insertional_safe %}
+            <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700">Mid-portion</span>
+            {% endif %}
+          </div>
+          <p class="text-[11px] text-gray-500 mb-2">{{ item.reason }}</p>
+          <div class="flex items-center gap-4 text-xs">
+            <span class="font-semibold text-gray-800">
+              {{ dos.sets if dos.sets else '3' }} sets &times; {{ dos.reps_or_hold_time if dos.reps_or_hold_time else '—' }}
+            </span>
+            {% if dos.tempo and dos.tempo not in ['hold', 'reactive', 'normal'] %}
+            <span class="text-gray-500">{{ dos.tempo }} tempo</span>
+            {% endif %}
+            {% if dos.notes %}
+            <span class="text-gray-400 italic truncate">{{ dos.notes }}</span>
+            {% endif %}
+          </div>
+        </div>
+        <a href="/exercise-library#{{ ex.ex_id }}"
+           class="shrink-0 text-[11px] px-2.5 py-1 rounded-lg bg-brand-50 text-brand-700 font-medium hover:bg-brand-100 transition-colors border border-brand-200">
+          View →
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="px-5 py-8 text-center text-gray-400 text-sm">
+      No plan generated yet. Complete your assessment to get a personalised exercise plan.
+    </div>
+    {% endif %}
+
+    {# Footer CTA #}
+    <div class="px-5 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+      <p class="text-xs text-gray-500">Log today's session to update your plan based on your response.</p>
+      <a href="/daily-log"
+         class="text-xs px-4 py-2 bg-brand-600 text-white font-semibold rounded-lg hover:bg-brand-700 transition-colors shadow-sm">
+        Track Session →
+      </a>
+    </div>
+
+  </div>
+</div>
+
+<!-- Weekly Program -->
+{% if has_onboarding and session_plan %}
+{% set day_abbr  = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] %}
+{% set day_letter= ['M',   'T',   'W',   'T',   'F',   'S',   'S'  ] %}
+{% set session_idx = weekly_schedule.session_days %}
+{% set freq_note   = weekly_schedule.freq_note %}
+
+{# Factor level colours #}
+{% set lvl_bg  = {'good': 'bg-green-50',   'caution': 'bg-yellow-50',  'warning': 'bg-red-50'  } %}
+{% set lvl_dot = {'good': 'bg-green-500',  'caution': 'bg-yellow-500', 'warning': 'bg-red-500' } %}
+{% set lvl_txt = {'good': 'text-green-800','caution': 'text-yellow-800','warning': 'text-red-800'} %}
+
+<div class="bg-white rounded-2xl shadow border border-gray-100 mb-6 overflow-hidden">
+
+  {# Header #}
+  <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-3 flex-wrap">
+    <div>
+      <h2 id="prog-title" class="font-black text-gray-900 text-lg leading-tight">Weekly Program</h2>
+      <p class="text-xs text-gray-400 mt-0.5">{{ freq_note }}</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="text-xs px-2.5 py-1 rounded-full bg-brand-50 text-brand-700 font-semibold border border-brand-100">
+        {{ weekly_schedule.sessions_per_week }} sessions / week
+      </span>
+      <button type="button" id="prog-toggle-btn"
+              onclick="toggleMonthlyProgram()"
+              class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-brand-300 hover:text-brand-700 transition-colors font-medium">
+        <svg id="prog-toggle-icon" class="w-3.5 h-3.5 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+        </svg>
+        <span id="prog-toggle-label">Monthly view</span>
+      </button>
+    </div>
+  </div>
+
+  {# ── Adaptation factors strip ── #}
+  {% if weekly_schedule.factors %}
+  <div class="px-5 py-3 border-b border-gray-100 bg-gray-50">
+    <button type="button" onclick="toggleAdaptFactors()"
+            class="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-brand-700 transition-colors mb-0 w-full text-left">
+      <svg id="adapt-chevron" class="w-3.5 h-3.5 transition-transform duration-150" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+      </svg>
+      <span>Schedule adaptation factors</span>
+      {# Summary dots #}
+      <span class="flex items-center gap-1 ml-2">
+        {% for f in weekly_schedule.factors %}
+        <span class="w-2 h-2 rounded-full {{ lvl_dot.get(f.level, 'bg-gray-300') }}"></span>
+        {% endfor %}
+      </span>
+    </button>
+    <div id="adapt-factors" class="hidden mt-2 space-y-1.5">
+      {% for f in weekly_schedule.factors %}
+      <div class="flex items-start gap-2 px-3 py-2 rounded-lg {{ lvl_bg.get(f.level, 'bg-gray-50') }}">
+        <span class="mt-1 w-1.5 h-1.5 rounded-full shrink-0 {{ lvl_dot.get(f.level, 'bg-gray-400') }}"></span>
+        <p class="text-xs {{ lvl_txt.get(f.level, 'text-gray-700') }}">{{ f.text }}</p>
+      </div>
+      {% endfor %}
+      {% if weekly_schedule.avg_next_day_pain is not none or weekly_schedule.avg_compliance is not none %}
+      <div class="flex flex-wrap gap-4 pt-1 px-1">
+        {% if weekly_schedule.avg_next_day_pain is not none %}
+        <span class="text-[11px] text-gray-500">Next-day pain avg: <strong class="text-gray-700">{{ weekly_schedule.avg_next_day_pain }}/10</strong></span>
+        {% endif %}
+        {% if weekly_schedule.avg_during_pain is not none %}
+        <span class="text-[11px] text-gray-500">During pain avg: <strong class="text-gray-700">{{ weekly_schedule.avg_during_pain }}/10</strong></span>
+        {% endif %}
+        {% if weekly_schedule.avg_compliance is not none %}
+        <span class="text-[11px] text-gray-500">Exercise completion avg: <strong class="text-gray-700">{{ weekly_schedule.avg_compliance }}%</strong></span>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Evidence Base strip ── #}
+  {% if weekly_schedule.evidence_sources %}
+  <div class="border-b border-gray-100">
+    {# Toggle button #}
+    <button type="button" onclick="toggleEvidenceBase()"
+            class="w-full px-5 py-3 flex items-center gap-2 bg-blue-50/60 hover:bg-blue-50 transition-colors text-left focus:outline-none">
+      <svg id="evidence-chevron" class="w-3.5 h-3.5 text-blue-400 transition-transform duration-150 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+      </svg>
+      <span class="text-xs font-semibold text-blue-700">Evidence Base</span>
+      <span class="text-[10px] text-blue-400 ml-1">{{ weekly_schedule.evidence_sources | length }} studies</span>
+      {# Consensus badge — median of study midpoints #}
+      {% set freq_vals = weekly_schedule.evidence_sources | map(attribute='parsed_per_week') | select | list %}
+      {% if freq_vals %}
+      {% set consensus = (freq_vals | sum / freq_vals | length) | round(0) | int %}
+      {% set freq_lo_vals = weekly_schedule.evidence_sources | map(attribute='freq_lo') | select | list %}
+      {% set freq_hi_vals = weekly_schedule.evidence_sources | map(attribute='freq_hi') | select | list %}
+      {% set c_lo = freq_lo_vals | min if freq_lo_vals else consensus %}
+      {% set c_hi = freq_hi_vals | max if freq_hi_vals else consensus %}
+      <span class="ml-auto flex items-center gap-1.5 shrink-0">
+        <span class="text-[10px] text-blue-400">Consensus:</span>
+        <span class="px-2 py-0.5 bg-brand-600 text-white rounded-full font-bold text-[11px]">
+          {% if c_lo != c_hi %}{{ c_lo }}–{{ c_hi }}{% else %}{{ consensus }}{% endif %}× / week
+        </span>
+      </span>
+      {% endif %}
+    </button>
+
+    {# Expandable panel #}
+    <div id="evidence-base" class="hidden bg-white px-5 pb-4 pt-3">
+
+      {# Study cards grid #}
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+        {% for src in weekly_schedule.evidence_sources %}
+        <div class="rounded-lg border border-blue-100 bg-blue-50/40 px-3 py-2.5 flex flex-col gap-1.5">
+
+          {# Top row: freq badge + year #}
+          <div class="flex items-center justify-between gap-2">
+            <span class="px-2.5 py-0.5 bg-brand-600 text-white rounded-full font-black text-sm leading-tight">
+              {% if src.freq_lo is defined and src.freq_hi is defined and src.freq_lo != src.freq_hi %}
+                {{ src.freq_lo }}–{{ src.freq_hi }}
+              {% else %}
+                {{ src.freq_lo if src.freq_lo is defined else src.parsed_per_week }}
+              {% endif %}<span class="text-[10px] font-semibold">× /wk</span>
+            </span>
+            <span class="text-[10px] font-semibold text-blue-300 bg-blue-100 px-2 py-0.5 rounded-full">{{ src.year }}</span>
+          </div>
+
+          {# Study title #}
+          <p class="text-[11px] font-semibold text-gray-700 leading-snug line-clamp-2">{{ src.title }}</p>
+
+          {# Authors + recommended frequency #}
+          <div class="flex flex-col gap-0.5">
+            <p class="text-[10px] text-gray-400 truncate">{{ src.authors }}</p>
+            <p class="text-[10px] text-blue-500 italic">{{ src.recommended_freq }}</p>
+          </div>
+
+        </div>
+        {% endfor %}
+      </div>
+
+      <p class="text-[10px] text-gray-400 leading-relaxed">
+        Frequency is derived from the consensus of these studies and adjusted for your current stage, irritability level, and recent session data.
+      </p>
+    </div>
+  </div>
+  {% endif %}
+
+  {# Pass session data to JS #}
+  <script>
+    var SCHED_SESSION_DAYS = {{ session_idx | tojson }};
+    var SCHED_PLAN = [
+      {% for item in session_plan %}
+      { name: {{ item.exercise.exercise_name | tojson }}, sets: {{ (item.dosage.sets if item.dosage.sets else 3) | tojson }}, reps: {{ (item.dosage.reps_or_hold_time if item.dosage.reps_or_hold_time else '—') | tojson }} }{% if not loop.last %},{% endif %}
+      {% endfor %}
+    ];
+    var SCHED_IS_REST_WEEK = {{ 'true' if weekly_schedule.is_rest_week else 'false' }};
+    var _weekOffset = 0;
+    var _calYear, _calMonth;
+    var _monthlyRendered = false;
+  </script>
+
+  {# ── Full rest week (STOP decision) ── #}
+  {% if weekly_schedule.is_rest_week %}
+  <div class="px-5 py-8 text-center">
+    <p class="text-red-700 font-bold text-sm mb-1">Complete Rest Week</p>
+    <p class="text-xs text-red-500">Engine decision is STOP. Do not load the tendon until you have been reassessed.</p>
+  </div>
+  {% endif %}
+
+  {# ── Weekly panel ── #}
+  <div id="prog-weekly" {% if weekly_schedule.is_rest_week %}class="hidden"{% endif %}>
+    <div class="px-5 pt-4 pb-2">
+      <!-- Week navigation -->
+      <div class="flex items-center justify-between mb-3">
+        <button type="button" onclick="shiftWeek(-1)"
+                class="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-brand-300 hover:text-brand-700 transition-colors font-medium">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+          Prev
+        </button>
+        <span id="week-range-label" class="text-sm font-semibold text-gray-700"></span>
+        <button type="button" onclick="shiftWeek(1)"
+                class="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-brand-300 hover:text-brand-700 transition-colors font-medium">
+          Next
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+      <!-- Day grid — filled by JS -->
+      <div class="overflow-x-auto pb-1">
+        <div id="weekly-grid" class="grid grid-cols-7 gap-2 p-1" style="min-width:580px;"></div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Monthly panel ── #}
+  <div id="prog-monthly" class="hidden">
+    <div class="px-5 pt-4 pb-2">
+      <!-- Month navigation -->
+      <div class="flex items-center justify-between mb-3">
+        <button type="button" onclick="shiftMonth(-1)"
+                class="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-brand-300 hover:text-brand-700 transition-colors font-medium">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+          Prev
+        </button>
+        <span id="month-label" class="text-sm font-semibold text-gray-700"></span>
+        <button type="button" onclick="shiftMonth(1)"
+                class="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-brand-300 hover:text-brand-700 transition-colors font-medium">
+          Next
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+      <!-- Day-of-week headers -->
+      <div class="grid grid-cols-7 gap-1.5 mb-1.5">
+        {% for abbr in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] %}
+        <div class="text-center text-[10px] font-bold uppercase tracking-widest text-gray-400 py-1">{{ abbr }}</div>
+        {% endfor %}
+      </div>
+      <!-- Calendar cells — filled by JS -->
+      <div id="monthly-grid" class="grid grid-cols-7 gap-1.5"></div>
+      <!-- Month totals -->
+      <div class="pt-3 pb-1 flex items-center gap-3">
+        <span class="text-xs text-gray-500" id="month-totals"></span>
+      </div>
+    </div>
+  </div>
+
+  {# Footer note #}
+  <div class="px-5 pb-4 pt-0 border-t border-gray-50">
+    <p class="text-[10px] text-gray-400 leading-relaxed pt-3">
+      Recommended schedule based on your current stage and irritability.
+      If next-day pain exceeds 3/10, treat that day as rest regardless of program.
+    </p>
+  </div>
+
+</div>
+{% endif %}
+
+<!-- Recent Session Logs -->
+{% if recent_logs %}
+<div class="bg-white rounded-xl shadow border border-gray-100 mb-6 overflow-hidden">
+
+  {# Card header #}
+  <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+    <div>
+      <h2 class="font-bold text-gray-900 text-sm">Recent Session Logs</h2>
+      <p class="text-[11px] text-gray-400 mt-0.5">Last {{ [recent_logs|length, 6]|min }} sessions</p>
+    </div>
+    <a href="/daily-log"
+       class="px-3 py-1.5 bg-brand-600 text-white text-xs font-semibold rounded-lg hover:bg-brand-700 transition-colors shadow-sm">
+      + Log Session
+    </a>
+  </div>
+
+  {# Grid table — 1 stripe col + 9 data cols #}
+  {# Columns: stripe | date | during | after | next day | difficulty | confidence | sets done | sets % | reps #}
+  <div class="overflow-x-auto">
+  {% set gcols = "grid-template-columns: 4px 1fr repeat(3,1fr) repeat(2,1fr) repeat(3,1fr)" %}
+
+  {# ── Section label row ── #}
+  <div class="grid border-b border-gray-200 bg-gray-50" style="{{ gcols }}; min-width:640px;">
+    <div></div>{# stripe #}
+    <div class="px-4 py-1.5"></div>{# date spacer #}
+    {# Pain — 3 cols #}
+    <div class="col-span-3 text-center py-1.5 bg-red-50 border-x border-red-100">
+      <p class="text-[9px] font-bold text-red-400 uppercase tracking-widest">Pain</p>
+    </div>
+    {# Session Feel — 2 cols #}
+    <div class="col-span-2 text-center py-1.5 bg-sky-50 border-r border-sky-100">
+      <p class="text-[9px] font-bold text-sky-400 uppercase tracking-widest">Session Feel</p>
+    </div>
+    {# Exercise — 3 cols #}
+    <div class="col-span-3 text-center py-1.5 bg-brand-50 border-r border-brand-100">
+      <p class="text-[9px] font-bold text-brand-500 uppercase tracking-widest">Exercise</p>
+    </div>
+  </div>
+
+  {# ── Column label row ── #}
+  <div class="grid border-b border-gray-100 bg-gray-50" style="{{ gcols }}; min-width:640px;">
+    <div></div>{# stripe #}
+    <div class="px-4 py-1.5">
+      <p class="text-[9px] font-semibold text-gray-400 uppercase tracking-wide">Date</p>
+    </div>
+    {% for col in ['During','After','Next Day'] %}
+    <div class="px-3 py-1.5 {% if loop.first %}border-l border-red-100{% endif %}{% if loop.last %}border-r border-red-100{% endif %}">
+      <p class="text-[9px] font-semibold text-gray-400 uppercase tracking-wide">{{ col }}</p>
     </div>
     {% endfor %}
+    {% for col in ['Difficulty','Confidence'] %}
+    <div class="px-3 py-1.5 {% if loop.last %}border-r border-sky-100{% endif %}">
+      <p class="text-[9px] font-semibold text-gray-400 uppercase tracking-wide">{{ col }}</p>
+    </div>
+    {% endfor %}
+    {% for col in ['Sets Done','Sets %','Reps / Dur'] %}
+    <div class="px-3 py-1.5 {% if loop.last %}border-r border-brand-100{% endif %}">
+      <p class="text-[9px] font-semibold text-gray-400 uppercase tracking-wide">{{ col }}</p>
+    </div>
+    {% endfor %}
+  </div>
+
+  {# ── Data rows ── #}
+  <div class="divide-y divide-gray-50">
+    {% for log in recent_logs[:6] %}
+
+    {% set pd   = log.pain_during %}
+    {% set pa   = log.pain_after %}
+    {% set pnd  = log.next_day_pain %}
+    {% set diff = log.difficulty %}
+    {% set conf = log.confidence %}
+    {% set worst = [pd, pa, pnd] | max %}
+    {% set stripe = 'bg-red-400' if worst >= 6 else ('bg-yellow-400' if worst >= 4 else 'bg-green-400') %}
+
+    {# Aggregate exercise data #}
+    {% set ns = namespace(done=0, prescribed=0, comp_sum=0, comp_n=0, reps_set=[], has_done=false) %}
+    {% if log.exercises_parsed %}
+      {% for ex in log.exercises_parsed %}
+        {% if ex.sets_done is not none %}
+          {% set ns.done = ns.done + ex.sets_done %}{% set ns.has_done = true %}
+        {% endif %}
+        {% if ex.prescribed_sets %}
+          {% set ns.prescribed = ns.prescribed + (ex.prescribed_sets | int) %}
+        {% endif %}
+        {% if ex.sets_compliance is not none %}
+          {% set ns.comp_sum = ns.comp_sum + ex.sets_compliance %}
+          {% set ns.comp_n   = ns.comp_n + 1 %}
+        {% endif %}
+        {% set rv = ex.reps_done if ex.reps_done else (ex.prescribed_reps if ex.prescribed_reps else '') %}
+        {% if rv and rv not in ns.reps_set %}{% set ns.reps_set = ns.reps_set + [rv] %}{% endif %}
+      {% endfor %}
+    {% endif %}
+    {% set overall_comp  = (ns.comp_sum / ns.comp_n) | round(0) | int if ns.comp_n > 0 else none %}
+    {% set reps_display  = ns.reps_set | join(', ') if ns.reps_set else '—' %}
+
+    <div class="grid items-center hover:bg-gray-50/60 transition-colors" style="{{ gcols }}; min-width:640px;">
+
+      {# Stripe #}
+      <div class="self-stretch {{ stripe }}"></div>
+
+      {# Date + badge #}
+      <div class="px-4 py-2.5">
+        <p class="text-xs font-bold text-gray-700 whitespace-nowrap">{{ log.created_at[5:7] }}/{{ log.created_at[8:10] }}/{{ log.created_at[:4] }}</p>
+        <span class="mt-0.5 inline-block text-[9px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap
+          {% if worst >= 6 %}bg-red-100 text-red-700{% elif worst >= 4 %}bg-yellow-100 text-yellow-700{% else %}bg-green-100 text-green-700{% endif %}">
+          {% if worst >= 6 %}High{% elif worst >= 4 %}Moderate{% else %}Low{% endif %}
+        </span>
+      </div>
+
+      {# Pain group #}
+      {% for val in [pd, pa, pnd] %}
+      <div class="px-3 py-2.5 {% if loop.first %}border-l border-red-100 bg-red-50/20{% else %}bg-red-50/20{% endif %}{% if loop.last %} border-r border-red-100{% endif %}">
+        <p class="text-sm font-bold {% if val >= 6 %}text-red-600{% elif val >= 4 %}text-yellow-600{% else %}text-green-600{% endif %}">
+          {{ val }}<span class="text-[9px] font-normal text-gray-400">/10</span>
+        </p>
+      </div>
+      {% endfor %}
+
+      {# Session Feel group #}
+      {% for val in [diff, conf] %}
+      <div class="px-3 py-2.5 bg-sky-50/20{% if loop.last %} border-r border-sky-100{% endif %}">
+        <p class="text-sm font-bold text-gray-700">
+          {{ val }}<span class="text-[9px] font-normal text-gray-400">/10</span>
+        </p>
+      </div>
+      {% endfor %}
+
+      {# Exercise group — Sets Done #}
+      <div class="px-3 py-2.5 bg-brand-50/20">
+        {% if ns.has_done %}
+          <p class="text-sm font-bold text-gray-700">{{ ns.done }}<span class="text-[9px] font-normal text-gray-400">/{{ ns.prescribed }}</span></p>
+        {% else %}
+          <p class="text-sm text-gray-300">—</p>
+        {% endif %}
+      </div>
+
+      {# Exercise group — Sets % #}
+      <div class="px-3 py-2.5 bg-brand-50/20">
+        {% if overall_comp is not none %}
+          <p class="text-sm font-bold {% if overall_comp >= 90 %}text-green-600{% elif overall_comp >= 70 %}text-yellow-600{% else %}text-red-500{% endif %}">{{ overall_comp }}%</p>
+        {% else %}
+          <p class="text-sm text-gray-300">—</p>
+        {% endif %}
+      </div>
+
+      {# Exercise group — Reps / Duration #}
+      <div class="px-3 py-2.5 bg-brand-50/20 border-r border-brand-100">
+        <p class="text-sm text-gray-700">{{ reps_display }}</p>
+      </div>
+
+    </div>
+    {% endfor %}
+  </div>
+  </div>{# end overflow-x-auto #}
+
+</div>
+{% endif %}
+
+<!-- Progression History tile -->
+{% if progression_history %}
+{% set lp = progression_history[0] %}
+{% set lp_dc = {'GO': 'green', 'STAY': 'blue', 'CAUTION': 'yellow', 'STOP': 'red'}.get(lp.decision, 'gray') %}
+<div class="bg-white rounded-xl shadow border border-gray-100 mb-4 overflow-hidden">
+  <button type="button" onclick="toggleTile('tile-prog')"
+          class="w-full px-5 py-4 flex items-center justify-between gap-3 hover:bg-gray-50 transition-colors text-left focus:outline-none">
+    <div class="min-w-0">
+      <h2 class="font-bold text-gray-900 text-sm">Progression History</h2>
+      <p class="text-xs text-gray-400 mt-0.5 flex items-center gap-2">
+        <span class="px-1.5 py-0.5 bg-{{ lp_dc }}-100 text-{{ lp_dc }}-700 rounded font-bold text-[11px]">{{ lp.decision }}</span>
+        <span>Stage {{ lp.from_stage }} → {{ lp.to_stage }}</span>
+        <span class="text-gray-300">·</span>
+        <span>{{ lp.created_at[:10] }}</span>
+        <span class="text-gray-300">·</span>
+        <span>{{ progression_history | length }} entr{{ 'ies' if progression_history | length != 1 else 'y' }}</span>
+      </p>
+    </div>
+    <svg id="tile-prog-chev" class="w-4 h-4 text-gray-300 shrink-0 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+    </svg>
+  </button>
+  <div id="tile-prog" class="hidden border-t border-gray-100 px-5 py-4">
+    <div class="space-y-2">
+      {% for prog in progression_history %}
+      {% set dc = {'GO': 'green', 'STAY': 'blue', 'CAUTION': 'yellow', 'STOP': 'red'}.get(prog.decision, 'gray') %}
+      <div class="flex items-center gap-3 text-sm">
+        <span class="px-2 py-0.5 bg-{{ dc }}-100 text-{{ dc }}-700 rounded font-bold text-xs">{{ prog.decision }}</span>
+        <span class="text-gray-600">Stage {{ prog.from_stage }} → Stage {{ prog.to_stage }}</span>
+        <span class="text-xs text-gray-400">{{ prog.created_at[:10] }}</span>
+      </div>
+      {% endfor %}
+    </div>
   </div>
 </div>
 {% endif %}
@@ -709,6 +1118,16 @@
 
 {% block scripts %}
 <script>
+// Generic tile toggle — used by all collapsible dashboard sections
+function toggleTile(id) {
+  const body    = document.getElementById(id);
+  const chevron = document.getElementById(id + '-chev');
+  if (!body) return;
+  const open = !body.classList.contains('hidden');
+  body.classList.toggle('hidden', open);
+  if (chevron) chevron.style.transform = open ? '' : 'rotate(180deg)';
+}
+
 function toggleEvidenceBase() {
   const panel   = document.getElementById('evidence-base');
   const chevron = document.getElementById('evidence-chevron');
@@ -725,101 +1144,236 @@ function toggleAdaptFactors() {
   chevron.style.transform = open ? '' : 'rotate(180deg)';
 }
 
+// ── Calendar helpers ──────────────────────────────────────────────────────────
+function _sameDay(a, b) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+function _getMondayOf(d) {
+  var day = d.getDay();
+  var delta = (day === 0 ? -6 : 1 - day);
+  var m = new Date(d);
+  m.setDate(d.getDate() + delta);
+  m.setHours(0,0,0,0);
+  return m;
+}
+
+function _fmtDate(d, opts) {
+  return d.toLocaleDateString('en-US', opts);
+}
+
+function renderWeekly() {
+  if (SCHED_IS_REST_WEEK) return;
+  var today = new Date();
+  today.setHours(0,0,0,0);
+  var monday = _getMondayOf(today);
+  monday.setDate(monday.getDate() + _weekOffset * 7);
+  var sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+
+  // Label
+  var lbl = document.getElementById('week-range-label');
+  if (lbl) {
+    var startStr = _fmtDate(monday, {month:'short', day:'numeric'});
+    var endStr   = monday.getMonth() === sunday.getMonth()
+      ? sunday.getDate()
+      : _fmtDate(sunday, {month:'short', day:'numeric'});
+    lbl.textContent = startStr + ' – ' + endStr + ', ' + sunday.getFullYear();
+  }
+
+  var grid = document.getElementById('weekly-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+
+  var dayAbbr = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+  for (var i = 0; i < 7; i++) {
+    var d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    var isSession = SCHED_SESSION_DAYS.indexOf(i) !== -1;
+    var isToday   = _sameDay(d, today);
+    var isPast    = d < today && !isToday;
+
+    var cell = document.createElement('div');
+    cell.className = 'flex flex-col rounded-xl border'
+      + (isSession ? ' border-brand-200 bg-brand-50' : ' border-gray-100 bg-gray-50')
+      + (isToday   ? ' ring-2 ring-brand-500 ring-offset-2 shadow-md' : '')
+      + (isPast && !isToday ? ' opacity-60' : '');
+
+    // Header: day name + date number
+    var hdr = document.createElement('div');
+    hdr.className = 'px-2 py-2 text-center border-b rounded-t-xl'
+      + (isSession ? ' border-brand-200 bg-brand-600' : ' border-gray-100 bg-gray-100');
+    hdr.innerHTML =
+      '<p class="text-[10px] font-bold uppercase tracking-widest ' + (isSession ? 'text-white' : 'text-gray-400') + '">' + dayAbbr[i] + '</p>'
+      + '<p class="text-xl font-black leading-none mt-0.5 ' + (isSession ? 'text-white' : isToday ? 'text-brand-600' : 'text-gray-500') + '">' + d.getDate() + '</p>';
+
+    // Body
+    var body = document.createElement('div');
+    body.className = 'px-2 py-2.5 flex-1';
+
+    if (isSession) {
+      var items = SCHED_PLAN.map(function(item) {
+        return '<li class="text-[10px] leading-tight text-gray-700">'
+          + '<span class="font-semibold block truncate">' + item.name + '</span>'
+          + '<span class="text-gray-400">' + item.sets + ' × ' + item.reps + '</span>'
+          + '</li>';
+      }).join('');
+      body.innerHTML = '<p class="text-[9px] font-bold text-brand-600 uppercase tracking-wide mb-2 text-center">Session</p>'
+        + '<ul class="space-y-1.5">' + items + '</ul>';
+    } else {
+      body.innerHTML = '<div class="h-full flex flex-col items-center justify-center py-3 gap-1">'
+        + '<svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z"/></svg>'
+        + '<p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Rest</p>'
+        + '</div>';
+    }
+
+    cell.appendChild(hdr);
+    cell.appendChild(body);
+    grid.appendChild(cell);
+  }
+}
+
+function renderMonthly() {
+  var today = new Date();
+  today.setHours(0,0,0,0);
+  if (_calYear === undefined) {
+    _calYear  = today.getFullYear();
+    _calMonth = today.getMonth();
+  }
+
+  var MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var lbl = document.getElementById('month-label');
+  if (lbl) lbl.textContent = MONTH_NAMES[_calMonth] + ' ' + _calYear;
+
+  var grid = document.getElementById('monthly-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+
+  var first     = new Date(_calYear, _calMonth, 1);
+  var dow0      = first.getDay();                          // 0=Sun
+  var startDow  = (dow0 === 0 ? 6 : dow0 - 1);            // Mon=0 … Sun=6
+  var daysInMon = new Date(_calYear, _calMonth + 1, 0).getDate();
+  var totalCells = Math.ceil((startDow + daysInMon) / 7) * 7;
+  var sessionCount = 0;
+
+  for (var cell = 0; cell < totalCells; cell++) {
+    var dayNum = cell - startDow + 1;
+    var div = document.createElement('div');
+
+    if (dayNum < 1 || dayNum > daysInMon) {
+      div.className = 'h-16 rounded-lg';
+      grid.appendChild(div);
+      continue;
+    }
+
+    var d = new Date(_calYear, _calMonth, dayNum);
+    var cdow    = d.getDay();
+    var dowIdx  = (cdow === 0 ? 6 : cdow - 1);
+    var isSess  = SCHED_SESSION_DAYS.indexOf(dowIdx) !== -1;
+    var isToday = _sameDay(d, today);
+    var isPast  = d < today && !isToday;
+
+    if (isSess) sessionCount++;
+
+    div.className = 'h-16 rounded-lg border flex flex-col overflow-hidden transition-shadow'
+      + (isSess  ? ' border-brand-200 bg-brand-50' : ' border-gray-100 bg-white')
+      + (isToday ? ' ring-2 ring-brand-500 ring-offset-1 shadow-sm' : '')
+      + (isPast && !isToday ? ' opacity-55' : '');
+
+    // Date number row
+    var topRow = document.createElement('div');
+    topRow.className = 'flex items-center justify-between px-1.5 pt-1';
+    var numCls = 'text-[11px] font-bold ' + (isToday ? 'text-brand-600' : isPast ? 'text-gray-400' : 'text-gray-600');
+    topRow.innerHTML = '<span class="' + numCls + '">' + dayNum + '</span>'
+      + (isSess ? '<span class="w-1.5 h-1.5 rounded-full bg-brand-500 shrink-0"></span>' : '');
+
+    div.appendChild(topRow);
+
+    // Exercise list (session days only)
+    if (isSess) {
+      var listEl = document.createElement('div');
+      listEl.className = 'px-1.5 pb-1 flex-1 overflow-hidden';
+      var listHTML = '<ul class="space-y-0 mt-0.5">';
+      var visible = Math.min(SCHED_PLAN.length, 2);
+      for (var j = 0; j < visible; j++) {
+        listHTML += '<li class="text-[8px] text-gray-500 truncate font-medium leading-tight">' + SCHED_PLAN[j].name + '</li>';
+      }
+      if (SCHED_PLAN.length > 2) {
+        listHTML += '<li class="text-[8px] text-brand-400 font-semibold">+' + (SCHED_PLAN.length - 2) + ' more</li>';
+      }
+      listHTML += '</ul>';
+      listEl.innerHTML = listHTML;
+      div.appendChild(listEl);
+    }
+
+    grid.appendChild(div);
+  }
+
+  // Month totals
+  var totEl = document.getElementById('month-totals');
+  if (totEl) {
+    var restDays = daysInMon - sessionCount;
+    totEl.innerHTML = '<strong class="text-gray-800">' + sessionCount + '</strong> sessions &nbsp;·&nbsp; <strong class="text-gray-800">' + restDays + '</strong> rest days';
+  }
+}
+
+function shiftWeek(delta) {
+  _weekOffset += delta;
+  renderWeekly();
+}
+
+function shiftMonth(delta) {
+  if (_calYear === undefined) { var t = new Date(); _calYear = t.getFullYear(); _calMonth = t.getMonth(); }
+  _calMonth += delta;
+  if (_calMonth > 11) { _calMonth = 0; _calYear++; }
+  if (_calMonth < 0)  { _calMonth = 11; _calYear--; }
+  renderMonthly();
+}
+
 function toggleMonthlyProgram() {
-  const weekly  = document.getElementById('prog-weekly');
-  const monthly = document.getElementById('prog-monthly');
-  const label   = document.getElementById('prog-toggle-label');
-  const title   = document.getElementById('prog-title');
-  const icon    = document.getElementById('prog-toggle-icon');
-  const showing = !monthly.classList.contains('hidden');
+  var weekly  = document.getElementById('prog-weekly');
+  var monthly = document.getElementById('prog-monthly');
+  var label   = document.getElementById('prog-toggle-label');
+  var title   = document.getElementById('prog-title');
+  var icon    = document.getElementById('prog-toggle-icon');
+  var showing = !monthly.classList.contains('hidden');
   if (showing) {
     monthly.classList.add('hidden');
-    weekly.classList.remove('hidden');
+    if (!SCHED_IS_REST_WEEK) weekly.classList.remove('hidden');
     label.textContent = 'Monthly view';
     title.textContent = 'Weekly Program';
     icon.style.transform = '';
   } else {
-    weekly.classList.add('hidden');
+    if (!SCHED_IS_REST_WEEK) weekly.classList.add('hidden');
     monthly.classList.remove('hidden');
     label.textContent = 'Weekly view';
     title.textContent = 'Monthly Program';
     icon.style.transform = 'rotate(90deg)';
+    if (!_monthlyRendered) { renderMonthly(); _monthlyRendered = true; }
   }
 }
 
-// ── Range-slider controller ───────────────────────────────────────────────────
-// Injects a window-size slider + scroll slider below any Chart.js instance.
-// fullDatasets: array of arrays, one per dataset, in the same order as chart.data.datasets
-function makeRangeCtrl(chartInst, ctrlId, fullLabels, fullDatasets) {
-  const total = fullLabels.length;
-  const ctrl  = document.getElementById(ctrlId);
-  if (!ctrl || total < 2) return;
-
-  const MIN_WIN = Math.max(2, Math.min(4, total));
-
-  ctrl.innerHTML = `
-    <div class="mt-3 pb-1 select-none space-y-2">
-      <div class="flex items-center justify-between text-[11px] text-gray-400 px-0.5">
-        <span id="${ctrlId}-lbl" class="font-medium text-gray-500"></span>
-        <span class="text-gray-300">window / scroll</span>
-      </div>
-      <div class="flex items-center gap-2">
-        <span class="text-[10px] text-gray-400 w-12 shrink-0 text-right">Window</span>
-        <input type="range" id="${ctrlId}-win"
-               min="${MIN_WIN}" max="${total}" value="${total}" step="1"
-               class="flex-1 h-1.5 rounded accent-brand-600 cursor-pointer">
-        <span id="${ctrlId}-win-lbl" class="text-[10px] text-gray-500 w-8 text-left"></span>
-      </div>
-      <div class="flex items-center gap-2">
-        <span class="text-[10px] text-gray-400 w-12 shrink-0 text-right">Scroll</span>
-        <input type="range" id="${ctrlId}-start"
-               min="0" max="0" value="0" step="1"
-               class="flex-1 h-1.5 rounded accent-brand-500 cursor-pointer">
-        <span id="${ctrlId}-start-lbl" class="text-[10px] text-gray-500 w-8 text-left"></span>
-      </div>
-    </div>`;
-
-  const winSlider   = document.getElementById(`${ctrlId}-win`);
-  const startSlider = document.getElementById(`${ctrlId}-start`);
-  const lbl         = document.getElementById(`${ctrlId}-lbl`);
-  const winLbl      = document.getElementById(`${ctrlId}-win-lbl`);
-  const startLbl    = document.getElementById(`${ctrlId}-start-lbl`);
-
-  function apply() {
-    const win      = parseInt(winSlider.value);
-    const maxStart = Math.max(0, total - win);
-    startSlider.max      = maxStart;
-    startSlider.disabled = maxStart === 0;
-    if (parseInt(startSlider.value) > maxStart) startSlider.value = maxStart;
-    const start = parseInt(startSlider.value);
-    const end   = start + win;
-
-    lbl.textContent      = win >= total ? `All ${total} entries` : `Entries ${start + 1}–${end} of ${total}`;
-    winLbl.textContent   = win + 'x';
-    startLbl.textContent = start === 0 ? 'oldest' : start === maxStart ? 'latest' : `+${start}`;
-
-    chartInst.data.labels = fullLabels.slice(start, end);
-    chartInst.data.datasets.forEach((ds, i) => {
-      if (fullDatasets[i]) ds.data = fullDatasets[i].slice(start, end);
-    });
-    chartInst.update('none');
-  }
-
-  winSlider.addEventListener('input', apply);
-  startSlider.addEventListener('input', apply);
-
-  // Default: show latest entries (scroll to end)
-  startSlider.value = Math.max(0, total - parseInt(winSlider.value));
-  apply();
-}
+// Initialise calendars on page load
+document.addEventListener('DOMContentLoaded', function() {
+  var t = new Date();
+  _calYear  = t.getFullYear();
+  _calMonth = t.getMonth();
+  renderWeekly();
+});
 
 // ── Pain Trend ────────────────────────────────────────────────────────────────
 const chartData = {{ pain_chart_data | safe }};
+let _painChartInst = null;
+
+function resetPainZoom() {
+  if (_painChartInst) _painChartInst.resetZoom();
+}
 
 if (chartData.labels.length > 0) {
   const painCtx = document.getElementById('painChart');
   if (painCtx) {
-    const painChart = new Chart(painCtx, {
+    _painChartInst = new Chart(painCtx, {
       type: 'line',
       data: {
         labels: chartData.labels,
@@ -831,21 +1385,56 @@ if (chartData.labels.length > 0) {
       },
       options: {
         responsive: true,
-        scales: { y: { min: 0, max: 10, ticks: { stepSize: 2 }, title: { display: true, text: 'Pain (0–10)' } } },
-        plugins: { legend: { position: 'bottom' }, tooltip: { mode: 'index', intersect: false } }
-      }
+        scales: {
+          x: {
+            ticks: {
+              maxRotation: 0,
+              autoSkip: true,
+              maxTicksLimit: 8,
+            },
+          },
+          y: {
+            min: 0,
+            max: 10,
+            ticks: { stepSize: 2 },
+            title: { display: true, text: 'Pain (0–10)' },
+          },
+        },
+        plugins: {
+          legend: { position: 'bottom' },
+          tooltip: { mode: 'index', intersect: false },
+          zoom: {
+            zoom: {
+              wheel: { enabled: true, speed: 0.1 },
+              pinch: { enabled: true },
+              mode: 'xy',
+            },
+            pan: {
+              enabled: true,
+              mode: 'xy',
+            },
+            limits: {
+              y: { min: 0, max: 10 },
+            },
+          },
+        },
+      },
     });
-    makeRangeCtrl(painChart, 'painChart-ctrl', chartData.labels,
-      [chartData.during, chartData.after, chartData.next_day]);
   }
 }
 
 {% if visa_history %}
-const visaLabels = {{ visa_history | map(attribute='created_at') | list | map('truncate', 10, true, '') | list | tojson | safe }};
+const visaLabels = {{ visa_labels | tojson | safe }};
 const visaScores = {{ visa_history | map(attribute='total_score') | list | tojson }};
+let _visaChartInst = null;
+
+function resetVisaZoom() {
+  if (_visaChartInst) _visaChartInst.resetZoom();
+}
+
 const visaCtx = document.getElementById('visaChart');
 if (visaCtx) {
-  const visaChart = new Chart(visaCtx, {
+  _visaChartInst = new Chart(visaCtx, {
     type: 'line',
     data: {
       labels: visaLabels,
@@ -853,14 +1442,30 @@ if (visaCtx) {
     },
     options: {
       responsive: true,
-      scales: { y: { min: 0, max: 80, ticks: { stepSize: 10 }, title: { display: true, text: 'Score (0–80)' } } },
+      scales: {
+        x: { ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 8 } },
+        y: { min: 0, max: 80, ticks: { stepSize: 10 }, title: { display: true, text: 'Score (0–80)' } },
+      },
       plugins: {
         legend: { position: 'bottom' },
-        annotation: { annotations: { goodLine: { type: 'line', yMin: 64, yMax: 64, borderColor: 'green', borderWidth: 1, borderDash: [4, 4], label: { content: 'Good function', display: true } } } }
-      }
-    }
+        annotation: { annotations: { goodLine: { type: 'line', yMin: 64, yMax: 64, borderColor: 'green', borderWidth: 1, borderDash: [4, 4], label: { content: 'Good function', display: true } } } },
+        zoom: {
+          zoom: {
+            wheel: { enabled: true, speed: 0.1 },
+            pinch: { enabled: true },
+            mode: 'xy',
+          },
+          pan: {
+            enabled: true,
+            mode: 'xy',
+          },
+          limits: {
+            y: { min: 0, max: 80 },
+          },
+        },
+      },
+    },
   });
-  makeRangeCtrl(visaChart, 'visaChart-ctrl', visaLabels, [visaScores]);
 }
 {% endif %}
 
@@ -952,7 +1557,8 @@ setSnap('snapHopEnd', [
 ]);
 setSnap('snapLsiCr',   [{ label: 'LSI', arr: fc.calf_raise.lsi,   unit: '%', higherIsBetter: true }]);
 setSnap('snapLsiWblt', [{ label: 'LSI', arr: fc.wblt.lsi,         unit: '%', higherIsBetter: true }]);
-setSnap('snapLsiHop',  [{ label: 'LSI', arr: fc.hop_distance.lsi, unit: '%', higherIsBetter: true }]);
+setSnap('snapLsiHopDist', [{ label: 'LSI', arr: fc.hop_distance.lsi,  unit: '%', higherIsBetter: true }]);
+setSnap('snapLsiHopEnd',  [{ label: 'LSI', arr: fc.hop_endurance.lsi, unit: '%', higherIsBetter: true }]);
 
 function fcLineOpts(yLabel, yMax) {
   return {
@@ -1004,10 +1610,7 @@ function withLsiAxis(opts) {
   if (hasBoth) datasets.push({ ...lsiDataset(fc.calf_raise.lsi) });
   const opts = fcLineOpts('Repetitions', 40);
   if (hasBoth) withLsiAxis(opts);
-  const chart = new Chart(ctx, { type: 'line', data: { labels: fc.labels, datasets }, options: opts });
-  const fullDs = [fc.calf_raise.affected, fc.calf_raise.unaffected];
-  if (hasBoth) fullDs.push(fc.calf_raise.lsi);
-  makeRangeCtrl(chart, 'crChart-ctrl', fc.labels, fullDs);
+  new Chart(ctx, { type: 'line', data: { labels: fc.labels, datasets }, options: opts });
 })();
 
 // WBLT
@@ -1023,10 +1626,7 @@ function withLsiAxis(opts) {
   const opts = fcLineOpts('Distance (cm)', 20);
   if (hasBoth) withLsiAxis(opts);
   opts.plugins.annotation = { annotations: { threshold: { type: 'line', yMin: 10, yMax: 10, borderColor: '#f59e0b', borderWidth: 1.5, borderDash: [4,3], label: { content: '10 cm threshold', display: true, position: 'start', font: { size: 10 } } } } };
-  const chart = new Chart(ctx, { type: 'line', data: { labels: fc.labels, datasets }, options: opts });
-  const fullDs = [fc.wblt.affected, fc.wblt.unaffected];
-  if (hasBoth) fullDs.push(fc.wblt.lsi);
-  makeRangeCtrl(chart, 'wbltChart-ctrl', fc.labels, fullDs);
+  new Chart(ctx, { type: 'line', data: { labels: fc.labels, datasets }, options: opts });
 })();
 
 // Hop Distance
@@ -1045,10 +1645,7 @@ function withLsiAxis(opts) {
   opts.scales.y.ticks = { stepSize: 100 };
   if (hasBoth) withLsiAxis(opts);
   if (hasBoth) opts.plugins.annotation = { annotations: { lsi90: { type: 'line', yScaleID: 'lsi', yMin: 90, yMax: 90, borderColor: '#16a34a', borderWidth: 1.5, borderDash: [4,3], label: { content: 'LSI 90%', display: true, position: 'end', font: { size: 10 } } } } };
-  const chart = new Chart(ctx, { type: 'line', data: { labels: fc.labels, datasets }, options: opts });
-  const fullDs = [fc.hop_distance.double, fc.hop_distance.single, fc.hop_distance.unaffected];
-  if (hasBoth) fullDs.push(fc.hop_distance.lsi);
-  makeRangeCtrl(chart, 'hopDistChart-ctrl', fc.labels, fullDs);
+  new Chart(ctx, { type: 'line', data: { labels: fc.labels, datasets }, options: opts });
 })();
 
 // Hop Endurance
@@ -1067,10 +1664,7 @@ function withLsiAxis(opts) {
   opts.scales.y.ticks = { stepSize: 100 };
   if (hasBoth) withLsiAxis(opts);
   if (hasBoth) opts.plugins.annotation = { annotations: { lsi90: { type: 'line', yScaleID: 'lsi', yMin: 90, yMax: 90, borderColor: '#16a34a', borderWidth: 1.5, borderDash: [4,3], label: { content: 'LSI 90%', display: true, position: 'end', font: { size: 10 } } } } };
-  const chart = new Chart(ctx, { type: 'line', data: { labels: fc.labels, datasets }, options: opts });
-  const fullDs = [fc.hop_endurance.double, fc.hop_endurance.single, fc.hop_endurance.unaffected];
-  if (hasBoth) fullDs.push(fc.hop_endurance.lsi);
-  makeRangeCtrl(chart, 'hopEndChart-ctrl', fc.labels, fullDs);
+  new Chart(ctx, { type: 'line', data: { labels: fc.labels, datasets }, options: opts });
 })();
 
 // ── LSI Charts ───────────────────────────────────────────────────────────────
@@ -1128,7 +1722,7 @@ function lsiDatasetStyle(data, colour) {
   };
 }
 
-function renderLsiChart(canvasId, ctrlId, emptyId, data, colour) {
+function renderLsiChart(canvasId, emptyId, data, colour) {
   const ctx = document.getElementById(canvasId);
   const emptyMsg = document.getElementById(emptyId);
   if (!ctx) return;
@@ -1138,16 +1732,16 @@ function renderLsiChart(canvasId, ctrlId, emptyId, data, colour) {
     if (emptyMsg) emptyMsg.classList.remove('hidden');
     return;
   }
-  const chart = new Chart(ctx, {
+  new Chart(ctx, {
     type: 'line',
     data: { labels: fc.labels, datasets: [lsiDatasetStyle(data, colour)] },
     options: lsiChartOpts(),
   });
-  makeRangeCtrl(chart, ctrlId, fc.labels, [data]);
 }
 
-renderLsiChart('lsiCrChart',   'lsiCrChart-ctrl',   'lsiCrEmpty',   fc.calf_raise.lsi,   'rgb(220, 38, 38)');
-renderLsiChart('lsiWbltChart', 'lsiWbltChart-ctrl', 'lsiWbltEmpty', fc.wblt.lsi,         'rgb(124, 58, 237)');
-renderLsiChart('lsiHopChart',  'lsiHopChart-ctrl',  'lsiHopEmpty',  fc.hop_distance.lsi, 'rgb(2, 132, 199)');
+renderLsiChart('lsiCrChart',   'lsiCrEmpty',   fc.calf_raise.lsi,   'rgb(220, 38, 38)');
+renderLsiChart('lsiWbltChart', 'lsiWbltEmpty', fc.wblt.lsi,         'rgb(124, 58, 237)');
+renderLsiChart('lsiHopDistChart', 'lsiHopDistEmpty', fc.hop_distance.lsi,  'rgb(234, 88, 12)');
+renderLsiChart('lsiHopEndChart',  'lsiHopEndEmpty',  fc.hop_endurance.lsi, 'rgb(13, 148, 136)');
 </script>
 {% endblock %}

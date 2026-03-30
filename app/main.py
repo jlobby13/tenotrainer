@@ -740,6 +740,12 @@ async def dashboard(
         )
         log_rows = await cursor.fetchall()
         recent_logs = [row_to_dict(r) for r in log_rows]
+        for _log in recent_logs:
+            try:
+                _ex = json.loads(_log.get("exercise_log") or "{}")
+            except Exception:
+                _ex = {}
+            _log["exercises_parsed"] = _ex.get("exercises", [])
 
         # VISA-A history
         cursor = await db.execute(
@@ -748,6 +754,7 @@ async def dashboard(
         )
         visa_rows = await cursor.fetchall()
         visa_history = [row_to_dict(r) for r in visa_rows]
+        visa_labels = [_short_date(r["created_at"]) for r in visa_history]
 
         # Onboarding data — most recent for current state
         cursor = await db.execute(
@@ -757,9 +764,15 @@ async def dashboard(
         onboarding_row = await cursor.fetchone()
         onboarding = None
         if onboarding_row:
-            onboarding = parse_json_fields(row_to_dict(onboarding_row), ["risk_factors"])
+            onboarding = parse_json_fields(row_to_dict(onboarding_row), ["risk_factors", "functional_tests"])
             raw_goals = onboarding.get("goals", "{}")
             onboarding["goals_parsed"] = json.loads(raw_goals or "{}")
+            # Ensure functional_tests is a dict (may still be a string if parse failed)
+            if isinstance(onboarding.get("functional_tests"), str):
+                try:
+                    onboarding["functional_tests"] = json.loads(onboarding["functional_tests"])
+                except Exception:
+                    onboarding["functional_tests"] = {}
 
         # All onboarding assessments — for longitudinal functional capacity charts
         cursor = await db.execute(
@@ -789,8 +802,7 @@ async def dashboard(
         for row in all_onboarding_rows:
             rd = row_to_dict(row)
             ft = _safe_ft(rd)
-            date_str = rd["created_at"][:10]
-            fc_labels.append(date_str)
+            fc_labels.append(_short_date(rd["created_at"]))
 
             ca = rd.get("calf_raise_reps")
             cu = ft.get("calf_raise_reps_unaffected")
@@ -838,8 +850,9 @@ async def dashboard(
 
         # Pain trend data for chart (last 10 logs, reversed for chronological)
         chart_logs = list(reversed(recent_logs))
+
         pain_chart_data = {
-            "labels": [f"Session {i+1}" for i in range(len(chart_logs))],
+            "labels": [_short_date(l["created_at"]) for l in chart_logs],
             "during": [l["pain_during"] for l in chart_logs],
             "after": [l["pain_after"] for l in chart_logs],
             "next_day": [l["next_day_pain"] for l in chart_logs],
@@ -885,6 +898,7 @@ async def dashboard(
             "current_plan": current_plan,
             "recent_logs": recent_logs,
             "visa_history": visa_history,
+            "visa_labels": visa_labels,
             "onboarding": onboarding,
             "progression_history": progression_history,
             "pain_chart_data": json.dumps(pain_chart_data),
@@ -902,6 +916,16 @@ async def dashboard(
 # ---------------------------------------------------------------------------
 # Adaptive weekly schedule helper
 # ---------------------------------------------------------------------------
+
+def _short_date(dt_str: str) -> str:
+    """'2024-06-05 10:00:00' → 'Jun 5'"""
+    try:
+        from datetime import datetime as _dt
+        d = _dt.fromisoformat(dt_str[:10])
+        return d.strftime("%b ") + str(d.day)
+    except Exception:
+        return dt_str[:10]
+
 
 def _parse_freq_to_per_week(freq_str: str) -> tuple[int, int] | None:
     """
@@ -1007,6 +1031,8 @@ def _compute_adaptive_schedule(
                 mid = round((lo + hi) / 2)
                 # Cap daily+ protocols to session frequency for weekly planning
                 weekly_mid = min(mid, 7)
+                weekly_lo = min(lo, 7)
+                weekly_hi = min(hi, 7)
                 kb_freq_vals.append(weekly_mid)
                 evidence_sources.append({
                     "title": entry.get("title", ""),
@@ -1014,6 +1040,8 @@ def _compute_adaptive_schedule(
                     "year": entry.get("year", ""),
                     "recommended_freq": freq_str,
                     "parsed_per_week": weekly_mid,
+                    "freq_lo": weekly_lo,
+                    "freq_hi": weekly_hi,
                 })
 
     # Exercise library frequency cross-reference
