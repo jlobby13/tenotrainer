@@ -1349,3 +1349,174 @@ def compute_recovery_timeline(
         "confidence": confidence,
         "caveats": caveats,
     }
+
+
+def compute_phase_exit_checklist(
+    stage: int,
+    session_logs: list,
+    visa_history: list = None,
+) -> dict:
+    """
+    Build a phase-exit checklist for the user's current stage.
+
+    Reads phase_exit_criteria from knowledge_base.json, auto-evaluates
+    criteria where auto_checkable=True using session_logs and visa_history,
+    and returns a structured checklist dict for the dashboard.
+    """
+    import os as _os
+
+    # Load KB
+    _kb_path = _os.path.join(_os.path.dirname(__file__), "../data/knowledge_base.json")
+    try:
+        with open(_kb_path) as _f:
+            _kb = json.load(_f)
+    except Exception:
+        return {}
+
+    # Map stage to transition label
+    _transition_map = {
+        1: "stage_1_to_stage_2",
+        2: "stage_2_to_stage_3",
+        3: "stage_3_to_return_to_sport",
+    }
+    _target = _transition_map.get(stage)
+    if not _target:
+        return {}
+
+    # Gather all criteria for this transition (deduplicate by id)
+    _seen: set = set()
+    _all: list = []
+    for _entry in _kb:
+        for _block in _entry.get("phase_exit_criteria", []):
+            if _block.get("transition") == _target:
+                for _c in _block.get("criteria", []):
+                    if _c["id"] not in _seen:
+                        _seen.add(_c["id"])
+                        _merged = dict(_c)
+                        _merged["kb_source"] = _entry.get("id", "")
+                        _all.append(_merged)
+
+    # ── Helpers ───────────────────────────────────────────────────────────
+    def _recent(logs, key, n):
+        return [lg[key] for lg in logs if lg.get(key) is not None][-n:] if logs else []
+
+    def _cmp(val, op, thr):
+        return (val <= thr if op == "<=" else
+                val < thr  if op == "<"  else
+                val >= thr if op == ">=" else
+                val > thr  if op == ">"  else False)
+
+    # ── Evaluate ──────────────────────────────────────────────────────────
+    _logs = session_logs or []
+    _visa = visa_history or []
+    _results = []
+
+    for _c in _all:
+        _r = dict(_c)
+        _r["status"] = "manual"
+        _r["current_value"] = None
+
+        if not _c.get("auto_checkable"):
+            _results.append(_r)
+            continue
+
+        _metric = _c.get("metric", "")
+        _thr = _c.get("threshold")
+        _op = _c.get("operator", "<=")
+        _n = _c.get("sessions_required", 1)
+
+        if _metric == "pain_during":
+            _vals = _recent(_logs, "pain_during", _n)
+            if len(_vals) >= _n:
+                _r["status"] = "pass" if all(_cmp(v, _op, _thr) for v in _vals) else "fail"
+                _r["current_value"] = _vals[-1]
+            else:
+                _r["status"] = "insufficient_data"
+
+        elif _metric == "pain_next_day":
+            _vals = _recent(_logs, "next_day_pain", _n)
+            if len(_vals) >= _n:
+                _r["status"] = "pass" if all(_cmp(v, _op, _thr) for v in _vals) else "fail"
+                _r["current_value"] = _vals[-1]
+            else:
+                _r["status"] = "insufficient_data"
+
+        elif _metric == "visa_a_score":
+            if _visa:
+                _val = _visa[-1].get("score", 0)
+                _r["status"] = "pass" if _cmp(_val, _op, _thr) else "fail"
+                _r["current_value"] = _val
+            else:
+                _r["status"] = "insufficient_data"
+
+        elif _metric == "visa_a_4wk_improvement":
+            if len(_visa) >= 2:
+                _imp = _visa[-1].get("score", 0) - _visa[0].get("score", 0)
+                _r["status"] = "pass" if _cmp(_imp, _op, _thr) else "fail"
+                _r["current_value"] = _imp
+            else:
+                _r["status"] = "insufficient_data"
+
+        elif _metric in ("sessions_count_stage_2", "total_sessions_logged", "sessions_count_stage_1"):
+            _cnt = len(_logs)
+            _r["status"] = "pass" if _cmp(_cnt, _op, _thr) else "fail"
+            _r["current_value"] = _cnt
+
+        elif _metric == "exercise_sets_compliance":
+            _recent_logs = _logs[-_n:] if len(_logs) >= _n else _logs
+            _ok = 0
+            for _lg in _recent_logs:
+                _exs = _lg.get("exercises_parsed", [])
+                if _exs:
+                    _avg = sum(e.get("sets_compliance", 0) for e in _exs) / len(_exs)
+                    if _cmp(_avg, _op, _thr):
+                        _ok += 1
+            _r["status"] = "pass" if _ok >= _n else "fail"
+            _r["current_value"] = _ok
+
+        elif _metric == "pain_weekly_trend":
+            # Check if weekly average pain is stable or improving (not worsening)
+            if len(_logs) >= 6:
+                _week_a = [lg.get("pain_during", 5) for lg in _logs[-6:-3]]
+                _week_b = [lg.get("pain_during", 5) for lg in _logs[-3:]]
+                _avg_a = sum(_week_a) / len(_week_a) if _week_a else 5
+                _avg_b = sum(_week_b) / len(_week_b) if _week_b else 5
+                _r["status"] = "pass" if _avg_b <= _avg_a + 0.5 else "fail"
+                _r["current_value"] = round(_avg_b, 1)
+            else:
+                _r["status"] = "insufficient_data"
+
+        else:
+            _r["status"] = "insufficient_data"
+
+        _results.append(_r)
+
+    # ── Summary stats ─────────────────────────────────────────────────────
+    _pass = sum(1 for r in _results if r["status"] == "pass")
+    _fail = sum(1 for r in _results if r["status"] == "fail")
+    _manual = sum(1 for r in _results if r["status"] == "manual")
+    _no_data = sum(1 for r in _results if r["status"] == "insufficient_data")
+    _total = len(_results)
+    _auto_total = _pass + _fail + _no_data
+
+    _stage_labels = {
+        1: ("Stage 1 → Stage 2", "Strength Development"),
+        2: ("Stage 2 → Stage 3", "Reactive & Return to Running"),
+        3: ("Stage 3 → Return to Sport", "Full Sport Clearance"),
+    }
+    _from_label, _to_label = _stage_labels.get(stage, ("Current", "Next"))
+
+    return {
+        "transition": _target,
+        "from_label": _from_label,
+        "to_label": _to_label,
+        "criteria": _results,
+        "pass_count": _pass,
+        "fail_count": _fail,
+        "manual_count": _manual,
+        "no_data_count": _no_data,
+        "total_count": _total,
+        "auto_pass_rate": round((_pass / _auto_total * 100) if _auto_total > 0 else 0),
+        "ready_auto": _fail == 0 and _auto_total > 0,
+        "needs_assessment": _manual > 0,
+    }

@@ -36,6 +36,7 @@ from app.engine.rules import (
     update_irritability_from_log,
     has_conservative_bias,
     compute_recovery_timeline,
+    compute_phase_exit_checklist,
     evaluate_session_tolerance,
     filter_exercises_by_state,
     select_initial_exercises,
@@ -876,6 +877,15 @@ async def dashboard(
             risk_factors=onboarding.get("risk_factors", []),
         )
 
+    # Phase-exit checklist — evaluated against session logs
+    phase_checklist = None
+    if current_plan is not None:
+        phase_checklist = compute_phase_exit_checklist(
+            stage=current_plan["stage"],
+            session_logs=recent_logs,
+            visa_history=visa_history,
+        )
+
     # Adaptive weekly schedule — fetch KB evidence for current stage/irritability
     sched_stage = rehab_state.get("current_stage", 1)
     sched_irritability = rehab_state.get("current_irritability", "moderate")
@@ -906,6 +916,7 @@ async def dashboard(
             "has_onboarding": onboarding is not None,
             "goals": goals,
             "timeline": timeline,
+            "phase_checklist": phase_checklist,
             "weekly_schedule": weekly_schedule,
             # Unified rehab state — same data as Track Session and Exercise Library
             **rehab_state,
