@@ -9,7 +9,7 @@
     <h1 class="text-3xl font-bold text-gray-900 mb-1">Exercise Library</h1>
     <p class="text-gray-500 text-sm">
       {{ total_exercises }} exercises across 8 loading categories. Colour-coded by difficulty level.
-      <span class="ml-2 text-brand-600 font-medium">{{ recommended_ids | length }} recommended for you right now.</span>
+      <span class="ml-2 text-brand-600 font-medium">Sections with recommendations are highlighted.</span>
     </p>
   </div>
 
@@ -488,30 +488,49 @@
   {% else %}
 
   <!-- Exercise groups -->
-  <div class="space-y-10">
+  <div class="space-y-3">
     {% for cat_key in category_order %}
     {% set cat_exercises = grouped[cat_key] %}
     {% if cat_exercises %}
 
-    <div>
-      <h2 class="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2 flex-wrap">
-        {{ category_labels[cat_key] }}
-        <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-normal">
-          {{ cat_exercises | length }}
-        </span>
-        {% if cat_key == 'flexibility_mobility' %}
-        {% if wblt_result.stretch_priority == 'primary' %}
-        <span class="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-bold">WBLT: Primary impairment</span>
-        {% elif wblt_result.stretch_priority == 'adjunct' %}
-        <span class="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-bold">WBLT: Adjunct indicated</span>
-        {% elif wblt_result.stretch_priority == 'not_indicated' and wblt_result.severity != 'unknown' %}
-        <span class="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">WBLT: Not indicated</span>
-        {% else %}
-        <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-medium">Record WBLT to personalise</span>
-        {% endif %}
-        {% endif %}
-      </h2>
+    {# Count recommended exercises in this category #}
+    {% set ns = namespace(rec_count=0) %}
+    {% for ex in cat_exercises %}{% if ex.ex_id in recommended_ids %}{% set ns.rec_count = ns.rec_count + 1 %}{% endif %}{% endfor %}
+    {# Open by default if category has recommended exercises #}
+    {% set cat_open = ns.rec_count > 0 %}
 
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+
+      <!-- Category toggle header -->
+      <button type="button"
+              onclick="toggleCategory('cat-{{ cat_key }}')"
+              class="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition-colors text-left focus:outline-none">
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <span class="font-bold text-gray-800 text-sm">{{ category_labels[cat_key] }}</span>
+          <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{{ cat_exercises | length }}</span>
+          {% if ns.rec_count > 0 %}
+          <span class="text-xs px-2 py-0.5 rounded-full bg-brand-100 text-brand-700 font-semibold">Recommendations</span>
+          {% endif %}
+          {% if cat_key == 'flexibility_mobility' %}
+            {% if wblt_result.stretch_priority == 'primary' %}
+            <span class="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-bold">WBLT: Primary</span>
+            {% elif wblt_result.stretch_priority == 'adjunct' %}
+            <span class="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-bold">WBLT: Adjunct</span>
+            {% elif wblt_result.stretch_priority == 'not_indicated' and wblt_result.severity != 'unknown' %}
+            <span class="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">WBLT: OK</span>
+            {% endif %}
+          {% endif %}
+        </div>
+        <svg id="cat-{{ cat_key }}-chevron"
+             class="w-4 h-4 text-gray-400 shrink-0 transition-transform duration-200 {{ '' if cat_open else '' }}"
+             style="{{ 'transform: rotate(180deg)' if cat_open else '' }}"
+             fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+
+      <!-- Collapsible exercise grid -->
+      <div id="cat-{{ cat_key }}" class="{{ '' if cat_open else 'hidden' }} border-t border-gray-100 p-4">
       <div class="grid gap-4 sm:grid-cols-2">
         {% for ex in cat_exercises %}
 
@@ -753,7 +772,8 @@
         </div>
         {% endfor %}
       </div>
-    </div>
+      </div>{# end collapsible grid #}
+    </div>{# end category card #}
 
     {% endif %}
     {% endfor %}
@@ -766,6 +786,15 @@
 
 {% block scripts %}
 <script>
+  function toggleCategory(id) {
+    const panel   = document.getElementById(id);
+    const chevron = document.getElementById(id + '-chevron');
+    if (!panel) return;
+    const open = !panel.classList.contains('hidden');
+    panel.classList.toggle('hidden', open);
+    if (chevron) chevron.style.transform = open ? '' : 'rotate(180deg)';
+  }
+
   function toggleExercise(exId) {
     const details = document.getElementById('details-' + exId);
     const chevron = document.getElementById('chevron-' + exId);
@@ -778,9 +807,17 @@
   }
 
   function highlightExercise(exId) {
-    // Expand and scroll to target exercise card
     const card = document.querySelector('[data-ex-id="' + exId + '"]');
     if (!card) return;
+    // Open the category if collapsed
+    const catKey = card.getAttribute('data-category');
+    if (catKey) {
+      const catPanel = document.getElementById('cat-' + catKey);
+      if (catPanel && catPanel.classList.contains('hidden')) {
+        toggleCategory('cat-' + catKey);
+      }
+    }
+    // Open the exercise details if collapsed
     const details = document.getElementById('details-' + exId);
     if (details && details.classList.contains('hidden')) {
       toggleExercise(exId);
