@@ -1468,7 +1468,7 @@ def compute_phase_exit_checklist(
             for _lg in _recent_logs:
                 _exs = _lg.get("exercises_parsed", [])
                 if _exs:
-                    _avg = sum(e.get("sets_compliance", 0) for e in _exs) / len(_exs)
+                    _avg = sum(e.get("sets_compliance") or 0 for e in _exs) / len(_exs)
                     if _cmp(_avg, _op, _thr):
                         _ok += 1
             _r["status"] = "pass" if _ok >= _n else "fail"
