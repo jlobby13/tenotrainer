@@ -4,18 +4,19 @@
 {% block content %}
 <div class="max-w-5xl mx-auto">
 
-  <div class="flex items-center justify-between mb-6">
-    <div>
-      <h1 class="text-3xl font-bold text-gray-900">Knowledge Base</h1>
-      <p class="text-gray-500 text-sm mt-1">
-        <span id="visibleCount">{{ entries|length }}</span> of {{ entries|length }} entries.
-        All citations served exclusively from this knowledge base — never from AI-generated external sources.
-      </p>
+  <div class="rounded-2xl bg-gradient-to-r from-brand-700 to-brand-500 px-6 py-5 mb-6 shadow-md">
+    <div class="flex items-start justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-black text-white leading-tight">Knowledge Base</h1>
+        <p class="text-sm text-brand-200 mt-0.5">
+          <span id="visibleCount">{{ entries|length }}</span> of {{ entries|length }} entries — all citations served exclusively from this knowledge base.
+        </p>
+      </div>
+      <button onclick="document.getElementById('addForm').classList.toggle('hidden')"
+              class="shrink-0 px-4 py-2 bg-white/20 text-white text-sm font-bold rounded-xl hover:bg-white/30 transition-colors border border-white/20 whitespace-nowrap">
+        + Add Entry
+      </button>
     </div>
-    <button onclick="document.getElementById('addForm').classList.toggle('hidden')"
-            class="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-semibold hover:bg-brand-700 transition-colors">
-      + Add Entry
-    </button>
   </div>
 
   {% if success %}

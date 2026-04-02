@@ -9,7 +9,18 @@
 {% endblock %}
 
 {% block content %}
-<h1 class="text-3xl font-bold text-gray-900 mb-6">Dashboard</h1>
+<div class="rounded-2xl bg-gradient-to-r from-brand-700 to-brand-500 px-6 py-5 mb-6 shadow-md">
+  <div class="flex items-start justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-black text-white leading-tight">Dashboard</h1>
+      <p class="text-sm text-brand-200 mt-0.5">Your rehab overview — track progress, pain trends, and your next session plan.</p>
+    </div>
+    <a href="/daily-log"
+       class="shrink-0 px-4 py-2 bg-white/20 text-white text-sm font-bold rounded-xl hover:bg-white/30 transition-colors border border-white/20 whitespace-nowrap">
+      + Track Session
+    </a>
+  </div>
+</div>
 
 {% if not has_onboarding %}
 <!-- Prompt for onboarding -->
@@ -152,21 +163,29 @@
   {% if pec and pec_total > 0 %}
   <button type="button"
           onclick="toggleChecklist()"
-          class="w-full flex items-center justify-between gap-4 px-6 py-3 bg-gray-50 border-t border-gray-100 hover:bg-gray-100 transition-colors focus:outline-none">
-    <div class="flex items-center gap-3">
-      <span class="text-sm font-semibold text-gray-700">Phase Exit Criteria</span>
-      <span class="text-xs text-gray-400">{{ pec.from_label }}</span>
+          class="w-full flex items-center justify-between gap-4 px-6 py-3.5 border-t border-gray-100 hover:bg-gray-50 transition-colors focus:outline-none">
+    <div class="flex items-center gap-3 min-w-0">
+      <span class="text-sm font-bold text-gray-800 shrink-0">Phase Exit Criteria</span>
+      <span class="text-xs text-gray-400 truncate hidden sm:block">{{ pec.from_label }}</span>
     </div>
-    <div class="flex items-center gap-2 shrink-0">
-      {# Auto pass/fail pill #}
+    <div class="flex items-center gap-1.5 shrink-0">
       {% if pec_fail > 0 %}
-      <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700">{{ pec_fail }} not met</span>
+      <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">
+        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+        {{ pec_fail }}
+      </span>
       {% endif %}
-      <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700">{{ pec_pass }} passed</span>
+      <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">
+        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+        {{ pec_pass }}
+      </span>
       {% if pec_manual > 0 %}
-      <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700">{{ pec_manual }} to assess</span>
+      <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700">
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01"/></svg>
+        {{ pec_manual }}
+      </span>
       {% endif %}
-      <svg id="checklist-chevron" class="w-4 h-4 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <svg id="checklist-chevron" class="w-4 h-4 text-gray-400 transition-transform duration-200 ml-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
       </svg>
     </div>
@@ -175,16 +194,30 @@
   <!-- ── Expanded checklist panel ── -->
   <div id="checklist-panel" class="hidden border-t border-gray-100">
 
-    <!-- Progress bar -->
-    <div class="px-6 pt-4 pb-2">
-      <div class="flex items-center justify-between mb-1">
-        <span class="text-xs font-semibold text-gray-600">Auto-Evaluated Progress</span>
-        <span class="text-xs text-gray-500">{{ pec_pass }}/{{ pec_auto_total }} criteria met</span>
+    <!-- Auto-Evaluated Progress stats + bar -->
+    <div class="px-6 pt-4 pb-3">
+      <div class="grid grid-cols-3 gap-2 mb-3">
+        <div class="rounded-xl bg-green-50 border border-green-100 px-3 py-2.5 text-center">
+          <p class="text-2xl font-black text-green-600 leading-none">{{ pec_pass }}</p>
+          <p class="text-[10px] font-bold text-green-500 uppercase tracking-wide mt-1">Passed</p>
+        </div>
+        <div class="rounded-xl {{ 'bg-red-50 border border-red-100' if pec_fail > 0 else 'bg-gray-50 border border-gray-100' }} px-3 py-2.5 text-center">
+          <p class="text-2xl font-black {{ 'text-red-600' if pec_fail > 0 else 'text-gray-300' }} leading-none">{{ pec_fail }}</p>
+          <p class="text-[10px] font-bold {{ 'text-red-400' if pec_fail > 0 else 'text-gray-400' }} uppercase tracking-wide mt-1">Not Met</p>
+        </div>
+        <div class="rounded-xl bg-blue-50 border border-blue-100 px-3 py-2.5 text-center">
+          <p class="text-2xl font-black text-blue-500 leading-none">{{ pec_manual }}</p>
+          <p class="text-[10px] font-bold text-blue-400 uppercase tracking-wide mt-1">To Assess</p>
+        </div>
       </div>
-      <div class="w-full bg-gray-100 rounded-full h-1.5">
-        <div class="h-1.5 rounded-full {% if pec_fail > 0 %}bg-orange-400{% else %}bg-green-500{% endif %} transition-all"
-             style="width: {{ pec.auto_pass_rate }}%"></div>
+      <div class="flex items-center gap-3">
+        <div class="flex-1 bg-gray-100 rounded-full h-2.5 overflow-hidden">
+          <div class="h-2.5 rounded-full {{ 'bg-orange-400' if pec_fail > 0 else 'bg-green-500' }} transition-all"
+               style="width: {{ pec.auto_pass_rate }}%"></div>
+        </div>
+        <span class="text-xs font-black {{ 'text-orange-500' if pec_fail > 0 else 'text-green-600' }} shrink-0 w-10 text-right">{{ pec.auto_pass_rate }}%</span>
       </div>
+      <p class="text-[10px] text-gray-400 mt-1.5">Auto-evaluated from session data · {{ pec_pass }}/{{ pec_auto_total }} criteria met</p>
     </div>
 
     <!-- Criteria: auto-evaluated -->
@@ -192,54 +225,44 @@
     {% set manual_crit = pec.criteria | rejectattr('auto_checkable') | list %}
 
     {% if auto_crit %}
-    <div class="px-6 pt-3 pb-2">
-      <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Tracked from Session Data</p>
-      <div class="space-y-2">
+    <div class="px-6 pb-3">
+      <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Tracked from Session Data</p>
+      <div class="divide-y divide-gray-50 border border-gray-100 rounded-xl overflow-hidden">
         {% for c in auto_crit %}
         {% set st = c.status %}
-        <div class="flex items-start gap-3 py-2 px-3 rounded-lg
-          {% if st == 'pass' %}bg-green-50 border border-green-100
-          {% elif st == 'fail' %}bg-red-50 border border-red-100
-          {% else %}bg-gray-50 border border-gray-100{% endif %}">
+        <div class="flex items-center gap-3 px-3 py-2.5 {{ 'bg-green-50/60' if st == 'pass' else ('bg-red-50/60' if st == 'fail' else 'bg-white') }}">
           {# Status icon #}
-          <div class="shrink-0 mt-0.5">
+          <div class="shrink-0">
             {% if st == 'pass' %}
             <svg class="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
             </svg>
             {% elif st == 'fail' %}
             <svg class="w-4 h-4 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
             </svg>
             {% else %}
-            <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 8v4m0 4h.01"/>
-            </svg>
+            <div class="w-4 h-4 rounded-full border-2 border-gray-200"></div>
             {% endif %}
           </div>
-          <div class="flex-1 min-w-0">
-            <p class="text-xs font-medium leading-snug
-              {% if st == 'pass' %}text-green-800{% elif st == 'fail' %}text-red-700{% else %}text-gray-600{% endif %}">
-              {{ c.label }}
-            </p>
-            <div class="flex items-center gap-2 mt-0.5">
-              {% if c.current_value is not none %}
-              <span class="text-[10px] font-semibold
-                {% if st == 'pass' %}text-green-600{% elif st == 'fail' %}text-red-500{% else %}text-gray-400{% endif %}">
-                Current: {{ c.current_value }}
-              </span>
-              {% endif %}
-              {% if st == 'insufficient_data' %}
-              <span class="text-[10px] text-gray-400">Not enough data yet</span>
-              {% endif %}
-              {% if c.evidence is defined and c.evidence %}
-              <span class="text-[10px] text-gray-300">· {{ c.evidence }}</span>
-              {% endif %}
-            </div>
-            {% if c.notes and st == 'fail' %}
-            <p class="text-[10px] text-red-400 mt-0.5 leading-snug">{{ c.notes }}</p>
+          {# Label + value inline #}
+          <div class="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
+            <span class="text-xs font-medium {{ 'text-green-800' if st == 'pass' else ('text-red-700' if st == 'fail' else 'text-gray-600') }} leading-snug">{{ c.label }}</span>
+            {% if c.current_value is not none %}
+            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0
+              {{ 'bg-green-100 text-green-700' if st == 'pass' else ('bg-red-100 text-red-600' if st == 'fail' else 'bg-gray-100 text-gray-500') }}">
+              {{ c.current_value }}
+            </span>
+            {% elif st == 'insufficient_data' %}
+            <span class="text-[10px] text-gray-300 italic shrink-0">No data yet</span>
+            {% endif %}
+            {% if c.evidence is defined and c.evidence %}
+            <span class="text-[10px] text-gray-300 hidden sm:inline">{{ c.evidence }}</span>
             {% endif %}
           </div>
+          {% if c.notes and st == 'fail' %}
+          <span class="text-[10px] text-red-400 shrink-0 max-w-[120px] text-right leading-snug hidden sm:block">{{ c.notes }}</span>
+          {% endif %}
         </div>
         {% endfor %}
       </div>
@@ -248,29 +271,27 @@
 
     <!-- Criteria: clinician-assessed -->
     {% if manual_crit %}
-    <div class="px-6 pt-1 pb-4">
-      <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Clinician Assessment Required</p>
-      <div class="space-y-2">
+    <div class="px-6 pb-4">
+      <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Clinician Assessment Required</p>
+      <div class="grid sm:grid-cols-2 gap-2">
         {% for c in manual_crit %}
-        <div class="flex items-start gap-3 py-2 px-3 rounded-lg bg-blue-50 border border-blue-100">
-          <div class="shrink-0 mt-0.5">
-            <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
-            </svg>
-          </div>
-          <div class="flex-1 min-w-0">
-            <p class="text-xs font-medium text-blue-800 leading-snug">{{ c.label }}</p>
-            <div class="flex items-center gap-2 mt-0.5 flex-wrap">
-              <span class="text-[10px] font-semibold text-blue-500 bg-blue-100 px-1.5 py-0.5 rounded">
-                {% if c.type == 'functional_test' %}Functional Test
-                {% elif c.type == 'clinical_assessment' %}Clinical Assessment
+        <div class="flex items-start gap-2.5 px-3 py-2.5 rounded-xl bg-blue-50 border border-blue-100">
+          <svg class="w-3.5 h-3.5 text-blue-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+          </svg>
+          <div class="min-w-0">
+            <div class="flex items-center gap-1.5 mb-0.5">
+              <span class="text-[10px] font-bold text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded shrink-0">
+                {% if c.type == 'functional_test' %}Functional
+                {% elif c.type == 'clinical_assessment' %}Clinical
                 {% elif c.type == 'duration_gate' %}Time Gate
-                {% else %}Assessment Needed{% endif %}
+                {% else %}Assessment{% endif %}
               </span>
               {% if c.evidence is defined and c.evidence %}
-              <span class="text-[10px] text-blue-300">{{ c.evidence }}</span>
+              <span class="text-[10px] text-blue-300 truncate">{{ c.evidence }}</span>
               {% endif %}
             </div>
+            <p class="text-[11px] font-medium text-blue-800 leading-snug">{{ c.label }}</p>
             {% if c.notes %}
             <p class="text-[10px] text-blue-400 mt-0.5 leading-snug">{{ c.notes }}</p>
             {% endif %}

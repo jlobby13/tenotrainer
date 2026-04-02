@@ -78,13 +78,14 @@
   </div>
 
   {% else %}
-  <h1 class="text-3xl font-bold text-gray-900 mb-2">
-    {% if is_reassessment %}Re-assessment{% else %}Initial Assessment{% endif %}
-  </h1>
-  <p class="text-gray-600 mb-4">
-    Answer all questions as accurately as possible. Your answers determine your rehab stage,
-    irritability classification, and starting exercise dose. All pain scores are 0–10 (0 = no pain, 10 = worst imaginable).
-  </p>
+  <div class="rounded-2xl bg-gradient-to-r from-brand-700 to-brand-500 px-6 py-5 mb-6 shadow-md">
+    <h1 class="text-2xl font-black text-white leading-tight">
+      {% if is_reassessment %}Re-assessment{% else %}Initial Assessment{% endif %}
+    </h1>
+    <p class="text-sm text-brand-200 mt-0.5">
+      Answer all questions accurately — your answers determine your rehab stage, irritability classification, and starting exercise dose.
+    </p>
+  </div>
 
   {% if is_reassessment %}
   <div class="flex flex-wrap items-center gap-4 bg-brand-50 border border-brand-200 rounded-xl px-5 py-3 mb-6 text-sm">
