@@ -1975,6 +1975,81 @@ async def progression_check_api(
 
 
 # ---------------------------------------------------------------------------
+# Schedule Override API
+# ---------------------------------------------------------------------------
+
+@app.get("/api/schedule-override")
+async def get_schedule_override(
+    week: str,
+    teno_session: Optional[str] = Cookie(default=None),
+):
+    user = await get_current_user(teno_session)
+    if not user:
+        return {"session_days": None}
+    db = await get_db()
+    try:
+        cursor = await db.execute(
+            "SELECT session_days FROM schedule_overrides WHERE user_id = ? AND week_start = ?",
+            (user["id"], week),
+        )
+        row = await cursor.fetchone()
+        if row:
+            return {"session_days": json.loads(row["session_days"])}
+        return {"session_days": None}
+    finally:
+        await db.close()
+
+
+@app.post("/api/schedule-override")
+async def save_schedule_override(
+    request: Request,
+    teno_session: Optional[str] = Cookie(default=None),
+):
+    user = await get_current_user(teno_session)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    body = await request.json()
+    week = body.get("week")
+    session_days = body.get("session_days", [])
+    if not week:
+        raise HTTPException(status_code=400, detail="week is required")
+    db = await get_db()
+    try:
+        await db.execute(
+            """INSERT INTO schedule_overrides (user_id, week_start, session_days, updated_at)
+               VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+               ON CONFLICT(user_id, week_start) DO UPDATE SET
+               session_days = excluded.session_days,
+               updated_at = CURRENT_TIMESTAMP""",
+            (user["id"], week, json.dumps(session_days)),
+        )
+        await db.commit()
+        return {"ok": True}
+    finally:
+        await db.close()
+
+
+@app.delete("/api/schedule-override")
+async def delete_schedule_override(
+    week: str,
+    teno_session: Optional[str] = Cookie(default=None),
+):
+    user = await get_current_user(teno_session)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    db = await get_db()
+    try:
+        await db.execute(
+            "DELETE FROM schedule_overrides WHERE user_id = ? AND week_start = ?",
+            (user["id"], week),
+        )
+        await db.commit()
+        return {"ok": True}
+    finally:
+        await db.close()
+
+
+# ---------------------------------------------------------------------------
 # Exercise Library
 # ---------------------------------------------------------------------------
 

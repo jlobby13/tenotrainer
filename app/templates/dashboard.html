@@ -990,6 +990,12 @@
     var _weekOffset = 0;
     var _calYear, _calMonth;
     var _monthlyRendered = false;
+    // Schedule override state
+    var _weekOverrideCache = {};   // weekStart → [days] | null
+    var _currentWeekStart = null;
+    var _currentSessionDays = SCHED_SESSION_DAYS.slice();
+    var _currentMonday = null;
+    var _dragFromIdx = -1;
   </script>
 
   {# ── Full rest week (STOP decision) ── #}
@@ -1004,19 +1010,26 @@
   <div id="prog-weekly" {% if weekly_schedule.is_rest_week %}class="hidden"{% endif %}>
     <div class="px-5 pt-4 pb-2">
       <!-- Week navigation -->
-      <div class="flex items-center justify-between mb-3">
+      <div class="flex items-center justify-between mb-3 gap-2">
         <button type="button" onclick="shiftWeek(-1)"
                 class="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-brand-300 hover:text-brand-700 transition-colors font-medium">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
           Prev
         </button>
-        <span id="week-range-label" class="text-sm font-semibold text-gray-700"></span>
+        <div class="flex flex-col items-center gap-1 min-w-0">
+          <span id="week-range-label" class="text-sm font-semibold text-gray-700 whitespace-nowrap"></span>
+          <button id="reset-override-btn" type="button" onclick="resetWeekOverride()"
+                  class="hidden text-[10px] px-2.5 py-1 rounded-full border border-orange-300 text-orange-600 bg-orange-50 hover:bg-orange-100 font-semibold transition-colors gap-1 items-center">
+            ↺ Reset to recommended
+          </button>
+        </div>
         <button type="button" onclick="shiftWeek(1)"
                 class="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-brand-300 hover:text-brand-700 transition-colors font-medium">
           Next
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
         </button>
       </div>
+      <p id="drag-hint" class="text-[10px] text-gray-400 text-center mb-2 hidden">Drag a session day to a different date to reschedule it.</p>
       <!-- Day grid — filled by JS -->
       <div class="overflow-x-auto pb-1">
         <div id="weekly-grid" class="grid grid-cols-7 gap-2 p-1" style="min-width:580px;"></div>
@@ -1332,24 +1345,75 @@ function _fmtDate(d, opts) {
   return d.toLocaleDateString('en-US', opts);
 }
 
-function renderWeekly() {
+function _getWeekStartStr(monday) {
+  var y = monday.getFullYear();
+  var m = String(monday.getMonth() + 1).padStart(2, '0');
+  var d = String(monday.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + d;
+}
+
+async function renderWeekly() {
   if (SCHED_IS_REST_WEEK) return;
   var today = new Date();
   today.setHours(0,0,0,0);
   var monday = _getMondayOf(today);
   monday.setDate(monday.getDate() + _weekOffset * 7);
-  var sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
+
+  var weekStart = _getWeekStartStr(monday);
+  _currentWeekStart = weekStart;
+  _currentMonday = monday;
 
   // Label
+  var sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
   var lbl = document.getElementById('week-range-label');
   if (lbl) {
     var startStr = _fmtDate(monday, {month:'short', day:'numeric'});
     var endStr   = monday.getMonth() === sunday.getMonth()
       ? sunday.getDate()
       : _fmtDate(sunday, {month:'short', day:'numeric'});
-    lbl.textContent = startStr + ' – ' + endStr + ', ' + sunday.getFullYear();
+    lbl.textContent = startStr + ' \u2013 ' + endStr + ', ' + sunday.getFullYear();
   }
+
+  // Load override (cached or from API)
+  var sessionDays = SCHED_SESSION_DAYS.slice();
+  var hasOverride = false;
+
+  if (_weekOverrideCache.hasOwnProperty(weekStart)) {
+    if (_weekOverrideCache[weekStart] !== null) {
+      sessionDays = _weekOverrideCache[weekStart];
+      hasOverride = true;
+    }
+  } else {
+    try {
+      var resp = await fetch('/api/schedule-override?week=' + weekStart);
+      if (resp.ok) {
+        var data = await resp.json();
+        if (data.session_days !== null && Array.isArray(data.session_days)) {
+          sessionDays = data.session_days;
+          hasOverride = true;
+          _weekOverrideCache[weekStart] = data.session_days;
+        } else {
+          _weekOverrideCache[weekStart] = null;
+        }
+      }
+    } catch(e) { /* fall back to default */ }
+  }
+
+  _currentSessionDays = sessionDays;
+  _renderWeekGrid(sessionDays, monday, today, hasOverride);
+}
+
+function _renderWeekGrid(sessionDays, monday, today, hasOverride) {
+  // Show / hide reset button
+  var resetBtn = document.getElementById('reset-override-btn');
+  if (resetBtn) {
+    resetBtn.classList.toggle('hidden', !hasOverride);
+    resetBtn.style.display = hasOverride ? 'inline-flex' : 'none';
+  }
+
+  // Show drag hint on first render
+  var hint = document.getElementById('drag-hint');
+  if (hint) hint.classList.remove('hidden');
 
   var grid = document.getElementById('weekly-grid');
   if (!grid) return;
@@ -1358,50 +1422,139 @@ function renderWeekly() {
   var dayAbbr = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
   for (var i = 0; i < 7; i++) {
-    var d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    var isSession = SCHED_SESSION_DAYS.indexOf(i) !== -1;
-    var isToday   = _sameDay(d, today);
-    var isPast    = d < today && !isToday;
+    (function(dayIdx) {
+      var d = new Date(monday);
+      d.setDate(monday.getDate() + dayIdx);
+      var isSession = sessionDays.indexOf(dayIdx) !== -1;
+      var isToday   = _sameDay(d, today);
+      var isPast    = d < today && !isToday;
 
-    var cell = document.createElement('div');
-    cell.className = 'flex flex-col rounded-xl border'
-      + (isSession ? ' border-brand-200 bg-brand-50' : ' border-gray-100 bg-gray-50')
-      + (isToday   ? ' ring-2 ring-brand-500 ring-offset-2 shadow-md' : '')
-      + (isPast && !isToday ? ' opacity-60' : '');
+      var cell = document.createElement('div');
+      cell.className = 'flex flex-col rounded-xl border transition-all duration-150'
+        + (isSession ? ' border-brand-200 bg-brand-50' : ' border-gray-100 bg-gray-50')
+        + (isToday   ? ' ring-2 ring-brand-500 ring-offset-2 shadow-md' : '')
+        + (isPast && !isToday ? ' opacity-60' : '');
+      cell.dataset.dayIdx = dayIdx;
 
-    // Header: day name + date number
-    var hdr = document.createElement('div');
-    hdr.className = 'px-2 py-2 text-center border-b rounded-t-xl'
-      + (isSession ? ' border-brand-200 bg-brand-600' : ' border-gray-100 bg-gray-100');
-    hdr.innerHTML =
-      '<p class="text-[10px] font-bold uppercase tracking-widest ' + (isSession ? 'text-white' : 'text-gray-400') + '">' + dayAbbr[i] + '</p>'
-      + '<p class="text-xl font-black leading-none mt-0.5 ' + (isSession ? 'text-white' : isToday ? 'text-brand-600' : 'text-gray-500') + '">' + d.getDate() + '</p>';
+      // Header
+      var hdr = document.createElement('div');
+      hdr.className = 'px-2 py-2 text-center border-b rounded-t-xl'
+        + (isSession ? ' border-brand-200 bg-brand-600' : ' border-gray-100 bg-gray-100');
 
-    // Body
-    var body = document.createElement('div');
-    body.className = 'px-2 py-2.5 flex-1';
+      var customBadge = (hasOverride && isSession && SCHED_SESSION_DAYS.indexOf(dayIdx) === -1)
+        ? '<span class="text-[8px] bg-orange-400 text-white rounded px-1 font-bold">MOVED</span>'
+        : '';
 
-    if (isSession) {
-      var items = SCHED_PLAN.map(function(item) {
-        return '<li class="text-[10px] leading-tight text-gray-700">'
-          + '<span class="font-semibold block truncate">' + item.name + '</span>'
-          + '<span class="text-gray-400">' + item.sets + ' × ' + item.reps + '</span>'
-          + '</li>';
-      }).join('');
-      body.innerHTML = '<p class="text-[9px] font-bold text-brand-600 uppercase tracking-wide mb-2 text-center">Session</p>'
-        + '<ul class="space-y-1.5">' + items + '</ul>';
-    } else {
-      body.innerHTML = '<div class="h-full flex flex-col items-center justify-center py-3 gap-1">'
-        + '<svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z"/></svg>'
-        + '<p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Rest</p>'
-        + '</div>';
-    }
+      hdr.innerHTML =
+        '<p class="text-[10px] font-bold uppercase tracking-widest ' + (isSession ? 'text-white' : 'text-gray-400') + '">' + dayAbbr[dayIdx] + '</p>'
+        + '<p class="text-xl font-black leading-none mt-0.5 ' + (isSession ? 'text-white' : isToday ? 'text-brand-600' : 'text-gray-500') + '">' + d.getDate() + '</p>'
+        + customBadge;
 
-    cell.appendChild(hdr);
-    cell.appendChild(body);
-    grid.appendChild(cell);
+      // Body
+      var body = document.createElement('div');
+      body.className = 'px-2 py-2.5 flex-1 select-none';
+
+      if (isSession) {
+        var items = SCHED_PLAN.map(function(item) {
+          return '<li class="text-[10px] leading-tight text-gray-700">'
+            + '<span class="font-semibold block truncate">' + item.name + '</span>'
+            + '<span class="text-gray-400">' + item.sets + ' \xd7 ' + item.reps + '</span>'
+            + '</li>';
+        }).join('');
+        body.innerHTML = '<p class="text-[9px] font-bold text-brand-600 uppercase tracking-wide mb-2 text-center flex items-center justify-center gap-1">'
+          + '<svg class="w-3 h-3 opacity-50 cursor-grab" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8h16M4 16h16"/></svg>'
+          + 'Session</p>'
+          + '<ul class="space-y-1.5">' + items + '</ul>';
+      } else {
+        body.innerHTML = '<div class="h-full flex flex-col items-center justify-center py-3 gap-1">'
+          + '<svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z"/></svg>'
+          + '<p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Rest</p>'
+          + '</div>';
+      }
+
+      cell.appendChild(hdr);
+      cell.appendChild(body);
+
+      // ── Drag-and-drop ──
+      if (isSession && !isPast) {
+        cell.draggable = true;
+        cell.style.cursor = 'grab';
+        cell.addEventListener('dragstart', function(e) {
+          _dragFromIdx = dayIdx;
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', String(dayIdx));
+          setTimeout(function() { cell.classList.add('opacity-40'); }, 0);
+        });
+        cell.addEventListener('dragend', function() {
+          cell.classList.remove('opacity-40');
+          _dragFromIdx = -1;
+          // clear all dragover highlights
+          var cells = document.querySelectorAll('#weekly-grid > div');
+          cells.forEach(function(c) { c.classList.remove('ring-2','ring-orange-400','bg-orange-50'); });
+        });
+      }
+
+      // All cells accept drops
+      cell.addEventListener('dragover', function(e) {
+        if (_dragFromIdx === -1 || _dragFromIdx === dayIdx) return;
+        // Only allow drop on rest days (moving session there)
+        var targetIsSession = _currentSessionDays.indexOf(dayIdx) !== -1;
+        if (targetIsSession) return;  // can't drop on another session day
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        cell.classList.add('ring-2', 'ring-orange-400', 'bg-orange-50');
+      });
+
+      cell.addEventListener('dragleave', function() {
+        cell.classList.remove('ring-2', 'ring-orange-400', 'bg-orange-50');
+      });
+
+      cell.addEventListener('drop', async function(e) {
+        e.preventDefault();
+        cell.classList.remove('ring-2', 'ring-orange-400', 'bg-orange-50');
+        if (_dragFromIdx === -1 || _dragFromIdx === dayIdx) return;
+        var fromIdx = _dragFromIdx;
+        _dragFromIdx = -1;
+
+        // Validate: from must be session, to must be rest
+        var fromIsSession = _currentSessionDays.indexOf(fromIdx) !== -1;
+        var toIsSession   = _currentSessionDays.indexOf(dayIdx) !== -1;
+        if (!fromIsSession || toIsSession) return;
+
+        // Move session from fromIdx → dayIdx
+        var newDays = _currentSessionDays.filter(function(d) { return d !== fromIdx; });
+        newDays.push(dayIdx);
+        newDays.sort(function(a,b) { return a - b; });
+
+        // Optimistic update
+        _currentSessionDays = newDays;
+        _weekOverrideCache[_currentWeekStart] = newDays;
+        var today2 = new Date(); today2.setHours(0,0,0,0);
+        _renderWeekGrid(newDays, _currentMonday, today2, true);
+
+        // Persist
+        try {
+          await fetch('/api/schedule-override', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({week: _currentWeekStart, session_days: newDays})
+          });
+        } catch(err) { /* silent — already updated locally */ }
+      });
+
+      grid.appendChild(cell);
+    })(i);
   }
+}
+
+async function resetWeekOverride() {
+  try {
+    await fetch('/api/schedule-override?week=' + _currentWeekStart, {method: 'DELETE'});
+  } catch(e) {}
+  _weekOverrideCache[_currentWeekStart] = null;
+  _currentSessionDays = SCHED_SESSION_DAYS.slice();
+  var today = new Date(); today.setHours(0,0,0,0);
+  _renderWeekGrid(SCHED_SESSION_DAYS, _currentMonday, today, false);
 }
 
 function renderMonthly() {
@@ -1490,7 +1643,7 @@ function renderMonthly() {
 
 function shiftWeek(delta) {
   _weekOffset += delta;
-  renderWeekly();
+  renderWeekly();  // async — fire and forget is fine
 }
 
 function shiftMonth(delta) {
