@@ -2066,6 +2066,7 @@ async def get_session_logs_range(
         comp_vals = [e.get("sets_compliance") for e in exercises if e.get("sets_compliance") is not None]
         overall_comp = round(sum(comp_vals) / len(comp_vals)) if comp_vals else None
         result[date_key] = {
+            "created_at": r["created_at"],   # full UTC timestamp — JS re-keys by local date
             "pain_during": r["pain_during"],
             "pain_after": r["pain_after"],
             "next_day_pain": r["next_day_pain"],

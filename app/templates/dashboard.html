@@ -1676,21 +1676,27 @@ async function toggleLogOverlay() {
 }
 
 async function _ensureLogsLoaded(fromStr, toStr) {
-  // Collect dates in range not yet in cache
+  // Check whether any date in the local range is missing from cache
   var cur = new Date(fromStr + 'T00:00:00');
   var end = new Date(toStr   + 'T00:00:00');
   var missing = false;
   while (cur <= end) {
-    var k = _getWeekStartStr(cur);  // reuse ISO formatter
-    if (!_logCache.hasOwnProperty(k)) { missing = true; break; }
+    if (!_logCache.hasOwnProperty(_getWeekStartStr(cur))) { missing = true; break; }
     cur.setDate(cur.getDate() + 1);
   }
   if (!missing) return;
+
+  // Expand query range by ±1 day to cover UTC/local midnight boundary mismatches
+  var fromExp = new Date(fromStr + 'T00:00:00'); fromExp.setDate(fromExp.getDate() - 1);
+  var toExp   = new Date(toStr   + 'T00:00:00'); toExp.setDate(toExp.getDate() + 1);
+
   try {
-    var resp = await fetch('/api/session-logs?from_date=' + fromStr + '&to_date=' + toStr);
+    var resp = await fetch('/api/session-logs?from_date=' + _getWeekStartStr(fromExp)
+                           + '&to_date=' + _getWeekStartStr(toExp));
     if (!resp.ok) return;
     var data = await resp.json();
-    // Mark every date in range as fetched (null = no log)
+
+    // Mark every local date in the requested range as fetched (null = no log)
     var d2 = new Date(fromStr + 'T00:00:00');
     var e2 = new Date(toStr   + 'T00:00:00');
     while (d2 <= e2) {
@@ -1698,9 +1704,21 @@ async function _ensureLogsLoaded(fromStr, toStr) {
       if (!_logCache.hasOwnProperty(dk)) _logCache[dk] = null;
       d2.setDate(d2.getDate() + 1);
     }
-    // Fill in actual logs
+
+    // Re-key logs by LOCAL date derived from the UTC created_at timestamp
     var logs = data.logs || {};
-    Object.keys(logs).forEach(function(k) { _logCache[k] = logs[k]; });
+    Object.keys(logs).forEach(function(utcKey) {
+      var entry = logs[utcKey];
+      var localKey = utcKey;  // fallback: use UTC key as-is
+      if (entry.created_at) {
+        // Parse "YYYY-MM-DD HH:MM:SS" (UTC) → local Date → local date string
+        var dt = new Date(entry.created_at.replace(' ', 'T') + 'Z');
+        localKey = dt.getFullYear() + '-'
+          + String(dt.getMonth() + 1).padStart(2, '0') + '-'
+          + String(dt.getDate()).padStart(2, '0');
+      }
+      _logCache[localKey] = entry;
+    });
   } catch(e) {}
 }
 
