@@ -989,7 +989,6 @@
     var SCHED_IS_REST_WEEK = {{ 'true' if weekly_schedule.is_rest_week else 'false' }};
     var _weekOffset = 0;
     var _calYear, _calMonth;
-    var _monthlyRendered = false;
     // Schedule override state
     var _weekOverrideCache = {};   // weekStart → [days] | null
     var _currentWeekStart = null;
@@ -1557,7 +1556,7 @@ async function resetWeekOverride() {
   _renderWeekGrid(SCHED_SESSION_DAYS, _currentMonday, today, false);
 }
 
-function renderMonthly() {
+async function renderMonthly() {
   var today = new Date();
   today.setHours(0,0,0,0);
   if (_calYear === undefined) {
@@ -1571,13 +1570,46 @@ function renderMonthly() {
 
   var grid = document.getElementById('monthly-grid');
   if (!grid) return;
-  grid.innerHTML = '';
 
   var first     = new Date(_calYear, _calMonth, 1);
-  var dow0      = first.getDay();                          // 0=Sun
-  var startDow  = (dow0 === 0 ? 6 : dow0 - 1);            // Mon=0 … Sun=6
+  var dow0      = first.getDay();
+  var startDow  = (dow0 === 0 ? 6 : dow0 - 1);
   var daysInMon = new Date(_calYear, _calMonth + 1, 0).getDate();
   var totalCells = Math.ceil((startDow + daysInMon) / 7) * 7;
+
+  // Collect unique week starts that appear in this month's grid
+  var weekStartsNeeded = [];
+  for (var c = 0; c < totalCells; c++) {
+    var dn = c - startDow + 1;
+    if (dn < 1 || dn > daysInMon) continue;
+    var dayD = new Date(_calYear, _calMonth, dn);
+    var mon = _getMondayOf(dayD);
+    var ws = _getWeekStartStr(mon);
+    if (!_weekOverrideCache.hasOwnProperty(ws) && weekStartsNeeded.indexOf(ws) === -1) {
+      weekStartsNeeded.push(ws);
+    }
+  }
+
+  // Fetch any uncached overrides in parallel
+  if (weekStartsNeeded.length > 0) {
+    await Promise.all(weekStartsNeeded.map(async function(ws) {
+      try {
+        var resp = await fetch('/api/schedule-override?week=' + ws);
+        if (resp.ok) {
+          var data = await resp.json();
+          _weekOverrideCache[ws] = (data.session_days !== null && Array.isArray(data.session_days))
+            ? data.session_days : null;
+        } else {
+          _weekOverrideCache[ws] = null;
+        }
+      } catch(e) {
+        _weekOverrideCache[ws] = null;
+      }
+    }));
+  }
+
+  // Render grid
+  grid.innerHTML = '';
   var sessionCount = 0;
 
   for (var cell = 0; cell < totalCells; cell++) {
@@ -1591,16 +1623,25 @@ function renderMonthly() {
     }
 
     var d = new Date(_calYear, _calMonth, dayNum);
+    var mon2    = _getMondayOf(d);
+    var ws2     = _getWeekStartStr(mon2);
+    var effDays = (_weekOverrideCache[ws2] !== null && _weekOverrideCache[ws2] !== undefined)
+                    ? _weekOverrideCache[ws2] : SCHED_SESSION_DAYS;
+
     var cdow    = d.getDay();
     var dowIdx  = (cdow === 0 ? 6 : cdow - 1);
-    var isSess  = SCHED_SESSION_DAYS.indexOf(dowIdx) !== -1;
+    var isSess  = effDays.indexOf(dowIdx) !== -1;
     var isToday = _sameDay(d, today);
     var isPast  = d < today && !isToday;
+
+    // Is this day "moved" — a non-default session day for this week?
+    var weekHasOverride = _weekOverrideCache.hasOwnProperty(ws2) && _weekOverrideCache[ws2] !== null;
+    var isMoved = weekHasOverride && isSess && SCHED_SESSION_DAYS.indexOf(dowIdx) === -1;
 
     if (isSess) sessionCount++;
 
     div.className = 'h-16 rounded-lg border flex flex-col overflow-hidden transition-shadow'
-      + (isSess  ? ' border-brand-200 bg-brand-50' : ' border-gray-100 bg-white')
+      + (isSess ? (isMoved ? ' border-orange-300 bg-orange-50' : ' border-brand-200 bg-brand-50') : ' border-gray-100 bg-white')
       + (isToday ? ' ring-2 ring-brand-500 ring-offset-1 shadow-sm' : '')
       + (isPast && !isToday ? ' opacity-55' : '');
 
@@ -1609,21 +1650,29 @@ function renderMonthly() {
     topRow.className = 'flex items-center justify-between px-1.5 pt-1';
     var numCls = 'text-[11px] font-bold ' + (isToday ? 'text-brand-600' : isPast ? 'text-gray-400' : 'text-gray-600');
     topRow.innerHTML = '<span class="' + numCls + '">' + dayNum + '</span>'
-      + (isSess ? '<span class="w-1.5 h-1.5 rounded-full bg-brand-500 shrink-0"></span>' : '');
+      + (isSess ? '<span class="w-1.5 h-1.5 rounded-full ' + (isMoved ? 'bg-orange-400' : 'bg-brand-500') + ' shrink-0"></span>' : '');
 
     div.appendChild(topRow);
 
-    // Exercise list (session days only)
+    // Exercise list or "moved" label
     if (isSess) {
       var listEl = document.createElement('div');
       listEl.className = 'px-1.5 pb-1 flex-1 overflow-hidden';
       var listHTML = '<ul class="space-y-0 mt-0.5">';
-      var visible = Math.min(SCHED_PLAN.length, 2);
-      for (var j = 0; j < visible; j++) {
-        listHTML += '<li class="text-[8px] text-gray-500 truncate font-medium leading-tight">' + SCHED_PLAN[j].name + '</li>';
-      }
-      if (SCHED_PLAN.length > 2) {
-        listHTML += '<li class="text-[8px] text-brand-400 font-semibold">+' + (SCHED_PLAN.length - 2) + ' more</li>';
+      if (isMoved) {
+        listHTML += '<li class="text-[8px] text-orange-500 font-semibold leading-tight">Rescheduled</li>';
+        var visible2 = Math.min(SCHED_PLAN.length, 1);
+        for (var k = 0; k < visible2; k++) {
+          listHTML += '<li class="text-[8px] text-gray-500 truncate font-medium leading-tight">' + SCHED_PLAN[k].name + '</li>';
+        }
+      } else {
+        var visible = Math.min(SCHED_PLAN.length, 2);
+        for (var j = 0; j < visible; j++) {
+          listHTML += '<li class="text-[8px] text-gray-500 truncate font-medium leading-tight">' + SCHED_PLAN[j].name + '</li>';
+        }
+        if (SCHED_PLAN.length > 2) {
+          listHTML += '<li class="text-[8px] text-brand-400 font-semibold">+' + (SCHED_PLAN.length - 2) + ' more</li>';
+        }
       }
       listHTML += '</ul>';
       listEl.innerHTML = listHTML;
@@ -1637,7 +1686,7 @@ function renderMonthly() {
   var totEl = document.getElementById('month-totals');
   if (totEl) {
     var restDays = daysInMon - sessionCount;
-    totEl.innerHTML = '<strong class="text-gray-800">' + sessionCount + '</strong> sessions &nbsp;·&nbsp; <strong class="text-gray-800">' + restDays + '</strong> rest days';
+    totEl.innerHTML = '<strong class="text-gray-800">' + sessionCount + '</strong> sessions \xb7 <strong class="text-gray-800">' + restDays + '</strong> rest days';
   }
 }
 
@@ -1673,7 +1722,7 @@ function toggleMonthlyProgram() {
     label.textContent = 'Weekly view';
     title.textContent = 'Monthly Program';
     icon.style.transform = 'rotate(90deg)';
-    if (!_monthlyRendered) { renderMonthly(); _monthlyRendered = true; }
+    renderMonthly();  // always re-render so overrides are reflected
   }
 }
 
