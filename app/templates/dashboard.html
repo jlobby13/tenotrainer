@@ -1556,8 +1556,28 @@ function _renderWeekGrid(sessionDays, monday, today, hasOverride) {
           .replace(/border-\S+/g, '').replace(/bg-\S+/g, '').trim()
           + ' border-green-300 bg-green-600';
 
+      } else if (isSession && _showLogOverlay && isPast) {
+        // ── Missed session view (past scheduled day, overlay on, no log) ──
+        var missedItems = SCHED_PLAN.map(function(item) {
+          return '<li class="text-[10px] leading-tight opacity-50">'
+            + '<span class="block truncate line-through text-gray-500">' + item.name + '</span>'
+            + '<span class="text-gray-400">' + item.sets + ' \xd7 ' + item.reps + '</span>'
+            + '</li>';
+        }).join('');
+        body.innerHTML = '<p class="text-[9px] font-bold uppercase tracking-wide mb-1.5 text-center flex items-center justify-center gap-1 text-amber-600">'
+          + '<svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>'
+          + 'Missed</p>'
+          + '<ul class="space-y-1.5">' + missedItems + '</ul>';
+        // Restyle cell to amber
+        cell.className = cell.className
+          .replace(/border-\S+/g, '').replace(/bg-\S+/g, '').replace(/opacity-\S+/g,'').trim()
+          + ' border-amber-300 bg-amber-50';
+        hdr.className = hdr.className
+          .replace(/border-\S+/g, '').replace(/bg-\S+/g, '').trim()
+          + ' border-amber-300 bg-amber-500';
+
       } else if (isSession) {
-        // ── Prescribed view ──
+        // ── Prescribed view (future, or overlay off) ──
         var items = SCHED_PLAN.map(function(item) {
           return '<li class="text-[10px] leading-tight text-gray-700">'
             + '<span class="font-semibold block truncate">' + item.name + '</span>'
@@ -1568,11 +1588,6 @@ function _renderWeekGrid(sessionDays, monday, today, hasOverride) {
           + '<svg class="w-3 h-3 opacity-50 cursor-grab" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8h16M4 16h16"/></svg>'
           + 'Session</p>'
           + '<ul class="space-y-1.5">' + items + '</ul>';
-
-        // Past/today session with overlay on but no log found
-        if (_showLogOverlay && notFuture) {
-          body.innerHTML += '<p class="text-[9px] text-gray-400 italic text-center mt-1.5">Not logged</p>';
-        }
 
       } else {
         body.innerHTML = '<div class="h-full flex flex-col items-center justify-center py-3 gap-1">'
@@ -1780,7 +1795,7 @@ async function _ensureLogsLoaded(fromStr, toStr) {
 // ── Monthly cell tooltip ──────────────────────────────────────────────────────
 var _tooltipTimeout = null;
 
-function _showMonthTooltip(cellEl, dateLabel, isMoved, logData) {
+function _showMonthTooltip(cellEl, dateLabel, isMoved, logData, isMissed) {
   clearTimeout(_tooltipTimeout);
   var tt     = document.getElementById('monthly-tooltip');
   var hdr    = document.getElementById('monthly-tooltip-header');
@@ -1793,25 +1808,47 @@ function _showMonthTooltip(cellEl, dateLabel, isMoved, logData) {
   // Reset scroll position
   body.scrollTop = 0;
 
-  // Header colour: green if logged, orange if moved, brand otherwise
+  // Header colour: green=logged, amber=missed, orange=moved, brand=default
   var isLogged = logData !== null && logData !== undefined;
   hdr.className = 'px-4 py-3 flex items-center justify-between gap-2 '
-    + (isLogged ? 'bg-green-600' : isMoved ? 'bg-orange-500' : 'bg-brand-600');
+    + (isLogged ? 'bg-green-600' : isMissed ? 'bg-amber-500' : isMoved ? 'bg-orange-500' : 'bg-brand-600');
   dtEl.textContent = dateLabel;
-  // Badge: "Logged" or "Rescheduled"
+  // Badge
   if (isLogged) {
     badge.textContent = 'Logged';
     badge.className = 'text-[9px] font-bold px-2 py-0.5 rounded-full bg-green-400 text-white';
+  } else if (isMissed) {
+    badge.textContent = 'Missed';
+    badge.className = 'text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-300 text-amber-900';
   } else if (isMoved) {
     badge.textContent = 'Rescheduled';
     badge.className = 'text-[9px] font-bold px-2 py-0.5 rounded-full bg-orange-400 text-white';
   }
-  badge.classList.toggle('hidden', !isLogged && !isMoved);
+  badge.classList.toggle('hidden', !isLogged && !isMissed && !isMoved);
 
   // Build exercise rows
   var html = '';
 
-  if (isLogged) {
+  if (isMissed) {
+    // ── Missed session view ──
+    html += '<p class="text-xs text-amber-700 mb-3">This session was scheduled but not completed.</p>';
+    if (SCHED_PLAN.length === 0) {
+      html += '<p class="text-xs text-gray-400 italic">No exercises in current plan.</p>';
+    } else {
+      SCHED_PLAN.forEach(function(item, idx) {
+        html += '<div class="flex items-start gap-3 py-2 opacity-55 ' + (idx > 0 ? 'border-t border-gray-100' : '') + '">'
+          + '<span class="flex-shrink-0 w-6 h-6 rounded-full bg-amber-100 text-amber-600 text-[10px] font-black flex items-center justify-center mt-0.5">' + (idx + 1) + '</span>'
+          + '<div class="min-w-0 flex-1">'
+          + '<p class="text-sm font-semibold text-gray-600 line-through leading-tight">' + item.name + '</p>'
+          + '<div class="flex items-center gap-2 mt-1">'
+          + '<span class="text-[11px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-medium">' + item.sets + ' sets</span>'
+          + '<span class="text-[11px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full font-medium">' + item.reps + '</span>'
+          + '</div>'
+          + '</div>'
+          + '</div>';
+      });
+    }
+  } else if (isLogged) {
     // ── Show actual logged data ──
     var comp = logData.overall_compliance;
     var painMax = Math.max(logData.pain_during, logData.pain_after, logData.next_day_pain);
@@ -2021,13 +2058,15 @@ async function renderMonthly() {
     var notFutureM = isPast || isToday;
     var dayLog = (_showLogOverlay && notFutureM) ? (_logCache[dateKey2] || null) : null;
     var isLogged = dayLog !== null;
+    var isMissed = _showLogOverlay && isPast && isSess && !isLogged;
 
     if (isSess) sessionCount++;
 
-    // Cell colour: green if logged, orange if moved, brand if normal session
+    // Cell colour: green=logged, amber=missed, orange=moved, brand=session, white=rest
     var cellColour = isLogged ? ' border-green-300 bg-green-50'
-      : isMoved ? ' border-orange-300 bg-orange-50'
-      : isSess  ? ' border-brand-200 bg-brand-50'
+      : isMissed ? ' border-amber-300 bg-amber-50'
+      : isMoved  ? ' border-orange-300 bg-orange-50'
+      : isSess   ? ' border-brand-200 bg-brand-50'
       : ' border-gray-100 bg-white';
 
     div.className = 'h-16 rounded-lg border flex flex-col overflow-hidden transition-shadow'
@@ -2039,7 +2078,7 @@ async function renderMonthly() {
     var topRow = document.createElement('div');
     topRow.className = 'flex items-center justify-between px-1.5 pt-1';
     var numCls = 'text-[11px] font-bold ' + (isToday ? 'text-brand-600' : isPast ? 'text-gray-400' : 'text-gray-600');
-    var dotColour = isLogged ? 'bg-green-500' : isMoved ? 'bg-orange-400' : 'bg-brand-500';
+    var dotColour = isLogged ? 'bg-green-500' : isMissed ? 'bg-amber-400' : isMoved ? 'bg-orange-400' : 'bg-brand-500';
     topRow.innerHTML = '<span class="' + numCls + '">' + dayNum + '</span>'
       + (isSess ? '<span class="w-1.5 h-1.5 rounded-full ' + dotColour + ' shrink-0"></span>' : '');
 
@@ -2063,7 +2102,6 @@ async function renderMonthly() {
           + '<svg class="w-2.5 h-2.5 shrink-0" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>'
           + (comp2 !== null ? '<span class="' + compCls2 + '">' + comp2 + '%</span>' : 'Logged')
           + '</p>';
-        // Show first exercise name
         if (dayLog.exercises.length > 0) {
           listHTML += '<p class="text-[8px] text-gray-500 truncate font-medium leading-tight">' + dayLog.exercises[0].name + '</p>';
           if (dayLog.exercises.length > 1) {
@@ -2071,6 +2109,14 @@ async function renderMonthly() {
           }
         }
         listHTML += '<p class="text-[8px] ' + painCls2 + '">pain ' + dayLog.pain_during + '/' + dayLog.pain_after + '</p>';
+
+      } else if (isMissed) {
+        listHTML += '<p class="text-[8px] font-bold text-amber-600 leading-tight flex items-center gap-0.5">'
+          + '<svg class="w-2.5 h-2.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>'
+          + 'Missed</p>';
+        if (SCHED_PLAN.length > 0) {
+          listHTML += '<p class="text-[8px] text-gray-400 line-through truncate">' + SCHED_PLAN[0].name + '</p>';
+        }
 
       } else if (isMoved) {
         listHTML += '<p class="text-[8px] text-orange-500 font-semibold leading-tight">Rescheduled</p>';
@@ -2100,11 +2146,11 @@ async function renderMonthly() {
       var DAY_NAMES = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
       var MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
       var dateLabel = DAY_NAMES[dowIdx] + ', ' + MONTH_SHORT[_calMonth] + ' ' + dayNum;
-      (function(el, lbl, moved, logData) {
+      (function(el, lbl, moved, logData, missed) {
         el.style.cursor = 'pointer';
-        el.addEventListener('mouseenter', function() { _showMonthTooltip(el, lbl, moved, logData); });
+        el.addEventListener('mouseenter', function() { _showMonthTooltip(el, lbl, moved, logData, missed); });
         el.addEventListener('mouseleave', _hideMonthTooltip);
-      })(div, dateLabel, isMoved, dayLog);
+      })(div, dateLabel, isMoved, dayLog, isMissed);
     }
 
     grid.appendChild(div);
