@@ -1436,7 +1436,11 @@ async function renderWeekly() {
 
   _currentSessionDays = sessionDays;
 
-  // Pre-load logs for this week if overlay is on
+  // Always fetch today's log (needed to lock completed sessions regardless of overlay)
+  var todayStr = _getWeekStartStr(today);
+  await _ensureLogsLoaded(todayStr, todayStr);
+
+  // Also pre-load the full week when overlay is on
   if (_showLogOverlay) {
     var sunday2 = new Date(monday); sunday2.setDate(monday.getDate() + 6);
     await _ensureLogsLoaded(_getWeekStartStr(monday), _getWeekStartStr(sunday2));
@@ -1496,13 +1500,14 @@ function _renderWeekGrid(sessionDays, monday, today, hasOverride) {
       var body = document.createElement('div');
       body.className = 'px-2 py-2.5 flex-1 select-none';
 
-      // Check for a log on this date when overlay is on
-      // Include today (not just past) and any day — regardless of whether it's a scheduled session day
+      // Check for a log on this date.
+      // Today's log is ALWAYS shown (locks the cell); past logs shown when overlay is on.
       var dateKey = d.getFullYear() + '-'
         + String(d.getMonth() + 1).padStart(2, '0') + '-'
         + String(d.getDate()).padStart(2, '0');
       var notFuture = isPast || isToday;
-      var log = (_showLogOverlay && notFuture) ? (_logCache[dateKey] || null) : null;
+      var todayLog = isToday ? (_logCache[dateKey] || null) : null;
+      var log = todayLog || ((_showLogOverlay && notFuture) ? (_logCache[dateKey] || null) : null);
 
       if (log) {
         // ── Logged view (any day that has a log) ──
@@ -1568,7 +1573,8 @@ function _renderWeekGrid(sessionDays, monday, today, hasOverride) {
       cell.appendChild(body);
 
       // ── Drag-and-drop ──
-      if (isSession && !isPast) {
+      // Lock dragging if the session has been completed (today has a log)
+      if (isSession && !isPast && !todayLog) {
         cell.draggable = true;
         cell.style.cursor = 'grab';
         cell.addEventListener('dragstart', function(e) {
