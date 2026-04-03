@@ -2104,6 +2104,205 @@ async def get_session_logs_range(
     return {"logs": result}
 
 
+# ---------------------------------------------------------------------------
+# Weekly adaptation helper + API
+# ---------------------------------------------------------------------------
+
+def _compute_week_adaptation(
+    completed_logs: list[dict],
+    missed_count: int,
+    remaining_count: int,
+) -> dict:
+    """
+    Compute weekly adaptive dosing adjustment based on session outcomes.
+
+    Rules (highest priority first):
+      peak pain ≥6 OR next-day pain >5  → reduce   (60% of sets)
+      peak pain 4-5 OR next-day pain 3-5 → caution  (85% of sets)
+      compliance <60%                    → caution  (75% of sets)
+      ≥2 missed sessions                 → caution  (85% of sets)
+      otherwise                          → maintain (100%)
+    """
+    import datetime as _datetime
+
+    stats: dict = {
+        "done": len(completed_logs),
+        "missed": missed_count,
+        "remaining": remaining_count,
+        "peak_pain": None,
+        "compliance": None,
+    }
+
+    if not completed_logs and missed_count == 0:
+        return {
+            "has_adaptation": False,
+            "level": "maintain",
+            "sets_factor": 1.0,
+            "rationale": "",
+            "stats": stats,
+        }
+
+    # Derive peak pain and mean compliance from completed sessions
+    peak_pain = 0
+    peak_next_day = 0
+    comp_vals: list[int] = []
+    for log in completed_logs:
+        peak_pain = max(peak_pain, log.get("pain_during") or 0, log.get("pain_after") or 0)
+        peak_next_day = max(peak_next_day, log.get("next_day_pain") or 0)
+        if log.get("overall_compliance") is not None:
+            comp_vals.append(log["overall_compliance"])
+
+    mean_comp = round(sum(comp_vals) / len(comp_vals)) if comp_vals else None
+    stats["peak_pain"] = peak_pain if completed_logs else None
+    stats["compliance"] = mean_comp
+
+    level = "maintain"
+    sets_factor = 1.0
+    rationale = ""
+
+    if peak_pain >= 6 or peak_next_day > 5:
+        level = "reduce"
+        sets_factor = 0.60
+        rationale = (
+            f"High pain recorded this week (peak {peak_pain}/10 during session, "
+            f"next-day {peak_next_day}/10). Load significantly reduced for remaining sessions "
+            "to allow tendon recovery."
+        )
+    elif peak_pain >= 4 or peak_next_day >= 3:
+        level = "caution"
+        sets_factor = 0.85
+        rationale = (
+            f"Moderate pain detected this week (peak {peak_pain}/10, next-day {peak_next_day}/10). "
+            "Applying conservative load reduction. Stay within 3\u20134/10 working pain range."
+        )
+    elif mean_comp is not None and mean_comp < 60:
+        level = "caution"
+        sets_factor = 0.75
+        rationale = (
+            f"Low session compliance this week ({mean_comp}% average). "
+            "Volume reduced to match actual capacity before the next session."
+        )
+    elif missed_count >= 2:
+        level = "caution"
+        sets_factor = 0.85
+        rationale = (
+            f"{missed_count} session{'s' if missed_count != 1 else ''} missed this week. "
+            "Applying conservative loading for remaining sessions to avoid overloading."
+        )
+
+    if level == "maintain":
+        rationale = "Week is progressing well. Continuing with prescribed dosing for remaining sessions."
+
+    return {
+        "has_adaptation": True,
+        "level": level,
+        "sets_factor": sets_factor,
+        "rationale": rationale,
+        "stats": stats,
+    }
+
+
+@app.get("/api/weekly-adaptation")
+async def get_weekly_adaptation(
+    week: str,
+    session_days: str = "",
+    teno_session: Optional[str] = Cookie(default=None),
+):
+    """
+    Compute weekly load adaptation for the given week.
+
+    Query params:
+      week         — ISO date of Monday (YYYY-MM-DD)
+      session_days — comma-separated scheduled day indices e.g. "0,2,4"
+    """
+    user = await get_current_user(teno_session)
+    if not user:
+        return {"has_adaptation": False}
+
+    from datetime import date as _date, timedelta as _td
+    import datetime as _datetime
+
+    try:
+        week_date = _date.fromisoformat(week)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid week format")
+
+    week_end = week_date + _td(days=6)
+    today = _date.today()
+
+    try:
+        sched_days = [int(d.strip()) for d in session_days.split(",") if d.strip()]
+    except ValueError:
+        sched_days = []
+
+    if not sched_days:
+        return {"has_adaptation": False}
+
+    # Fetch logs with ±1 day buffer to handle UTC/local boundary mismatches
+    from_buf = (week_date - _td(days=1)).isoformat()
+    to_buf = (week_end + _td(days=1)).isoformat()
+
+    db = await get_db()
+    try:
+        cursor = await db.execute(
+            """SELECT pain_during, pain_after, next_day_pain, exercise_log, created_at
+               FROM daily_logs
+               WHERE user_id = ? AND DATE(created_at) >= ? AND DATE(created_at) <= ?
+               ORDER BY created_at ASC""",
+            (user["id"], from_buf, to_buf),
+        )
+        rows = await cursor.fetchall()
+    finally:
+        await db.close()
+
+    # Re-key logs by LOCAL date (same UTC→local conversion as /api/session-logs)
+    logs_by_local_date: dict = {}
+    for row in rows:
+        r = row_to_dict(row)
+        ts = r["created_at"]
+        try:
+            dt_utc = _datetime.datetime.fromisoformat(
+                ts.replace(" ", "T")
+            ).replace(tzinfo=_datetime.timezone.utc)
+            local_date = dt_utc.astimezone().date()
+        except Exception:
+            local_date = _date.fromisoformat(ts[:10])
+
+        if week_date <= local_date <= week_end:
+            try:
+                ex_data = json.loads(r.get("exercise_log") or "{}")
+            except Exception:
+                ex_data = {}
+            exercises = ex_data.get("exercises", [])
+            comp_vals = [
+                e.get("sets_compliance")
+                for e in exercises
+                if e.get("sets_compliance") is not None
+            ]
+            logs_by_local_date[local_date] = {
+                "pain_during": r["pain_during"],
+                "pain_after": r["pain_after"],
+                "next_day_pain": r["next_day_pain"],
+                "overall_compliance": round(sum(comp_vals) / len(comp_vals)) if comp_vals else None,
+            }
+
+    # Classify each scheduled day
+    completed_logs: list[dict] = []
+    missed_count = 0
+    remaining_count = 0
+
+    for day_idx in sched_days:
+        session_date = week_date + _td(days=day_idx)
+        if session_date in logs_by_local_date:
+            completed_logs.append(logs_by_local_date[session_date])
+        elif session_date < today:
+            missed_count += 1
+        else:
+            remaining_count += 1
+
+    return _compute_week_adaptation(completed_logs, missed_count, remaining_count)
+
+
 @app.delete("/api/schedule-override")
 async def delete_schedule_override(
     week: str,

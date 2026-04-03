@@ -1018,6 +1018,9 @@
     // Log overlay state
     var _showLogOverlay = false;
     var _logCache = {};            // "YYYY-MM-DD" → log object | null
+    // Weekly adaptation state
+    var _weekAdaptationCache = {}; // weekStart → adaptation object | null
+    var _currentAdaptation = null;
   </script>
 
   {# ── Full rest week (STOP decision) ── #}
@@ -1052,6 +1055,8 @@
         </button>
       </div>
       <p id="drag-hint" class="text-[10px] text-gray-400 text-center mb-2 hidden">Drag a session day to a different date to reschedule it.</p>
+      <!-- Weekly adaptation strip — filled by JS for current week -->
+      <div id="week-adaptation-strip" class="hidden mb-2"></div>
       <!-- Day grid — filled by JS -->
       <div class="overflow-x-auto pb-1">
         <div id="weekly-grid" class="grid grid-cols-7 gap-2 p-1" style="min-width:580px;"></div>
@@ -1452,16 +1457,39 @@ async function renderWeekly() {
   var todayStr = _getWeekStartStr(today);
   await _ensureLogsLoaded(todayStr, todayStr);
 
-  // Also pre-load the full week when overlay is on
+  // Parallel: overlay logs + weekly adaptation (current week only)
+  var isCurrentWeek = (_weekOffset === 0);
+  var sidePromises = [];
+
   if (_showLogOverlay) {
     var sunday2 = new Date(monday); sunday2.setDate(monday.getDate() + 6);
-    await _ensureLogsLoaded(_getWeekStartStr(monday), _getWeekStartStr(sunday2));
+    sidePromises.push(_ensureLogsLoaded(_getWeekStartStr(monday), _getWeekStartStr(sunday2)));
   }
 
-  _renderWeekGrid(sessionDays, monday, today, hasOverride);
+  if (isCurrentWeek && !_weekAdaptationCache.hasOwnProperty(weekStart)) {
+    sidePromises.push(
+      fetch('/api/weekly-adaptation?week=' + weekStart + '&session_days=' + sessionDays.join(','))
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .catch(function() { return null; })
+        .then(function(ad) {
+          _currentAdaptation = ad;
+          _weekAdaptationCache[weekStart] = ad;
+        })
+    );
+  } else if (isCurrentWeek) {
+    _currentAdaptation = _weekAdaptationCache[weekStart];
+  } else {
+    _currentAdaptation = null;
+  }
+
+  if (sidePromises.length) await Promise.all(sidePromises);
+
+  _renderWeekGrid(sessionDays, monday, today, hasOverride, isCurrentWeek ? _currentAdaptation : null);
 }
 
-function _renderWeekGrid(sessionDays, monday, today, hasOverride) {
+function _renderWeekGrid(sessionDays, monday, today, hasOverride, adaptation) {
+  // Render adaptation strip (current week only — adaptation is null for other weeks)
+  _renderAdaptationStrip(adaptation || null);
   // Show / hide reset button
   var resetBtn = document.getElementById('reset-override-btn');
   if (resetBtn) {
@@ -1579,16 +1607,36 @@ function _renderWeekGrid(sessionDays, monday, today, hasOverride) {
           + ' border-amber-300 bg-amber-500';
 
       } else if (isSession) {
-        // ── Prescribed view (future, or overlay off) ──
+        // ── Prescribed view (future or today, overlay off) ──
+        // Apply adaptation factor only to upcoming (non-past) sessions
+        var adLevel = (adaptation && adaptation.has_adaptation && !isPast) ? adaptation.level : 'maintain';
+        var adFactor = (adLevel === 'reduce') ? adaptation.sets_factor
+                      : (adLevel === 'caution') ? adaptation.sets_factor
+                      : 1.0;
+        var showAdBadge = (adLevel === 'reduce' || adLevel === 'caution');
+
         var items = SCHED_PLAN.map(function(item) {
+          var origSets = item.sets;
+          var adjSets = showAdBadge ? Math.max(1, Math.round(origSets * adFactor)) : origSets;
+          var setsHtml = (showAdBadge && adjSets < origSets)
+            ? '<del class="text-gray-300">' + origSets + '</del><span class="font-bold ' + (adLevel === 'reduce' ? 'text-red-500' : 'text-amber-600') + '"> ' + adjSets + '</span>'
+            : origSets;
           return '<li class="text-[10px] leading-tight text-gray-700">'
             + '<span class="font-semibold block truncate">' + item.name + '</span>'
-            + '<span class="text-gray-400">' + item.sets + ' \xd7 ' + item.reps + '</span>'
+            + '<span class="text-gray-400">' + setsHtml + ' \xd7 ' + item.reps + '</span>'
             + '</li>';
         }).join('');
-        body.innerHTML = '<p class="text-[9px] font-bold text-brand-600 uppercase tracking-wide mb-2 text-center flex items-center justify-center gap-1">'
+
+        var adBadge = '';
+        if (adLevel === 'reduce') {
+          adBadge = ' <span class="text-[8px] bg-red-500 text-white rounded px-1 font-bold">REDUCED</span>';
+        } else if (adLevel === 'caution') {
+          adBadge = ' <span class="text-[8px] bg-amber-500 text-white rounded px-1 font-bold">CAUTION</span>';
+        }
+
+        body.innerHTML = '<p class="text-[9px] font-bold text-brand-600 uppercase tracking-wide mb-2 text-center flex items-center justify-center gap-1 flex-wrap">'
           + '<svg class="w-3 h-3 opacity-50 cursor-grab" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8h16M4 16h16"/></svg>'
-          + 'Session</p>'
+          + 'Session' + adBadge + '</p>'
           + '<ul class="space-y-1.5">' + items + '</ul>';
 
       } else {
@@ -1656,10 +1704,13 @@ function _renderWeekGrid(sessionDays, monday, today, hasOverride) {
         // Optimistic update
         _currentSessionDays = newDays;
         _weekOverrideCache[_currentWeekStart] = newDays;
+        // Invalidate adaptation cache so it re-fetches with new schedule
+        delete _weekAdaptationCache[_currentWeekStart];
+        _currentAdaptation = null;
         var today2 = new Date(); today2.setHours(0,0,0,0);
-        _renderWeekGrid(newDays, _currentMonday, today2, true);
+        _renderWeekGrid(newDays, _currentMonday, today2, true, null);
 
-        // Persist
+        // Persist + re-fetch adaptation in background
         try {
           await fetch('/api/schedule-override', {
             method: 'POST',
@@ -1667,6 +1718,8 @@ function _renderWeekGrid(sessionDays, monday, today, hasOverride) {
             body: JSON.stringify({week: _currentWeekStart, session_days: newDays})
           });
         } catch(err) { /* silent — already updated locally */ }
+        // Refresh to get updated adaptation
+        renderWeekly();
       });
 
       grid.appendChild(cell);
@@ -1688,9 +1741,10 @@ async function resetWeekOverride() {
     await fetch('/api/schedule-override?week=' + _currentWeekStart, {method: 'DELETE'});
   } catch(e) {}
   _weekOverrideCache[_currentWeekStart] = null;
+  delete _weekAdaptationCache[_currentWeekStart];
+  _currentAdaptation = null;
   _currentSessionDays = SCHED_SESSION_DAYS.slice();
-  var today = new Date(); today.setHours(0,0,0,0);
-  _renderWeekGrid(SCHED_SESSION_DAYS, _currentMonday, today, false);
+  await renderWeekly();
 }
 
 // ── Log button gating ────────────────────────────────────────────────────────
@@ -1725,6 +1779,61 @@ function _updateLogButtons(allowed) {
       };
     }
   });
+}
+
+// ── Weekly adaptation strip ───────────────────────────────────────────────────
+function _renderAdaptationStrip(adaptation) {
+  var strip = document.getElementById('week-adaptation-strip');
+  if (!strip) return;
+
+  if (!adaptation || !adaptation.has_adaptation) {
+    strip.classList.add('hidden');
+    strip.innerHTML = '';
+    return;
+  }
+
+  var level = adaptation.level || 'maintain';
+  var stats = adaptation.stats || {};
+  var factor = adaptation.sets_factor || 1.0;
+
+  var themes = {
+    reduce:   { bg: 'bg-red-50',    border: 'border-red-300',   title: 'text-red-800',   sub: 'text-red-600',   label: 'LOAD REDUCED', icon: '\u26a0\ufe0f' },
+    caution:  { bg: 'bg-amber-50',  border: 'border-amber-300', title: 'text-amber-800', sub: 'text-amber-600', label: 'CAUTION',       icon: '\u26a1' },
+    maintain: { bg: 'bg-green-50',  border: 'border-green-200', title: 'text-green-800', sub: 'text-green-600', label: 'ON TRACK',      icon: '\u2713' },
+  };
+  var t = themes[level] || themes.maintain;
+
+  // Build stat chips
+  var chips = [];
+  chips.push('<span>\u2713\xa0' + (stats.done || 0) + ' done</span>');
+  if ((stats.missed || 0) > 0) chips.push('<span>\u2717\xa0' + stats.missed + ' missed</span>');
+  if ((stats.remaining || 0) > 0) chips.push('<span>\u2192\xa0' + stats.remaining + ' ahead</span>');
+  if (stats.peak_pain !== null && stats.peak_pain !== undefined) {
+    chips.push('<span>Peak pain\xa0' + stats.peak_pain + '/10</span>');
+  }
+  if (stats.compliance !== null && stats.compliance !== undefined) {
+    chips.push('<span>' + stats.compliance + '% compliance</span>');
+  }
+
+  var factorNote = (factor < 1.0)
+    ? '<span class="text-[10px] ' + t.sub + ' ml-2 font-normal">\u2192 ' + Math.round(factor * 100) + '% of prescribed sets</span>'
+    : '';
+
+  strip.innerHTML = '<div class="rounded-xl border px-4 py-2.5 flex items-start gap-3 ' + t.bg + ' ' + t.border + '">'
+    + '<span class="text-base mt-0.5 leading-none">' + t.icon + '</span>'
+    + '<div class="min-w-0 flex-1">'
+    +   '<div class="flex items-center flex-wrap gap-1 mb-0.5">'
+    +     '<span class="text-xs font-black uppercase tracking-wide ' + t.title + '">' + t.label + '</span>'
+    +     factorNote
+    +   '</div>'
+    +   '<p class="text-[11px] leading-snug mb-1.5 ' + t.sub + '">' + (adaptation.rationale || '') + '</p>'
+    +   '<div class="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] font-medium ' + t.sub + '">'
+    +     chips.join('<span class="opacity-30 mx-0.5">|</span>')
+    +   '</div>'
+    + '</div>'
+    + '</div>';
+
+  strip.classList.remove('hidden');
 }
 
 // ── Log overlay ──────────────────────────────────────────────────────────────
