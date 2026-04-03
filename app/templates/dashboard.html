@@ -1081,8 +1081,10 @@
 
 <!-- Monthly exercise tooltip (position: fixed, shared across all cells) -->
 <div id="monthly-tooltip"
-     class="fixed z-50 hidden pointer-events-none"
-     style="width:300px; max-width:calc(100vw - 24px);">
+     class="fixed z-50 hidden"
+     style="width:300px; max-width:calc(100vw - 24px);"
+     onmouseenter="clearTimeout(_tooltipTimeout)"
+     onmouseleave="_hideMonthTooltip()">
   <div class="bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
     <!-- Header -->
     <div id="monthly-tooltip-header" class="px-4 py-3 bg-brand-600 flex items-center justify-between gap-2">
