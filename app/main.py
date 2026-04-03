@@ -2029,6 +2029,64 @@ async def save_schedule_override(
         await db.close()
 
 
+@app.get("/api/session-logs")
+async def get_session_logs_range(
+    from_date: str,
+    to_date: str,
+    teno_session: Optional[str] = Cookie(default=None),
+):
+    """Return daily logs for a date range, keyed by YYYY-MM-DD date string."""
+    user = await get_current_user(teno_session)
+    if not user:
+        return {"logs": {}}
+    db = await get_db()
+    try:
+        cursor = await db.execute(
+            """SELECT pain_during, pain_after, next_day_pain, difficulty, confidence,
+                      exercise_log, created_at
+               FROM daily_logs
+               WHERE user_id = ? AND DATE(created_at) >= ? AND DATE(created_at) <= ?
+               ORDER BY created_at ASC""",
+            (user["id"], from_date, to_date),
+        )
+        rows = await cursor.fetchall()
+    finally:
+        await db.close()
+
+    result = {}
+    for row in rows:
+        r = row_to_dict(row)
+        date_key = r["created_at"][:10]
+        try:
+            ex_data = json.loads(r.get("exercise_log") or "{}")
+        except Exception:
+            ex_data = {}
+        exercises = ex_data.get("exercises", [])
+        # Compute overall compliance
+        comp_vals = [e.get("sets_compliance") for e in exercises if e.get("sets_compliance") is not None]
+        overall_comp = round(sum(comp_vals) / len(comp_vals)) if comp_vals else None
+        result[date_key] = {
+            "pain_during": r["pain_during"],
+            "pain_after": r["pain_after"],
+            "next_day_pain": r["next_day_pain"],
+            "difficulty": r["difficulty"],
+            "confidence": r["confidence"],
+            "overall_compliance": overall_comp,
+            "exercises": [
+                {
+                    "name": e.get("name", ""),
+                    "sets_done": e.get("sets_done"),
+                    "prescribed_sets": e.get("prescribed_sets"),
+                    "sets_compliance": e.get("sets_compliance"),
+                    "reps_done": e.get("reps_done") or e.get("prescribed_reps") or "—",
+                    "tempo": e.get("tempo") or "",
+                }
+                for e in exercises
+            ],
+        }
+    return {"logs": result}
+
+
 @app.delete("/api/schedule-override")
 async def delete_schedule_override(
     week: str,

@@ -855,10 +855,18 @@
       <h2 id="prog-title" class="font-black text-gray-900 text-lg leading-tight">Weekly Program</h2>
       <p class="text-xs text-gray-400 mt-0.5">{{ freq_note }}</p>
     </div>
-    <div class="flex items-center gap-3">
+    <div class="flex items-center gap-2 flex-wrap justify-end">
       <span class="text-xs px-2.5 py-1 rounded-full bg-brand-50 text-brand-700 font-semibold border border-brand-100">
         {{ weekly_schedule.sessions_per_week }} sessions / week
       </span>
+      <!-- Log overlay toggle -->
+      <button type="button" id="log-overlay-btn" onclick="toggleLogOverlay()"
+              class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-green-300 hover:text-green-700 transition-colors font-medium">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <span id="log-overlay-label">Show completed</span>
+      </button>
       <button type="button" id="prog-toggle-btn"
               onclick="toggleMonthlyProgram()"
               class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-brand-300 hover:text-brand-700 transition-colors font-medium">
@@ -995,6 +1003,9 @@
     var _currentSessionDays = SCHED_SESSION_DAYS.slice();
     var _currentMonday = null;
     var _dragFromIdx = -1;
+    // Log overlay state
+    var _showLogOverlay = false;
+    var _logCache = {};            // "YYYY-MM-DD" → log object | null
   </script>
 
   {# ── Full rest week (STOP decision) ── #}
@@ -1424,6 +1435,13 @@ async function renderWeekly() {
   }
 
   _currentSessionDays = sessionDays;
+
+  // Pre-load logs for this week if overlay is on
+  if (_showLogOverlay) {
+    var sunday2 = new Date(monday); sunday2.setDate(monday.getDate() + 6);
+    await _ensureLogsLoaded(_getWeekStartStr(monday), _getWeekStartStr(sunday2));
+  }
+
   _renderWeekGrid(sessionDays, monday, today, hasOverride);
 }
 
@@ -1478,7 +1496,47 @@ function _renderWeekGrid(sessionDays, monday, today, hasOverride) {
       var body = document.createElement('div');
       body.className = 'px-2 py-2.5 flex-1 select-none';
 
-      if (isSession) {
+      // Check for a log on this date when overlay is on
+      var dateKey = d.getFullYear() + '-'
+        + String(d.getMonth() + 1).padStart(2, '0') + '-'
+        + String(d.getDate()).padStart(2, '0');
+      var log = (_showLogOverlay && isPast && isSession) ? (_logCache[dateKey] || null) : null;
+
+      if (isSession && log) {
+        // ── Logged view ──
+        var comp = log.overall_compliance;
+        var compCls = comp !== null
+          ? (comp >= 90 ? 'text-green-600' : comp >= 70 ? 'text-yellow-600' : 'text-red-500')
+          : 'text-gray-400';
+        var painMax = Math.max(log.pain_during, log.pain_after);
+        var painCls = painMax >= 6 ? 'text-red-500' : painMax >= 4 ? 'text-yellow-600' : 'text-green-600';
+        var exRows = log.exercises.map(function(ex) {
+          var sc = ex.sets_compliance;
+          var scCls = sc !== null ? (sc >= 90 ? 'text-green-600' : sc >= 70 ? 'text-yellow-600' : 'text-red-500') : 'text-gray-400';
+          var done = (ex.sets_done !== null && ex.sets_done !== undefined) ? ex.sets_done : '?';
+          var pres = ex.prescribed_sets || '?';
+          return '<li class="text-[10px] leading-tight">'
+            + '<span class="font-semibold block truncate text-gray-700">' + ex.name + '</span>'
+            + '<span class="' + scCls + '">' + done + '/' + pres + ' sets</span>'
+            + '<span class="text-gray-400 ml-1">\xb7 ' + ex.reps_done + '</span>'
+            + '</li>';
+        }).join('');
+        body.innerHTML = '<p class="text-[9px] font-bold uppercase tracking-wide mb-1.5 text-center flex items-center justify-center gap-1 text-green-600">'
+          + '<svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>'
+          + 'Logged</p>'
+          + '<ul class="space-y-1.5">' + exRows + '</ul>'
+          + '<div class="mt-2 pt-1.5 border-t border-gray-200 flex items-center justify-between gap-1">'
+          + (comp !== null ? '<span class="text-[9px] font-bold ' + compCls + '">' + comp + '% done</span>' : '')
+          + '<span class="text-[9px] ' + painCls + '">pain ' + log.pain_during + '/' + log.pain_after + '</span>'
+          + '</div>';
+        // Restyle cell border to green when logged
+        cell.classList.remove('border-brand-200', 'bg-brand-50', 'border-orange-300', 'bg-orange-50');
+        cell.classList.add('border-green-300', 'bg-green-50');
+        hdr.classList.remove('border-brand-200', 'bg-brand-600', 'bg-orange-400');
+        hdr.classList.add('border-green-300', 'bg-green-600');
+
+      } else if (isSession) {
+        // ── Prescribed view ──
         var items = SCHED_PLAN.map(function(item) {
           return '<li class="text-[10px] leading-tight text-gray-700">'
             + '<span class="font-semibold block truncate">' + item.name + '</span>'
@@ -1489,6 +1547,12 @@ function _renderWeekGrid(sessionDays, monday, today, hasOverride) {
           + '<svg class="w-3 h-3 opacity-50 cursor-grab" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8h16M4 16h16"/></svg>'
           + 'Session</p>'
           + '<ul class="space-y-1.5">' + items + '</ul>';
+
+        // Past session with overlay on but no log found
+        if (_showLogOverlay && isPast) {
+          body.innerHTML += '<p class="text-[9px] text-gray-400 italic text-center mt-1.5">Not logged</p>';
+        }
+
       } else {
         body.innerHTML = '<div class="h-full flex flex-col items-center justify-center py-3 gap-1">'
           + '<svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z"/></svg>'
@@ -1581,10 +1645,59 @@ async function resetWeekOverride() {
   _renderWeekGrid(SCHED_SESSION_DAYS, _currentMonday, today, false);
 }
 
+// ── Log overlay ──────────────────────────────────────────────────────────────
+async function toggleLogOverlay() {
+  _showLogOverlay = !_showLogOverlay;
+  var btn   = document.getElementById('log-overlay-btn');
+  var label = document.getElementById('log-overlay-label');
+  if (btn) {
+    btn.classList.toggle('border-green-400', _showLogOverlay);
+    btn.classList.toggle('bg-green-50',  _showLogOverlay);
+    btn.classList.toggle('text-green-700', _showLogOverlay);
+    btn.classList.toggle('border-gray-200', !_showLogOverlay);
+    btn.classList.toggle('text-gray-500', !_showLogOverlay);
+  }
+  if (label) label.textContent = _showLogOverlay ? 'Hide completed' : 'Show completed';
+  // Refresh visible view
+  await renderWeekly();
+  if (!document.getElementById('prog-monthly').classList.contains('hidden')) {
+    await renderMonthly();
+  }
+}
+
+async function _ensureLogsLoaded(fromStr, toStr) {
+  // Collect dates in range not yet in cache
+  var cur = new Date(fromStr + 'T00:00:00');
+  var end = new Date(toStr   + 'T00:00:00');
+  var missing = false;
+  while (cur <= end) {
+    var k = _getWeekStartStr(cur);  // reuse ISO formatter
+    if (!_logCache.hasOwnProperty(k)) { missing = true; break; }
+    cur.setDate(cur.getDate() + 1);
+  }
+  if (!missing) return;
+  try {
+    var resp = await fetch('/api/session-logs?from_date=' + fromStr + '&to_date=' + toStr);
+    if (!resp.ok) return;
+    var data = await resp.json();
+    // Mark every date in range as fetched (null = no log)
+    var d2 = new Date(fromStr + 'T00:00:00');
+    var e2 = new Date(toStr   + 'T00:00:00');
+    while (d2 <= e2) {
+      var dk = _getWeekStartStr(d2);
+      if (!_logCache.hasOwnProperty(dk)) _logCache[dk] = null;
+      d2.setDate(d2.getDate() + 1);
+    }
+    // Fill in actual logs
+    var logs = data.logs || {};
+    Object.keys(logs).forEach(function(k) { _logCache[k] = logs[k]; });
+  } catch(e) {}
+}
+
 // ── Monthly cell tooltip ──────────────────────────────────────────────────────
 var _tooltipTimeout = null;
 
-function _showMonthTooltip(cellEl, dateLabel, isMoved) {
+function _showMonthTooltip(cellEl, dateLabel, isMoved, logData) {
   clearTimeout(_tooltipTimeout);
   var tt     = document.getElementById('monthly-tooltip');
   var hdr    = document.getElementById('monthly-tooltip-header');
@@ -1597,27 +1710,71 @@ function _showMonthTooltip(cellEl, dateLabel, isMoved) {
   // Reset scroll position
   body.scrollTop = 0;
 
-  // Header colour
+  // Header colour: green if logged, orange if moved, brand otherwise
+  var isLogged = logData !== null && logData !== undefined;
   hdr.className = 'px-4 py-3 flex items-center justify-between gap-2 '
-    + (isMoved ? 'bg-orange-500' : 'bg-brand-600');
+    + (isLogged ? 'bg-green-600' : isMoved ? 'bg-orange-500' : 'bg-brand-600');
   dtEl.textContent = dateLabel;
-  badge.classList.toggle('hidden', !isMoved);
+  // Badge: "Logged" or "Rescheduled"
+  if (isLogged) {
+    badge.textContent = 'Logged';
+    badge.className = 'text-[9px] font-bold px-2 py-0.5 rounded-full bg-green-400 text-white';
+  } else if (isMoved) {
+    badge.textContent = 'Rescheduled';
+    badge.className = 'text-[9px] font-bold px-2 py-0.5 rounded-full bg-orange-400 text-white';
+  }
+  badge.classList.toggle('hidden', !isLogged && !isMoved);
 
   // Build exercise rows
   var html = '';
-  if (SCHED_PLAN.length === 0) {
+
+  if (isLogged) {
+    // ── Show actual logged data ──
+    var comp = logData.overall_compliance;
+    var painMax = Math.max(logData.pain_during, logData.pain_after, logData.next_day_pain);
+    var painCls = painMax >= 6 ? 'text-red-600' : painMax >= 4 ? 'text-yellow-600' : 'text-green-600';
+    // Summary row
+    html += '<div class="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100">'
+      + (comp !== null
+        ? '<span class="text-xs font-bold px-2.5 py-1 rounded-full '
+          + (comp >= 90 ? 'bg-green-100 text-green-700' : comp >= 70 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-600')
+          + '">' + comp + '% completion</span>'
+        : '')
+      + '<span class="text-xs ' + painCls + '">Pain: ' + logData.pain_during + '↑ / ' + logData.pain_after + '↓ / ' + logData.next_day_pain + ' next day</span>'
+      + '</div>';
+    if (logData.exercises.length === 0) {
+      html += '<p class="text-xs text-gray-400 italic">No exercise detail recorded.</p>';
+    } else {
+      logData.exercises.forEach(function(ex, idx) {
+        var sc = ex.sets_compliance;
+        var scCls = sc !== null ? (sc >= 90 ? 'bg-green-100 text-green-700' : sc >= 70 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-600') : 'bg-gray-100 text-gray-500';
+        var done = (ex.sets_done !== null && ex.sets_done !== undefined) ? ex.sets_done : '?';
+        var pres = ex.prescribed_sets || '?';
+        html += '<div class="flex items-start gap-3 py-2 ' + (idx > 0 ? 'border-t border-gray-100' : '') + '">'
+          + '<span class="flex-shrink-0 w-6 h-6 rounded-full bg-green-100 text-green-700 text-[10px] font-black flex items-center justify-center mt-0.5">' + (idx + 1) + '</span>'
+          + '<div class="min-w-0 flex-1">'
+          + '<p class="text-sm font-semibold text-gray-800 leading-tight">' + ex.name + '</p>'
+          + '<div class="flex items-center gap-1.5 mt-1 flex-wrap">'
+          + '<span class="text-[11px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-medium">' + done + '/' + pres + ' sets</span>'
+          + '<span class="text-[11px] bg-brand-50 text-brand-700 px-2 py-0.5 rounded-full font-medium">' + ex.reps_done + '</span>'
+          + (sc !== null ? '<span class="text-[11px] ' + scCls + ' px-2 py-0.5 rounded-full font-bold">' + sc + '%</span>' : '')
+          + '</div>'
+          + '</div>'
+          + '</div>';
+      });
+    }
+  } else if (SCHED_PLAN.length === 0) {
     html = '<p class="text-xs text-gray-400 italic">No exercises in current plan.</p>';
   } else {
+    // ── Show prescribed plan ──
     SCHED_PLAN.forEach(function(item, idx) {
       html += '<div class="flex items-start gap-3 py-2 ' + (idx > 0 ? 'border-t border-gray-100' : '') + '">'
         + '<span class="flex-shrink-0 w-6 h-6 rounded-full bg-brand-100 text-brand-700 text-[10px] font-black flex items-center justify-center mt-0.5">' + (idx + 1) + '</span>'
         + '<div class="min-w-0 flex-1">'
         + '<p class="text-sm font-semibold text-gray-800 leading-tight">' + item.name + '</p>'
         + '<div class="flex items-center gap-2 mt-1">'
-        + '<span class="text-[11px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-medium">'
-        + item.sets + ' sets</span>'
-        + '<span class="text-[11px] bg-brand-50 text-brand-700 px-2 py-0.5 rounded-full font-medium">'
-        + item.reps + '</span>'
+        + '<span class="text-[11px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-medium">' + item.sets + ' sets</span>'
+        + '<span class="text-[11px] bg-brand-50 text-brand-700 px-2 py-0.5 rounded-full font-medium">' + item.reps + '</span>'
         + '</div>'
         + '</div>'
         + '</div>';
@@ -1737,6 +1894,13 @@ async function renderMonthly() {
     }));
   }
 
+  // Pre-load logs for the whole month if overlay is on
+  if (_showLogOverlay) {
+    var fromStr = _calYear + '-' + String(_calMonth + 1).padStart(2,'0') + '-01';
+    var toStr   = _calYear + '-' + String(_calMonth + 1).padStart(2,'0') + '-' + String(daysInMon).padStart(2,'0');
+    await _ensureLogsLoaded(fromStr, toStr);
+  }
+
   // Render grid
   grid.innerHTML = '';
   var sessionCount = 0;
@@ -1767,10 +1931,23 @@ async function renderMonthly() {
     var weekHasOverride = _weekOverrideCache.hasOwnProperty(ws2) && _weekOverrideCache[ws2] !== null;
     var isMoved = weekHasOverride && isSess && SCHED_SESSION_DAYS.indexOf(dowIdx) === -1;
 
+    // Log overlay lookup
+    var dateKey2 = d.getFullYear() + '-'
+      + String(d.getMonth() + 1).padStart(2,'0') + '-'
+      + String(dayNum).padStart(2,'0');
+    var dayLog = (_showLogOverlay && isPast && isSess) ? (_logCache[dateKey2] || null) : null;
+    var isLogged = dayLog !== null;
+
     if (isSess) sessionCount++;
 
+    // Cell colour: green if logged, orange if moved, brand if normal session
+    var cellColour = isLogged ? ' border-green-300 bg-green-50'
+      : isMoved ? ' border-orange-300 bg-orange-50'
+      : isSess  ? ' border-brand-200 bg-brand-50'
+      : ' border-gray-100 bg-white';
+
     div.className = 'h-16 rounded-lg border flex flex-col overflow-hidden transition-shadow'
-      + (isSess ? (isMoved ? ' border-orange-300 bg-orange-50' : ' border-brand-200 bg-brand-50') : ' border-gray-100 bg-white')
+      + cellColour
       + (isToday ? ' ring-2 ring-brand-500 ring-offset-1 shadow-sm' : '')
       + (isPast && !isToday ? ' opacity-55' : '');
 
@@ -1778,44 +1955,72 @@ async function renderMonthly() {
     var topRow = document.createElement('div');
     topRow.className = 'flex items-center justify-between px-1.5 pt-1';
     var numCls = 'text-[11px] font-bold ' + (isToday ? 'text-brand-600' : isPast ? 'text-gray-400' : 'text-gray-600');
+    var dotColour = isLogged ? 'bg-green-500' : isMoved ? 'bg-orange-400' : 'bg-brand-500';
     topRow.innerHTML = '<span class="' + numCls + '">' + dayNum + '</span>'
-      + (isSess ? '<span class="w-1.5 h-1.5 rounded-full ' + (isMoved ? 'bg-orange-400' : 'bg-brand-500') + ' shrink-0"></span>' : '');
+      + (isSess ? '<span class="w-1.5 h-1.5 rounded-full ' + dotColour + ' shrink-0"></span>' : '');
 
     div.appendChild(topRow);
 
-    // Exercise list or "moved" label
+    // Cell body
     if (isSess) {
       var listEl = document.createElement('div');
       listEl.className = 'px-1.5 pb-1 flex-1 overflow-hidden';
-      var listHTML = '<ul class="space-y-0 mt-0.5">';
-      if (isMoved) {
-        listHTML += '<li class="text-[8px] text-orange-500 font-semibold leading-tight">Rescheduled</li>';
-        var visible2 = Math.min(SCHED_PLAN.length, 1);
-        for (var k = 0; k < visible2; k++) {
-          listHTML += '<li class="text-[8px] text-gray-500 truncate font-medium leading-tight">' + SCHED_PLAN[k].name + '</li>';
+      var listHTML = '';
+
+      if (isLogged) {
+        // Show completion summary
+        var comp2 = dayLog.overall_compliance;
+        var compCls2 = comp2 !== null
+          ? (comp2 >= 90 ? 'text-green-600' : comp2 >= 70 ? 'text-yellow-600' : 'text-red-500')
+          : 'text-gray-400';
+        var painMax2 = Math.max(dayLog.pain_during, dayLog.pain_after);
+        var painCls2 = painMax2 >= 6 ? 'text-red-500' : painMax2 >= 4 ? 'text-yellow-600' : 'text-green-600';
+        listHTML += '<p class="text-[8px] font-bold text-green-600 leading-tight flex items-center gap-0.5">'
+          + '<svg class="w-2.5 h-2.5 shrink-0" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>'
+          + (comp2 !== null ? '<span class="' + compCls2 + '">' + comp2 + '%</span>' : 'Logged')
+          + '</p>';
+        // Show first exercise name
+        if (dayLog.exercises.length > 0) {
+          listHTML += '<p class="text-[8px] text-gray-500 truncate font-medium leading-tight">' + dayLog.exercises[0].name + '</p>';
+          if (dayLog.exercises.length > 1) {
+            listHTML += '<p class="text-[8px] text-gray-400">+' + (dayLog.exercises.length - 1) + ' more</p>';
+          }
         }
+        listHTML += '<p class="text-[8px] ' + painCls2 + '">pain ' + dayLog.pain_during + '/' + dayLog.pain_after + '</p>';
+
+      } else if (isMoved) {
+        listHTML += '<p class="text-[8px] text-orange-500 font-semibold leading-tight">Rescheduled</p>';
+        if (SCHED_PLAN.length > 0) {
+          listHTML += '<p class="text-[8px] text-gray-500 truncate font-medium leading-tight">' + SCHED_PLAN[0].name + '</p>';
+        }
+
       } else {
-        var visible = Math.min(SCHED_PLAN.length, 2);
-        for (var j = 0; j < visible; j++) {
-          listHTML += '<li class="text-[8px] text-gray-500 truncate font-medium leading-tight">' + SCHED_PLAN[j].name + '</li>';
+        // Normal prescribed view
+        var visN = Math.min(SCHED_PLAN.length, 2);
+        for (var j = 0; j < visN; j++) {
+          listHTML += '<p class="text-[8px] text-gray-500 truncate font-medium leading-tight">' + SCHED_PLAN[j].name + '</p>';
         }
         if (SCHED_PLAN.length > 2) {
-          listHTML += '<li class="text-[8px] text-brand-400 font-semibold">+' + (SCHED_PLAN.length - 2) + ' more</li>';
+          listHTML += '<p class="text-[8px] text-brand-400 font-semibold">+' + (SCHED_PLAN.length - 2) + ' more</p>';
+        }
+        // "Not logged" hint when overlay on and past
+        if (_showLogOverlay && isPast) {
+          listHTML += '<p class="text-[8px] text-gray-400 italic">not logged</p>';
         }
       }
-      listHTML += '</ul>';
+
       listEl.innerHTML = listHTML;
       div.appendChild(listEl);
 
-      // Hover tooltip
+      // Hover tooltip — pass log data so tooltip can show actuals when available
       var DAY_NAMES = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
       var MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      var dateLabel = DAY_NAMES[dowIdx] + ', ' + MONTH_SHORT[_calYear ? _calMonth : d.getMonth()] + ' ' + dayNum;
-      (function(el, lbl, moved) {
+      var dateLabel = DAY_NAMES[dowIdx] + ', ' + MONTH_SHORT[_calMonth] + ' ' + dayNum;
+      (function(el, lbl, moved, logData) {
         el.style.cursor = 'pointer';
-        el.addEventListener('mouseenter', function() { _showMonthTooltip(el, lbl, moved); });
+        el.addEventListener('mouseenter', function() { _showMonthTooltip(el, lbl, moved, logData); });
         el.addEventListener('mouseleave', _hideMonthTooltip);
-      })(div, dateLabel, isMoved);
+      })(div, dateLabel, isMoved, dayLog);
     }
 
     grid.appendChild(div);
