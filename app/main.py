@@ -1357,8 +1357,24 @@ async def daily_log_get(
     if not user:
         return RedirectResponse("/login", status_code=302)
 
+    # Guard: if the user has manually moved today's session to another day, block logging
+    from datetime import date as _date, timedelta as _td
+    _today = _date.today()
+    _today_dow = _today.weekday()          # 0=Mon … 6=Sun
+    _week_start = (_today - _td(days=_today_dow)).isoformat()
+
     db = await get_db()
     try:
+        _cur = await db.execute(
+            "SELECT session_days FROM schedule_overrides WHERE user_id = ? AND week_start = ?",
+            (user["id"], _week_start),
+        )
+        _override = await _cur.fetchone()
+        if _override:
+            _days = json.loads(_override["session_days"])
+            if _today_dow not in _days:
+                return RedirectResponse("/dashboard?blocked=1", status_code=302)
+
         state = await _get_user_rehab_state(user, db)
     finally:
         await db.close()

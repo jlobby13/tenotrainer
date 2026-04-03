@@ -15,11 +15,23 @@
       <h1 class="text-2xl font-black text-white leading-tight">Dashboard</h1>
       <p class="text-sm text-brand-200 mt-0.5">Your rehab overview — track progress, pain trends, and your next session plan.</p>
     </div>
-    <a href="/daily-log"
+    <a id="btn-track-hero" href="/daily-log"
        class="shrink-0 px-4 py-2 bg-white/20 text-white text-sm font-bold rounded-xl hover:bg-white/30 transition-colors border border-white/20 whitespace-nowrap">
       + Track Session
     </a>
   </div>
+</div>
+
+<!-- Session blocked notice — shown by JS click or backend redirect -->
+{% if request.query_params.get('blocked') %}
+<div class="bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 mb-4 flex items-center gap-3">
+  <svg class="w-5 h-5 text-amber-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+  <p class="text-sm text-amber-800 font-medium">Today's session has been rescheduled. Move the session tile back to today to log.</p>
+</div>
+{% endif %}
+<div id="session-blocked-note" class="hidden bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 mb-4 flex items-center gap-3">
+  <svg class="w-5 h-5 text-amber-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+  <p class="text-sm text-amber-800 font-medium">Today's session has been rescheduled. Move the session tile back to today to enable logging.</p>
 </div>
 
 {% if not has_onboarding %}
@@ -826,7 +838,7 @@
     {# Footer CTA #}
     <div class="px-5 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
       <p class="text-xs text-gray-500">Log today's session to update your plan based on your response.</p>
-      <a href="/daily-log"
+      <a id="btn-track-plan" href="/daily-log"
          class="text-xs px-4 py-2 bg-brand-600 text-white font-semibold rounded-lg hover:bg-brand-700 transition-colors shadow-sm">
         Track Session →
       </a>
@@ -1125,7 +1137,7 @@
       <h2 class="font-bold text-gray-900 text-sm">Recent Session Logs</h2>
       <p class="text-[11px] text-gray-400 mt-0.5">Last {{ [recent_logs|length, 6]|min }} sessions</p>
     </div>
-    <a href="/daily-log"
+    <a id="btn-log-recent" href="/daily-log"
        class="px-3 py-1.5 bg-brand-600 text-white text-xs font-semibold rounded-lg hover:bg-brand-700 transition-colors shadow-sm">
       + Log Session
     </a>
@@ -1643,6 +1655,15 @@ function _renderWeekGrid(sessionDays, monday, today, hasOverride) {
       grid.appendChild(cell);
     })(i);
   }
+
+  // Gate log buttons: only allow logging when today is a session day in this week
+  var todayDow = today.getDay();
+  var todayIdx = (todayDow === 0 ? 6 : todayDow - 1);
+  var sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+  var weekContainsToday = (today >= monday && today <= sunday);
+  if (weekContainsToday) {
+    _updateLogButtons(sessionDays.indexOf(todayIdx) !== -1);
+  }
 }
 
 async function resetWeekOverride() {
@@ -1653,6 +1674,40 @@ async function resetWeekOverride() {
   _currentSessionDays = SCHED_SESSION_DAYS.slice();
   var today = new Date(); today.setHours(0,0,0,0);
   _renderWeekGrid(SCHED_SESSION_DAYS, _currentMonday, today, false);
+}
+
+// ── Log button gating ────────────────────────────────────────────────────────
+function _updateLogButtons(allowed) {
+  var BTN_IDS = ['btn-track-hero', 'btn-track-plan', 'btn-log-recent'];
+  BTN_IDS.forEach(function(id) {
+    var btn = document.getElementById(id);
+    if (!btn) return;
+    if (allowed) {
+      // Restore normal state
+      btn.href = '/daily-log';
+      btn.onclick = null;
+      btn.removeAttribute('title');
+      btn.style.opacity = '';
+      btn.style.cursor = '';
+      btn.style.pointerEvents = '';
+    } else {
+      // Block navigation
+      btn.href = 'javascript:void(0)';
+      btn.title = "Today's session has been rescheduled — move it back to today to log";
+      btn.style.opacity = '0.45';
+      btn.style.cursor = 'not-allowed';
+      btn.style.pointerEvents = 'auto';
+      btn.onclick = function(e) {
+        e.preventDefault();
+        var note = document.getElementById('session-blocked-note');
+        if (note) {
+          note.classList.remove('hidden');
+          clearTimeout(note._hideTimer);
+          note._hideTimer = setTimeout(function() { note.classList.add('hidden'); }, 4000);
+        }
+      };
+    }
+  });
 }
 
 // ── Log overlay ──────────────────────────────────────────────────────────────
