@@ -1518,8 +1518,10 @@ function _renderWeekGrid(sessionDays, monday, today, hasOverride) {
         + String(d.getMonth() + 1).padStart(2, '0') + '-'
         + String(d.getDate()).padStart(2, '0');
       var notFuture = isPast || isToday;
+      // todayLog: used only to lock drag on completed sessions (regardless of overlay)
       var todayLog = isToday ? (_logCache[dateKey] || null) : null;
-      var log = todayLog || ((_showLogOverlay && notFuture) ? (_logCache[dateKey] || null) : null);
+      // log: controls cell display — only shown when overlay is explicitly ON
+      var log = (_showLogOverlay && notFuture) ? (_logCache[dateKey] || null) : null;
 
       if (log) {
         // ── Logged view (any day that has a log) ──
