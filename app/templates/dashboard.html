@@ -1594,6 +1594,9 @@ function _showMonthTooltip(cellEl, dateLabel, isMoved) {
   var caret  = document.getElementById('monthly-tooltip-caret');
   if (!tt || !body) return;
 
+  // Reset scroll position
+  body.scrollTop = 0;
+
   // Header colour
   hdr.className = 'px-4 py-3 flex items-center justify-between gap-2 '
     + (isMoved ? 'bg-orange-500' : 'bg-brand-600');
