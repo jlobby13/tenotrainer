@@ -1497,13 +1497,15 @@ function _renderWeekGrid(sessionDays, monday, today, hasOverride) {
       body.className = 'px-2 py-2.5 flex-1 select-none';
 
       // Check for a log on this date when overlay is on
+      // Include today (not just past) and any day — regardless of whether it's a scheduled session day
       var dateKey = d.getFullYear() + '-'
         + String(d.getMonth() + 1).padStart(2, '0') + '-'
         + String(d.getDate()).padStart(2, '0');
-      var log = (_showLogOverlay && isPast && isSession) ? (_logCache[dateKey] || null) : null;
+      var notFuture = isPast || isToday;
+      var log = (_showLogOverlay && notFuture) ? (_logCache[dateKey] || null) : null;
 
-      if (isSession && log) {
-        // ── Logged view ──
+      if (log) {
+        // ── Logged view (any day that has a log) ──
         var comp = log.overall_compliance;
         var compCls = comp !== null
           ? (comp >= 90 ? 'text-green-600' : comp >= 70 ? 'text-yellow-600' : 'text-red-500')
@@ -1530,10 +1532,12 @@ function _renderWeekGrid(sessionDays, monday, today, hasOverride) {
           + '<span class="text-[9px] ' + painCls + '">pain ' + log.pain_during + '/' + log.pain_after + '</span>'
           + '</div>';
         // Restyle cell border to green when logged
-        cell.classList.remove('border-brand-200', 'bg-brand-50', 'border-orange-300', 'bg-orange-50');
-        cell.classList.add('border-green-300', 'bg-green-50');
-        hdr.classList.remove('border-brand-200', 'bg-brand-600', 'bg-orange-400');
-        hdr.classList.add('border-green-300', 'bg-green-600');
+        cell.className = cell.className
+          .replace(/border-\S+/g, '').replace(/bg-\S+/g, '').trim()
+          + ' border-green-300 bg-green-50';
+        hdr.className = hdr.className
+          .replace(/border-\S+/g, '').replace(/bg-\S+/g, '').trim()
+          + ' border-green-300 bg-green-600';
 
       } else if (isSession) {
         // ── Prescribed view ──
@@ -1548,8 +1552,8 @@ function _renderWeekGrid(sessionDays, monday, today, hasOverride) {
           + 'Session</p>'
           + '<ul class="space-y-1.5">' + items + '</ul>';
 
-        // Past session with overlay on but no log found
-        if (_showLogOverlay && isPast) {
+        // Past/today session with overlay on but no log found
+        if (_showLogOverlay && notFuture) {
           body.innerHTML += '<p class="text-[9px] text-gray-400 italic text-center mt-1.5">Not logged</p>';
         }
 
@@ -1935,7 +1939,8 @@ async function renderMonthly() {
     var dateKey2 = d.getFullYear() + '-'
       + String(d.getMonth() + 1).padStart(2,'0') + '-'
       + String(dayNum).padStart(2,'0');
-    var dayLog = (_showLogOverlay && isPast && isSess) ? (_logCache[dateKey2] || null) : null;
+    var notFutureM = isPast || isToday;
+    var dayLog = (_showLogOverlay && notFutureM) ? (_logCache[dateKey2] || null) : null;
     var isLogged = dayLog !== null;
 
     if (isSess) sessionCount++;
@@ -2003,8 +2008,8 @@ async function renderMonthly() {
         if (SCHED_PLAN.length > 2) {
           listHTML += '<p class="text-[8px] text-brand-400 font-semibold">+' + (SCHED_PLAN.length - 2) + ' more</p>';
         }
-        // "Not logged" hint when overlay on and past
-        if (_showLogOverlay && isPast) {
+        // "Not logged" hint when overlay on and today or past
+        if (_showLogOverlay && notFutureM) {
           listHTML += '<p class="text-[8px] text-gray-400 italic">not logged</p>';
         }
       }
