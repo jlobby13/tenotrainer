@@ -1079,6 +1079,29 @@
 </div>
 {% endif %}
 
+<!-- Monthly exercise tooltip (position: fixed, shared across all cells) -->
+<div id="monthly-tooltip"
+     class="fixed z-50 hidden pointer-events-none"
+     style="width:300px; max-width:calc(100vw - 24px);">
+  <div class="bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
+    <!-- Header -->
+    <div id="monthly-tooltip-header" class="px-4 py-3 bg-brand-600 flex items-center justify-between gap-2">
+      <div>
+        <p id="monthly-tooltip-date" class="text-xs font-black text-white leading-tight"></p>
+        <p class="text-[10px] text-brand-200 mt-0.5">Session Plan</p>
+      </div>
+      <span id="monthly-tooltip-badge" class="hidden text-[9px] font-bold px-2 py-0.5 rounded-full bg-orange-400 text-white">Rescheduled</span>
+    </div>
+    <!-- Exercise list -->
+    <div id="monthly-tooltip-body" class="px-4 py-3 space-y-2.5 max-h-72 overflow-y-auto">
+      <!-- filled by JS -->
+    </div>
+    <!-- Arrow pointer filled by JS via _tooltipArrow -->
+  </div>
+  <!-- Caret arrow -->
+  <div id="monthly-tooltip-caret" class="absolute w-0 h-0" style="display:none;"></div>
+</div>
+
 <!-- Recent Session Logs -->
 {% if recent_logs %}
 <div class="bg-white rounded-xl shadow border border-gray-100 mb-6 overflow-hidden">
@@ -1556,6 +1579,107 @@ async function resetWeekOverride() {
   _renderWeekGrid(SCHED_SESSION_DAYS, _currentMonday, today, false);
 }
 
+// ── Monthly cell tooltip ──────────────────────────────────────────────────────
+var _tooltipTimeout = null;
+
+function _showMonthTooltip(cellEl, dateLabel, isMoved) {
+  clearTimeout(_tooltipTimeout);
+  var tt     = document.getElementById('monthly-tooltip');
+  var hdr    = document.getElementById('monthly-tooltip-header');
+  var dtEl   = document.getElementById('monthly-tooltip-date');
+  var badge  = document.getElementById('monthly-tooltip-badge');
+  var body   = document.getElementById('monthly-tooltip-body');
+  var caret  = document.getElementById('monthly-tooltip-caret');
+  if (!tt || !body) return;
+
+  // Header colour
+  hdr.className = 'px-4 py-3 flex items-center justify-between gap-2 '
+    + (isMoved ? 'bg-orange-500' : 'bg-brand-600');
+  dtEl.textContent = dateLabel;
+  badge.classList.toggle('hidden', !isMoved);
+
+  // Build exercise rows
+  var html = '';
+  if (SCHED_PLAN.length === 0) {
+    html = '<p class="text-xs text-gray-400 italic">No exercises in current plan.</p>';
+  } else {
+    SCHED_PLAN.forEach(function(item, idx) {
+      html += '<div class="flex items-start gap-3 py-2 ' + (idx > 0 ? 'border-t border-gray-100' : '') + '">'
+        + '<span class="flex-shrink-0 w-6 h-6 rounded-full bg-brand-100 text-brand-700 text-[10px] font-black flex items-center justify-center mt-0.5">' + (idx + 1) + '</span>'
+        + '<div class="min-w-0 flex-1">'
+        + '<p class="text-sm font-semibold text-gray-800 leading-tight">' + item.name + '</p>'
+        + '<div class="flex items-center gap-2 mt-1">'
+        + '<span class="text-[11px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-medium">'
+        + item.sets + ' sets</span>'
+        + '<span class="text-[11px] bg-brand-50 text-brand-700 px-2 py-0.5 rounded-full font-medium">'
+        + item.reps + '</span>'
+        + '</div>'
+        + '</div>'
+        + '</div>';
+    });
+  }
+  body.innerHTML = html;
+
+  // Position tooltip
+  tt.classList.remove('hidden');
+  tt.style.opacity = '0';
+  tt.style.transition = 'opacity 0.15s ease';
+
+  var rect  = cellEl.getBoundingClientRect();
+  var ttW   = 300;
+  var ttH   = tt.offsetHeight || 200;
+  var vw    = window.innerWidth;
+  var vh    = window.innerHeight;
+  var GAP   = 8;
+
+  // Horizontal: center on cell, clamp to viewport
+  var left = rect.left + rect.width / 2 - ttW / 2;
+  left = Math.max(12, Math.min(left, vw - ttW - 12));
+
+  // Vertical: prefer above cell; fall back to below
+  var placeAbove = rect.top - ttH - GAP >= 8;
+  var top = placeAbove
+    ? rect.top - ttH - GAP
+    : rect.bottom + GAP;
+
+  tt.style.left = left + 'px';
+  tt.style.top  = top  + 'px';
+
+  // Caret arrow
+  caret.style.display = 'block';
+  caret.style.position = 'absolute';
+  var caretLeft = (rect.left + rect.width / 2) - left - 6;
+  caretLeft = Math.max(12, Math.min(caretLeft, ttW - 24));
+  caret.style.left = caretLeft + 'px';
+  if (placeAbove) {
+    caret.style.bottom = '-6px';
+    caret.style.top = 'auto';
+    caret.style.borderLeft = '6px solid transparent';
+    caret.style.borderRight = '6px solid transparent';
+    caret.style.borderTop = '6px solid #e5e7eb';
+    caret.style.borderBottom = 'none';
+  } else {
+    caret.style.top = '-6px';
+    caret.style.bottom = 'auto';
+    caret.style.borderLeft = '6px solid transparent';
+    caret.style.borderRight = '6px solid transparent';
+    caret.style.borderBottom = '6px solid #e5e7eb';
+    caret.style.borderTop = 'none';
+  }
+
+  requestAnimationFrame(function() { tt.style.opacity = '1'; });
+}
+
+function _hideMonthTooltip() {
+  _tooltipTimeout = setTimeout(function() {
+    var tt = document.getElementById('monthly-tooltip');
+    if (tt) {
+      tt.style.opacity = '0';
+      setTimeout(function() { tt.classList.add('hidden'); }, 150);
+    }
+  }, 120);
+}
+
 async function renderMonthly() {
   var today = new Date();
   today.setHours(0,0,0,0);
@@ -1677,6 +1801,16 @@ async function renderMonthly() {
       listHTML += '</ul>';
       listEl.innerHTML = listHTML;
       div.appendChild(listEl);
+
+      // Hover tooltip
+      var DAY_NAMES = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+      var MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      var dateLabel = DAY_NAMES[dowIdx] + ', ' + MONTH_SHORT[_calYear ? _calMonth : d.getMonth()] + ' ' + dayNum;
+      (function(el, lbl, moved) {
+        el.style.cursor = 'pointer';
+        el.addEventListener('mouseenter', function() { _showMonthTooltip(el, lbl, moved); });
+        el.addEventListener('mouseleave', _hideMonthTooltip);
+      })(div, dateLabel, isMoved);
     }
 
     grid.appendChild(div);
