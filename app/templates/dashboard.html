@@ -795,37 +795,68 @@
       {% for item in session_plan %}
       {% set ex = item.exercise %}
       {% set dos = item.dosage %}
-      <div class="px-5 py-4 flex items-start gap-4">
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2 flex-wrap mb-1">
-            <span class="font-semibold text-gray-900 text-sm">{{ ex.exercise_name }}</span>
-            <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold {{ cat_colors.get(ex.category, 'bg-gray-100 text-gray-600') }} capitalize">
-              {{ ex.category | replace('_', ' ') }}
-            </span>
-            {% if item.source == 'stretch' %}
-            <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-teal-100 text-teal-700">Stretch</span>
-            {% endif %}
-            {% if not ex.insertional_safe %}
-            <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700">Mid-portion</span>
-            {% endif %}
+      <div class="px-5 py-4">
+        <div class="flex items-start gap-4">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 flex-wrap mb-1">
+              <span class="font-semibold text-gray-900 text-sm">{{ ex.exercise_name }}</span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold {{ cat_colors.get(ex.category, 'bg-gray-100 text-gray-600') }} capitalize">
+                {{ ex.category | replace('_', ' ') }}
+              </span>
+              {% if item.source == 'stretch' %}
+              <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-teal-100 text-teal-700">Stretch</span>
+              {% endif %}
+              {% if not ex.insertional_safe %}
+              <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700">Mid-portion</span>
+              {% endif %}
+            </div>
+            <p class="text-[11px] text-gray-500 mb-2">{{ item.reason }}</p>
+            <div class="flex items-center gap-4 text-xs">
+              <span class="font-semibold text-gray-800">
+                {{ dos.sets if dos.sets else '3' }} sets &times; {{ dos.reps_or_hold_time if dos.reps_or_hold_time else '—' }}
+              </span>
+              {% if dos.tempo and dos.tempo not in ['hold', 'reactive', 'normal'] %}
+              <span class="text-gray-500">{{ dos.tempo }} tempo</span>
+              {% endif %}
+              {% if dos.notes %}
+              <span class="text-gray-400 italic truncate">{{ dos.notes }}</span>
+              {% endif %}
+            </div>
           </div>
-          <p class="text-[11px] text-gray-500 mb-2">{{ item.reason }}</p>
-          <div class="flex items-center gap-4 text-xs">
-            <span class="font-semibold text-gray-800">
-              {{ dos.sets if dos.sets else '3' }} sets &times; {{ dos.reps_or_hold_time if dos.reps_or_hold_time else '—' }}
-            </span>
-            {% if dos.tempo and dos.tempo not in ['hold', 'reactive', 'normal'] %}
-            <span class="text-gray-500">{{ dos.tempo }} tempo</span>
+          <button type="button"
+                  id="ex-btn-{{ ex.ex_id }}"
+                  onclick="toggleExDetail('{{ ex.ex_id }}')"
+                  class="shrink-0 text-[11px] px-2.5 py-1 rounded-lg bg-brand-50 text-brand-700 font-medium hover:bg-brand-100 transition-colors border border-brand-200">
+            View ▾
+          </button>
+        </div>
+
+        {# Inline exercise detail panel #}
+        <div id="ex-detail-{{ ex.ex_id }}" class="hidden mt-3 pt-3 border-t border-gray-100">
+          {% if ex.patient_facing_explanation %}
+          <p class="text-xs text-gray-600 mb-2 leading-relaxed">{{ ex.patient_facing_explanation }}</p>
+          {% elif ex.setup_instructions %}
+          <p class="text-xs text-gray-600 mb-2 leading-relaxed">{{ ex.setup_instructions }}</p>
+          {% endif %}
+          {% if ex.execution_cues %}
+          <p class="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Key cues</p>
+          <ul class="text-xs text-gray-500 space-y-0.5 mb-2 pl-4 list-disc">
+            {% for cue in ex.execution_cues %}
+            <li>{{ cue }}</li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+          <div class="flex flex-wrap gap-3 text-[10px] text-gray-400">
+            {% if ex.required_equipment %}
+            <span><span class="font-semibold text-gray-500">Equipment:</span> {{ ex.required_equipment }}</span>
+            {% else %}
+            <span><span class="font-semibold text-gray-500">Equipment:</span> None required</span>
             {% endif %}
-            {% if dos.notes %}
-            <span class="text-gray-400 italic truncate">{{ dos.notes }}</span>
+            {% if ex.unilateral_or_bilateral %}
+            <span><span class="font-semibold text-gray-500">Limb:</span> {{ ex.unilateral_or_bilateral | capitalize }}</span>
             {% endif %}
           </div>
         </div>
-        <a href="/exercise-library#{{ ex.ex_id }}"
-           class="shrink-0 text-[11px] px-2.5 py-1 rounded-lg bg-brand-50 text-brand-700 font-medium hover:bg-brand-100 transition-colors border border-brand-200">
-          View →
-        </a>
       </div>
       {% endfor %}
     </div>
@@ -1361,6 +1392,15 @@ function toggleTile(id) {
   const open = !body.classList.contains('hidden');
   body.classList.toggle('hidden', open);
   if (chevron) chevron.style.transform = open ? '' : 'rotate(180deg)';
+}
+
+function toggleExDetail(exId) {
+  const panel = document.getElementById('ex-detail-' + exId);
+  const btn   = document.getElementById('ex-btn-' + exId);
+  if (!panel) return;
+  const open = !panel.classList.contains('hidden');
+  panel.classList.toggle('hidden', open);
+  if (btn) btn.textContent = open ? 'View ▾' : 'Close ▴';
 }
 
 function toggleEvidenceBase() {
