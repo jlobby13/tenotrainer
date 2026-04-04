@@ -137,10 +137,10 @@
       --brand-50:   8  10  16;
       --brand-100: 12  16  26;
       --brand-200: 203 213 225;   /* slate-300 — light */
-      --brand-300: 148 163 184;
-      --brand-400: 100 116 139;
-      --brand-500:  71  85 105;
-      --brand-600:  51  65  85;
+      --brand-300: 168 180 195;   /* brightened for text use */
+      --brand-400: 148 163 184;   /* slate-400 — vibrant enough for text on dark */
+      --brand-500: 100 116 139;   /* slate-500 */
+      --brand-600:  71  85 105;   /* slate-600 — CTA button bg (white text = 4.7:1) */
       --brand-700:   8  12  22;   /* near-black slate — nav bg */
       --brand-800:   5   7  14;
       --brand-900:   2   4   8;
@@ -167,20 +167,30 @@
        ══════════════════════════════════════════════════════════ */
 
     /* Page & surface backgrounds */
-    [data-theme$="-dark"] body                { background-color: #0c1220; color: #e2e8f0; }
+    [data-theme$="-dark"] body                { background-color: #0c1220; color: #f1f5f9; }
     [data-theme$="-dark"] .bg-white           { background-color: #18243a !important; }
     [data-theme$="-dark"] .bg-gray-50         { background-color: #0c1220 !important; }
     [data-theme$="-dark"] .bg-gray-100        { background-color: #1a2540 !important; }
     [data-theme$="-dark"] .bg-gray-200        { background-color: #22304e !important; }
 
-    /* Text */
-    [data-theme$="-dark"] .text-gray-900      { color: #f1f5f9 !important; }
-    [data-theme$="-dark"] .text-gray-800      { color: #e2e8f0 !important; }
-    [data-theme$="-dark"] .text-gray-700      { color: #cbd5e1 !important; }
-    [data-theme$="-dark"] .text-gray-600      { color: #94a3b8 !important; }
-    [data-theme$="-dark"] .text-gray-500      { color: #64748b !important; }
-    [data-theme$="-dark"] .text-gray-400      { color: #475569 !important; }
-    [data-theme$="-dark"] .text-gray-300      { color: #334155 !important; }
+    /* Text — shifted ~2 stops lighter vs. the previous mapping so all
+       body copy and UI labels are comfortably readable on dark surfaces.
+       Contrast ratios against card bg (#18243a):
+         white   ≈ 15:1   text-gray-900 (headings)
+         #f1f5f9 ≈ 13:1   text-gray-800
+         #e2e8f0 ≈ 11:1   text-gray-700
+         #cbd5e1 ≈  8:1   text-gray-600 (body)
+         #94a3b8 ≈  5:1   text-gray-500 (captions / muted)
+         #64748b ≈  3:1   text-gray-400 (very dim / placeholders)  */
+    [data-theme$="-dark"] .text-gray-900      { color: #ffffff !important; }
+    [data-theme$="-dark"] .text-gray-800      { color: #f1f5f9 !important; }
+    [data-theme$="-dark"] .text-gray-700      { color: #e2e8f0 !important; }
+    [data-theme$="-dark"] .text-gray-600      { color: #cbd5e1 !important; }
+    [data-theme$="-dark"] .text-gray-500      { color: #94a3b8 !important; }
+    [data-theme$="-dark"] .text-gray-400      { color: #64748b !important; }
+    [data-theme$="-dark"] .text-gray-300      { color: #475569 !important; }
+    /* Plain black text → white */
+    [data-theme$="-dark"] .text-black         { color: #ffffff !important; }
 
     /* Borders */
     [data-theme$="-dark"] .border-gray-100    { border-color: rgb(255 255 255 / 0.07) !important; }
@@ -195,8 +205,10 @@
     [data-theme$="-dark"] .shadow-lg          { box-shadow: 0 10px 15px -3px rgb(0 0 0/.6), 0 4px 6px -4px rgb(0 0 0/.6) !important; }
     [data-theme$="-dark"] .shadow-2xl         { box-shadow: 0 25px 50px -12px rgb(0 0 0/.8) !important; }
 
-    /* Flip brand text shades — brand-700/800/900 are near-black in dark palettes
-       but are used as foreground text on cards, so redirect them to vibrant shades. */
+    /* Flip brand text shades — brand-600 through 900 are mid-to-dark values
+       designed for use on LIGHT backgrounds; on dark cards they need to be
+       redirected to the lighter, vibrant end of the dark palette. */
+    [data-theme$="-dark"] .text-brand-600     { color: rgb(var(--brand-400)) !important; }
     [data-theme$="-dark"] .text-brand-700     { color: rgb(var(--brand-400)) !important; }
     [data-theme$="-dark"] .text-brand-800     { color: rgb(var(--brand-300)) !important; }
     [data-theme$="-dark"] .text-brand-900     { color: rgb(var(--brand-200)) !important; }
