@@ -370,6 +370,24 @@ async def logout(response: Response):
 
 
 # ---------------------------------------------------------------------------
+# GET /account  — Account & Dashboard Settings
+# ---------------------------------------------------------------------------
+
+@app.get("/account", response_class=HTMLResponse)
+async def account_settings_page(
+    request: Request,
+    teno_session: Optional[str] = Cookie(default=None),
+):
+    user = await get_current_user(teno_session)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    return templates.TemplateResponse(
+        request, "account.html",
+        context={"user": user},
+    )
+
+
+# ---------------------------------------------------------------------------
 # GET /  — Homepage
 # ---------------------------------------------------------------------------
 

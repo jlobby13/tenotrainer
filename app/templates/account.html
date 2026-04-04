@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Account Settings — TenoTrainer{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+
+  <!-- Header -->
+  <div class="rounded-2xl bg-gradient-to-r from-brand-700 to-brand-500 px-6 py-5 mb-6 shadow-md">
+    <h1 class="text-2xl font-black text-white leading-tight">Account Settings</h1>
+    <p class="text-sm text-brand-200 mt-0.5">Manage your profile and dashboard preferences.</p>
+  </div>
+
+  <!-- Profile card -->
+  <div class="bg-white rounded-xl shadow p-6 border border-gray-100 mb-5">
+    <h2 class="text-base font-bold text-gray-800 mb-4">Profile</h2>
+    <div class="flex items-center gap-4 mb-4">
+      <div class="w-12 h-12 rounded-full bg-brand-100 flex items-center justify-center">
+        <svg class="w-6 h-6 text-brand-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <circle cx="12" cy="8" r="4"/><path stroke-linecap="round" d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+        </svg>
+      </div>
+      <div>
+        <p class="font-semibold text-gray-900">{{ user.name }}</p>
+        <p class="text-sm text-gray-500">{{ user.email or 'No email set' }}</p>
+        <span class="text-[11px] bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full font-medium capitalize">{{ user.role }}</span>
+      </div>
+    </div>
+    <p class="text-xs text-gray-400">Profile editing coming soon.</p>
+  </div>
+
+  <!-- Appearance card -->
+  <div class="bg-white rounded-xl shadow p-6 border border-gray-100 mb-5">
+    <h2 class="text-base font-bold text-gray-800 mb-1">Appearance</h2>
+    <p class="text-xs text-gray-500 mb-5">Choose a colour theme for the application. Your selection is saved in your browser.</p>
+
+    <div class="grid grid-cols-5 gap-3">
+
+      <!-- Ocean -->
+      <button type="button" onclick="setTheme('ocean')" data-theme-btn="ocean"
+              class="group flex flex-col items-center gap-2 p-3 rounded-2xl border-2 border-transparent hover:border-sky-400 transition-all duration-150 focus:outline-none">
+        <div class="w-full aspect-square rounded-xl overflow-hidden shadow flex flex-col">
+          <div class="h-1/3 bg-[#0369a1]"></div>
+          <div class="flex-1 bg-[#f0f9ff] flex flex-col gap-1 p-1.5 justify-center">
+            <div class="h-1.5 rounded-full bg-[#0284c7] opacity-80 w-3/4"></div>
+            <div class="h-1.5 rounded-full bg-[#bae6fd] opacity-80 w-1/2"></div>
+          </div>
+        </div>
+        <span class="text-[11px] font-semibold text-gray-600 group-hover:text-sky-600">Ocean</span>
+      </button>
+
+      <!-- Forest -->
+      <button type="button" onclick="setTheme('forest')" data-theme-btn="forest"
+              class="group flex flex-col items-center gap-2 p-3 rounded-2xl border-2 border-transparent hover:border-green-400 transition-all duration-150 focus:outline-none">
+        <div class="w-full aspect-square rounded-xl overflow-hidden shadow flex flex-col">
+          <div class="h-1/3 bg-[#15803d]"></div>
+          <div class="flex-1 bg-[#f0fdf4] flex flex-col gap-1 p-1.5 justify-center">
+            <div class="h-1.5 rounded-full bg-[#16a34a] opacity-80 w-3/4"></div>
+            <div class="h-1.5 rounded-full bg-[#bbf7d0] opacity-80 w-1/2"></div>
+          </div>
+        </div>
+        <span class="text-[11px] font-semibold text-gray-600 group-hover:text-green-600">Forest</span>
+      </button>
+
+      <!-- Sunset -->
+      <button type="button" onclick="setTheme('sunset')" data-theme-btn="sunset"
+              class="group flex flex-col items-center gap-2 p-3 rounded-2xl border-2 border-transparent hover:border-orange-400 transition-all duration-150 focus:outline-none">
+        <div class="w-full aspect-square rounded-xl overflow-hidden shadow flex flex-col">
+          <div class="h-1/3 bg-[#c2410c]"></div>
+          <div class="flex-1 bg-[#fff7ed] flex flex-col gap-1 p-1.5 justify-center">
+            <div class="h-1.5 rounded-full bg-[#ea580c] opacity-80 w-3/4"></div>
+            <div class="h-1.5 rounded-full bg-[#fed7aa] opacity-80 w-1/2"></div>
+          </div>
+        </div>
+        <span class="text-[11px] font-semibold text-gray-600 group-hover:text-orange-600">Sunset</span>
+      </button>
+
+      <!-- Slate -->
+      <button type="button" onclick="setTheme('slate')" data-theme-btn="slate"
+              class="group flex flex-col items-center gap-2 p-3 rounded-2xl border-2 border-transparent hover:border-slate-400 transition-all duration-150 focus:outline-none">
+        <div class="w-full aspect-square rounded-xl overflow-hidden shadow flex flex-col">
+          <div class="h-1/3 bg-[#334155]"></div>
+          <div class="flex-1 bg-[#f8fafc] flex flex-col gap-1 p-1.5 justify-center">
+            <div class="h-1.5 rounded-full bg-[#475569] opacity-80 w-3/4"></div>
+            <div class="h-1.5 rounded-full bg-[#cbd5e1] opacity-80 w-1/2"></div>
+          </div>
+        </div>
+        <span class="text-[11px] font-semibold text-gray-600 group-hover:text-slate-600">Slate</span>
+      </button>
+
+      <!-- Violet -->
+      <button type="button" onclick="setTheme('violet')" data-theme-btn="violet"
+              class="group flex flex-col items-center gap-2 p-3 rounded-2xl border-2 border-transparent hover:border-violet-400 transition-all duration-150 focus:outline-none">
+        <div class="w-full aspect-square rounded-xl overflow-hidden shadow flex flex-col">
+          <div class="h-1/3 bg-[#6d28d9]"></div>
+          <div class="flex-1 bg-[#f5f3ff] flex flex-col gap-1 p-1.5 justify-center">
+            <div class="h-1.5 rounded-full bg-[#7c3aed] opacity-80 w-3/4"></div>
+            <div class="h-1.5 rounded-full bg-[#ddd6fe] opacity-80 w-1/2"></div>
+          </div>
+        </div>
+        <span class="text-[11px] font-semibold text-gray-600 group-hover:text-violet-600">Violet</span>
+      </button>
+
+    </div>
+  </div>
+
+  <!-- Dashboard settings placeholder -->
+  <div class="bg-white rounded-xl shadow p-6 border border-gray-100 mb-5">
+    <h2 class="text-base font-bold text-gray-800 mb-1">Dashboard Settings</h2>
+    <p class="text-xs text-gray-500 mb-4">Customise what you see on the dashboard.</p>
+    <p class="text-xs text-gray-400 italic">More dashboard customisation options coming soon.</p>
+  </div>
+
+  <a href="/dashboard" class="inline-block text-sm text-brand-600 hover:underline">← Back to Dashboard</a>
+
+</div>
+
+<script>
+  // Highlight active theme on page load
+  document.addEventListener('DOMContentLoaded', function() {
+    _highlightActiveTheme();
+  });
+</script>
+{% endblock %}
