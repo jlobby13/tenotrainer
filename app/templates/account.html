@@ -16,13 +16,14 @@
     <div class="flex items-center gap-4 mb-4">
       <div class="w-12 h-12 rounded-full bg-brand-100 flex items-center justify-center">
         <svg class="w-6 h-6 text-brand-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <circle cx="12" cy="8" r="4"/><path stroke-linecap="round" d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+          <circle cx="12" cy="8" r="4"/>
+          <path stroke-linecap="round" d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
         </svg>
       </div>
       <div>
         <p class="font-semibold text-gray-900">{{ user.name }}</p>
         <p class="text-sm text-gray-500">{{ user.email or 'No email set' }}</p>
-        <span class="text-[11px] bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full font-medium capitalize">{{ user.role }}</span>
+        <span class="text-[11px] bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full font-medium capitalize mt-1 inline-block">{{ user.role }}</span>
       </div>
     </div>
     <p class="text-xs text-gray-400">Profile editing coming soon.</p>
@@ -31,75 +32,82 @@
   <!-- Appearance card -->
   <div class="bg-white rounded-xl shadow p-6 border border-gray-100 mb-5">
     <h2 class="text-base font-bold text-gray-800 mb-1">Appearance</h2>
-    <p class="text-xs text-gray-500 mb-5">Choose a colour theme for the application. Your selection is saved in your browser.</p>
+    <p class="text-xs text-gray-500 mb-6">Choose a colour theme. Your selection is saved in this browser.</p>
 
-    <div class="grid grid-cols-5 gap-3">
+    <!-- 5 paired columns: each column = one colour family, top = light, bottom = dark -->
+    {% set palette = [
+      {
+        'id': 'ocean', 'name': 'Ocean',
+        'light': {'nav': '#0369a1', 'bg': '#f0f9ff', 'accent': '#0284c7', 'stripe': '#bae6fd'},
+        'dark':  {'nav': '#05192f', 'bg': '#0c1828', 'accent': '#38bdf8', 'stripe': '#0284c7'},
+        'ring': 'sky'
+      },
+      {
+        'id': 'forest', 'name': 'Forest',
+        'light': {'nav': '#15803d', 'bg': '#f0fdf4', 'accent': '#16a34a', 'stripe': '#bbf7d0'},
+        'dark':  {'nav': '#041c0d', 'bg': '#0c1f14', 'accent': '#4ade80', 'stripe': '#16a34a'},
+        'ring': 'green'
+      },
+      {
+        'id': 'sunset', 'name': 'Sunset',
+        'light': {'nav': '#c2410c', 'bg': '#fff7ed', 'accent': '#ea580c', 'stripe': '#fed7aa'},
+        'dark':  {'nav': '#260c03', 'bg': '#1a1008', 'accent': '#fb923c', 'stripe': '#ea580c'},
+        'ring': 'orange'
+      },
+      {
+        'id': 'slate', 'name': 'Slate',
+        'light': {'nav': '#334155', 'bg': '#f8fafc', 'accent': '#475569', 'stripe': '#cbd5e1'},
+        'dark':  {'nav': '#080c16', 'bg': '#131c2e', 'accent': '#94a3b8', 'stripe': '#475569'},
+        'ring': 'slate'
+      },
+      {
+        'id': 'violet', 'name': 'Violet',
+        'light': {'nav': '#6d28d9', 'bg': '#f5f3ff', 'accent': '#7c3aed', 'stripe': '#ddd6fe'},
+        'dark':  {'nav': '#140534', 'bg': '#120a28', 'accent': '#a78bfa', 'stripe': '#7c3aed'},
+        'ring': 'violet'
+      },
+    ] %}
 
-      <!-- Ocean -->
-      <button type="button" onclick="setTheme('ocean')" data-theme-btn="ocean"
-              class="group flex flex-col items-center gap-2 p-3 rounded-2xl border-2 border-transparent hover:border-sky-400 transition-all duration-150 focus:outline-none">
-        <div class="w-full aspect-square rounded-xl overflow-hidden shadow flex flex-col">
-          <div class="h-1/3 bg-[#0369a1]"></div>
-          <div class="flex-1 bg-[#f0f9ff] flex flex-col gap-1 p-1.5 justify-center">
-            <div class="h-1.5 rounded-full bg-[#0284c7] opacity-80 w-3/4"></div>
-            <div class="h-1.5 rounded-full bg-[#bae6fd] opacity-80 w-1/2"></div>
+    <div class="grid grid-cols-5 gap-4">
+      {% for p in palette %}
+      <div class="flex flex-col gap-2">
+
+        <!-- Light variant -->
+        <button type="button" onclick="setTheme('{{ p.id }}')" data-theme-btn="{{ p.id }}"
+                class="group flex flex-col items-center gap-1.5 p-2.5 rounded-2xl border-2 border-transparent
+                       hover:border-{{ p.ring }}-400 transition-all duration-150 focus:outline-none">
+          <div class="w-full aspect-video rounded-xl overflow-hidden shadow flex flex-col">
+            <div class="h-1/3" style="background:{{ p.light.nav }}"></div>
+            <div class="flex-1 flex flex-col gap-0.5 p-1.5 justify-center" style="background:{{ p.light.bg }}">
+              <div class="h-1.5 rounded-full w-4/5" style="background:{{ p.light.accent }};opacity:.8"></div>
+              <div class="h-1.5 rounded-full w-3/5" style="background:{{ p.light.stripe }};opacity:.9"></div>
+            </div>
           </div>
-        </div>
-        <span class="text-[11px] font-semibold text-gray-600 group-hover:text-sky-600">Ocean</span>
-      </button>
-
-      <!-- Forest -->
-      <button type="button" onclick="setTheme('forest')" data-theme-btn="forest"
-              class="group flex flex-col items-center gap-2 p-3 rounded-2xl border-2 border-transparent hover:border-green-400 transition-all duration-150 focus:outline-none">
-        <div class="w-full aspect-square rounded-xl overflow-hidden shadow flex flex-col">
-          <div class="h-1/3 bg-[#15803d]"></div>
-          <div class="flex-1 bg-[#f0fdf4] flex flex-col gap-1 p-1.5 justify-center">
-            <div class="h-1.5 rounded-full bg-[#16a34a] opacity-80 w-3/4"></div>
-            <div class="h-1.5 rounded-full bg-[#bbf7d0] opacity-80 w-1/2"></div>
+          <div class="flex items-center gap-1">
+            <span class="text-[11px] font-semibold text-gray-600 group-hover:text-{{ p.ring }}-600">{{ p.name }}</span>
+            <span class="text-[9px] text-gray-400">Light</span>
           </div>
-        </div>
-        <span class="text-[11px] font-semibold text-gray-600 group-hover:text-green-600">Forest</span>
-      </button>
+        </button>
 
-      <!-- Sunset -->
-      <button type="button" onclick="setTheme('sunset')" data-theme-btn="sunset"
-              class="group flex flex-col items-center gap-2 p-3 rounded-2xl border-2 border-transparent hover:border-orange-400 transition-all duration-150 focus:outline-none">
-        <div class="w-full aspect-square rounded-xl overflow-hidden shadow flex flex-col">
-          <div class="h-1/3 bg-[#c2410c]"></div>
-          <div class="flex-1 bg-[#fff7ed] flex flex-col gap-1 p-1.5 justify-center">
-            <div class="h-1.5 rounded-full bg-[#ea580c] opacity-80 w-3/4"></div>
-            <div class="h-1.5 rounded-full bg-[#fed7aa] opacity-80 w-1/2"></div>
+        <!-- Dark variant -->
+        <button type="button" onclick="setTheme('{{ p.id }}-dark')" data-theme-btn="{{ p.id }}-dark"
+                class="group flex flex-col items-center gap-1.5 p-2.5 rounded-2xl border-2 border-transparent
+                       hover:border-{{ p.ring }}-400 transition-all duration-150 focus:outline-none">
+          <div class="w-full aspect-video rounded-xl overflow-hidden shadow-md flex flex-col" style="background:{{ p.dark.bg }}">
+            <div class="h-1/3" style="background:{{ p.dark.nav }}"></div>
+            <div class="flex-1 flex flex-col gap-0.5 p-1.5 justify-center" style="background:{{ p.dark.bg }}">
+              <div class="h-1.5 rounded-full w-4/5" style="background:{{ p.dark.accent }};opacity:.9"></div>
+              <div class="h-1.5 rounded-full w-3/5" style="background:{{ p.dark.stripe }};opacity:.5"></div>
+            </div>
           </div>
-        </div>
-        <span class="text-[11px] font-semibold text-gray-600 group-hover:text-orange-600">Sunset</span>
-      </button>
-
-      <!-- Slate -->
-      <button type="button" onclick="setTheme('slate')" data-theme-btn="slate"
-              class="group flex flex-col items-center gap-2 p-3 rounded-2xl border-2 border-transparent hover:border-slate-400 transition-all duration-150 focus:outline-none">
-        <div class="w-full aspect-square rounded-xl overflow-hidden shadow flex flex-col">
-          <div class="h-1/3 bg-[#334155]"></div>
-          <div class="flex-1 bg-[#f8fafc] flex flex-col gap-1 p-1.5 justify-center">
-            <div class="h-1.5 rounded-full bg-[#475569] opacity-80 w-3/4"></div>
-            <div class="h-1.5 rounded-full bg-[#cbd5e1] opacity-80 w-1/2"></div>
+          <div class="flex items-center gap-1">
+            <span class="text-[11px] font-semibold text-gray-600 group-hover:text-{{ p.ring }}-500">{{ p.name }}</span>
+            <span class="text-[9px] text-gray-400">Dark</span>
           </div>
-        </div>
-        <span class="text-[11px] font-semibold text-gray-600 group-hover:text-slate-600">Slate</span>
-      </button>
+        </button>
 
-      <!-- Violet -->
-      <button type="button" onclick="setTheme('violet')" data-theme-btn="violet"
-              class="group flex flex-col items-center gap-2 p-3 rounded-2xl border-2 border-transparent hover:border-violet-400 transition-all duration-150 focus:outline-none">
-        <div class="w-full aspect-square rounded-xl overflow-hidden shadow flex flex-col">
-          <div class="h-1/3 bg-[#6d28d9]"></div>
-          <div class="flex-1 bg-[#f5f3ff] flex flex-col gap-1 p-1.5 justify-center">
-            <div class="h-1.5 rounded-full bg-[#7c3aed] opacity-80 w-3/4"></div>
-            <div class="h-1.5 rounded-full bg-[#ddd6fe] opacity-80 w-1/2"></div>
-          </div>
-        </div>
-        <span class="text-[11px] font-semibold text-gray-600 group-hover:text-violet-600">Violet</span>
-      </button>
-
+      </div>
+      {% endfor %}
     </div>
   </div>
 
@@ -115,9 +123,6 @@
 </div>
 
 <script>
-  // Highlight active theme on page load
-  document.addEventListener('DOMContentLoaded', function() {
-    _highlightActiveTheme();
-  });
+  document.addEventListener('DOMContentLoaded', function() { _highlightActiveTheme(); });
 </script>
 {% endblock %}
