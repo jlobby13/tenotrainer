@@ -167,30 +167,23 @@
        ══════════════════════════════════════════════════════════ */
 
     /* Page & surface backgrounds */
-    [data-theme$="-dark"] body                { background-color: #0c1220; color: #f1f5f9; }
+    [data-theme$="-dark"] body                { background-color: #0c1220; color: #f8fafc; }
     [data-theme$="-dark"] .bg-white           { background-color: #18243a !important; }
     [data-theme$="-dark"] .bg-gray-50         { background-color: #0c1220 !important; }
     [data-theme$="-dark"] .bg-gray-100        { background-color: #1a2540 !important; }
     [data-theme$="-dark"] .bg-gray-200        { background-color: #22304e !important; }
 
-    /* Text — shifted ~2 stops lighter vs. the previous mapping so all
-       body copy and UI labels are comfortably readable on dark surfaces.
-       Contrast ratios against card bg (#18243a):
-         white   ≈ 15:1   text-gray-900 (headings)
-         #f1f5f9 ≈ 13:1   text-gray-800
-         #e2e8f0 ≈ 11:1   text-gray-700
-         #cbd5e1 ≈  8:1   text-gray-600 (body)
-         #94a3b8 ≈  5:1   text-gray-500 (captions / muted)
-         #64748b ≈  3:1   text-gray-400 (very dim / placeholders)  */
-    [data-theme$="-dark"] .text-gray-900      { color: #ffffff !important; }
-    [data-theme$="-dark"] .text-gray-800      { color: #f1f5f9 !important; }
-    [data-theme$="-dark"] .text-gray-700      { color: #e2e8f0 !important; }
-    [data-theme$="-dark"] .text-gray-600      { color: #cbd5e1 !important; }
-    [data-theme$="-dark"] .text-gray-500      { color: #94a3b8 !important; }
-    [data-theme$="-dark"] .text-gray-400      { color: #64748b !important; }
-    [data-theme$="-dark"] .text-gray-300      { color: #475569 !important; }
-    /* Plain black text → white */
-    [data-theme$="-dark"] .text-black         { color: #ffffff !important; }
+    /* Text — maximised for dark surface readability.
+       gray-500/400 are the most-used "muted" shades — pushed to slate-300/400
+       so captions, labels, and secondary copy are always comfortable to read. */
+    [data-theme$="-dark"] .text-gray-900      { color: #ffffff   !important; }
+    [data-theme$="-dark"] .text-gray-800      { color: #f8fafc   !important; }
+    [data-theme$="-dark"] .text-gray-700      { color: #f1f5f9   !important; }
+    [data-theme$="-dark"] .text-gray-600      { color: #e2e8f0   !important; }
+    [data-theme$="-dark"] .text-gray-500      { color: #cbd5e1   !important; }
+    [data-theme$="-dark"] .text-gray-400      { color: #94a3b8   !important; }
+    [data-theme$="-dark"] .text-gray-300      { color: #64748b   !important; }
+    [data-theme$="-dark"] .text-black         { color: #ffffff   !important; }
 
     /* Borders */
     [data-theme$="-dark"] .border-gray-100    { border-color: rgb(255 255 255 / 0.07) !important; }
