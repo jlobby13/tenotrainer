@@ -74,7 +74,7 @@
           <div class="absolute top-0 h-full w-0.5 bg-gray-400 opacity-50" style="left:80%"></div>
           <div class="absolute top-0 h-full w-0.5 bg-gray-400 opacity-50" style="left:100%"></div>
         </div>
-        <div class="flex text-[10px] text-gray-400 mt-0.5">
+        <div class="flex text-[0.625rem] text-gray-400 mt-0.5">
           <span>0%</span><span class="ml-auto">80% &nbsp; 100% &nbsp; 120%+</span>
         </div>
       </div>
@@ -110,11 +110,11 @@
 
       <div class="space-y-3">
         <div>
-          <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Why this signal</p>
+          <p class="text-[0.625rem] font-bold uppercase tracking-widest text-gray-400 mb-1">Why this signal</p>
           <p class="text-sm font-medium {{ sc.title }} leading-snug">{{ session_tolerance.reason }}</p>
         </div>
-        <div class="bg-white/70 rounded-xl px-4 py-3">
-          <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Next session action</p>
+        <div class="next-session-action-box rounded-xl px-4 py-3">
+          <p class="text-[0.625rem] font-bold uppercase tracking-widest text-gray-400 mb-1">Next session action</p>
           <p class="text-sm text-gray-700 leading-snug">{{ session_tolerance.action }}</p>
         </div>
       </div>
@@ -157,14 +157,14 @@
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 mb-1 flex-wrap">
               <span class="font-semibold text-gray-900 text-sm">{{ ex.exercise_name }}</span>
-              <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold {{ cat_colors.get(ex.category, 'bg-gray-100 text-gray-600') }} capitalize">
+              <span class="text-[0.625rem] px-2 py-0.5 rounded-full font-semibold {{ cat_colors.get(ex.category, 'bg-gray-100 text-gray-600') }} capitalize">
                 {{ ex.category | replace('_', ' ') }}
               </span>
               {% if item.source == 'stretch' %}
-              <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-teal-100 text-teal-700">Stretch</span>
+              <span class="text-[0.625rem] px-2 py-0.5 rounded-full font-semibold bg-teal-100 text-teal-700">Stretch</span>
               {% endif %}
               {% if not ex.insertional_safe %}
-              <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700">Mid-portion</span>
+              <span class="text-[0.625rem] px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700">Mid-portion</span>
               {% endif %}
             </div>
             <p class="text-xs text-gray-500 mb-2">{{ item.reason }}</p>
@@ -181,7 +181,7 @@
             </div>
           </div>
           <a href="/exercise-library#{{ ex.ex_id }}"
-             class="shrink-0 text-[11px] px-3 py-1.5 rounded-lg bg-brand-50 text-brand-700 font-medium hover:bg-brand-100 transition-colors border border-brand-200">
+             class="shrink-0 text-[0.6875rem] px-3 py-1.5 rounded-lg bg-brand-50 text-brand-700 font-medium hover:bg-brand-100 transition-colors border border-brand-200">
             View →
           </a>
         </div>
@@ -297,10 +297,10 @@
       {% set dec = rec.decision %}
       <div class="px-5 py-3 flex items-start gap-3">
         <div class="shrink-0 mt-0.5">
-          {% if dec == 'PROGRESS' %}<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-100 text-green-700 text-[10px] font-bold">↑ Progress</span>
-          {% elif dec == 'REGRESS' %}<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-orange-100 text-orange-700 text-[10px] font-bold">↓ Regress</span>
-          {% elif dec == 'HOLD' %}<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-100 text-red-700 text-[10px] font-bold">⏸ Hold</span>
-          {% else %}<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-gray-100 text-gray-600 text-[10px] font-bold">→ Stay</span>
+          {% if dec == 'PROGRESS' %}<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-100 text-green-700 text-[0.625rem] font-bold">↑ Progress</span>
+          {% elif dec == 'REGRESS' %}<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-orange-100 text-orange-700 text-[0.625rem] font-bold">↓ Regress</span>
+          {% elif dec == 'HOLD' %}<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-100 text-red-700 text-[0.625rem] font-bold">⏸ Hold</span>
+          {% else %}<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-gray-100 text-gray-600 text-[0.625rem] font-bold">→ Stay</span>
           {% endif %}
         </div>
         <div class="flex-1 min-w-0">
@@ -311,10 +311,10 @@
             <span class="{{ 'text-green-700' if dec == 'PROGRESS' else 'text-orange-700' }}">{{ rec.target_name }}</span>
             {% endif %}
           </p>
-          <p class="text-[11px] text-gray-500 mt-0.5">{{ rec.rationale }}</p>
+          <p class="text-[0.6875rem] text-gray-500 mt-0.5">{{ rec.rationale }}</p>
         </div>
         {% if rec.target_id != rec.current_id %}
-        <a href="/exercise-library#{{ rec.target_id }}" class="shrink-0 text-[10px] px-2 py-1 rounded bg-brand-50 text-brand-700 border border-brand-200 hover:bg-brand-100 transition-colors">View →</a>
+        <a href="/exercise-library#{{ rec.target_id }}" class="shrink-0 text-[0.625rem] px-2 py-1 rounded bg-brand-50 text-brand-700 border border-brand-200 hover:bg-brand-100 transition-colors">View →</a>
         {% endif %}
       </div>
       {% endfor %}
@@ -373,10 +373,10 @@
     {# ── Safety Check ── #}
     <div class="bg-red-50 border border-red-200 rounded-2xl p-4">
       <h3 class="text-sm font-bold text-red-800 mb-1">Safety Check</h3>
-      <p class="text-[11px] text-red-600 mb-2">
+      <p class="text-[0.6875rem] text-red-600 mb-2">
         Sudden severe pain · popping sound · inability to point your foot · inability to bear weight · visible tendon deformity — describe below to trigger an immediate safety halt.
       </p>
-      <p class="text-[11px] text-red-500 mb-2">
+      <p class="text-[0.6875rem] text-red-500 mb-2">
         <strong>Thompson test:</strong> lie face-down, foot hanging free — squeeze the calf. If the foot does <em>not</em> plantarflex, suspect a rupture and seek urgent medical assessment before continuing.
       </p>
       <input type="text" name="red_flag_notes"
@@ -468,17 +468,17 @@
                 <div>
                   <div class="flex items-center gap-2 flex-wrap mb-0.5">
                     <span class="font-bold text-gray-900">{{ ex.exercise_name }}</span>
-                    <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold {{ cat_colors.get(ex.category, 'bg-gray-100 text-gray-600') }} capitalize">
+                    <span class="text-[0.625rem] px-2 py-0.5 rounded-full font-semibold {{ cat_colors.get(ex.category, 'bg-gray-100 text-gray-600') }} capitalize">
                       {{ ex.category | replace('_', ' ') }}
                     </span>
-                    {% if item.source == 'stretch' %}<span class="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-teal-100 text-teal-700">Stretch</span>{% endif %}
-                    {% if not ex.insertional_safe %}<span class="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700">Mid-portion</span>{% endif %}
+                    {% if item.source == 'stretch' %}<span class="text-[0.625rem] px-2 py-0.5 rounded-full font-semibold bg-teal-100 text-teal-700">Stretch</span>{% endif %}
+                    {% if not ex.insertional_safe %}<span class="text-[0.625rem] px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700">Mid-portion</span>{% endif %}
                   </div>
-                  <p class="text-[11px] text-gray-500 leading-snug">{{ item.reason }}</p>
+                  <p class="text-[0.6875rem] text-gray-500 leading-snug">{{ item.reason }}</p>
                 </div>
               </div>
               <a href="/exercise-library#{{ ex.ex_id }}" target="_blank"
-                 class="shrink-0 text-[10px] px-2.5 py-1.5 rounded-lg bg-brand-50 text-brand-600 font-semibold hover:bg-brand-100 transition-colors border border-brand-200 whitespace-nowrap">
+                 class="shrink-0 text-[0.625rem] px-2.5 py-1.5 rounded-lg bg-brand-50 text-brand-600 font-semibold hover:bg-brand-100 transition-colors border border-brand-200 whitespace-nowrap">
                 How-to →
               </a>
             </div>
@@ -486,34 +486,34 @@
             {# Prescribed dose banner #}
             <div class="bg-brand-50 border border-brand-100 rounded-xl px-4 py-2.5 mb-4 flex items-center gap-3 flex-wrap">
               <span class="text-brand-800 font-black text-sm">{{ dos.sets if dos.sets else '3' }} × {{ dos.reps_or_hold_time if dos.reps_or_hold_time else '—' }}</span>
-              <span class="text-brand-400 text-[10px] font-bold uppercase tracking-wide">Recommended Dosing</span>
+              <span class="text-brand-400 text-[0.625rem] font-bold uppercase tracking-wide">Recommended Dosing</span>
               {% if dos.tempo and dos.tempo not in ['hold', 'reactive', 'normal'] %}
-              <span class="ml-auto text-brand-500 italic text-[11px]">{{ dos.tempo }} tempo</span>
+              <span class="ml-auto text-brand-500 italic text-[0.6875rem]">{{ dos.tempo }} tempo</span>
               {% endif %}
               {% if dos.notes %}
-              <span class="text-brand-400 italic text-[11px] truncate">{{ dos.notes }}</span>
+              <span class="text-brand-400 italic text-[0.6875rem] truncate">{{ dos.notes }}</span>
               {% endif %}
             </div>
 
             {# Input row #}
             <div class="grid grid-cols-3 gap-3">
               <div>
-                <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1.5">Sets done</label>
+                <label class="block text-[0.625rem] font-bold text-gray-400 uppercase tracking-wide mb-1.5">Sets done</label>
                 <input type="number" name="ex_{{ loop.index0 }}_sets_done"
                        min="0" max="20" placeholder="{{ dos.sets if dos.sets else '3' }}"
                        class="w-full border-2 border-gray-200 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-800 focus:ring-2 focus:ring-brand-400 focus:border-brand-400 focus:outline-none bg-white transition-colors placeholder:text-gray-300" />
-                <p class="text-[10px] text-gray-400 mt-1">rx: {{ dos.sets if dos.sets else '3' }}</p>
+                <p class="text-[0.625rem] text-gray-400 mt-1">rx: {{ dos.sets if dos.sets else '3' }}</p>
               </div>
               <div>
-                <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1.5">Reps / hold</label>
+                <label class="block text-[0.625rem] font-bold text-gray-400 uppercase tracking-wide mb-1.5">Reps / hold</label>
                 <input type="text" name="ex_{{ loop.index0 }}_reps_done"
                        placeholder="{{ dos.reps_or_hold_time if dos.reps_or_hold_time else '' }}"
                        class="w-full border-2 border-gray-200 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-800 focus:ring-2 focus:ring-brand-400 focus:border-brand-400 focus:outline-none bg-white transition-colors placeholder:text-gray-300" />
-                <p class="text-[10px] text-gray-400 mt-1">rx: {{ dos.reps_or_hold_time if dos.reps_or_hold_time else '—' }}</p>
+                <p class="text-[0.625rem] text-gray-400 mt-1">rx: {{ dos.reps_or_hold_time if dos.reps_or_hold_time else '—' }}</p>
               </div>
               {% if ex.category in ['slow_strength', 'eccentric_loading', 'heavy_dynamic'] or item.source == 'loading' %}
               <div>
-                <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1.5">Load (kg)</label>
+                <label class="block text-[0.625rem] font-bold text-gray-400 uppercase tracking-wide mb-1.5">Load (kg)</label>
                 <input type="number" name="ex_{{ loop.index0 }}_load_kg"
                        min="0" step="0.5" placeholder="optional"
                        class="w-full border-2 border-gray-200 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-800 focus:ring-2 focus:ring-brand-400 focus:border-brand-400 focus:outline-none bg-white transition-colors placeholder:text-gray-300" />
@@ -546,7 +546,7 @@
         {# During session group #}
         <div class="flex items-center gap-2 mb-3">
           <div class="w-2 h-2 rounded-full bg-orange-400 shrink-0"></div>
-          <p class="text-[10px] font-bold uppercase tracking-widest text-gray-500">During session</p>
+          <p class="text-[0.625rem] font-bold uppercase tracking-widest text-gray-500">During session</p>
         </div>
 
         {% set pain_during_items = [
@@ -562,7 +562,7 @@
           <input type="range" name="{{ field }}" min="0" max="10" value="0"
                  class="w-full h-3 rounded-full cursor-pointer accent-brand-600"
                  oninput="updatePainSlider('{{ field }}', this.value)" />
-          <div class="flex justify-between text-[10px] text-gray-300 mt-1 px-0.5">
+          <div class="flex justify-between text-[0.625rem] text-gray-300 mt-1 px-0.5">
             <span>No pain</span><span>Worst imaginable</span>
           </div>
         </div>
@@ -571,7 +571,7 @@
         {# After session group #}
         <div class="flex items-center gap-2 mb-3 pt-2 border-t border-gray-100">
           <div class="w-2 h-2 rounded-full bg-blue-400 shrink-0"></div>
-          <p class="text-[10px] font-bold uppercase tracking-widest text-gray-500">After session</p>
+          <p class="text-[0.625rem] font-bold uppercase tracking-widest text-gray-500">After session</p>
         </div>
 
         {% set pain_after_items = [
@@ -588,7 +588,7 @@
           <input type="range" name="{{ field }}" min="0" max="10" value="0"
                  class="w-full h-3 rounded-full cursor-pointer accent-brand-600"
                  oninput="updatePainSlider('{{ field }}', this.value)" />
-          <div class="flex justify-between text-[10px] text-gray-300 mt-1 px-0.5">
+          <div class="flex justify-between text-[0.625rem] text-gray-300 mt-1 px-0.5">
             <span>No pain</span><span>Worst imaginable</span>
           </div>
         </div>
@@ -597,7 +597,7 @@
         {# Next day group #}
         <div class="flex items-center gap-2 mb-3 pt-2 border-t border-gray-100">
           <div class="w-2 h-2 rounded-full bg-violet-400 shrink-0"></div>
-          <p class="text-[10px] font-bold uppercase tracking-widest text-gray-500">Next day</p>
+          <p class="text-[0.625rem] font-bold uppercase tracking-widest text-gray-500">Next day</p>
         </div>
 
         {% set pain_nextday_items = [
@@ -614,14 +614,14 @@
           <input type="range" name="{{ field }}" min="0" max="10" value="0"
                  class="w-full h-3 rounded-full cursor-pointer accent-brand-600"
                  oninput="updatePainSlider('{{ field }}', this.value)" />
-          <div class="flex justify-between text-[10px] text-gray-300 mt-1 px-0.5">
+          <div class="flex justify-between text-[0.625rem] text-gray-300 mt-1 px-0.5">
             <span>No pain</span><span>Worst imaginable</span>
           </div>
         </div>
         {% endfor %}
 
         {% if baseline_morning_pain is defined or baseline_morning_stiffness is defined %}
-        <p class="text-[10px] text-gray-400 pt-2 px-1 border-t border-gray-50">
+        <p class="text-[0.625rem] text-gray-400 pt-2 px-1 border-t border-gray-50">
           Your baseline: morning pain {{ baseline_morning_pain }}/10 · stiffness {{ baseline_morning_stiffness }}/10
         </p>
         {% endif %}
@@ -638,7 +638,7 @@
                  class="accent-red-500 w-4 h-4 shrink-0 mt-0.5" onchange="toggleFlag(this)" />
           <div>
             <span class="text-sm font-semibold text-gray-700">Stopped early</span>
-            <p class="text-[10px] text-gray-400 mt-0.5 leading-snug">Abandoned before completing prescribed sets</p>
+            <p class="text-[0.625rem] text-gray-400 mt-0.5 leading-snug">Abandoned before completing prescribed sets</p>
           </div>
         </label>
         <label class="flag-card flex items-start gap-3 cursor-pointer p-3.5 border-2 border-gray-200 rounded-xl transition-all">
@@ -646,7 +646,7 @@
                  class="accent-red-500 w-4 h-4 shrink-0 mt-0.5" onchange="toggleFlag(this)" />
           <div>
             <span class="text-sm font-semibold text-gray-700">Sharp pain</span>
-            <p class="text-[10px] text-gray-400 mt-0.5 leading-snug">Sudden or stabbing, distinct from usual ache</p>
+            <p class="text-[0.625rem] text-gray-400 mt-0.5 leading-snug">Sudden or stabbing, distinct from usual ache</p>
           </div>
         </label>
         <label class="flag-card flex items-start gap-3 cursor-pointer p-3.5 border-2 border-gray-200 rounded-xl transition-all">
@@ -654,7 +654,7 @@
                  class="accent-red-500 w-4 h-4 shrink-0 mt-0.5" onchange="toggleFlag(this)" />
           <div>
             <span class="text-sm font-semibold text-gray-700">Swelling increased</span>
-            <p class="text-[10px] text-gray-400 mt-0.5 leading-snug">Puffiness around the tendon or ankle</p>
+            <p class="text-[0.625rem] text-gray-400 mt-0.5 leading-snug">Puffiness around the tendon or ankle</p>
           </div>
         </label>
         <label class="flag-card flex items-start gap-3 cursor-pointer p-3.5 border-2 border-gray-200 rounded-xl transition-all">
@@ -662,7 +662,7 @@
                  class="accent-red-500 w-4 h-4 shrink-0 mt-0.5" onchange="toggleFlag(this)" />
           <div>
             <span class="text-sm font-semibold text-gray-700">Limping</span>
-            <p class="text-[10px] text-gray-400 mt-0.5 leading-snug">Altered gait or reduced ability to weight-bear</p>
+            <p class="text-[0.625rem] text-gray-400 mt-0.5 leading-snug">Altered gait or reduced ability to weight-bear</p>
           </div>
         </label>
       </div>
@@ -680,7 +680,7 @@
           <input type="range" name="difficulty" min="1" max="10" value="5"
                  class="w-full h-3 rounded-full cursor-pointer accent-brand-600"
                  oninput="document.getElementById('diff_val').textContent = this.value" />
-          <div class="flex justify-between text-[10px] text-gray-300 mt-1">
+          <div class="flex justify-between text-[0.625rem] text-gray-300 mt-1">
             <span>Very easy</span><span>Max effort</span>
           </div>
         </div>
@@ -692,7 +692,7 @@
           <input type="range" name="confidence" min="1" max="10" value="7"
                  class="w-full h-3 rounded-full cursor-pointer accent-brand-600"
                  oninput="document.getElementById('conf_val').textContent = this.value" />
-          <div class="flex justify-between text-[10px] text-gray-300 mt-1">
+          <div class="flex justify-between text-[0.625rem] text-gray-300 mt-1">
             <span>Not at all</span><span>Very confident</span>
           </div>
         </div>
@@ -746,7 +746,7 @@
               class="w-full py-4 bg-gradient-to-r from-brand-600 to-brand-500 text-white font-black rounded-2xl hover:from-brand-700 hover:to-brand-600 transition-all shadow-lg text-base tracking-wide active:scale-[0.99]">
         Submit &amp; Get My Plan →
       </button>
-      <p class="text-center text-[10px] text-gray-400 mt-2">Your session is saved and your next plan is generated instantly.</p>
+      <p class="text-center text-[0.625rem] text-gray-400 mt-2">Your session is saved and your next plan is generated instantly.</p>
     </div>
 
   </form>

@@ -13,7 +13,7 @@ import os
 import re
 import secrets
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -49,6 +49,7 @@ from app.engine.rules import (
 )
 from app.engine.visa_a import score_visa_a, get_questions, visa_a_score_from_form
 from app.engine.ai_explainer import generate_explanation
+from app.notifier import generate_code, send_2fa_code, mask_email
 
 # ---------------------------------------------------------------------------
 # App setup
@@ -58,6 +59,14 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).parent
+
+# Load .env from project root (two levels up from this file)
+try:
+    from dotenv import load_dotenv
+    _env_path = BASE_DIR.parent / ".env"
+    load_dotenv(dotenv_path=_env_path)
+except ImportError:
+    pass
 
 app = FastAPI(title="TenoTrainer", description="Achilles Tendinopathy Rehabilitation Assistant")
 
@@ -98,6 +107,10 @@ def verify_password(plain: str, hashed: str) -> bool:
 SESSION_COOKIE = "teno_session"
 
 
+TFA_PENDING_COOKIE = "tfa_pending"
+TFA_CODE_TTL_MINUTES = 10
+
+
 def _set_session_cookie(response, token: str) -> None:
     response.set_cookie(
         SESSION_COOKIE, token,
@@ -105,6 +118,70 @@ def _set_session_cookie(response, token: str) -> None:
         samesite="lax",
         max_age=60 * 60 * 24 * 365,
     )
+
+
+def _set_pending_cookie(response, pending_token: str) -> None:
+    response.set_cookie(
+        TFA_PENDING_COOKIE, pending_token,
+        httponly=True,
+        samesite="lax",
+        max_age=60 * TFA_CODE_TTL_MINUTES,
+    )
+
+
+async def _start_2fa(response, user: dict, purpose: str) -> None:
+    """Generate and send a 2FA code, persist it, and attach the pending cookie."""
+    code = generate_code()
+    pending_token = secrets.token_urlsafe(32)
+    expires_at = (
+        datetime.now(timezone.utc) + timedelta(minutes=TFA_CODE_TTL_MINUTES)
+    ).isoformat()
+
+    db = await get_db()
+    try:
+        # Remove any existing pending codes for this user + purpose
+        await db.execute(
+            "DELETE FROM tfa_codes WHERE user_id = ? AND purpose = ?",
+            (user["id"], purpose),
+        )
+        await db.execute(
+            "INSERT INTO tfa_codes (user_id, code, purpose, pending_token, expires_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (user["id"], code, purpose, pending_token, expires_at),
+        )
+        await db.commit()
+    finally:
+        await db.close()
+
+    await send_2fa_code(user, code)
+    _set_pending_cookie(response, pending_token)
+
+
+async def _resolve_pending(pending_token: Optional[str]) -> Optional[dict]:
+    """Look up a tfa_codes row by pending_token. Returns None if missing/expired."""
+    if not pending_token:
+        return None
+    now = datetime.now(timezone.utc).isoformat()
+    db = await get_db()
+    try:
+        cursor = await db.execute(
+            "SELECT * FROM tfa_codes WHERE pending_token = ? AND expires_at > ?",
+            (pending_token, now),
+        )
+        row = await cursor.fetchone()
+        return row_to_dict(row) if row else None
+    finally:
+        await db.close()
+
+
+async def _consume_pending(pending_id: int) -> None:
+    """Delete a tfa_codes row after it has been used."""
+    db = await get_db()
+    try:
+        await db.execute("DELETE FROM tfa_codes WHERE id = ?", (pending_id,))
+        await db.commit()
+    finally:
+        await db.close()
 
 
 async def get_user_from_session(session_token: Optional[str]) -> Optional[dict]:
@@ -349,7 +426,13 @@ async def login_post(
             {"user": None, "error": "Invalid email or password.", "email": email},
         )
 
-    # Issue a fresh session token on login
+    # If 2FA is enabled, start the verification flow before issuing a session
+    if account.get("tfa_enabled"):
+        redirect = RedirectResponse("/verify-2fa", status_code=302)
+        await _start_2fa(redirect, account, purpose="login")
+        return redirect
+
+    # No 2FA — issue session immediately
     new_token = secrets.token_urlsafe(32)
     db = await get_db()
     try:
@@ -364,9 +447,182 @@ async def login_post(
 
 
 @app.get("/logout")
-async def logout(response: Response):
-    response.delete_cookie(SESSION_COOKIE)
-    return RedirectResponse("/login", status_code=302)
+async def logout():
+    redirect = RedirectResponse("/login", status_code=302)
+    redirect.delete_cookie(SESSION_COOKIE, httponly=True, samesite="lax")
+    return redirect
+
+
+# ---------------------------------------------------------------------------
+# 2FA verification
+# ---------------------------------------------------------------------------
+
+@app.get("/verify-2fa", response_class=HTMLResponse)
+async def verify_2fa_get(
+    request: Request,
+    tfa_pending: Optional[str] = Cookie(default=None),
+):
+    pending = await _resolve_pending(tfa_pending)
+    if not pending:
+        return RedirectResponse("/login", status_code=302)
+
+    # Load user to get method + masked destination
+    db = await get_db()
+    try:
+        cursor = await db.execute("SELECT * FROM users WHERE id = ?", (pending["user_id"],))
+        row = await cursor.fetchone()
+        user = row_to_dict(row) if row else None
+    finally:
+        await db.close()
+
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    masked = mask_email(user.get("email", ""))
+    return templates.TemplateResponse(
+        request, "verify_2fa.html",
+        {
+            "user": None,
+            "purpose": pending["purpose"],
+            "masked_destination": masked,
+            "error": None,
+        },
+    )
+
+
+@app.post("/verify-2fa", response_class=HTMLResponse)
+async def verify_2fa_post(
+    request: Request,
+    code: str = Form(...),
+    tfa_pending: Optional[str] = Cookie(default=None),
+):
+    pending = await _resolve_pending(tfa_pending)
+
+    async def _fail(error: str):
+        # Reload user for masked destination display
+        masked, method = "****", "email"
+        if pending:
+            db = await get_db()
+            try:
+                cursor = await db.execute("SELECT * FROM users WHERE id = ?", (pending["user_id"],))
+                row = await cursor.fetchone()
+                u = row_to_dict(row) if row else {}
+            finally:
+                await db.close()
+            masked = mask_email(u.get("email", ""))
+        return templates.TemplateResponse(
+            request, "verify_2fa.html",
+            {
+                "user": None,
+                "purpose": pending["purpose"] if pending else "login",
+                "masked_destination": masked,
+                "error": error,
+            },
+        )
+
+    if not pending:
+        return await _fail("Your verification session has expired. Please log in again.")
+
+    if code.strip() != pending["code"]:
+        return await _fail("Incorrect code. Please try again.")
+
+    await _consume_pending(pending["id"])
+    purpose = pending["purpose"]
+    user_id = pending["user_id"]
+
+    # ── Login ──
+    if purpose == "login":
+        new_token = secrets.token_urlsafe(32)
+        db = await get_db()
+        try:
+            await db.execute("UPDATE users SET session_token = ? WHERE id = ?", (new_token, user_id))
+            await db.commit()
+        finally:
+            await db.close()
+        response = RedirectResponse("/dashboard", status_code=302)
+        _set_session_cookie(response, new_token)
+        response.delete_cookie(TFA_PENDING_COOKIE)
+        return response
+
+    # ── Enable / update 2FA ──
+    if purpose.startswith("enable_2fa:"):
+        chosen_method = purpose.split(":", 1)[1]
+        db = await get_db()
+        try:
+            await db.execute(
+                "UPDATE users SET tfa_enabled = 1, tfa_method = ? WHERE id = ?",
+                (chosen_method, user_id),
+            )
+            await db.commit()
+        finally:
+            await db.close()
+        response = RedirectResponse(
+            "/account?msg=Two-factor+authentication+enabled.&msg_type=success",
+            status_code=302,
+        )
+        response.delete_cookie(TFA_PENDING_COOKIE)
+        return response
+
+    # ── Account delete ──
+    if purpose == "delete":
+        db = await get_db()
+        try:
+            await db.execute("DELETE FROM schedule_overrides    WHERE user_id = ?", (user_id,))
+            await db.execute("DELETE FROM progression_decisions  WHERE user_id = ?", (user_id,))
+            await db.execute("DELETE FROM daily_logs             WHERE user_id = ?", (user_id,))
+            await db.execute("DELETE FROM sessions               WHERE user_id = ?", (user_id,))
+            await db.execute("DELETE FROM rehab_plans            WHERE user_id = ?", (user_id,))
+            await db.execute("DELETE FROM visa_a_responses       WHERE user_id = ?", (user_id,))
+            await db.execute("DELETE FROM onboarding_assessments WHERE user_id = ?", (user_id,))
+            await db.execute("DELETE FROM tfa_codes              WHERE user_id = ?", (user_id,))
+            await db.execute("DELETE FROM users                  WHERE id = ?",      (user_id,))
+            await db.commit()
+        finally:
+            await db.close()
+        response = RedirectResponse("/login", status_code=302)
+        response.delete_cookie(SESSION_COOKIE)
+        response.delete_cookie(TFA_PENDING_COOKIE)
+        return response
+
+    return RedirectResponse("/dashboard", status_code=302)
+
+
+@app.post("/verify-2fa/resend")
+async def verify_2fa_resend(
+    tfa_pending: Optional[str] = Cookie(default=None),
+):
+    pending = await _resolve_pending(tfa_pending)
+    if not pending:
+        return RedirectResponse("/login", status_code=302)
+
+    db = await get_db()
+    try:
+        cursor = await db.execute("SELECT * FROM users WHERE id = ?", (pending["user_id"],))
+        row = await cursor.fetchone()
+        user = row_to_dict(row) if row else None
+    finally:
+        await db.close()
+
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    # Generate a fresh code (reuse same pending_token / cookie)
+    new_code = generate_code()
+    new_expires = (
+        datetime.now(timezone.utc) + timedelta(minutes=TFA_CODE_TTL_MINUTES)
+    ).isoformat()
+    db = await get_db()
+    try:
+        await db.execute(
+            "UPDATE tfa_codes SET code = ?, expires_at = ? WHERE id = ?",
+            (new_code, new_expires, pending["id"]),
+        )
+        await db.commit()
+    finally:
+        await db.close()
+
+    await send_2fa_code(user, new_code)
+    return RedirectResponse("/verify-2fa", status_code=302)
 
 
 # ---------------------------------------------------------------------------
@@ -377,13 +633,328 @@ async def logout(response: Response):
 async def account_settings_page(
     request: Request,
     teno_session: Optional[str] = Cookie(default=None),
+    msg: Optional[str] = None,
+    msg_type: Optional[str] = None,
 ):
     user = await get_current_user(teno_session)
     if not user:
         return RedirectResponse("/login", status_code=302)
     return templates.TemplateResponse(
         request, "account.html",
-        context={"user": user},
+        context={"user": user, "msg": msg, "msg_type": msg_type},
+    )
+
+
+@app.post("/account/update-profile")
+async def account_update_profile(
+    teno_session: Optional[str] = Cookie(default=None),
+    full_name: str = Form(...),
+    email: str = Form(...),
+):
+    user = await get_current_user(teno_session)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    full_name = full_name.strip()
+    email = email.strip().lower()
+
+    def _fail(msg: str):
+        return RedirectResponse(f"/account?msg={msg}&msg_type=error", status_code=303)
+
+    if not full_name:
+        return _fail("Full name cannot be empty.")
+    if not email or "@" not in email or "." not in email.split("@")[-1]:
+        return _fail("Please enter a valid email address.")
+
+    db = await get_db()
+    try:
+        if email != (user.get("email") or "").lower():
+            existing = await db.execute("SELECT id FROM users WHERE email = ? AND id != ?", (email, user["id"]))
+            if await existing.fetchone():
+                return _fail("That email is already in use by another account.")
+        await db.execute(
+            "UPDATE users SET name = ?, email = ? WHERE id = ?",
+            (full_name, email, user["id"]),
+        )
+        await db.commit()
+    finally:
+        await db.close()
+
+    return RedirectResponse("/account?msg=Profile+updated+successfully.&msg_type=success", status_code=303)
+
+
+@app.post("/account/update-demographics")
+async def account_update_demographics(
+    teno_session: Optional[str] = Cookie(default=None),
+    age: str = Form(default=""),
+    sex: str = Form(default=""),
+    height_cm: str = Form(default=""),
+    weight_kg: str = Form(default=""),
+):
+    user = await get_current_user(teno_session)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    def _fail(msg: str):
+        return RedirectResponse(f"/account?msg={msg}&msg_type=error", status_code=303)
+
+    # Parse and validate
+    age_val: Optional[int] = None
+    if age.strip():
+        try:
+            age_val = int(age.strip())
+            if not (1 <= age_val <= 120):
+                return _fail("Age must be between 1 and 120.")
+        except ValueError:
+            return _fail("Age must be a whole number.")
+
+    height_val: Optional[float] = None
+    if height_cm.strip():
+        try:
+            height_val = round(float(height_cm.strip()), 1)
+            if not (50 <= height_val <= 300):
+                return _fail("Height must be between 50 and 300 cm.")
+        except ValueError:
+            return _fail("Height must be a number.")
+
+    weight_val: Optional[float] = None
+    if weight_kg.strip():
+        try:
+            weight_val = round(float(weight_kg.strip()), 1)
+            if not (20 <= weight_val <= 500):
+                return _fail("Weight must be between 20 and 500 kg.")
+        except ValueError:
+            return _fail("Weight must be a number.")
+
+    valid_sex = {"male", "female", "intersex", "prefer_not_to_say", ""}
+    if sex.strip() not in valid_sex:
+        return _fail("Invalid sex value.")
+
+    db = await get_db()
+    try:
+        await db.execute(
+            "UPDATE users SET age = ?, sex = ?, height_cm = ?, weight_kg = ? WHERE id = ?",
+            (age_val, sex.strip() or None, height_val, weight_val, user["id"]),
+        )
+        await db.commit()
+    finally:
+        await db.close()
+
+    return RedirectResponse("/account?msg=Demographics+saved.&msg_type=success", status_code=303)
+
+
+@app.post("/account/clear-demographics")
+async def account_clear_demographics(
+    teno_session: Optional[str] = Cookie(default=None),
+):
+    user = await get_current_user(teno_session)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    db = await get_db()
+    try:
+        await db.execute(
+            "UPDATE users SET age = NULL, sex = NULL, height_cm = NULL, weight_kg = NULL WHERE id = ?",
+            (user["id"],),
+        )
+        await db.commit()
+    finally:
+        await db.close()
+    return RedirectResponse("/account?msg=Demographics+cleared.&msg_type=success", status_code=303)
+
+
+@app.post("/account/update-condition")
+async def account_update_condition(
+    teno_session: Optional[str] = Cookie(default=None),
+    affected_side: str = Form(default=""),
+    activity_level: str = Form(default=""),
+    sports: str = Form(default=""),
+    condition_timeline: str = Form(default=""),
+):
+    user = await get_current_user(teno_session)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    def _fail(msg: str):
+        return RedirectResponse(f"/account?msg={msg}&msg_type=error", status_code=303)
+
+    valid_affected_side = {"left", "right", "bilateral", ""}
+    if affected_side.strip() not in valid_affected_side:
+        return _fail("Invalid+affected+side+value.")
+
+    valid_activity_level = {"sedentary", "lightly_active", "moderately_active", "very_active", "elite", ""}
+    if activity_level.strip() not in valid_activity_level:
+        return _fail("Invalid+activity+level+value.")
+
+    valid_timeline = {"acute", "subacute", "chronic", ""}
+    if condition_timeline.strip() not in valid_timeline:
+        return _fail("Invalid+timeline+value.")
+
+    sports_val = sports.strip()[:200] or None
+
+    db = await get_db()
+    try:
+        await db.execute(
+            """UPDATE users SET affected_side = ?, activity_level = ?, sports = ?, condition_timeline = ?
+               WHERE id = ?""",
+            (
+                affected_side.strip() or None, activity_level.strip() or None,
+                sports_val, condition_timeline.strip() or None,
+                user["id"],
+            ),
+        )
+        await db.commit()
+    finally:
+        await db.close()
+
+    return RedirectResponse("/account?msg=Status+and+Function+saved.&msg_type=success", status_code=303)
+
+
+@app.post("/account/clear-condition")
+async def account_clear_condition(
+    teno_session: Optional[str] = Cookie(default=None),
+):
+    user = await get_current_user(teno_session)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    db = await get_db()
+    try:
+        await db.execute(
+            """UPDATE users SET affected_side = NULL, activity_level = NULL,
+               sports = NULL, condition_timeline = NULL WHERE id = ?""",
+            (user["id"],),
+        )
+        await db.commit()
+    finally:
+        await db.close()
+    return RedirectResponse("/account?msg=Condition+data+cleared.&msg_type=success", status_code=303)
+
+
+@app.post("/account/update-password")
+async def account_update_password(
+    teno_session: Optional[str] = Cookie(default=None),
+    current_password: str = Form(...),
+    new_password: str = Form(...),
+    confirm_password: str = Form(...),
+):
+    user = await get_current_user(teno_session)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    def _fail(msg: str):
+        return RedirectResponse(f"/account?msg={msg}&msg_type=error", status_code=303)
+
+    if not user.get("password_hash"):
+        return _fail("No password set on this account.")
+    if not verify_password(current_password, user["password_hash"]):
+        return _fail("Current password is incorrect.")
+    if len(new_password) < 8:
+        return _fail("New password must be at least 8 characters.")
+    if new_password != confirm_password:
+        return _fail("New passwords do not match.")
+
+    new_hash = hash_password(new_password)
+    new_token = secrets.token_urlsafe(32)
+    db = await get_db()
+    try:
+        await db.execute(
+            "UPDATE users SET password_hash = ?, session_token = ? WHERE id = ?",
+            (new_hash, new_token, user["id"]),
+        )
+        await db.commit()
+    finally:
+        await db.close()
+
+    response = RedirectResponse(
+        "/account?msg=Password+updated+successfully.&msg_type=success", status_code=303
+    )
+    response.set_cookie("teno_session", new_token, httponly=True, samesite="lax")
+    return response
+
+
+@app.post("/account/revoke-sessions")
+async def account_revoke_sessions(
+    teno_session: Optional[str] = Cookie(default=None),
+):
+    user = await get_current_user(teno_session)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    new_token = secrets.token_urlsafe(32)
+    db = await get_db()
+    try:
+        await db.execute("UPDATE users SET session_token = ? WHERE id = ?", (new_token, user["id"]))
+        await db.commit()
+    finally:
+        await db.close()
+
+    response = RedirectResponse(
+        "/account?msg=All+other+sessions+have+been+signed+out.&msg_type=success", status_code=303
+    )
+    response.set_cookie("teno_session", new_token, httponly=True, samesite="lax")
+    return response
+
+
+@app.post("/account/delete")
+async def account_delete(
+    teno_session: Optional[str] = Cookie(default=None),
+):
+    user = await get_current_user(teno_session)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    # If 2FA is enabled, gate deletion behind a code
+    if user.get("tfa_enabled"):
+        redirect = RedirectResponse("/verify-2fa", status_code=302)
+        await _start_2fa(redirect, user, purpose="delete")
+        return redirect
+
+    # No 2FA — delete immediately
+    uid = user["id"]
+    db = await get_db()
+    try:
+        await db.execute("DELETE FROM schedule_overrides    WHERE user_id = ?", (uid,))
+        await db.execute("DELETE FROM progression_decisions  WHERE user_id = ?", (uid,))
+        await db.execute("DELETE FROM daily_logs             WHERE user_id = ?", (uid,))
+        await db.execute("DELETE FROM sessions               WHERE user_id = ?", (uid,))
+        await db.execute("DELETE FROM rehab_plans            WHERE user_id = ?", (uid,))
+        await db.execute("DELETE FROM visa_a_responses       WHERE user_id = ?", (uid,))
+        await db.execute("DELETE FROM onboarding_assessments WHERE user_id = ?", (uid,))
+        await db.execute("DELETE FROM tfa_codes              WHERE user_id = ?", (uid,))
+        await db.execute("DELETE FROM users                  WHERE id = ?",      (uid,))
+        await db.commit()
+    finally:
+        await db.close()
+
+    response = RedirectResponse("/login", status_code=302)
+    response.delete_cookie(SESSION_COOKIE)
+    return response
+
+
+@app.post("/account/set-2fa")
+async def account_set_2fa(
+    teno_session: Optional[str] = Cookie(default=None),
+    action: str = Form(...),  # "enable" or "disable"
+):
+    user = await get_current_user(teno_session)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    if action == "enable":
+        # Send a code to the user's email to confirm it's reachable before saving
+        redirect = RedirectResponse("/verify-2fa", status_code=302)
+        await _start_2fa(redirect, user, purpose="enable_2fa:email")
+        return redirect
+
+    # disable — no verification required (user is already authenticated)
+    db = await get_db()
+    try:
+        await db.execute("UPDATE users SET tfa_enabled = 0 WHERE id = ?", (user["id"],))
+        await db.commit()
+    finally:
+        await db.close()
+    return RedirectResponse(
+        "/account?msg=Two-factor+authentication+disabled.&msg_type=success",
+        status_code=303,
     )
 
 
@@ -752,9 +1323,9 @@ async def dashboard(
                 row_to_dict(plan_row), ["exercises", "citations"]
             )
 
-        # Recent daily logs (last 10)
+        # Recent daily logs (last 20 — supports up to 20-entry page size in dashboard table)
         cursor = await db.execute(
-            "SELECT * FROM daily_logs WHERE user_id = ? ORDER BY created_at DESC LIMIT 10",
+            "SELECT * FROM daily_logs WHERE user_id = ? ORDER BY created_at DESC LIMIT 20",
             (user["id"],),
         )
         log_rows = await cursor.fetchall()
@@ -876,6 +1447,10 @@ async def dashboard(
             "after": [l["pain_after"] for l in chart_logs],
             "next_day": [l["next_day_pain"] for l in chart_logs],
         }
+        stiffness_chart_data = {
+            "labels": [_short_date(l["created_at"]) for l in chart_logs],
+            "stiffness": [l["morning_stiffness"] for l in chart_logs],
+        }
 
     finally:
         await db.close()
@@ -919,6 +1494,17 @@ async def dashboard(
         kb_entries=sched_kb_entries,
     )
 
+    # Dashboard layout order
+    try:
+        dashboard_layout = json.loads(user.get("dashboard_layout") or "[]")
+    except Exception:
+        dashboard_layout = []
+
+    # Has the user already logged a session today? Compare using UTC (DB stores UTC timestamps)
+    _today_str = datetime.utcnow().date().isoformat()
+    today_logged = bool(recent_logs and recent_logs[0].get("created_at", "")[:10] == _today_str)
+    today_log_time = recent_logs[0].get("created_at", "") if today_logged else ""
+
     return templates.TemplateResponse(
         request, "dashboard.html",
         context={
@@ -930,16 +1516,51 @@ async def dashboard(
             "onboarding": onboarding,
             "progression_history": progression_history,
             "pain_chart_data": json.dumps(pain_chart_data),
+            "stiffness_chart_data": json.dumps(stiffness_chart_data),
             "functional_chart_data": json.dumps(functional_chart_data),
             "has_onboarding": onboarding is not None,
             "goals": goals,
             "timeline": timeline,
             "phase_checklist": phase_checklist,
             "weekly_schedule": weekly_schedule,
+            "dashboard_layout": json.dumps(dashboard_layout),
+            "today_logged": today_logged,
+            "today_log_time": today_log_time,
             # Unified rehab state — same data as Track Session and Exercise Library
             **rehab_state,
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# Dashboard layout
+# ---------------------------------------------------------------------------
+
+_VALID_DASH_SECTIONS = {
+    "stats", "roadmap", "indicators", "fc", "lsi",
+    "rehab_plan", "weekly", "logs", "progression",
+}
+
+@app.post("/api/dashboard-layout")
+async def save_dashboard_layout(
+    request: Request,
+    teno_session: Optional[str] = Cookie(default=None),
+):
+    user = await get_authenticated_user(teno_session)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    body = await request.json()
+    layout = [s for s in body.get("layout", []) if s in _VALID_DASH_SECTIONS]
+    db = await get_db()
+    try:
+        await db.execute(
+            "UPDATE users SET dashboard_layout = ? WHERE id = ?",
+            (json.dumps(layout), user["id"]),
+        )
+        await db.commit()
+    finally:
+        await db.close()
+    return JSONResponse({"ok": True})
 
 
 # ---------------------------------------------------------------------------
@@ -1376,13 +1997,22 @@ async def daily_log_get(
         return RedirectResponse("/login", status_code=302)
 
     # Guard: if the user has manually moved today's session to another day, block logging
-    from datetime import date as _date, timedelta as _td
-    _today = _date.today()
-    _today_dow = _today.weekday()          # 0=Mon … 6=Sun
-    _week_start = (_today - _td(days=_today_dow)).isoformat()
+    # Use UTC date since SQLite CURRENT_TIMESTAMP is UTC
+    _today_utc = datetime.utcnow().date()
+    _today_utc_str = _today_utc.isoformat()
+    _today_dow = _today_utc.weekday()          # 0=Mon … 6=Sun
+    _week_start = (_today_utc - timedelta(days=_today_dow)).isoformat()
 
     db = await get_db()
     try:
+        # Guard: already logged a session today
+        _log_cur = await db.execute(
+            "SELECT id FROM daily_logs WHERE user_id = ? AND DATE(created_at) = ? LIMIT 1",
+            (user["id"], _today_utc_str),
+        )
+        if await _log_cur.fetchone():
+            return RedirectResponse("/dashboard?already_logged=1", status_code=302)
+
         _cur = await db.execute(
             "SELECT session_days FROM schedule_overrides WHERE user_id = ? AND week_start = ?",
             (user["id"], _week_start),
@@ -1436,6 +2066,19 @@ async def daily_log_post(
     user = await get_authenticated_user(teno_session)
     if not user:
         return RedirectResponse("/login", status_code=302)
+
+    # Guard: block duplicate logs for the same UTC date
+    _post_today_utc = datetime.utcnow().date().isoformat()
+    _post_db = await get_db()
+    try:
+        _post_cur = await _post_db.execute(
+            "SELECT id FROM daily_logs WHERE user_id = ? AND DATE(created_at) = ? LIMIT 1",
+            (user["id"], _post_today_utc),
+        )
+        if await _post_cur.fetchone():
+            return RedirectResponse("/dashboard?already_logged=1", status_code=302)
+    finally:
+        await _post_db.close()
 
     # RED FLAG CHECK on every submission
     has_rf, rf_detail = check_red_flags([], notes=red_flag_notes or notes or "")
@@ -1648,9 +2291,9 @@ async def daily_log_post(
         # Save log
         await db.execute(
             """INSERT INTO daily_logs
-               (user_id, session_id, pain_during, pain_after, next_day_pain, difficulty, confidence, notes, load_context, exercise_log)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (user["id"], plan_id, pain_during, pain_after, next_day_pain, difficulty, confidence, notes, load_context_json, exercise_log_json),
+               (user_id, session_id, pain_during, pain_after, next_day_pain, morning_stiffness, difficulty, confidence, notes, load_context, exercise_log)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (user["id"], plan_id, pain_during, pain_after, next_day_pain, next_morning_stiffness, difficulty, confidence, notes, load_context_json, exercise_log_json),
         )
 
         # If stage progression is warranted, create new plan

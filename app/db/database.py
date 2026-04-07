@@ -42,10 +42,24 @@ async def init_db() -> None:
         migrations = [
             "ALTER TABLE users ADD COLUMN password_hash TEXT",
             "ALTER TABLE users ADD COLUMN email TEXT",
+            "ALTER TABLE users ADD COLUMN phone TEXT",
+            "ALTER TABLE users ADD COLUMN tfa_enabled INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN tfa_method TEXT NOT NULL DEFAULT 'email'",
+            "ALTER TABLE users ADD COLUMN age INTEGER",
+            "ALTER TABLE users ADD COLUMN sex TEXT",
+            "ALTER TABLE users ADD COLUMN gender TEXT",
+            "ALTER TABLE users ADD COLUMN height_cm REAL",
+            "ALTER TABLE users ADD COLUMN weight_kg REAL",
+            "ALTER TABLE users ADD COLUMN affected_side TEXT",
+            "ALTER TABLE users ADD COLUMN activity_level TEXT",
+            "ALTER TABLE users ADD COLUMN sports TEXT",
+            "ALTER TABLE users ADD COLUMN condition_timeline TEXT",
             "ALTER TABLE onboarding_assessments ADD COLUMN functional_tests TEXT NOT NULL DEFAULT '{}'",
             "ALTER TABLE onboarding_assessments ADD COLUMN goals TEXT NOT NULL DEFAULT '{}'",
             "ALTER TABLE daily_logs ADD COLUMN load_context TEXT NOT NULL DEFAULT '{}'",
             "ALTER TABLE daily_logs ADD COLUMN exercise_log TEXT NOT NULL DEFAULT '{}'",
+            "ALTER TABLE daily_logs ADD COLUMN morning_stiffness INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN dashboard_layout TEXT",
         ]
         for migration in migrations:
             try:

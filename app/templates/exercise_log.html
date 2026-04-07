@@ -40,11 +40,11 @@
   <!-- Summary stats -->
   <div class="grid grid-cols-2 gap-3 mb-6">
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-4">
-      <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Sessions Logged</p>
+      <p class="text-[0.625rem] font-bold text-gray-400 uppercase tracking-widest mb-1">Sessions Logged</p>
       <p class="text-3xl font-black text-gray-800">{{ total_sessions }}</p>
     </div>
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-4">
-      <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Exercises Tracked</p>
+      <p class="text-[0.625rem] font-bold text-gray-400 uppercase tracking-widest mb-1">Exercises Tracked</p>
       <p class="text-3xl font-black text-gray-800">{{ exercise_history | length }}</p>
     </div>
   </div>
@@ -127,12 +127,12 @@
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2 flex-wrap">
                 <span class="font-semibold text-gray-900 text-sm">{{ ex.name }}</span>
-                <span class="text-[10px] text-gray-400">{{ ex.prescribed_sets }} × {{ ex.prescribed_reps }}</span>
-                <span class="text-[10px] text-gray-300">·</span>
-                <span class="text-[10px] text-gray-400">{{ tl | length }} session{{ 's' if tl | length != 1 else '' }}</span>
+                <span class="text-[0.625rem] text-gray-400">{{ ex.prescribed_sets }} × {{ ex.prescribed_reps }}</span>
+                <span class="text-[0.625rem] text-gray-300">·</span>
+                <span class="text-[0.625rem] text-gray-400">{{ tl | length }} session{{ 's' if tl | length != 1 else '' }}</span>
                 {% if latest %}
                 {% set lp = latest.pain_during %}
-                <span class="text-[10px] font-semibold {{ 'text-red-500' if lp >= 6 else ('text-yellow-500' if lp >= 4 else 'text-green-500') }}">
+                <span class="text-[0.625rem] font-semibold {{ 'text-red-500' if lp >= 6 else ('text-yellow-500' if lp >= 4 else 'text-green-500') }}">
                   Pain {{ lp }}/10
                 </span>
                 {% endif %}
@@ -142,7 +142,7 @@
             <div class="flex items-center gap-2 shrink-0">
               {% if latest and latest.sets_compliance is not none %}
               {% set sc = latest.sets_compliance %}
-              <span class="text-[10px] px-2 py-0.5 rounded-full font-bold
+              <span class="text-[0.625rem] px-2 py-0.5 rounded-full font-bold
                 {% if sc > 120 %}bg-yellow-100 text-yellow-700
                 {% elif sc >= 90 %}bg-green-100 text-green-700
                 {% elif sc >= 70 %}bg-yellow-100 text-yellow-700
@@ -165,13 +165,13 @@
 
                 <thead>
                   <tr class="border-b border-gray-100">
-                    <th class="sticky left-0 z-10 bg-gray-50 text-left px-4 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest border-r border-gray-100 min-w-[90px]">
+                    <th class="sticky left-0 z-10 bg-gray-50 text-left px-4 py-2 text-[0.625rem] font-bold text-gray-400 uppercase tracking-widest border-r border-gray-100 min-w-[90px]">
                       Metric
                     </th>
                     {% for s in tl %}
                     <th class="px-4 py-2 text-center min-w-[90px] {{ 'bg-brand-600' if loop.last else 'bg-gray-50' }}">
-                      <div class="text-[11px] font-bold {{ 'text-white' if loop.last else 'text-gray-500' }} whitespace-nowrap">{{ s.date }}</div>
-                      {% if loop.last %}<div class="text-[9px] font-bold text-brand-200 uppercase tracking-widest mt-0.5">Latest</div>{% endif %}
+                      <div class="text-[0.6875rem] font-bold {{ 'text-white' if loop.last else 'text-gray-500' }} whitespace-nowrap">{{ s.date }}</div>
+                      {% if loop.last %}<div class="text-[0.5625rem] font-bold text-brand-200 uppercase tracking-widest mt-0.5">Latest</div>{% endif %}
                     </th>
                     {% endfor %}
                   </tr>
@@ -181,12 +181,12 @@
 
                   {# Sets #}
                   <tr class="hover:bg-gray-50/60 transition-colors">
-                    <td class="sticky left-0 z-10 bg-white px-4 py-2 text-[11px] font-bold text-gray-500 border-r border-gray-100 whitespace-nowrap">Sets</td>
+                    <td class="sticky left-0 z-10 bg-white px-4 py-2 text-[0.6875rem] font-bold text-gray-500 border-r border-gray-100 whitespace-nowrap">Sets</td>
                     {% for s in tl %}
                     {% set prev = tl[loop.index0 - 1] if loop.index0 > 0 else none %}
                     <td class="px-4 py-2 text-center {{ 'bg-brand-50' if loop.last else '' }}">
                       {% if s.sets_done is not none %}
-                        <span class="font-bold text-gray-800">{{ s.sets_done }}</span><span class="text-gray-400 text-[11px]">/{{ ex.prescribed_sets }}</span>
+                        <span class="font-bold text-gray-800">{{ s.sets_done }}</span><span class="text-gray-400 text-[0.6875rem]">/{{ ex.prescribed_sets }}</span>
                         {% if prev and prev.sets_done is not none %}
                           {% if s.sets_done > prev.sets_done %}<span class="ml-0.5 text-green-500 text-xs">↑</span>
                           {% elif s.sets_done < prev.sets_done %}<span class="ml-0.5 text-red-400 text-xs">↓</span>
@@ -199,7 +199,7 @@
 
                   {# Reps #}
                   <tr class="hover:bg-gray-50/60 transition-colors">
-                    <td class="sticky left-0 z-10 bg-white px-4 py-2 text-[11px] font-bold text-gray-500 border-r border-gray-100 whitespace-nowrap">Reps</td>
+                    <td class="sticky left-0 z-10 bg-white px-4 py-2 text-[0.6875rem] font-bold text-gray-500 border-r border-gray-100 whitespace-nowrap">Reps</td>
                     {% for s in tl %}
                     <td class="px-4 py-2 text-center text-gray-600 text-xs {{ 'bg-brand-50' if loop.last else '' }}">
                       {{ s.reps_done if s.reps_done else '—' }}
@@ -210,7 +210,7 @@
                   {# Load #}
                   {% if tl | selectattr('load_kg') | list | length > 0 %}
                   <tr class="hover:bg-gray-50/60 transition-colors">
-                    <td class="sticky left-0 z-10 bg-white px-4 py-2 text-[11px] font-bold text-gray-500 border-r border-gray-100 whitespace-nowrap">Load</td>
+                    <td class="sticky left-0 z-10 bg-white px-4 py-2 text-[0.6875rem] font-bold text-gray-500 border-r border-gray-100 whitespace-nowrap">Load</td>
                     {% for s in tl %}
                     {% set prev = tl[loop.index0 - 1] if loop.index0 > 0 else none %}
                     <td class="px-4 py-2 text-center text-xs {{ 'bg-brand-50' if loop.last else '' }}">
@@ -230,12 +230,12 @@
 
                   {# Sets % #}
                   <tr class="hover:bg-gray-50/60 transition-colors">
-                    <td class="sticky left-0 z-10 bg-white px-4 py-2 text-[11px] font-bold text-gray-500 border-r border-gray-100 whitespace-nowrap">Sets %</td>
+                    <td class="sticky left-0 z-10 bg-white px-4 py-2 text-[0.6875rem] font-bold text-gray-500 border-r border-gray-100 whitespace-nowrap">Sets %</td>
                     {% for s in tl %}
                     <td class="px-4 py-2 text-center {{ 'bg-brand-50' if loop.last else '' }}">
                       {% if s.sets_compliance is not none %}
                       {% set c = s.sets_compliance %}
-                      <span class="px-1.5 py-0.5 rounded-full text-[11px] font-bold
+                      <span class="px-1.5 py-0.5 rounded-full text-[0.6875rem] font-bold
                         {% if c > 120 %}bg-yellow-100 text-yellow-700
                         {% elif c >= 90 %}bg-green-100 text-green-700
                         {% elif c >= 70 %}bg-yellow-100 text-yellow-700
@@ -249,7 +249,7 @@
 
                   {# Pain During #}
                   <tr class="hover:bg-gray-50/60 transition-colors">
-                    <td class="sticky left-0 z-10 bg-white px-4 py-2 text-[11px] font-bold text-gray-500 border-r border-gray-100 whitespace-nowrap">Pain</td>
+                    <td class="sticky left-0 z-10 bg-white px-4 py-2 text-[0.6875rem] font-bold text-gray-500 border-r border-gray-100 whitespace-nowrap">Pain</td>
                     {% for s in tl %}
                     {% set prev = tl[loop.index0 - 1] if loop.index0 > 0 else none %}
                     <td class="px-4 py-2 text-center {{ 'bg-brand-50' if loop.last else '' }}">
@@ -266,7 +266,7 @@
 
                   {# Next-Day Pain #}
                   <tr class="hover:bg-gray-50/60 transition-colors">
-                    <td class="sticky left-0 z-10 bg-white px-4 py-2 text-[11px] font-bold text-gray-500 border-r border-gray-100 whitespace-nowrap">Next-Day</td>
+                    <td class="sticky left-0 z-10 bg-white px-4 py-2 text-[0.6875rem] font-bold text-gray-500 border-r border-gray-100 whitespace-nowrap">Next-Day</td>
                     {% for s in tl %}
                     {% set prev = tl[loop.index0 - 1] if loop.index0 > 0 else none %}
                     <td class="px-4 py-2 text-center {{ 'bg-brand-50' if loop.last else '' }}">
@@ -287,7 +287,7 @@
 
             {% if tl | length > 4 %}
             <div class="px-4 py-1.5 border-t border-gray-100 text-right">
-              <p class="text-[10px] text-gray-300 italic">← scroll to view earlier sessions</p>
+              <p class="text-[0.625rem] text-gray-300 italic">← scroll to view earlier sessions</p>
             </div>
             {% endif %}
 

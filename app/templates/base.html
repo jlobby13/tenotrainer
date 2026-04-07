@@ -172,6 +172,18 @@
     [data-theme$="-dark"] .bg-gray-50         { background-color: #0c1220 !important; }
     [data-theme$="-dark"] .bg-gray-100        { background-color: #1a2540 !important; }
     [data-theme$="-dark"] .bg-gray-200        { background-color: #22304e !important; }
+    /* Ring offset — default offset colour is #fff which shows as a white halo in dark mode */
+    [data-theme$="-dark"] .ring-offset-1 { --tw-ring-offset-color: #18243a !important; }
+    [data-theme$="-dark"] .ring-offset-2 { --tw-ring-offset-color: #18243a !important; }
+    [data-theme$="-dark"] .ring-offset-4 { --tw-ring-offset-color: #18243a !important; }
+
+    /* Hover states for gray/white — tile headers, menu items, buttons */
+    [data-theme$="-dark"] .hover\:bg-white:hover      { background-color: #1e2d48 !important; }
+    [data-theme$="-dark"] .hover\:bg-gray-50:hover    { background-color: #1e2d48 !important; }
+    [data-theme$="-dark"] .hover\:bg-gray-50\/60:hover { background-color: rgb(255 255 255 / 0.04) !important; }
+    [data-theme$="-dark"] .hover\:bg-gray-50\/80:hover { background-color: rgb(255 255 255 / 0.05) !important; }
+    [data-theme$="-dark"] .hover\:bg-gray-100:hover   { background-color: #22304e !important; }
+    [data-theme$="-dark"] .hover\:bg-gray-200:hover   { background-color: #2a3d5e !important; }
 
     /* Text — maximised for dark surface readability.
        gray-500/400 are the most-used "muted" shades — pushed to slate-300/400
@@ -219,8 +231,15 @@
     [data-theme$="-dark"] .bg-sky-200  { background-color: rgb(2 132 199 / 0.25) !important; }
     [data-theme$="-dark"] .bg-sky-300  { background-color: rgb(14 165 233 / 0.30) !important; }
     /* Blue */
+    [data-theme$="-dark"] .bg-blue-50\/40  { background-color: rgb(37 99 235 / 0.10) !important; }
     [data-theme$="-dark"] .bg-blue-50\/60  { background-color: rgb(37 99 235 / 0.10) !important; }
     [data-theme$="-dark"] .bg-blue-50      { background-color: rgb(37 99 235 / 0.12) !important; }
+    /* Opacity variants for table column tints and checklist rows */
+    [data-theme$="-dark"] .bg-green-50\/60 { background-color: rgb(22 163 74 / 0.10) !important; }
+    [data-theme$="-dark"] .bg-red-50\/60   { background-color: rgb(220 38 38 / 0.10) !important; }
+    [data-theme$="-dark"] .bg-red-50\/20   { background-color: rgb(220 38 38 / 0.05) !important; }
+    [data-theme$="-dark"] .bg-sky-50\/20   { background-color: rgb(2 132 199 / 0.05) !important; }
+    [data-theme$="-dark"] .bg-brand-50\/20 { background-color: rgb(var(--brand-600) / 0.05) !important; }
     [data-theme$="-dark"] .hover\:bg-blue-50:hover { background-color: rgb(37 99 235 / 0.20) !important; }
     [data-theme$="-dark"] .bg-blue-100 { background-color: rgb(37 99 235 / 0.18) !important; }
     [data-theme$="-dark"] .bg-blue-200 { background-color: rgb(59 130 246 / 0.25) !important; }
@@ -231,9 +250,17 @@
     [data-theme$="-dark"] .bg-indigo-200 { background-color: rgb(99 102 241 / 0.25) !important; }
     [data-theme$="-dark"] .bg-indigo-300 { background-color: rgb(129 140 248 / 0.30) !important; }
     /* Violet */
+    [data-theme$="-dark"] .bg-violet-50  { background-color: rgb(124 58 237 / 0.10) !important; }
     [data-theme$="-dark"] .bg-violet-100 { background-color: rgb(124 58 237 / 0.18) !important; }
     [data-theme$="-dark"] .bg-violet-200 { background-color: rgb(139 92 246 / 0.25) !important; }
     [data-theme$="-dark"] .bg-violet-300 { background-color: rgb(167 139 250 / 0.30) !important; }
+    /* Purple */
+    [data-theme$="-dark"] .bg-purple-50  { background-color: rgb(147 51 234 / 0.10) !important; }
+    [data-theme$="-dark"] .bg-purple-100 { background-color: rgb(147 51 234 / 0.18) !important; }
+    [data-theme$="-dark"] .bg-purple-200 { background-color: rgb(168 85 247 / 0.25) !important; }
+    /* Cyan */
+    [data-theme$="-dark"] .bg-cyan-50  { background-color: rgb(8 145 178 / 0.12) !important; }
+    [data-theme$="-dark"] .bg-cyan-100 { background-color: rgb(6 182 212 / 0.18) !important; }
     /* Teal */
     [data-theme$="-dark"] .bg-teal-50  { background-color: rgb(15 118 110 / 0.12) !important; }
     [data-theme$="-dark"] .bg-teal-100 { background-color: rgb(20 184 166 / 0.18) !important; }
@@ -279,6 +306,11 @@
     [data-theme$="-dark"] .text-red-500,   [data-theme$="-dark"] .text-red-400   { color: #fb7185 !important; }
     [data-theme$="-dark"] .text-orange-900,[data-theme$="-dark"] .text-orange-800 { color: #fdba74 !important; }
     [data-theme$="-dark"] .text-orange-700,[data-theme$="-dark"] .text-orange-600 { color: #fb923c !important; }
+    [data-theme$="-dark"] .text-cyan-900,  [data-theme$="-dark"] .text-cyan-800   { color: #a5f3fc !important; }
+    [data-theme$="-dark"] .text-cyan-700,  [data-theme$="-dark"] .text-cyan-600   { color: #22d3ee !important; }
+    [data-theme$="-dark"] .text-purple-900,[data-theme$="-dark"] .text-purple-800 { color: #d8b4fe !important; }
+    [data-theme$="-dark"] .text-purple-700,[data-theme$="-dark"] .text-purple-600 { color: #c084fc !important; }
+    [data-theme$="-dark"] .text-purple-500,[data-theme$="-dark"] .text-purple-400 { color: #a855f7 !important; }
 
     /* Semantic borders */
     [data-theme$="-dark"] .border-teal-100   { border-color: rgb(45 212 191 / 0.20) !important; }
@@ -294,6 +326,24 @@
     [data-theme$="-dark"] .border-blue-200   { border-color: rgb(147 197 253 / 0.30) !important; }
     [data-theme$="-dark"] .border-sky-100    { border-color: rgb(125 211 252 / 0.20) !important; }
     [data-theme$="-dark"] .border-sky-200    { border-color: rgb(125 211 252 / 0.30) !important; }
+    [data-theme$="-dark"] .border-purple-100 { border-color: rgb(192 132 252 / 0.20) !important; }
+    [data-theme$="-dark"] .border-purple-200 { border-color: rgb(192 132 252 / 0.30) !important; }
+    [data-theme$="-dark"] .border-violet-100 { border-color: rgb(167 139 250 / 0.20) !important; }
+    [data-theme$="-dark"] .border-violet-200 { border-color: rgb(167 139 250 / 0.30) !important; }
+    [data-theme$="-dark"] .border-violet-300 { border-color: rgb(167 139 250 / 0.40) !important; }
+    [data-theme$="-dark"] .border-orange-100 { border-color: rgb(253 186 116 / 0.20) !important; }
+    [data-theme$="-dark"] .border-orange-200 { border-color: rgb(253 186 116 / 0.30) !important; }
+    [data-theme$="-dark"] .border-orange-300 { border-color: rgb(253 186 116 / 0.40) !important; }
+    [data-theme$="-dark"] .border-indigo-100 { border-color: rgb(165 180 252 / 0.20) !important; }
+    [data-theme$="-dark"] .border-indigo-200 { border-color: rgb(165 180 252 / 0.30) !important; }
+    [data-theme$="-dark"] .border-indigo-300 { border-color: rgb(165 180 252 / 0.40) !important; }
+    [data-theme$="-dark"] .border-yellow-100 { border-color: rgb(253 224 71 / 0.20) !important; }
+    [data-theme$="-dark"] .border-yellow-200 { border-color: rgb(253 224 71 / 0.30) !important; }
+    [data-theme$="-dark"] .border-green-300  { border-color: rgb(74 222 128 / 0.40) !important; }
+    [data-theme$="-dark"] .border-red-300    { border-color: rgb(252 165 165 / 0.40) !important; }
+    [data-theme$="-dark"] .border-amber-400  { border-color: rgb(251 191 36 / 0.50) !important; }
+    [data-theme$="-dark"] .border-blue-300   { border-color: rgb(147 197 253 / 0.40) !important; }
+    [data-theme$="-dark"] .border-sky-300    { border-color: rgb(125 211 252 / 0.40) !important; }
 
     /* Brand backgrounds used in status/info boxes */
     [data-theme$="-dark"] .bg-brand-50   { background-color: rgb(var(--brand-600) / 0.10) !important; }
@@ -314,6 +364,290 @@
     input[type="range"]::-webkit-slider-thumb { background: rgb(var(--brand-600)); }
     input[type="range"]::-webkit-slider-thumb:hover { background: rgb(var(--brand-500)); }
     input[type="range"]::-moz-range-thumb     { background: rgb(var(--brand-600)); }
+
+    /* Text size scaling — all rem-based Tailwind sizes cascade from the html font-size */
+    [data-textsize="medium"] { font-size: 19px; }
+    [data-textsize="large"]  { font-size: 22px; }
+
+    /* ── Dashboard layout edit mode ──────────────────────────────────────── */
+    .dash-handle {
+      display: none;
+      justify-content: center;
+      align-items: center;
+      height: 18px;
+      cursor: grab;
+      user-select: none;
+      color: #d1d5db;
+      transition: color 0.15s;
+    }
+    .dash-handle:hover { color: #9ca3af; }
+    body.dash-editing .dash-handle { display: flex; }
+    body.dash-editing .dash-section {
+      cursor: grab;
+      outline: 1px dashed #e5e7eb;
+      outline-offset: 2px;
+      border-radius: 0.75rem;
+      transition: opacity 0.15s, box-shadow 0.1s;
+    }
+    body.dash-editing .dash-section:active { cursor: grabbing; }
+    body.dash-editing { padding-top: 4.5rem; }
+    .dash-section.dash-dragging { opacity: 0.35; }
+    .dash-section.dash-drop-above { box-shadow: 0 -3px 0 0 rgb(var(--brand-600)) !important; }
+    .dash-section.dash-drop-below { box-shadow: 0 3px 0 0 rgb(var(--brand-600)) !important; }
+    [data-theme$="-dark"] body.dash-editing .dash-section { outline-color: #22304e; }
+    [data-theme$="-dark"] .dash-handle { color: #334155; }
+    [data-theme$="-dark"] .dash-handle:hover { color: #475569; }
+    [data-theme$="-dark"] #dash-edit-bar {
+      background-color: #2d1f00 !important; border-color: #78350f !important;
+    }
+    [data-theme$="-dark"] #dash-edit-bar p { color: #fbbf24 !important; }
+    [data-theme$="-dark"] #dash-edit-bar p.text-amber-700 { color: #d97706 !important; }
+
+    /* ── Session tolerance "next session action" box ── */
+    .next-session-action-box { background-color: rgba(255,255,255,0.70); }
+    [data-theme$="-dark"] .next-session-action-box {
+      background-color: rgba(255,255,255,0.06) !important;
+    }
+    [data-theme$="-dark"] .next-session-action-box .text-gray-700 { color: #cbd5e1 !important; }
+    [data-theme$="-dark"] .next-session-action-box .text-gray-400 { color: #475569 !important; }
+
+    /* ── Already-logged modal dark mode ────────────────────────────────────── */
+    [data-theme$="-dark"] #already-logged-modal > div:last-child {
+      background-color: #1e293b !important;
+    }
+    [data-theme$="-dark"] #already-logged-modal h3 { color: #f1f5f9 !important; }
+    [data-theme$="-dark"] #already-logged-modal p  { color: #94a3b8 !important; }
+    [data-theme$="-dark"] #already-logged-modal .bg-green-100 { background-color: rgba(34,197,94,0.15) !important; }
+
+    /* ── Indicator colour suppression (teno-mono mode) ────────────────────────
+       Scoped to the 5 indicator tiles so nothing else on the page is affected.
+       Applied when body.teno-mono (localStorage teno_color_indicators === 'off').
+       Dark-mode overrides follow immediately after; order matters for !important. */
+
+    /* Shorthand: all 5 tile roots */
+    #tile-pain-root, #tile-stiff-root, #tile-visa-root, #tile-fc-root, #tile-lsi-root { --_t: 1; }
+
+    /* ·· Value indicator colours (red/yellow/green) ·· */
+    body.teno-mono #tile-pain-root  .text-red-400,  body.teno-mono #tile-pain-root  .text-red-500,
+    body.teno-mono #tile-pain-root  .text-red-600,  body.teno-mono #tile-pain-root  .text-yellow-600,
+    body.teno-mono #tile-pain-root  .text-green-500, body.teno-mono #tile-pain-root .text-green-600,
+    body.teno-mono #tile-stiff-root .text-red-400,  body.teno-mono #tile-stiff-root .text-red-500,
+    body.teno-mono #tile-stiff-root .text-red-600,  body.teno-mono #tile-stiff-root .text-yellow-600,
+    body.teno-mono #tile-stiff-root .text-green-500, body.teno-mono #tile-stiff-root .text-green-600,
+    body.teno-mono #tile-visa-root  .text-red-500,  body.teno-mono #tile-visa-root  .text-red-600,
+    body.teno-mono #tile-visa-root  .text-yellow-600, body.teno-mono #tile-visa-root .text-green-600,
+    body.teno-mono #tile-lsi-root   .text-red-500,  body.teno-mono #tile-lsi-root   .text-red-600,
+    body.teno-mono #tile-lsi-root   .text-yellow-600, body.teno-mono #tile-lsi-root .text-yellow-700,
+    body.teno-mono #tile-lsi-root   .text-green-600, body.teno-mono #tile-lsi-root  .text-green-700
+    { color: #6b7280 !important; }
+
+    /* ·· Value indicator progress bar fills ·· */
+    body.teno-mono #tile-pain-root  .bg-red-400, body.teno-mono #tile-pain-root  .bg-yellow-400,
+    body.teno-mono #tile-pain-root  .bg-green-400,
+    body.teno-mono #tile-stiff-root .bg-red-400, body.teno-mono #tile-stiff-root .bg-yellow-400,
+    body.teno-mono #tile-stiff-root .bg-green-400,
+    body.teno-mono #tile-visa-root  .bg-red-400, body.teno-mono #tile-visa-root  .bg-yellow-400,
+    body.teno-mono #tile-visa-root  .bg-green-400,
+    body.teno-mono #tile-lsi-root   .bg-red-400, body.teno-mono #tile-lsi-root   .bg-yellow-400,
+    body.teno-mono #tile-lsi-root   .bg-green-400, body.teno-mono #tile-lsi-root .bg-green-500
+    { background-color: #d1d5db !important; }
+
+    /* ·· Card tile backgrounds ·· */
+    body.teno-mono #tile-pain-root  .bg-red-50,    body.teno-mono #tile-pain-root  .bg-orange-50,
+    body.teno-mono #tile-pain-root  .bg-purple-50,
+    body.teno-mono #tile-stiff-root .bg-amber-50,  body.teno-mono #tile-stiff-root .bg-teal-50,
+    body.teno-mono #tile-visa-root  .bg-brand-50,  body.teno-mono #tile-visa-root  .bg-teal-50,
+    body.teno-mono #tile-visa-root  .bg-violet-50,
+    body.teno-mono #tile-fc-root    .bg-sky-50,    body.teno-mono #tile-fc-root    .bg-violet-50,
+    body.teno-mono #tile-fc-root    .bg-orange-50, body.teno-mono #tile-fc-root    .bg-teal-50,
+    body.teno-mono #tile-lsi-root   .bg-sky-50,    body.teno-mono #tile-lsi-root   .bg-violet-50,
+    body.teno-mono #tile-lsi-root   .bg-orange-50, body.teno-mono #tile-lsi-root   .bg-teal-50
+    { background-color: #f9fafb !important; }
+
+    /* ·· Card tile borders ·· */
+    body.teno-mono #tile-pain-root  .border-red-100,    body.teno-mono #tile-pain-root  .border-orange-100,
+    body.teno-mono #tile-pain-root  .border-purple-100,
+    body.teno-mono #tile-stiff-root .border-amber-100,  body.teno-mono #tile-stiff-root .border-teal-100,
+    body.teno-mono #tile-visa-root  .border-brand-100,  body.teno-mono #tile-visa-root  .border-teal-100,
+    body.teno-mono #tile-visa-root  .border-violet-100,
+    body.teno-mono #tile-fc-root    .border-sky-100,    body.teno-mono #tile-fc-root    .border-violet-100,
+    body.teno-mono #tile-fc-root    .border-orange-100, body.teno-mono #tile-fc-root    .border-teal-100,
+    body.teno-mono #tile-lsi-root   .border-sky-100,    body.teno-mono #tile-lsi-root   .border-violet-100,
+    body.teno-mono #tile-lsi-root   .border-orange-100, body.teno-mono #tile-lsi-root   .border-teal-100
+    { border-color: #e5e7eb !important; }
+
+    /* ·· Progress bar tracks (bg-*-100 inside cards) ·· */
+    body.teno-mono #tile-pain-root  .bg-red-100,    body.teno-mono #tile-pain-root  .bg-orange-100,
+    body.teno-mono #tile-pain-root  .bg-purple-100,
+    body.teno-mono #tile-stiff-root .bg-amber-100,
+    body.teno-mono #tile-visa-root  .bg-brand-100,
+    body.teno-mono #tile-lsi-root   .bg-sky-100,    body.teno-mono #tile-lsi-root   .bg-violet-100,
+    body.teno-mono #tile-lsi-root   .bg-orange-100, body.teno-mono #tile-lsi-root   .bg-teal-100
+    { background-color: #e5e7eb !important; }
+
+    /* ·· Accent category labels (tiny uppercase headings inside cards) ·· */
+    body.teno-mono #tile-pain-root  .text-red-400,   body.teno-mono #tile-pain-root  .text-orange-400,
+    body.teno-mono #tile-pain-root  .text-purple-400,
+    body.teno-mono #tile-stiff-root .text-amber-400, body.teno-mono #tile-stiff-root .text-teal-400,
+    body.teno-mono #tile-visa-root  .text-brand-400, body.teno-mono #tile-visa-root  .text-teal-400,
+    body.teno-mono #tile-visa-root  .text-violet-400,
+    body.teno-mono #tile-fc-root    .text-sky-500,   body.teno-mono #tile-fc-root    .text-violet-500,
+    body.teno-mono #tile-fc-root    .text-orange-500, body.teno-mono #tile-fc-root   .text-teal-500,
+    body.teno-mono #tile-lsi-root   .text-sky-500,   body.teno-mono #tile-lsi-root   .text-violet-500,
+    body.teno-mono #tile-lsi-root   .text-orange-500, body.teno-mono #tile-lsi-root  .text-teal-500
+    { color: #9ca3af !important; }
+
+    /* ·· Accent metric values + unit text + "no data" text ·· */
+    body.teno-mono #tile-fc-root  .text-sky-800,    body.teno-mono #tile-fc-root  .text-violet-800,
+    body.teno-mono #tile-fc-root  .text-orange-800, body.teno-mono #tile-fc-root  .text-teal-800,
+    body.teno-mono #tile-visa-root .text-violet-700
+    { color: #374151 !important; }
+
+    body.teno-mono #tile-fc-root  .text-sky-400,    body.teno-mono #tile-fc-root  .text-violet-400,
+    body.teno-mono #tile-fc-root  .text-orange-400, body.teno-mono #tile-fc-root  .text-teal-400,
+    body.teno-mono #tile-lsi-root .text-sky-400,    body.teno-mono #tile-lsi-root .text-violet-400,
+    body.teno-mono #tile-lsi-root .text-orange-400, body.teno-mono #tile-lsi-root .text-teal-400
+    { color: #9ca3af !important; }
+
+    body.teno-mono #tile-fc-root  .text-sky-300,    body.teno-mono #tile-fc-root  .text-violet-300,
+    body.teno-mono #tile-fc-root  .text-orange-300, body.teno-mono #tile-fc-root  .text-teal-300,
+    body.teno-mono #tile-lsi-root .text-sky-300,    body.teno-mono #tile-lsi-root .text-violet-300,
+    body.teno-mono #tile-lsi-root .text-orange-300, body.teno-mono #tile-lsi-root .text-teal-300,
+    body.teno-mono #tile-visa-root .text-violet-400
+    { color: #d1d5db !important; }
+
+    /* ·· Dark theme overrides for teno-mono (neutralise to dark-surface grays) ·· */
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .bg-red-50,
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .bg-orange-50,
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .bg-purple-50,
+    [data-theme$="-dark"] body.teno-mono #tile-stiff-root .bg-amber-50,
+    [data-theme$="-dark"] body.teno-mono #tile-stiff-root .bg-teal-50,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .bg-brand-50,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .bg-teal-50,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .bg-violet-50,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root    .bg-sky-50,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root    .bg-violet-50,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root    .bg-orange-50,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root    .bg-teal-50,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .bg-sky-50,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .bg-violet-50,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .bg-orange-50,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .bg-teal-50
+    { background-color: #1a2540 !important; }
+
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .border-red-100,
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .border-orange-100,
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .border-purple-100,
+    [data-theme$="-dark"] body.teno-mono #tile-stiff-root .border-amber-100,
+    [data-theme$="-dark"] body.teno-mono #tile-stiff-root .border-teal-100,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .border-brand-100,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .border-teal-100,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .border-violet-100,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root    .border-sky-100,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root    .border-violet-100,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root    .border-orange-100,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root    .border-teal-100,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .border-sky-100,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .border-violet-100,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .border-orange-100,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .border-teal-100
+    { border-color: #22304e !important; }
+
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .bg-red-100,
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .bg-orange-100,
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .bg-purple-100,
+    [data-theme$="-dark"] body.teno-mono #tile-stiff-root .bg-amber-100,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .bg-brand-100,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .bg-sky-100,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .bg-violet-100,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .bg-orange-100,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .bg-teal-100
+    { background-color: #22304e !important; }
+
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .bg-red-400,
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .bg-yellow-400,
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .bg-green-400,
+    [data-theme$="-dark"] body.teno-mono #tile-stiff-root .bg-red-400,
+    [data-theme$="-dark"] body.teno-mono #tile-stiff-root .bg-yellow-400,
+    [data-theme$="-dark"] body.teno-mono #tile-stiff-root .bg-green-400,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .bg-red-400,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .bg-yellow-400,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .bg-green-400,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .bg-red-400,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .bg-yellow-400,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .bg-green-400,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .bg-green-500
+    { background-color: #2a3d5e !important; }
+
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .text-red-400,
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .text-red-500,
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .text-red-600,
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .text-yellow-600,
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .text-green-500,
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .text-green-600,
+    [data-theme$="-dark"] body.teno-mono #tile-stiff-root .text-red-400,
+    [data-theme$="-dark"] body.teno-mono #tile-stiff-root .text-red-500,
+    [data-theme$="-dark"] body.teno-mono #tile-stiff-root .text-red-600,
+    [data-theme$="-dark"] body.teno-mono #tile-stiff-root .text-yellow-600,
+    [data-theme$="-dark"] body.teno-mono #tile-stiff-root .text-green-500,
+    [data-theme$="-dark"] body.teno-mono #tile-stiff-root .text-green-600,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .text-red-500,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .text-red-600,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .text-yellow-600,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .text-green-600,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .text-red-500,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .text-red-600,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .text-yellow-600,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .text-yellow-700,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .text-green-600,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .text-green-700
+    { color: #94a3b8 !important; }
+
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .text-red-400,
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .text-orange-400,
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .text-purple-400,
+    [data-theme$="-dark"] body.teno-mono #tile-stiff-root .text-amber-400,
+    [data-theme$="-dark"] body.teno-mono #tile-stiff-root .text-teal-400,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .text-brand-400,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .text-teal-400,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .text-violet-400,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root    .text-sky-500,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root    .text-violet-500,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root    .text-orange-500,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root    .text-teal-500,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .text-sky-500,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .text-violet-500,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .text-orange-500,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .text-teal-500
+    { color: #475569 !important; }
+
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root  .text-sky-800,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root  .text-violet-800,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root  .text-orange-800,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root  .text-teal-800,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root .text-violet-700
+    { color: #e2e8f0 !important; }
+
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root  .text-sky-400,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root  .text-violet-400,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root  .text-orange-400,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root  .text-teal-400,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root .text-sky-400,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root .text-violet-400,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root .text-orange-400,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root .text-teal-400,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root .text-violet-400
+    { color: #475569 !important; }
+
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root  .text-sky-300,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root  .text-violet-300,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root  .text-orange-300,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root  .text-teal-300,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root .text-sky-300,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root .text-violet-300,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root .text-orange-300,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root .text-teal-300
+    { color: #334155 !important; }
 
   </style>
 
@@ -341,11 +675,13 @@
     }
   </script>
 
-  <!-- Apply saved theme BEFORE first paint to avoid flash -->
+  <!-- Apply saved theme + text size BEFORE first paint to avoid flash -->
   <script>
     (function() {
       var t = localStorage.getItem('teno_theme');
       if (t) document.documentElement.setAttribute('data-theme', t);
+      var s = localStorage.getItem('teno_textsize');
+      if (s && s !== 'small') document.documentElement.setAttribute('data-textsize', s);
     })();
   </script>
 
@@ -364,7 +700,7 @@
       <div class="flex items-center gap-4 text-sm">
         {% if user and user.password_hash %}
         <a href="/dashboard"        class="hover:text-brand-200 transition-colors">Dashboard</a>
-        <a href="/daily-log"        class="hover:text-brand-200 transition-colors">Track Session</a>
+        <a href="/daily-log" onclick="if(typeof checkDailyLogAllowed==='function'){checkDailyLogAllowed(event);}" class="hover:text-brand-200 transition-colors">Track Session</a>
         <a href="/exercise-log"     class="hover:text-brand-200 transition-colors">Exercise Log</a>
         <a href="/exercise-library" class="hover:text-brand-200 transition-colors">Exercise Library</a>
         <a href="/onboarding"       class="hover:text-brand-200 transition-colors">Assessment</a>
@@ -397,7 +733,7 @@
 
             <!-- Account links -->
             <div class="px-2 py-2 border-b border-gray-100">
-              <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-1">Account</p>
+              <p class="text-[0.625rem] font-bold text-gray-400 uppercase tracking-widest px-2 mb-1">Account</p>
               <a href="/account"
                  class="flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm text-gray-700 hover:bg-brand-50 hover:text-brand-700 transition-colors">
                 <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -417,10 +753,10 @@
 
             <!-- Theme picker -->
             <div class="px-3 py-3">
-              <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Appearance</p>
+              <p class="text-[0.625rem] font-bold text-gray-400 uppercase tracking-widest mb-2">Appearance</p>
 
               <!-- Light row -->
-              <p class="text-[9px] text-gray-400 font-semibold uppercase tracking-wider mb-1.5 pl-0.5">Light</p>
+              <p class="text-[0.5625rem] text-gray-400 font-semibold uppercase tracking-wider mb-1.5 pl-0.5">Light</p>
               <div class="grid grid-cols-5 gap-1.5 mb-3">
                 {% set light_themes = [
                   ('ocean',  'Ocean',  '#0369a1', '#f0f9ff', '#0284c7', 'sky'),
@@ -439,13 +775,13 @@
                       <div class="w-5 h-1.5 rounded" style="background:{{ accent_col }};opacity:.7"></div>
                     </div>
                   </div>
-                  <span class="text-[9px] font-semibold text-gray-500 group-hover:text-{{ ring }}-600">{{ tname }}</span>
+                  <span class="text-[0.5625rem] font-semibold text-gray-500 group-hover:text-{{ ring }}-600">{{ tname }}</span>
                 </button>
                 {% endfor %}
               </div>
 
               <!-- Dark row -->
-              <p class="text-[9px] text-gray-400 font-semibold uppercase tracking-wider mb-1.5 pl-0.5">Dark</p>
+              <p class="text-[0.5625rem] text-gray-400 font-semibold uppercase tracking-wider mb-1.5 pl-0.5">Dark</p>
               <div class="grid grid-cols-5 gap-1.5">
                 {% set dark_themes = [
                   ('ocean-dark',  'Ocean',  '#05192f', '#0c1828', '#38bdf8', 'sky'),
@@ -464,7 +800,7 @@
                       <div class="w-5 h-1.5 rounded" style="background:{{ accent_col }};opacity:.85"></div>
                     </div>
                   </div>
-                  <span class="text-[9px] font-semibold text-gray-500 group-hover:text-{{ ring }}-400">{{ tname }}</span>
+                  <span class="text-[0.5625rem] font-semibold text-gray-500 group-hover:text-{{ ring }}-400">{{ tname }}</span>
                 </button>
                 {% endfor %}
               </div>
@@ -571,7 +907,37 @@
       });
     }
 
-    document.addEventListener('DOMContentLoaded', _highlightActiveTheme);
+    // ── Text size switching ───────────────────────────────────────────────────
+    function setTextSize(size) {
+      if (!['small', 'medium', 'large'].includes(size)) return;
+      if (size === 'small') {
+        document.documentElement.removeAttribute('data-textsize');
+      } else {
+        document.documentElement.setAttribute('data-textsize', size);
+      }
+      localStorage.setItem('teno_textsize', size);
+      _highlightActiveTextSize();
+    }
+
+    function _highlightActiveTextSize() {
+      var active = document.documentElement.getAttribute('data-textsize') || 'small';
+      ['small', 'medium', 'large'].forEach(function(s) {
+        var btn = document.getElementById('textsize-btn-' + s);
+        if (!btn) return;
+        if (s === active) {
+          btn.classList.add('bg-brand-600', 'text-white', 'border-brand-600');
+          btn.classList.remove('bg-white', 'text-gray-600', 'border-gray-200');
+        } else {
+          btn.classList.remove('bg-brand-600', 'text-white', 'border-brand-600');
+          btn.classList.add('bg-white', 'text-gray-600', 'border-gray-200');
+        }
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      _highlightActiveTheme();
+      _highlightActiveTextSize();
+    });
   </script>
 
   {% block scripts %}{% endblock %}

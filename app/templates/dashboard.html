@@ -15,7 +15,7 @@
       <h1 class="text-2xl font-black text-white leading-tight">Dashboard</h1>
       <p class="text-sm text-brand-200 mt-0.5">Your rehab overview — track progress, pain trends, and your next session plan.</p>
     </div>
-    <a id="btn-track-hero" href="/daily-log"
+    <a id="btn-track-hero" href="/daily-log" onclick="checkDailyLogAllowed(event)"
        class="shrink-0 px-4 py-2 bg-white/20 text-white text-sm font-bold rounded-xl hover:bg-white/30 transition-colors border border-white/20 whitespace-nowrap">
       + Track Session
     </a>
@@ -34,6 +34,31 @@
   <p class="text-sm text-amber-800 font-medium">Today's session has been rescheduled. Move the session tile back to today to enable logging.</p>
 </div>
 
+{% if request.query_params.get('already_logged') %}
+<div class="bg-green-50 border border-green-300 rounded-xl px-4 py-3 mb-4 flex items-center gap-3">
+  <svg class="w-5 h-5 text-green-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+  <p class="text-sm text-green-800 font-medium">You've already logged a session for today. Come back tomorrow for your next session.</p>
+</div>
+{% endif %}
+
+<!-- Already-logged modal -->
+<div id="already-logged-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+  <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="document.getElementById('already-logged-modal').classList.add('hidden')"></div>
+  <div class="relative bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 text-center">
+    <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+      <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    </div>
+    <h3 class="text-lg font-bold text-gray-900 mb-1">Session already logged</h3>
+    <p class="text-sm text-gray-500 mb-1">You've already completed your session for today.</p>
+    <p id="already-logged-time" class="text-xs text-gray-400 mb-5"></p>
+    <p class="text-sm text-gray-600 mb-5">Rest up — come back tomorrow for your next session.</p>
+    <button onclick="document.getElementById('already-logged-modal').classList.add('hidden')"
+            class="w-full px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-semibold hover:bg-brand-700 transition-colors">
+      Got it
+    </button>
+  </div>
+</div>
+
 {% if not has_onboarding %}
 <!-- Prompt for onboarding -->
 <div class="bg-brand-50 border border-brand-200 rounded-xl p-6 mb-6 text-center">
@@ -47,8 +72,11 @@
 </div>
 {% endif %}
 
+<div id="dash-layout">
+
 <!-- Top stats row -->
-<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+<div class="dash-section mb-6" data-section="stats">
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
 
   {% if current_plan %}
   <!-- Stage badge -->
@@ -96,8 +124,10 @@
   </div>
 
 </div>
+</div>
 
 <!-- Recovery Roadmap + Phase Exit Checklist -->
+<div class="dash-section" data-section="roadmap">
 {% if timeline and goals %}
 {% set goal_level_labels = {
   'daily_function': 'Daily function — walking, stairs, everyday activity',
@@ -143,7 +173,7 @@
       <div class="flex-1 rounded-lg border px-4 py-3
         {% if is_current %}bg-brand-50 border-brand-300{% else %}bg-gray-50 border-gray-100{% endif %}">
         <div class="flex items-center gap-2 mb-1">
-          <span class="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0
+          <span class="w-5 h-5 rounded-full flex items-center justify-center text-[0.6875rem] font-bold shrink-0
             {% if is_current %}bg-brand-600 text-white{% else %}bg-gray-300 text-gray-600{% endif %}">
             {{ phase.stage }}
           </span>
@@ -151,13 +181,13 @@
             {{ phase.name }}
           </span>
           {% if is_current %}
-          <span class="ml-auto text-[10px] bg-brand-600 text-white px-1.5 py-0.5 rounded-full font-bold">NOW</span>
+          <span class="ml-auto text-[0.625rem] bg-brand-600 text-white px-1.5 py-0.5 rounded-full font-bold">NOW</span>
           {% endif %}
         </div>
-        <p class="text-[11px] font-medium {% if is_current %}text-brand-500{% else %}text-gray-400{% endif %} mb-0.5">
+        <p class="text-[0.6875rem] font-medium {% if is_current %}text-brand-500{% else %}text-gray-400{% endif %} mb-0.5">
           {{ phase.duration_weeks_min }}–{{ phase.duration_weeks_max }} wks
         </p>
-        <p class="text-[11px] text-gray-400 leading-snug">{{ phase.description }}</p>
+        <p class="text-[0.6875rem] text-gray-400 leading-snug">{{ phase.description }}</p>
       </div>
       {% endfor %}
     </div>
@@ -167,7 +197,7 @@
       Estimated total: <span class="font-semibold text-brand-700">{{ timeline.total_min_weeks }}–{{ timeline.total_max_weeks }} weeks</span>
     </p>
     {% for caveat in timeline.caveats %}
-    <p class="text-[11px] text-gray-400 italic">{{ caveat }}</p>
+    <p class="text-[0.6875rem] text-gray-400 italic">{{ caveat }}</p>
     {% endfor %}
   </div>
 
@@ -211,15 +241,15 @@
       <div class="grid grid-cols-3 gap-2 mb-3">
         <div class="rounded-xl bg-green-50 border border-green-100 px-3 py-2.5 text-center">
           <p class="text-2xl font-black text-green-600 leading-none">{{ pec_pass }}</p>
-          <p class="text-[10px] font-bold text-green-500 uppercase tracking-wide mt-1">Passed</p>
+          <p class="text-[0.625rem] font-bold text-green-500 uppercase tracking-wide mt-1">Passed</p>
         </div>
         <div class="rounded-xl {{ 'bg-red-50 border border-red-100' if pec_fail > 0 else 'bg-gray-50 border border-gray-100' }} px-3 py-2.5 text-center">
           <p class="text-2xl font-black {{ 'text-red-600' if pec_fail > 0 else 'text-gray-300' }} leading-none">{{ pec_fail }}</p>
-          <p class="text-[10px] font-bold {{ 'text-red-400' if pec_fail > 0 else 'text-gray-400' }} uppercase tracking-wide mt-1">Not Met</p>
+          <p class="text-[0.625rem] font-bold {{ 'text-red-400' if pec_fail > 0 else 'text-gray-400' }} uppercase tracking-wide mt-1">Not Met</p>
         </div>
         <div class="rounded-xl bg-blue-50 border border-blue-100 px-3 py-2.5 text-center">
           <p class="text-2xl font-black text-blue-500 leading-none">{{ pec_manual }}</p>
-          <p class="text-[10px] font-bold text-blue-400 uppercase tracking-wide mt-1">To Assess</p>
+          <p class="text-[0.625rem] font-bold text-blue-400 uppercase tracking-wide mt-1">To Assess</p>
         </div>
       </div>
       <div class="flex items-center gap-3">
@@ -229,7 +259,7 @@
         </div>
         <span class="text-xs font-black {{ 'text-orange-500' if pec_fail > 0 else 'text-green-600' }} shrink-0 w-10 text-right">{{ pec.auto_pass_rate }}%</span>
       </div>
-      <p class="text-[10px] text-gray-400 mt-1.5">Auto-evaluated from session data · {{ pec_pass }}/{{ pec_auto_total }} criteria met</p>
+      <p class="text-[0.625rem] text-gray-400 mt-1.5">Auto-evaluated from session data · {{ pec_pass }}/{{ pec_auto_total }} criteria met</p>
     </div>
 
     <!-- Criteria: auto-evaluated -->
@@ -238,7 +268,7 @@
 
     {% if auto_crit %}
     <div class="px-6 pb-3">
-      <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Tracked from Session Data</p>
+      <p class="text-[0.625rem] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Tracked from Session Data</p>
       <div class="divide-y divide-gray-50 border border-gray-100 rounded-xl overflow-hidden">
         {% for c in auto_crit %}
         {% set st = c.status %}
@@ -261,19 +291,19 @@
           <div class="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
             <span class="text-xs font-medium {{ 'text-green-800' if st == 'pass' else ('text-red-700' if st == 'fail' else 'text-gray-600') }} leading-snug">{{ c.label }}</span>
             {% if c.current_value is not none %}
-            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0
+            <span class="text-[0.625rem] font-bold px-1.5 py-0.5 rounded shrink-0
               {{ 'bg-green-100 text-green-700' if st == 'pass' else ('bg-red-100 text-red-600' if st == 'fail' else 'bg-gray-100 text-gray-500') }}">
               {{ c.current_value }}
             </span>
             {% elif st == 'insufficient_data' %}
-            <span class="text-[10px] text-gray-300 italic shrink-0">No data yet</span>
+            <span class="text-[0.625rem] text-gray-300 italic shrink-0">No data yet</span>
             {% endif %}
             {% if c.evidence is defined and c.evidence %}
-            <span class="text-[10px] text-gray-300 hidden sm:inline">{{ c.evidence }}</span>
+            <span class="text-[0.625rem] text-gray-300 hidden sm:inline">{{ c.evidence }}</span>
             {% endif %}
           </div>
           {% if c.notes and st == 'fail' %}
-          <span class="text-[10px] text-red-400 shrink-0 max-w-[120px] text-right leading-snug hidden sm:block">{{ c.notes }}</span>
+          <span class="text-[0.625rem] text-red-400 shrink-0 max-w-[120px] text-right leading-snug hidden sm:block">{{ c.notes }}</span>
           {% endif %}
         </div>
         {% endfor %}
@@ -284,7 +314,7 @@
     <!-- Criteria: clinician-assessed -->
     {% if manual_crit %}
     <div class="px-6 pb-4">
-      <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Clinician Assessment Required</p>
+      <p class="text-[0.625rem] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Clinician Assessment Required</p>
       <div class="grid sm:grid-cols-2 gap-2">
         {% for c in manual_crit %}
         <div class="flex items-start gap-2.5 px-3 py-2.5 rounded-xl bg-blue-50 border border-blue-100">
@@ -293,19 +323,19 @@
           </svg>
           <div class="min-w-0">
             <div class="flex items-center gap-1.5 mb-0.5">
-              <span class="text-[10px] font-bold text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded shrink-0">
+              <span class="text-[0.625rem] font-bold text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded shrink-0">
                 {% if c.type == 'functional_test' %}Functional
                 {% elif c.type == 'clinical_assessment' %}Clinical
                 {% elif c.type == 'duration_gate' %}Time Gate
                 {% else %}Assessment{% endif %}
               </span>
               {% if c.evidence is defined and c.evidence %}
-              <span class="text-[10px] text-blue-300 truncate">{{ c.evidence }}</span>
+              <span class="text-[0.625rem] text-blue-300 truncate">{{ c.evidence }}</span>
               {% endif %}
             </div>
-            <p class="text-[11px] font-medium text-blue-800 leading-snug">{{ c.label }}</p>
+            <p class="text-[0.6875rem] font-medium text-blue-800 leading-snug">{{ c.label }}</p>
             {% if c.notes %}
-            <p class="text-[10px] text-blue-400 mt-0.5 leading-snug">{{ c.notes }}</p>
+            <p class="text-[0.625rem] text-blue-400 mt-0.5 leading-snug">{{ c.notes }}</p>
             {% endif %}
           </div>
         </div>
@@ -324,12 +354,14 @@
   <a href="/onboarding" class="ml-1 text-brand-600 hover:underline font-medium">Update assessment</a>
 </div>
 {% endif %}
+</div>
 
-<!-- Pain Trend + VISA-A — side-by-side collapsible tiles -->
-<div class="grid md:grid-cols-2 gap-4 mb-4">
+<!-- Pain Trend + Morning Stiffness + VISA-A — side-by-side collapsible tiles -->
+<div class="dash-section mb-4" data-section="indicators">
+<div class="grid md:grid-cols-3 gap-4">
 
   <!-- Pain Trend tile -->
-  <div class="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
+  <div id="tile-pain-root" class="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
     <button type="button" onclick="toggleTile('tile-pain')"
             class="w-full px-5 pt-4 pb-4 hover:bg-gray-50 transition-colors text-left focus:outline-none">
 
@@ -337,7 +369,7 @@
       <div class="flex items-center justify-between gap-2 mb-3">
         <div>
           <h2 class="font-bold text-gray-900 text-sm">Pain Trend</h2>
-          <p class="text-[11px] text-gray-400 mt-0.5">Latest session pain scores</p>
+          <p class="text-[0.6875rem] text-gray-400 mt-0.5">Latest session pain scores</p>
         </div>
         <svg id="tile-pain-chev" class="w-4 h-4 text-gray-300 shrink-0 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
@@ -352,7 +384,7 @@
       {# Macro: single pain card #}
       {% macro pain_card(label, val, prev_val, accent) %}
       <div class="rounded-lg border border-{{ accent }}-100 bg-{{ accent }}-50 px-3 py-2.5 flex flex-col gap-0.5">
-        <p class="text-[10px] font-bold text-{{ accent }}-400 uppercase tracking-wide">{{ label }}</p>
+        <p class="text-[0.625rem] font-bold text-{{ accent }}-400 uppercase tracking-wide">{{ label }}</p>
         <div class="flex items-end gap-1">
           <p class="text-2xl font-black leading-none
             {% if val >= 6 %}text-red-600{% elif val >= 4 %}text-yellow-600{% else %}text-green-600{% endif %}">
@@ -374,7 +406,7 @@
             {% if val >= 6 %}bg-red-400{% elif val >= 4 %}bg-yellow-400{% else %}bg-green-400{% endif %}"
             style="width:{{ (val / 10 * 100) | int }}%"></div>
         </div>
-        <p class="text-[10px] {% if val >= 6 %}text-red-500{% elif val >= 4 %}text-yellow-600{% else %}text-green-600{% endif %}">
+        <p class="text-[0.625rem] {% if val >= 6 %}text-red-500{% elif val >= 4 %}text-yellow-600{% else %}text-green-600{% endif %}">
           {% if val >= 6 %}High{% elif val >= 4 %}Moderate{% else %}Low{% endif %}
         </p>
       </div>
@@ -395,8 +427,8 @@
       {% if recent_logs %}
       <canvas id="painChart" height="180"></canvas>
       <div class="flex items-center justify-between mt-2 px-0.5">
-        <p class="text-[11px] text-gray-400">Scroll to zoom · drag to pan</p>
-        <button onclick="resetPainZoom()" class="text-[11px] px-2.5 py-1 rounded border border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-brand-300 hover:text-brand-600 transition-colors">
+        <p class="text-[0.6875rem] text-gray-400">Scroll to zoom · drag to pan</p>
+        <button onclick="resetPainZoom()" class="text-[0.6875rem] px-2.5 py-1 rounded border border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-brand-300 hover:text-brand-600 transition-colors">
           Reset zoom
         </button>
       </div>
@@ -406,8 +438,105 @@
     </div>
   </div>
 
+  <!-- Morning Stiffness tile -->
+  <div id="tile-stiff-root" class="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
+    <button type="button" onclick="toggleTile('tile-stiff')"
+            class="w-full px-5 pt-4 pb-4 hover:bg-gray-50 transition-colors text-left focus:outline-none">
+
+      {# Title row #}
+      <div class="flex items-center justify-between gap-2 mb-3">
+        <div>
+          <h2 class="font-bold text-gray-900 text-sm">Morning Stiffness</h2>
+          <p class="text-[0.6875rem] text-gray-400 mt-0.5">Stiffness on waking (0–10)</p>
+        </div>
+        <svg id="tile-stiff-chev" class="w-4 h-4 text-gray-300 shrink-0 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </div>
+
+      {# Overview cards #}
+      {% if recent_logs %}
+      {% set ls  = recent_logs[0] %}
+      {% set ls2 = recent_logs[1] if recent_logs | length > 1 else none %}
+      {% set sv  = ls.morning_stiffness %}
+      {% set sv2 = ls2.morning_stiffness if ls2 else none %}
+
+      <div class="grid grid-cols-2 gap-2">
+
+        {# Latest card #}
+        <div class="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2.5 flex flex-col gap-0.5">
+          <p class="text-[0.625rem] font-bold text-amber-400 uppercase tracking-wide">Latest</p>
+          <div class="flex items-end gap-1">
+            <p class="text-2xl font-black leading-none
+              {% if sv >= 7 %}text-red-600{% elif sv >= 4 %}text-yellow-600{% else %}text-green-600{% endif %}">
+              {{ sv }}
+            </p>
+            <span class="text-xs text-gray-400 mb-0.5">/10</span>
+            {% if sv2 is not none %}
+              {% if sv < sv2 %}
+                <span class="text-green-500 font-bold text-sm mb-0.5">↓</span>
+              {% elif sv > sv2 %}
+                <span class="text-red-400 font-bold text-sm mb-0.5">↑</span>
+              {% else %}
+                <span class="text-gray-300 text-sm mb-0.5">→</span>
+              {% endif %}
+            {% endif %}
+          </div>
+          <div class="mt-1 h-1.5 w-full rounded-full bg-amber-100 overflow-hidden">
+            <div class="h-full rounded-full
+              {% if sv >= 7 %}bg-red-400{% elif sv >= 4 %}bg-yellow-400{% else %}bg-green-400{% endif %}"
+              style="width:{{ (sv / 10 * 100) | int }}%"></div>
+          </div>
+          <p class="text-[0.625rem] {% if sv >= 7 %}text-red-500{% elif sv >= 4 %}text-yellow-600{% else %}text-green-600{% endif %}">
+            {% if sv >= 7 %}High{% elif sv >= 4 %}Moderate{% elif sv >= 1 %}Mild{% else %}None{% endif %}
+          </p>
+        </div>
+
+        {# Change card #}
+        <div class="rounded-lg border border-teal-100 bg-teal-50 px-3 py-2.5 flex flex-col gap-0.5">
+          <p class="text-[0.625rem] font-bold text-teal-400 uppercase tracking-wide">Change</p>
+          {% if sv2 is not none %}
+          {% set sdelta = sv - sv2 %}
+          <div class="flex items-end gap-1">
+            <p class="text-2xl font-black leading-none
+              {% if sdelta < 0 %}text-green-600{% elif sdelta > 0 %}text-red-600{% else %}text-gray-500{% endif %}">
+              {% if sdelta > 0 %}+{% endif %}{{ sdelta }}
+            </p>
+            <span class="text-xs text-gray-400 mb-0.5">pts</span>
+          </div>
+          <p class="text-[0.625rem] {% if sdelta < 0 %}text-green-600{% elif sdelta > 0 %}text-red-500{% else %}text-gray-400{% endif %}">
+            {% if sdelta < 0 %}Improving{% elif sdelta > 0 %}Worsening{% else %}Unchanged{% endif %}
+          </p>
+          {% else %}
+          <p class="text-2xl font-black text-gray-300 leading-none mt-0.5">—</p>
+          <p class="text-[0.625rem] text-gray-300">First entry</p>
+          {% endif %}
+        </div>
+
+      </div>
+
+      {% else %}
+      <p class="text-xs text-gray-400">No sessions logged yet.</p>
+      {% endif %}
+
+    </button>
+    <div id="tile-stiff" class="hidden border-t border-gray-100 px-5 pt-4 pb-3">
+      {% if recent_logs %}
+      <canvas id="stiffChart" height="180"></canvas>
+      <div class="flex items-center justify-between mt-2 px-0.5">
+        <p class="text-[0.6875rem] text-gray-400">Scroll to zoom · drag to pan</p>
+        <button onclick="resetStiffZoom()" class="text-[0.6875rem] px-2.5 py-1 rounded border border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-brand-300 hover:text-brand-600 transition-colors">
+          Reset zoom
+        </button>
+      </div>
+      {% else %}
+      <div class="h-32 flex items-center justify-center text-sm text-gray-400">No session data yet.</div>
+      {% endif %}
+    </div>
+  </div>
+
   <!-- VISA-A tile -->
-  <div class="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
+  <div id="tile-visa-root" class="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
     <button type="button" onclick="toggleTile('tile-visa')"
             class="w-full px-5 pt-4 pb-4 hover:bg-gray-50 transition-colors text-left focus:outline-none">
 
@@ -415,17 +544,11 @@
       <div class="flex items-center justify-between gap-2 mb-3">
         <div>
           <h2 class="font-bold text-gray-900 text-sm">VISA-A Progress</h2>
-          <p class="text-[11px] text-gray-400 mt-0.5">Victorian Institute of Sport Assessment</p>
+          <p class="text-[0.6875rem] text-gray-400 mt-0.5">Victorian Institute of Sport Assessment</p>
         </div>
-        <div class="flex items-center gap-2 shrink-0">
-          <a href="/visa-a" onclick="event.stopPropagation()"
-             class="px-2.5 py-1 bg-brand-600 text-white text-[11px] font-semibold rounded-lg hover:bg-brand-700 transition-colors shadow-sm">
-            Take now
-          </a>
-          <svg id="tile-visa-chev" class="w-4 h-4 text-gray-300 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
-          </svg>
-        </div>
+        <svg id="tile-visa-chev" class="w-4 h-4 text-gray-300 shrink-0 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+        </svg>
       </div>
 
       {# Overview cards #}
@@ -438,7 +561,7 @@
 
         {# Score card #}
         <div class="rounded-lg border border-brand-100 bg-brand-50 px-3 py-2.5 flex flex-col gap-0.5">
-          <p class="text-[10px] font-bold text-brand-400 uppercase tracking-wide">Score</p>
+          <p class="text-[0.625rem] font-bold text-brand-400 uppercase tracking-wide">Score</p>
           <div class="flex items-end gap-1">
             <p class="text-2xl font-black leading-none
               {% if lv.total_score >= 64 %}text-green-600{% elif lv.total_score >= 40 %}text-yellow-600{% else %}text-red-600{% endif %}">
@@ -451,14 +574,14 @@
               {% if lv.total_score >= 64 %}bg-green-400{% elif lv.total_score >= 40 %}bg-yellow-400{% else %}bg-red-400{% endif %}"
               style="width:{{ (lv.total_score / 80 * 100) | int }}%"></div>
           </div>
-          <p class="text-[10px] {% if lv.total_score >= 64 %}text-green-600{% elif lv.total_score >= 40 %}text-yellow-600{% else %}text-red-500{% endif %}">
+          <p class="text-[0.625rem] {% if lv.total_score >= 64 %}text-green-600{% elif lv.total_score >= 40 %}text-yellow-600{% else %}text-red-500{% endif %}">
             {% if lv.total_score >= 64 %}Mild/None{% elif lv.total_score >= 40 %}Moderate{% else %}Severe{% endif %}
           </p>
         </div>
 
         {# Change card #}
         <div class="rounded-lg border border-teal-100 bg-teal-50 px-3 py-2.5 flex flex-col gap-0.5">
-          <p class="text-[10px] font-bold text-teal-400 uppercase tracking-wide">Change</p>
+          <p class="text-[0.625rem] font-bold text-teal-400 uppercase tracking-wide">Change</p>
           {% if delta is not none %}
           <div class="flex items-end gap-1">
             <p class="text-2xl font-black leading-none
@@ -467,20 +590,20 @@
             </p>
             <span class="text-xs text-gray-400 mb-0.5">pts</span>
           </div>
-          <p class="text-[10px] {% if delta > 0 %}text-green-600{% elif delta < 0 %}text-red-500{% else %}text-gray-400{% endif %}">
+          <p class="text-[0.625rem] {% if delta > 0 %}text-green-600{% elif delta < 0 %}text-red-500{% else %}text-gray-400{% endif %}">
             {% if delta > 0 %}Improving{% elif delta < 0 %}Declined{% else %}Unchanged{% endif %}
           </p>
           {% else %}
           <p class="text-sm font-black text-gray-300 leading-none mt-1">—</p>
-          <p class="text-[10px] text-gray-300">First entry</p>
+          <p class="text-[0.625rem] text-gray-300">First entry</p>
           {% endif %}
         </div>
 
         {# Assessments card #}
         <div class="rounded-lg border border-violet-100 bg-violet-50 px-3 py-2.5 flex flex-col gap-0.5">
-          <p class="text-[10px] font-bold text-violet-400 uppercase tracking-wide">Assessments</p>
+          <p class="text-[0.625rem] font-bold text-violet-400 uppercase tracking-wide">Assessments</p>
           <p class="text-2xl font-black leading-none text-violet-700 mt-0.5">{{ visa_history | length }}</p>
-          <p class="text-[10px] text-violet-400 mt-1">Total logged</p>
+          <p class="text-[0.625rem] text-violet-400 mt-1">Total logged</p>
         </div>
 
       </div>
@@ -494,8 +617,8 @@
       {% if visa_history %}
       <canvas id="visaChart" height="180"></canvas>
       <div class="flex items-center justify-between mt-2 px-0.5">
-        <p class="text-[11px] text-gray-400">Scroll to zoom · drag to pan</p>
-        <button onclick="resetVisaZoom()" class="text-[11px] px-2.5 py-1 rounded border border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-brand-300 hover:text-brand-600 transition-colors">
+        <p class="text-[0.6875rem] text-gray-400">Scroll to zoom · drag to pan</p>
+        <button onclick="resetVisaZoom()" class="text-[0.6875rem] px-2.5 py-1 rounded border border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-brand-300 hover:text-brand-600 transition-colors">
           Reset zoom
         </button>
       </div>
@@ -508,11 +631,13 @@
   </div>
 
 </div>
+</div>
 
 <!-- Functional Capacity tile -->
 {% if has_onboarding %}
 {% set ft = onboarding.functional_tests if (onboarding and onboarding.functional_tests is mapping) else {} %}
-<div class="bg-white rounded-xl shadow border border-gray-100 mb-4 overflow-hidden">
+<div class="dash-section" data-section="fc">
+<div id="tile-fc-root" class="bg-white rounded-xl shadow border border-gray-100 mb-4 overflow-hidden">
   <button type="button" onclick="toggleTile('tile-fc')"
           class="w-full px-5 pt-4 pb-4 hover:bg-gray-50 transition-colors text-left focus:outline-none">
 
@@ -521,9 +646,9 @@
       <div>
         <h2 class="font-bold text-gray-900 text-sm">Functional Capacity</h2>
         {% if onboarding %}
-        <p class="text-[11px] text-gray-400 mt-0.5">Last assessed {{ onboarding.created_at[:10] }}</p>
+        <p class="text-[0.6875rem] text-gray-400 mt-0.5">Last assessed {{ onboarding.created_at[:10] }}</p>
         {% else %}
-        <p class="text-[11px] text-gray-400 mt-0.5">Complete an assessment to see data</p>
+        <p class="text-[0.6875rem] text-gray-400 mt-0.5">Complete an assessment to see data</p>
         {% endif %}
       </div>
       <div class="flex items-center gap-2 shrink-0">
@@ -546,7 +671,7 @@
       {% set cr_u = ft.calf_raise_reps_unaffected %}
       {% set cr_lsi = ((cr | float / cr_u | float) * 100) | round(0) | int if (cr and cr_u and cr_u | float > 0) else none %}
       <div class="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2.5 flex flex-col gap-0.5">
-        <p class="text-[10px] font-bold text-sky-500 uppercase tracking-wide">Calf Raise</p>
+        <p class="text-[0.625rem] font-bold text-sky-500 uppercase tracking-wide">Calf Raise</p>
         {% if cr is not none %}
         <p class="text-xl font-black text-sky-800 leading-none">{{ cr }}<span class="text-xs font-normal text-sky-400 ml-0.5">reps</span></p>
         {% else %}
@@ -559,7 +684,7 @@
       {% set wblt_u = ft.wblt_cm_unaffected %}
       {% set wblt_lsi = ((wblt | float / wblt_u | float) * 100) | round(0) | int if (wblt and wblt_u and wblt_u | float > 0) else none %}
       <div class="rounded-lg border border-violet-100 bg-violet-50 px-3 py-2.5 flex flex-col gap-0.5">
-        <p class="text-[10px] font-bold text-violet-500 uppercase tracking-wide">WBLT</p>
+        <p class="text-[0.625rem] font-bold text-violet-500 uppercase tracking-wide">WBLT</p>
         {% if wblt %}
         <p class="text-xl font-black text-violet-800 leading-none">{{ wblt }}<span class="text-xs font-normal text-violet-400 ml-0.5">cm</span></p>
         {% else %}
@@ -572,7 +697,7 @@
       {% set hd_u = ft.single_leg_hop_cm_unaffected %}
       {% set hd_lsi = ((hd | float / hd_u | float) * 100) | round(0) | int if (hd and hd_u and hd_u | float > 0) else none %}
       <div class="rounded-lg border border-orange-100 bg-orange-50 px-3 py-2.5 flex flex-col gap-0.5">
-        <p class="text-[10px] font-bold text-orange-500 uppercase tracking-wide">Hop Distance</p>
+        <p class="text-[0.625rem] font-bold text-orange-500 uppercase tracking-wide">Hop Distance</p>
         {% if hd %}
         <p class="text-xl font-black text-orange-800 leading-none">{{ hd }}<span class="text-xs font-normal text-orange-400 ml-0.5">in</span></p>
         {% else %}
@@ -585,7 +710,7 @@
       {% set he_u = ft.single_leg_hop_endurance_reps_unaffected %}
       {% set he_lsi = ((he | float / he_u | float) * 100) | round(0) | int if (he and he_u and he_u | float > 0) else none %}
       <div class="rounded-lg border border-teal-100 bg-teal-50 px-3 py-2.5 flex flex-col gap-0.5">
-        <p class="text-[10px] font-bold text-teal-500 uppercase tracking-wide">Hop Endurance</p>
+        <p class="text-[0.625rem] font-bold text-teal-500 uppercase tracking-wide">Hop Endurance</p>
         {% if he %}
         <p class="text-xl font-black text-teal-800 leading-none">{{ he }}<span class="text-xs font-normal text-teal-400 ml-0.5">reps</span></p>
         {% else %}
@@ -624,8 +749,10 @@
   </div>
 </div>
 
-<!-- LSI tile -->
-<div class="bg-white rounded-xl shadow border border-gray-100 mb-4 overflow-hidden">
+</div>
+
+<div class="dash-section" data-section="lsi">
+<div id="tile-lsi-root" class="bg-white rounded-xl shadow border border-gray-100 mb-4 overflow-hidden">
   <button type="button" onclick="toggleTile('tile-lsi')"
           class="w-full px-5 pt-4 pb-4 hover:bg-gray-50 transition-colors text-left focus:outline-none">
 
@@ -633,7 +760,7 @@
     <div class="flex items-center justify-between gap-3 mb-3">
       <div>
         <h2 class="font-bold text-gray-900 text-sm">Limb Symmetry Index (LSI)</h2>
-        <p class="text-[11px] text-gray-400 mt-0.5">Target ≥ 90% across all metrics</p>
+        <p class="text-[0.6875rem] text-gray-400 mt-0.5">Target ≥ 90% across all metrics</p>
       </div>
       <div class="flex items-center gap-2 shrink-0">
         <a href="/onboarding" onclick="event.stopPropagation()"
@@ -660,7 +787,7 @@
     {# Macro for a single LSI card #}
     {% macro lsi_card(label, val, accent) %}
     <div class="rounded-lg border border-{{ accent }}-100 bg-{{ accent }}-50 px-3 py-2.5 flex flex-col gap-0.5">
-      <p class="text-[10px] font-bold text-{{ accent }}-500 uppercase tracking-wide">{{ label }}</p>
+      <p class="text-[0.625rem] font-bold text-{{ accent }}-500 uppercase tracking-wide">{{ label }}</p>
       {% if val is not none %}
         <p class="text-xl font-black leading-none
           {% if val >= 90 %}text-green-700{% elif val >= 75 %}text-yellow-700{% else %}text-red-600{% endif %}">
@@ -670,7 +797,7 @@
           <div class="h-full rounded-full {% if val >= 90 %}bg-green-500{% elif val >= 75 %}bg-yellow-400{% else %}bg-red-400{% endif %}"
                style="width: {{ [val, 100] | min }}%"></div>
         </div>
-        <p class="text-[10px] {% if val >= 90 %}text-green-600{% elif val >= 75 %}text-yellow-600{% else %}text-red-500{% endif %}">
+        <p class="text-[0.625rem] {% if val >= 90 %}text-green-600{% elif val >= 75 %}text-yellow-600{% else %}text-red-500{% endif %}">
           {% if val >= 90 %}Symmetrical{% elif val >= 75 %}Mild deficit{% else %}Significant deficit{% endif %}
         </p>
       {% else %}
@@ -732,10 +859,11 @@
     </div>
   </div>
 </div>
+</div>
 {% endif %}
 
 <!-- Current Rehab Plan tile -->
-<div class="bg-white rounded-2xl shadow border border-gray-100 mb-4 overflow-hidden">
+<div class="dash-section bg-white rounded-2xl shadow border border-gray-100 mb-4 overflow-hidden" data-section="rehab_plan">
 
   {# Clickable header — always visible, acts as overview #}
   <button type="button" onclick="toggleTile('tile-plan')"
@@ -771,9 +899,9 @@
       <span class="text-teal-600">—</span>
       <span>{{ wblt_result.rationale }}</span>
       {% if wblt_result.stretch_priority == 'primary' %}
-      <span class="ml-auto px-2 py-0.5 rounded-full bg-teal-200 text-teal-800 font-bold text-[10px]">Stretch: Primary</span>
+      <span class="ml-auto px-2 py-0.5 rounded-full bg-teal-200 text-teal-800 font-bold text-[0.625rem]">Stretch: Primary</span>
       {% else %}
-      <span class="ml-auto px-2 py-0.5 rounded-full bg-teal-100 text-teal-700 font-bold text-[10px]">Stretch: Adjunct</span>
+      <span class="ml-auto px-2 py-0.5 rounded-full bg-teal-100 text-teal-700 font-bold text-[0.625rem]">Stretch: Adjunct</span>
       {% endif %}
     </div>
     {% endif %}
@@ -800,17 +928,17 @@
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 flex-wrap mb-1">
               <span class="font-semibold text-gray-900 text-sm">{{ ex.exercise_name }}</span>
-              <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold {{ cat_colors.get(ex.category, 'bg-gray-100 text-gray-600') }} capitalize">
+              <span class="text-[0.625rem] px-2 py-0.5 rounded-full font-semibold {{ cat_colors.get(ex.category, 'bg-gray-100 text-gray-600') }} capitalize">
                 {{ ex.category | replace('_', ' ') }}
               </span>
               {% if item.source == 'stretch' %}
-              <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-teal-100 text-teal-700">Stretch</span>
+              <span class="text-[0.625rem] px-2 py-0.5 rounded-full font-semibold bg-teal-100 text-teal-700">Stretch</span>
               {% endif %}
               {% if not ex.insertional_safe %}
-              <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700">Mid-portion</span>
+              <span class="text-[0.625rem] px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700">Mid-portion</span>
               {% endif %}
             </div>
-            <p class="text-[11px] text-gray-500 mb-2">{{ item.reason }}</p>
+            <p class="text-[0.6875rem] text-gray-500 mb-2">{{ item.reason }}</p>
             <div class="flex items-center gap-4 text-xs">
               <span class="font-semibold text-gray-800">
                 {{ dos.sets if dos.sets else '3' }} sets &times; {{ dos.reps_or_hold_time if dos.reps_or_hold_time else '—' }}
@@ -826,7 +954,7 @@
           <button type="button"
                   id="ex-btn-{{ ex.ex_id }}"
                   onclick="toggleExDetail('{{ ex.ex_id }}')"
-                  class="shrink-0 text-[11px] px-2.5 py-1 rounded-lg bg-brand-50 text-brand-700 font-medium hover:bg-brand-100 transition-colors border border-brand-200">
+                  class="shrink-0 text-[0.6875rem] px-2.5 py-1 rounded-lg bg-brand-50 text-brand-700 font-medium hover:bg-brand-100 transition-colors border border-brand-200">
             View ▾
           </button>
         </div>
@@ -839,14 +967,14 @@
           <p class="text-xs text-gray-600 mb-2 leading-relaxed">{{ ex.setup_instructions }}</p>
           {% endif %}
           {% if ex.execution_cues %}
-          <p class="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Key cues</p>
+          <p class="text-[0.625rem] font-semibold text-gray-500 uppercase tracking-wide mb-1">Key cues</p>
           <ul class="text-xs text-gray-500 space-y-0.5 mb-2 pl-4 list-disc">
             {% for cue in ex.execution_cues %}
             <li>{{ cue }}</li>
             {% endfor %}
           </ul>
           {% endif %}
-          <div class="flex flex-wrap gap-3 text-[10px] text-gray-400">
+          <div class="flex flex-wrap gap-3 text-[0.625rem] text-gray-400">
             {% if ex.required_equipment %}
             <span><span class="font-semibold text-gray-500">Equipment:</span> {{ ex.required_equipment }}</span>
             {% else %}
@@ -869,7 +997,7 @@
     {# Footer CTA #}
     <div class="px-5 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
       <p class="text-xs text-gray-500">Log today's session to update your plan based on your response.</p>
-      <a id="btn-track-plan" href="/daily-log"
+      <a id="btn-track-plan" href="/daily-log" onclick="checkDailyLogAllowed(event)"
          class="text-xs px-4 py-2 bg-brand-600 text-white font-semibold rounded-lg hover:bg-brand-700 transition-colors shadow-sm">
         Track Session →
       </a>
@@ -879,7 +1007,8 @@
 </div>
 
 <!-- Weekly Program -->
-{% if has_onboarding and session_plan %}
+{% if has_onboarding %}
+<div class="dash-section" data-section="weekly">
 {% set day_abbr  = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] %}
 {% set day_letter= ['M',   'T',   'W',   'T',   'F',   'S',   'S'  ] %}
 {% set session_idx = weekly_schedule.session_days %}
@@ -909,6 +1038,14 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
         <span id="log-overlay-label">Show completed</span>
+      </button>
+      <button type="button" id="week-start-btn"
+              onclick="toggleWeekStart()"
+              class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-brand-300 hover:text-brand-700 transition-colors font-medium">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+        <span id="week-start-label">Mon–Sun</span>
       </button>
       <button type="button" id="prog-toggle-btn"
               onclick="toggleMonthlyProgram()"
@@ -947,13 +1084,13 @@
       {% if weekly_schedule.avg_next_day_pain is not none or weekly_schedule.avg_compliance is not none %}
       <div class="flex flex-wrap gap-4 pt-1 px-1">
         {% if weekly_schedule.avg_next_day_pain is not none %}
-        <span class="text-[11px] text-gray-500">Next-day pain avg: <strong class="text-gray-700">{{ weekly_schedule.avg_next_day_pain }}/10</strong></span>
+        <span class="text-[0.6875rem] text-gray-500">Next-day pain avg: <strong class="text-gray-700">{{ weekly_schedule.avg_next_day_pain }}/10</strong></span>
         {% endif %}
         {% if weekly_schedule.avg_during_pain is not none %}
-        <span class="text-[11px] text-gray-500">During pain avg: <strong class="text-gray-700">{{ weekly_schedule.avg_during_pain }}/10</strong></span>
+        <span class="text-[0.6875rem] text-gray-500">During pain avg: <strong class="text-gray-700">{{ weekly_schedule.avg_during_pain }}/10</strong></span>
         {% endif %}
         {% if weekly_schedule.avg_compliance is not none %}
-        <span class="text-[11px] text-gray-500">Exercise completion avg: <strong class="text-gray-700">{{ weekly_schedule.avg_compliance }}%</strong></span>
+        <span class="text-[0.6875rem] text-gray-500">Exercise completion avg: <strong class="text-gray-700">{{ weekly_schedule.avg_compliance }}%</strong></span>
         {% endif %}
       </div>
       {% endif %}
@@ -971,7 +1108,7 @@
         <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
       </svg>
       <span class="text-xs font-semibold text-blue-700">Evidence Base</span>
-      <span class="text-[10px] text-blue-400 ml-1">{{ weekly_schedule.evidence_sources | length }} studies</span>
+      <span class="text-[0.625rem] text-blue-400 ml-1">{{ weekly_schedule.evidence_sources | length }} studies</span>
       {# Consensus badge — median of study midpoints #}
       {% set freq_vals = weekly_schedule.evidence_sources | map(attribute='parsed_per_week') | select | list %}
       {% if freq_vals %}
@@ -981,8 +1118,8 @@
       {% set c_lo = freq_lo_vals | min if freq_lo_vals else consensus %}
       {% set c_hi = freq_hi_vals | max if freq_hi_vals else consensus %}
       <span class="ml-auto flex items-center gap-1.5 shrink-0">
-        <span class="text-[10px] text-blue-400">Consensus:</span>
-        <span class="px-2 py-0.5 bg-brand-600 text-white rounded-full font-bold text-[11px]">
+        <span class="text-[0.625rem] text-blue-400">Consensus:</span>
+        <span class="px-2 py-0.5 bg-brand-600 text-white rounded-full font-bold text-[0.6875rem]">
           {% if c_lo != c_hi %}{{ c_lo }}–{{ c_hi }}{% else %}{{ consensus }}{% endif %}× / week
         </span>
       </span>
@@ -1004,25 +1141,25 @@
                 {{ src.freq_lo }}–{{ src.freq_hi }}
               {% else %}
                 {{ src.freq_lo if src.freq_lo is defined else src.parsed_per_week }}
-              {% endif %}<span class="text-[10px] font-semibold">× /wk</span>
+              {% endif %}<span class="text-[0.625rem] font-semibold">× /wk</span>
             </span>
-            <span class="text-[10px] font-semibold text-blue-300 bg-blue-100 px-2 py-0.5 rounded-full">{{ src.year }}</span>
+            <span class="text-[0.625rem] font-semibold text-blue-300 bg-blue-100 px-2 py-0.5 rounded-full">{{ src.year }}</span>
           </div>
 
           {# Study title #}
-          <p class="text-[11px] font-semibold text-gray-700 leading-snug line-clamp-2">{{ src.title }}</p>
+          <p class="text-[0.6875rem] font-semibold text-gray-700 leading-snug line-clamp-2">{{ src.title }}</p>
 
           {# Authors + recommended frequency #}
           <div class="flex flex-col gap-0.5">
-            <p class="text-[10px] text-gray-400 truncate">{{ src.authors }}</p>
-            <p class="text-[10px] text-blue-500 italic">{{ src.recommended_freq }}</p>
+            <p class="text-[0.625rem] text-gray-400 truncate">{{ src.authors }}</p>
+            <p class="text-[0.625rem] text-blue-500 italic">{{ src.recommended_freq }}</p>
           </div>
 
         </div>
         {% endfor %}
       </div>
 
-      <p class="text-[10px] text-gray-400 leading-relaxed">
+      <p class="text-[0.625rem] text-gray-400 leading-relaxed">
         Frequency is derived from the consensus of these studies and adjusted for your current stage, irritability level, and recent session data.
       </p>
     </div>
@@ -1048,6 +1185,7 @@
     var _dragFromIdx = -1;
     // Log overlay state
     var _showLogOverlay = false;
+
     var _logCache = {};            // "YYYY-MM-DD" → log object | null
     // Weekly adaptation state
     var _weekAdaptationCache = {}; // weekStart → adaptation object | null
@@ -1073,9 +1211,15 @@
           Prev
         </button>
         <div class="flex flex-col items-center gap-1 min-w-0">
-          <span id="week-range-label" class="text-sm font-semibold text-gray-700 whitespace-nowrap"></span>
+          <div class="flex items-center gap-2">
+            <span id="week-range-label" class="text-sm font-semibold text-gray-700 whitespace-nowrap"></span>
+            <button id="goto-today-btn" type="button" onclick="gotoCurrentWeek()"
+                    class="hidden text-[0.625rem] px-2 py-0.5 rounded-full border border-brand-300 text-brand-700 bg-brand-50 hover:bg-brand-100 font-semibold transition-colors">
+              Today
+            </button>
+          </div>
           <button id="reset-override-btn" type="button" onclick="resetWeekOverride()"
-                  class="hidden text-[10px] px-2.5 py-1 rounded-full border border-orange-300 text-orange-600 bg-orange-50 hover:bg-orange-100 font-semibold transition-colors gap-1 items-center">
+                  class="hidden text-[0.625rem] px-2.5 py-1 rounded-full border border-orange-300 text-orange-600 bg-orange-50 hover:bg-orange-100 font-semibold transition-colors gap-1 items-center">
             ↺ Reset to recommended
           </button>
         </div>
@@ -1085,7 +1229,7 @@
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
         </button>
       </div>
-      <p id="drag-hint" class="text-[10px] text-gray-400 text-center mb-2 hidden">Drag a session day to a different date to reschedule it.</p>
+      <p id="drag-hint" class="text-[0.625rem] text-gray-400 text-center mb-2 hidden">Drag a session day to a different date to reschedule it.</p>
       <!-- Weekly adaptation strip — filled by JS for current week -->
       <div id="week-adaptation-strip" class="hidden mb-2"></div>
       <!-- Day grid — filled by JS -->
@@ -1112,10 +1256,10 @@
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
         </button>
       </div>
-      <!-- Day-of-week headers -->
-      <div class="grid grid-cols-7 gap-1.5 mb-1.5">
+      <!-- Day-of-week headers — filled/updated by JS via _updateMonthlyDayHeaders() -->
+      <div id="monthly-day-headers" class="grid grid-cols-7 gap-1.5 mb-1.5">
         {% for abbr in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] %}
-        <div class="text-center text-[10px] font-bold uppercase tracking-widest text-gray-400 py-1">{{ abbr }}</div>
+        <div class="text-center text-[0.625rem] font-bold uppercase tracking-widest text-gray-400 py-1">{{ abbr }}</div>
         {% endfor %}
       </div>
       <!-- Calendar cells — filled by JS -->
@@ -1129,12 +1273,13 @@
 
   {# Footer note #}
   <div class="px-5 pb-4 pt-0 border-t border-gray-50">
-    <p class="text-[10px] text-gray-400 leading-relaxed pt-3">
+    <p class="text-[0.625rem] text-gray-400 leading-relaxed pt-3">
       Recommended schedule based on your current stage and irritability.
       If next-day pain exceeds 3/10, treat that day as rest regardless of program.
     </p>
   </div>
 
+</div>
 </div>
 {% endif %}
 
@@ -1149,9 +1294,9 @@
     <div id="monthly-tooltip-header" class="px-4 py-3 bg-brand-600 flex items-center justify-between gap-2">
       <div>
         <p id="monthly-tooltip-date" class="text-xs font-black text-white leading-tight"></p>
-        <p class="text-[10px] text-brand-200 mt-0.5">Session Plan</p>
+        <p class="text-[0.625rem] text-brand-200 mt-0.5">Session Plan</p>
       </div>
-      <span id="monthly-tooltip-badge" class="hidden text-[9px] font-bold px-2 py-0.5 rounded-full bg-orange-400 text-white">Rescheduled</span>
+      <span id="monthly-tooltip-badge" class="hidden text-[0.5625rem] font-bold px-2 py-0.5 rounded-full bg-orange-400 text-white">Rescheduled</span>
     </div>
     <!-- Exercise list -->
     <div id="monthly-tooltip-body" class="px-4 py-3 space-y-2.5 max-h-72 overflow-y-auto">
@@ -1165,18 +1310,56 @@
 
 <!-- Recent Session Logs -->
 {% if recent_logs %}
-<div class="bg-white rounded-xl shadow border border-gray-100 mb-6 overflow-hidden">
+<div class="dash-section bg-white rounded-xl shadow border border-gray-100 mb-6 overflow-hidden" data-section="logs">
 
-  {# Card header #}
-  <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+  {# Card header — toggles body #}
+  <button type="button" onclick="toggleTile('tile-logs')"
+          class="w-full px-5 py-4 flex items-center justify-between gap-3 hover:bg-gray-50 transition-colors text-left focus:outline-none">
     <div>
       <h2 class="font-bold text-gray-900 text-sm">Recent Session Logs</h2>
-      <p class="text-[11px] text-gray-400 mt-0.5">Last {{ [recent_logs|length, 6]|min }} sessions</p>
+      <p class="text-[0.6875rem] text-gray-400 mt-0.5" id="logs-subtitle">{{ recent_logs|length }} session{{ 's' if recent_logs|length != 1 else '' }}</p>
     </div>
-    <a id="btn-log-recent" href="/daily-log"
-       class="px-3 py-1.5 bg-brand-600 text-white text-xs font-semibold rounded-lg hover:bg-brand-700 transition-colors shadow-sm">
-      + Log Session
-    </a>
+    <div class="flex items-center gap-2 shrink-0">
+      <a id="btn-log-recent" href="/daily-log" onclick="checkDailyLogAllowed(event); event.stopPropagation();"
+         class="px-3 py-1.5 bg-brand-600 text-white text-xs font-semibold rounded-lg hover:bg-brand-700 transition-colors shadow-sm">
+        + Log Session
+      </a>
+      <svg id="tile-logs-chev" class="w-4 h-4 text-gray-300 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+      </svg>
+    </div>
+  </button>
+
+  {# Collapsible body — hidden by default #}
+  <div id="tile-logs" class="hidden border-t border-gray-100">
+
+  {# Pagination controls #}
+  <div class="px-5 py-2.5 flex items-center justify-between gap-3 border-b border-gray-100 bg-gray-50">
+    <div class="flex items-center gap-2">
+      <span class="text-[0.6875rem] text-gray-500">Show</span>
+      <div class="flex gap-1">
+        {% for n in [5, 10, 15, 20] %}
+        <button type="button" onclick="logsSetPageSize({{ n }})"
+                data-logs-size="{{ n }}"
+                class="logs-size-btn text-[0.6875rem] px-2 py-0.5 rounded border font-semibold transition-colors
+                       {% if n == 10 %}bg-brand-600 text-white border-brand-600{% else %}bg-white text-gray-500 border-gray-200 hover:bg-gray-50 hover:border-brand-300 hover:text-brand-600{% endif %}">
+          {{ n }}
+        </button>
+        {% endfor %}
+      </div>
+      <span class="text-[0.6875rem] text-gray-500">per page</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <span id="logs-page-label" class="text-[0.6875rem] text-gray-400"></span>
+      <button type="button" id="logs-prev" onclick="logsChangePage(-1)"
+              class="p-1 rounded border border-gray-200 text-gray-400 hover:bg-gray-50 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+      </button>
+      <button type="button" id="logs-next" onclick="logsChangePage(1)"
+              class="p-1 rounded border border-gray-200 text-gray-400 hover:bg-gray-50 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+      </button>
+    </div>
   </div>
 
   {# Grid table — 1 stripe col + 9 data cols #}
@@ -1190,15 +1373,15 @@
     <div class="px-4 py-1.5"></div>{# date spacer #}
     {# Pain — 3 cols #}
     <div class="col-span-3 text-center py-1.5 bg-red-50 border-x border-red-100">
-      <p class="text-[9px] font-bold text-red-400 uppercase tracking-widest">Pain</p>
+      <p class="text-[0.5625rem] font-bold text-red-400 uppercase tracking-widest">Pain</p>
     </div>
     {# Session Feel — 2 cols #}
     <div class="col-span-2 text-center py-1.5 bg-sky-50 border-r border-sky-100">
-      <p class="text-[9px] font-bold text-sky-400 uppercase tracking-widest">Session Feel</p>
+      <p class="text-[0.5625rem] font-bold text-sky-400 uppercase tracking-widest">Session Feel</p>
     </div>
     {# Exercise — 3 cols #}
     <div class="col-span-3 text-center py-1.5 bg-brand-50 border-r border-brand-100">
-      <p class="text-[9px] font-bold text-brand-500 uppercase tracking-widest">Exercise</p>
+      <p class="text-[0.5625rem] font-bold text-brand-500 uppercase tracking-widest">Exercise</p>
     </div>
   </div>
 
@@ -1206,28 +1389,28 @@
   <div class="grid border-b border-gray-100 bg-gray-50" style="{{ gcols }}; min-width:640px;">
     <div></div>{# stripe #}
     <div class="px-4 py-1.5">
-      <p class="text-[9px] font-semibold text-gray-400 uppercase tracking-wide">Date</p>
+      <p class="text-[0.5625rem] font-semibold text-gray-400 uppercase tracking-wide">Date</p>
     </div>
     {% for col in ['During','After','Next Day'] %}
     <div class="px-3 py-1.5 {% if loop.first %}border-l border-red-100{% endif %}{% if loop.last %}border-r border-red-100{% endif %}">
-      <p class="text-[9px] font-semibold text-gray-400 uppercase tracking-wide">{{ col }}</p>
+      <p class="text-[0.5625rem] font-semibold text-gray-400 uppercase tracking-wide">{{ col }}</p>
     </div>
     {% endfor %}
     {% for col in ['Difficulty','Confidence'] %}
     <div class="px-3 py-1.5 {% if loop.last %}border-r border-sky-100{% endif %}">
-      <p class="text-[9px] font-semibold text-gray-400 uppercase tracking-wide">{{ col }}</p>
+      <p class="text-[0.5625rem] font-semibold text-gray-400 uppercase tracking-wide">{{ col }}</p>
     </div>
     {% endfor %}
     {% for col in ['Sets Done','Sets %','Reps / Dur'] %}
     <div class="px-3 py-1.5 {% if loop.last %}border-r border-brand-100{% endif %}">
-      <p class="text-[9px] font-semibold text-gray-400 uppercase tracking-wide">{{ col }}</p>
+      <p class="text-[0.5625rem] font-semibold text-gray-400 uppercase tracking-wide">{{ col }}</p>
     </div>
     {% endfor %}
   </div>
 
   {# ── Data rows ── #}
   <div class="divide-y divide-gray-50">
-    {% for log in recent_logs[:6] %}
+    {% for log in recent_logs %}
 
     {% set pd   = log.pain_during %}
     {% set pa   = log.pain_after %}
@@ -1258,7 +1441,7 @@
     {% set overall_comp  = (ns.comp_sum / ns.comp_n) | round(0) | int if ns.comp_n > 0 else none %}
     {% set reps_display  = ns.reps_set | join(', ') if ns.reps_set else '—' %}
 
-    <div class="grid items-center hover:bg-gray-50/60 transition-colors" style="{{ gcols }}; min-width:640px;">
+    <div class="grid items-center hover:bg-gray-50/60 transition-colors" data-log-row="{{ loop.index0 }}" style="{{ gcols }}; min-width:640px;">
 
       {# Stripe #}
       <div class="self-stretch {{ stripe }}"></div>
@@ -1266,7 +1449,7 @@
       {# Date + badge #}
       <div class="px-4 py-2.5">
         <p class="text-xs font-bold text-gray-700 whitespace-nowrap">{{ log.created_at[5:7] }}/{{ log.created_at[8:10] }}/{{ log.created_at[:4] }}</p>
-        <span class="mt-0.5 inline-block text-[9px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap
+        <span class="mt-0.5 inline-block text-[0.5625rem] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap
           {% if worst >= 6 %}bg-red-100 text-red-700{% elif worst >= 4 %}bg-yellow-100 text-yellow-700{% else %}bg-green-100 text-green-700{% endif %}">
           {% if worst >= 6 %}High{% elif worst >= 4 %}Moderate{% else %}Low{% endif %}
         </span>
@@ -1276,7 +1459,7 @@
       {% for val in [pd, pa, pnd] %}
       <div class="px-3 py-2.5 {% if loop.first %}border-l border-red-100 bg-red-50/20{% else %}bg-red-50/20{% endif %}{% if loop.last %} border-r border-red-100{% endif %}">
         <p class="text-sm font-bold {% if val >= 6 %}text-red-600{% elif val >= 4 %}text-yellow-600{% else %}text-green-600{% endif %}">
-          {{ val }}<span class="text-[9px] font-normal text-gray-400">/10</span>
+          {{ val }}<span class="text-[0.5625rem] font-normal text-gray-400">/10</span>
         </p>
       </div>
       {% endfor %}
@@ -1285,7 +1468,7 @@
       {% for val in [diff, conf] %}
       <div class="px-3 py-2.5 bg-sky-50/20{% if loop.last %} border-r border-sky-100{% endif %}">
         <p class="text-sm font-bold text-gray-700">
-          {{ val }}<span class="text-[9px] font-normal text-gray-400">/10</span>
+          {{ val }}<span class="text-[0.5625rem] font-normal text-gray-400">/10</span>
         </p>
       </div>
       {% endfor %}
@@ -1293,7 +1476,7 @@
       {# Exercise group — Sets Done #}
       <div class="px-3 py-2.5 bg-brand-50/20">
         {% if ns.has_done %}
-          <p class="text-sm font-bold text-gray-700">{{ ns.done }}<span class="text-[9px] font-normal text-gray-400">/{{ ns.prescribed }}</span></p>
+          <p class="text-sm font-bold text-gray-700">{{ ns.done }}<span class="text-[0.5625rem] font-normal text-gray-400">/{{ ns.prescribed }}</span></p>
         {% else %}
           <p class="text-sm text-gray-300">—</p>
         {% endif %}
@@ -1318,6 +1501,7 @@
   </div>
   </div>{# end overflow-x-auto #}
 
+  </div>{# end tile-logs collapsible #}
 </div>
 {% endif %}
 
@@ -1325,13 +1509,13 @@
 {% if progression_history %}
 {% set lp = progression_history[0] %}
 {% set lp_dc = {'GO': 'green', 'STAY': 'blue', 'CAUTION': 'yellow', 'STOP': 'red'}.get(lp.decision, 'gray') %}
-<div class="bg-white rounded-xl shadow border border-gray-100 mb-4 overflow-hidden">
+<div class="dash-section bg-white rounded-xl shadow border border-gray-100 mb-4 overflow-hidden" data-section="progression">
   <button type="button" onclick="toggleTile('tile-prog')"
           class="w-full px-5 py-4 flex items-center justify-between gap-3 hover:bg-gray-50 transition-colors text-left focus:outline-none">
     <div class="min-w-0">
       <h2 class="font-bold text-gray-900 text-sm">Progression History</h2>
       <p class="text-xs text-gray-400 mt-0.5 flex items-center gap-2">
-        <span class="px-1.5 py-0.5 bg-{{ lp_dc }}-100 text-{{ lp_dc }}-700 rounded font-bold text-[11px]">{{ lp.decision }}</span>
+        <span class="px-1.5 py-0.5 bg-{{ lp_dc }}-100 text-{{ lp_dc }}-700 rounded font-bold text-[0.6875rem]">{{ lp.decision }}</span>
         <span>Stage {{ lp.from_stage }} → {{ lp.to_stage }}</span>
         <span class="text-gray-300">·</span>
         <span>{{ lp.created_at[:10] }}</span>
@@ -1358,23 +1542,67 @@
 </div>
 {% endif %}
 
+</div>{# end dash-layout #}
+
 <!-- Quick actions -->
 <div class="flex flex-wrap gap-3">
-  <a href="/daily-log" class="px-5 py-2 bg-brand-600 text-white rounded-lg text-sm font-semibold hover:bg-brand-700 transition-colors">
+  <a href="/daily-log" onclick="checkDailyLogAllowed(event)" class="px-5 py-2 bg-brand-600 text-white rounded-lg text-sm font-semibold hover:bg-brand-700 transition-colors">
     Log Today's Session
-  </a>
-  <a href="/visa-a" class="px-5 py-2 border border-brand-300 text-brand-700 rounded-lg text-sm font-semibold hover:bg-brand-50 transition-colors">
-    VISA-A Questionnaire
   </a>
   <a href="/onboarding" class="px-5 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 transition-colors">
     Re-run Assessment
   </a>
 </div>
 
+<!-- Dashboard layout edit bar (fixed top, shown only in edit mode) -->
+<div id="dash-edit-bar" class="hidden fixed top-0 inset-x-0 z-50 bg-amber-50 border-b border-amber-300 shadow-md">
+  <div class="max-w-5xl mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
+    <div class="flex items-center gap-2.5 min-w-0">
+      <span class="flex items-center justify-center w-6 h-6 rounded-full bg-amber-400 shrink-0">
+        <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+        </svg>
+      </span>
+      <div class="min-w-0">
+        <p class="text-sm font-bold text-amber-900 leading-tight">Editing Dashboard Layout</p>
+        <p class="text-xs text-amber-700 hidden sm:block">Drag the grip handles to reorder sections, then save your changes.</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2 shrink-0">
+      <button type="button" onclick="exitDashEdit(false)"
+              class="px-3 py-1.5 text-xs border border-amber-300 rounded-lg text-amber-800 bg-white hover:bg-amber-50 transition-colors font-medium">
+        Cancel
+      </button>
+      <button type="button" onclick="exitDashEdit(true)"
+              class="px-3 py-1.5 text-xs bg-amber-500 text-white rounded-lg hover:bg-amber-600 font-semibold transition-colors shadow-sm">
+        Save Changes
+      </button>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
 <script>
+// Already-logged guard — always defined so all track-session buttons can call it
+var TODAY_LOGGED = {{ 'true' if today_logged else 'false' }};
+var TODAY_LOG_TIME = {{ today_log_time | tojson }};
+
+function checkDailyLogAllowed(e) {
+  if (!TODAY_LOGGED) return; // allow navigation
+  e.preventDefault();
+  var modal = document.getElementById('already-logged-modal');
+  var timeEl = document.getElementById('already-logged-time');
+  if (TODAY_LOG_TIME) {
+    try {
+      var d = new Date(TODAY_LOG_TIME);
+      timeEl.textContent = 'Logged at ' + d.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+    } catch(err) { timeEl.textContent = ''; }
+  }
+  modal.classList.remove('hidden');
+}
+
 // Generic tile toggle — used by all collapsible dashboard sections
 function toggleChecklist() {
   const panel   = document.getElementById('checklist-panel');
@@ -1433,6 +1661,43 @@ function _getMondayOf(d) {
   return m;
 }
 
+function _getSundayOf(d) {
+  var m = new Date(d);
+  m.setDate(d.getDate() - d.getDay()); // d.getDay()===0 → stay; otherwise go back
+  m.setHours(0,0,0,0);
+  return m;
+}
+
+function _weekStartPref() {
+  return localStorage.getItem('teno_week_start') || 'mon';
+}
+
+function toggleWeekStart() {
+  var next = _weekStartPref() === 'mon' ? 'sun' : 'mon';
+  localStorage.setItem('teno_week_start', next);
+  _updateWeekStartBtn();
+  _updateMonthlyDayHeaders();
+  _weekOffset = 0;
+  renderWeekly();
+  var monthly = document.getElementById('prog-monthly');
+  if (monthly && !monthly.classList.contains('hidden')) renderMonthly();
+}
+
+function _updateWeekStartBtn() {
+  var lbl = document.getElementById('week-start-label');
+  if (lbl) lbl.textContent = _weekStartPref() === 'sun' ? 'Sun\u2013Sat' : 'Mon\u2013Sun';
+}
+
+function _updateMonthlyDayHeaders() {
+  var container = document.getElementById('monthly-day-headers');
+  if (!container) return;
+  var abbrs = _weekStartPref() === 'sun'
+    ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+    : ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  var divs = container.querySelectorAll('div');
+  divs.forEach(function(div, i) { div.textContent = abbrs[i]; });
+}
+
 function _fmtDate(d, opts) {
   return d.toLocaleDateString('en-US', opts);
 }
@@ -1448,22 +1713,35 @@ async function renderWeekly() {
   if (SCHED_IS_REST_WEEK) return;
   var today = new Date();
   today.setHours(0,0,0,0);
-  var monday = _getMondayOf(today);
-  monday.setDate(monday.getDate() + _weekOffset * 7);
+
+  var monday, displayStart;
+  if (_weekStartPref() === 'sun') {
+    // Anchor on the Sunday that contains today; apply offset in whole weeks
+    displayStart = _getSundayOf(today);
+    displayStart.setDate(displayStart.getDate() + _weekOffset * 7);
+    // Canonical Monday for cache keys = displayStart + 1 day
+    monday = new Date(displayStart);
+    monday.setDate(displayStart.getDate() + 1);
+  } else {
+    // Anchor on the Monday that contains today
+    monday = _getMondayOf(today);
+    monday.setDate(monday.getDate() + _weekOffset * 7);
+    displayStart = monday;
+  }
 
   var weekStart = _getWeekStartStr(monday);
   _currentWeekStart = weekStart;
-  _currentMonday = monday;
+  _currentMonday = displayStart; // stored for re-render after drag
 
-  // Label
-  var sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+  // Label: show actual display range
+  var displayEnd = new Date(displayStart); displayEnd.setDate(displayStart.getDate() + 6);
   var lbl = document.getElementById('week-range-label');
   if (lbl) {
-    var startStr = _fmtDate(monday, {month:'short', day:'numeric'});
-    var endStr   = monday.getMonth() === sunday.getMonth()
-      ? sunday.getDate()
-      : _fmtDate(sunday, {month:'short', day:'numeric'});
-    lbl.textContent = startStr + ' \u2013 ' + endStr + ', ' + sunday.getFullYear();
+    var startStr = _fmtDate(displayStart, {month:'short', day:'numeric'});
+    var endStr   = displayStart.getMonth() === displayEnd.getMonth()
+      ? displayEnd.getDate()
+      : _fmtDate(displayEnd, {month:'short', day:'numeric'});
+    lbl.textContent = startStr + ' \u2013 ' + endStr + ', ' + displayEnd.getFullYear();
   }
 
   // Load override (cached or from API)
@@ -1502,8 +1780,8 @@ async function renderWeekly() {
   var sidePromises = [];
 
   if (_showLogOverlay) {
-    var sunday2 = new Date(monday); sunday2.setDate(monday.getDate() + 6);
-    sidePromises.push(_ensureLogsLoaded(_getWeekStartStr(monday), _getWeekStartStr(sunday2)));
+    var overlayEnd = new Date(displayStart); overlayEnd.setDate(displayStart.getDate() + 6);
+    sidePromises.push(_ensureLogsLoaded(_getWeekStartStr(displayStart), _getWeekStartStr(overlayEnd)));
   }
 
   if (isCurrentWeek && !_weekAdaptationCache.hasOwnProperty(weekStart)) {
@@ -1524,7 +1802,7 @@ async function renderWeekly() {
 
   if (sidePromises.length) await Promise.all(sidePromises);
 
-  _renderWeekGrid(sessionDays, monday, today, hasOverride, isCurrentWeek ? _currentAdaptation : null);
+  _renderWeekGrid(sessionDays, displayStart, today, hasOverride, isCurrentWeek ? _currentAdaptation : null);
 }
 
 function _renderWeekGrid(sessionDays, monday, today, hasOverride, adaptation) {
@@ -1545,13 +1823,16 @@ function _renderWeekGrid(sessionDays, monday, today, hasOverride, adaptation) {
   if (!grid) return;
   grid.innerHTML = '';
 
-  var dayAbbr = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  var _ALL_DAY_ABBR = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
   for (var i = 0; i < 7; i++) {
     (function(dayIdx) {
       var d = new Date(monday);
       d.setDate(monday.getDate() + dayIdx);
-      var isSession = sessionDays.indexOf(dayIdx) !== -1;
+      // dowIdx: Mon=0 … Sun=6 — used for session day lookup (independent of display order)
+      var cdow   = d.getDay();
+      var dowIdx = (cdow === 0 ? 6 : cdow - 1);
+      var isSession = sessionDays.indexOf(dowIdx) !== -1;
       var isToday   = _sameDay(d, today);
       var isPast    = d < today && !isToday;
 
@@ -1560,19 +1841,19 @@ function _renderWeekGrid(sessionDays, monday, today, hasOverride, adaptation) {
         + (isSession ? ' border-brand-200 bg-brand-50' : ' border-gray-100 bg-gray-50')
         + (isToday   ? ' ring-2 ring-brand-500 ring-offset-2 shadow-md' : '')
         + (isPast && !isToday ? ' opacity-60' : '');
-      cell.dataset.dayIdx = dayIdx;
+      cell.dataset.dayIdx = dowIdx; // store Mon=0…Sun=6 for drag/drop
 
       // Header
       var hdr = document.createElement('div');
       hdr.className = 'px-2 py-2 text-center border-b rounded-t-xl'
         + (isSession ? ' border-brand-200 bg-brand-600' : ' border-gray-100 bg-gray-100');
 
-      var customBadge = (hasOverride && isSession && SCHED_SESSION_DAYS.indexOf(dayIdx) === -1)
-        ? '<span class="text-[8px] bg-orange-400 text-white rounded px-1 font-bold">MOVED</span>'
+      var customBadge = (hasOverride && isSession && SCHED_SESSION_DAYS.indexOf(dowIdx) === -1)
+        ? '<span class="text-[0.5rem] bg-orange-400 text-white rounded px-1 font-bold">MOVED</span>'
         : '';
 
       hdr.innerHTML =
-        '<p class="text-[10px] font-bold uppercase tracking-widest ' + (isSession ? 'text-white' : 'text-gray-400') + '">' + dayAbbr[dayIdx] + '</p>'
+        '<p class="text-[0.625rem] font-bold uppercase tracking-widest ' + (isSession ? 'text-white' : 'text-gray-400') + '">' + _ALL_DAY_ABBR[cdow] + '</p>'
         + '<p class="text-xl font-black leading-none mt-0.5 ' + (isSession ? 'text-white' : isToday ? 'text-brand-600' : 'text-gray-500') + '">' + d.getDate() + '</p>'
         + customBadge;
 
@@ -1604,19 +1885,19 @@ function _renderWeekGrid(sessionDays, monday, today, hasOverride, adaptation) {
           var scCls = sc !== null ? (sc >= 90 ? 'text-green-600' : sc >= 70 ? 'text-yellow-600' : 'text-red-500') : 'text-gray-400';
           var done = (ex.sets_done !== null && ex.sets_done !== undefined) ? ex.sets_done : '?';
           var pres = ex.prescribed_sets || '?';
-          return '<li class="text-[10px] leading-tight">'
+          return '<li class="text-[0.625rem] leading-tight">'
             + '<span class="font-semibold block truncate text-gray-700">' + ex.name + '</span>'
             + '<span class="' + scCls + '">' + done + '/' + pres + ' sets</span>'
             + '<span class="text-gray-400 ml-1">\xb7 ' + ex.reps_done + '</span>'
             + '</li>';
         }).join('');
-        body.innerHTML = '<p class="text-[9px] font-bold uppercase tracking-wide mb-1.5 text-center flex items-center justify-center gap-1 text-green-600">'
+        body.innerHTML = '<p class="text-[0.5625rem] font-bold uppercase tracking-wide mb-1.5 text-center flex items-center justify-center gap-1 text-green-600">'
           + '<svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>'
           + 'Logged</p>'
           + '<ul class="space-y-1.5">' + exRows + '</ul>'
           + '<div class="mt-2 pt-1.5 border-t border-gray-200 flex items-center justify-between gap-1">'
-          + (comp !== null ? '<span class="text-[9px] font-bold ' + compCls + '">' + comp + '% done</span>' : '')
-          + '<span class="text-[9px] ' + painCls + '">pain ' + log.pain_during + '/' + log.pain_after + '</span>'
+          + (comp !== null ? '<span class="text-[0.5625rem] font-bold ' + compCls + '">' + comp + '% done</span>' : '')
+          + '<span class="text-[0.5625rem] ' + painCls + '">pain ' + log.pain_during + '/' + log.pain_after + '</span>'
           + '</div>';
         // Restyle cell border to green when logged
         cell.className = cell.className
@@ -1629,12 +1910,12 @@ function _renderWeekGrid(sessionDays, monday, today, hasOverride, adaptation) {
       } else if (isSession && _showLogOverlay && isPast) {
         // ── Missed session view (past scheduled day, overlay on, no log) ──
         var missedItems = SCHED_PLAN.map(function(item) {
-          return '<li class="text-[10px] leading-tight opacity-50">'
+          return '<li class="text-[0.625rem] leading-tight opacity-50">'
             + '<span class="block truncate line-through text-gray-500">' + item.name + '</span>'
             + '<span class="text-gray-400">' + item.sets + ' \xd7 ' + item.reps + '</span>'
             + '</li>';
         }).join('');
-        body.innerHTML = '<p class="text-[9px] font-bold uppercase tracking-wide mb-1.5 text-center flex items-center justify-center gap-1 text-amber-600">'
+        body.innerHTML = '<p class="text-[0.5625rem] font-bold uppercase tracking-wide mb-1.5 text-center flex items-center justify-center gap-1 text-amber-600">'
           + '<svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>'
           + 'Missed</p>'
           + '<ul class="space-y-1.5">' + missedItems + '</ul>';
@@ -1661,7 +1942,7 @@ function _renderWeekGrid(sessionDays, monday, today, hasOverride, adaptation) {
           var setsHtml = (showAdBadge && adjSets < origSets)
             ? '<del class="text-gray-300">' + origSets + '</del><span class="font-bold ' + (adLevel === 'reduce' ? 'text-red-500' : 'text-amber-600') + '"> ' + adjSets + '</span>'
             : origSets;
-          return '<li class="text-[10px] leading-tight text-gray-700">'
+          return '<li class="text-[0.625rem] leading-tight text-gray-700">'
             + '<span class="font-semibold block truncate">' + item.name + '</span>'
             + '<span class="text-gray-400">' + setsHtml + ' \xd7 ' + item.reps + '</span>'
             + '</li>';
@@ -1669,12 +1950,12 @@ function _renderWeekGrid(sessionDays, monday, today, hasOverride, adaptation) {
 
         var adBadge = '';
         if (adLevel === 'reduce') {
-          adBadge = ' <span class="text-[8px] bg-red-500 text-white rounded px-1 font-bold">REDUCED</span>';
+          adBadge = ' <span class="text-[0.5rem] bg-red-500 text-white rounded px-1 font-bold">REDUCED</span>';
         } else if (adLevel === 'caution') {
-          adBadge = ' <span class="text-[8px] bg-amber-500 text-white rounded px-1 font-bold">CAUTION</span>';
+          adBadge = ' <span class="text-[0.5rem] bg-amber-500 text-white rounded px-1 font-bold">CAUTION</span>';
         }
 
-        body.innerHTML = '<p class="text-[9px] font-bold text-brand-600 uppercase tracking-wide mb-2 text-center flex items-center justify-center gap-1 flex-wrap">'
+        body.innerHTML = '<p class="text-[0.5625rem] font-bold text-brand-600 uppercase tracking-wide mb-2 text-center flex items-center justify-center gap-1 flex-wrap">'
           + '<svg class="w-3 h-3 opacity-50 cursor-grab" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8h16M4 16h16"/></svg>'
           + 'Session' + adBadge + '</p>'
           + '<ul class="space-y-1.5">' + items + '</ul>';
@@ -1682,7 +1963,7 @@ function _renderWeekGrid(sessionDays, monday, today, hasOverride, adaptation) {
       } else {
         body.innerHTML = '<div class="h-full flex flex-col items-center justify-center py-3 gap-1">'
           + '<svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z"/></svg>'
-          + '<p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Rest</p>'
+          + '<p class="text-[0.625rem] font-semibold text-gray-400 uppercase tracking-wide">Rest</p>'
           + '</div>';
       }
 
@@ -1695,9 +1976,9 @@ function _renderWeekGrid(sessionDays, monday, today, hasOverride, adaptation) {
         cell.draggable = true;
         cell.style.cursor = 'grab';
         cell.addEventListener('dragstart', function(e) {
-          _dragFromIdx = dayIdx;
+          _dragFromIdx = dowIdx;
           e.dataTransfer.effectAllowed = 'move';
-          e.dataTransfer.setData('text/plain', String(dayIdx));
+          e.dataTransfer.setData('text/plain', String(dowIdx));
           setTimeout(function() { cell.classList.add('opacity-40'); }, 0);
         });
         cell.addEventListener('dragend', function() {
@@ -1711,9 +1992,9 @@ function _renderWeekGrid(sessionDays, monday, today, hasOverride, adaptation) {
 
       // All cells accept drops
       cell.addEventListener('dragover', function(e) {
-        if (_dragFromIdx === -1 || _dragFromIdx === dayIdx) return;
+        if (_dragFromIdx === -1 || _dragFromIdx === dowIdx) return;
         // Only allow drop on rest days (moving session there)
-        var targetIsSession = _currentSessionDays.indexOf(dayIdx) !== -1;
+        var targetIsSession = _currentSessionDays.indexOf(dowIdx) !== -1;
         if (targetIsSession) return;  // can't drop on another session day
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
@@ -1727,18 +2008,18 @@ function _renderWeekGrid(sessionDays, monday, today, hasOverride, adaptation) {
       cell.addEventListener('drop', async function(e) {
         e.preventDefault();
         cell.classList.remove('ring-2', 'ring-orange-400', 'bg-orange-50');
-        if (_dragFromIdx === -1 || _dragFromIdx === dayIdx) return;
+        if (_dragFromIdx === -1 || _dragFromIdx === dowIdx) return;
         var fromIdx = _dragFromIdx;
         _dragFromIdx = -1;
 
         // Validate: from must be session, to must be rest
         var fromIsSession = _currentSessionDays.indexOf(fromIdx) !== -1;
-        var toIsSession   = _currentSessionDays.indexOf(dayIdx) !== -1;
+        var toIsSession   = _currentSessionDays.indexOf(dowIdx) !== -1;
         if (!fromIsSession || toIsSession) return;
 
-        // Move session from fromIdx → dayIdx
+        // Move session from fromIdx → dowIdx
         var newDays = _currentSessionDays.filter(function(d) { return d !== fromIdx; });
-        newDays.push(dayIdx);
+        newDays.push(dowIdx);
         newDays.sort(function(a,b) { return a - b; });
 
         // Optimistic update
@@ -1794,9 +2075,9 @@ function _updateLogButtons(allowed) {
     var btn = document.getElementById(id);
     if (!btn) return;
     if (allowed) {
-      // Restore normal state
+      // Restore normal state (preserve already-logged check)
       btn.href = '/daily-log';
-      btn.onclick = null;
+      btn.onclick = TODAY_LOGGED ? checkDailyLogAllowed : null;
       btn.removeAttribute('title');
       btn.style.opacity = '';
       btn.style.cursor = '';
@@ -1856,7 +2137,7 @@ function _renderAdaptationStrip(adaptation) {
   }
 
   var factorNote = (factor < 1.0)
-    ? '<span class="text-[10px] ' + t.sub + ' ml-2 font-normal">\u2192 ' + Math.round(factor * 100) + '% of prescribed sets</span>'
+    ? '<span class="text-[0.625rem] ' + t.sub + ' ml-2 font-normal">\u2192 ' + Math.round(factor * 100) + '% of prescribed sets</span>'
     : '';
 
   strip.innerHTML = '<div class="rounded-xl border px-4 py-2.5 flex items-start gap-3 ' + t.bg + ' ' + t.border + '">'
@@ -1866,8 +2147,8 @@ function _renderAdaptationStrip(adaptation) {
     +     '<span class="text-xs font-black uppercase tracking-wide ' + t.title + '">' + t.label + '</span>'
     +     factorNote
     +   '</div>'
-    +   '<p class="text-[11px] leading-snug mb-1.5 ' + t.sub + '">' + (adaptation.rationale || '') + '</p>'
-    +   '<div class="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] font-medium ' + t.sub + '">'
+    +   '<p class="text-[0.6875rem] leading-snug mb-1.5 ' + t.sub + '">' + (adaptation.rationale || '') + '</p>'
+    +   '<div class="flex flex-wrap gap-x-3 gap-y-0.5 text-[0.625rem] font-medium ' + t.sub + '">'
     +     chips.join('<span class="opacity-30 mx-0.5">|</span>')
     +   '</div>'
     + '</div>'
@@ -1967,13 +2248,13 @@ function _showMonthTooltip(cellEl, dateLabel, isMoved, logData, isMissed) {
   // Badge
   if (isLogged) {
     badge.textContent = 'Logged';
-    badge.className = 'text-[9px] font-bold px-2 py-0.5 rounded-full bg-green-400 text-white';
+    badge.className = 'text-[0.5625rem] font-bold px-2 py-0.5 rounded-full bg-green-400 text-white';
   } else if (isMissed) {
     badge.textContent = 'Missed';
-    badge.className = 'text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-300 text-amber-900';
+    badge.className = 'text-[0.5625rem] font-bold px-2 py-0.5 rounded-full bg-amber-300 text-amber-900';
   } else if (isMoved) {
     badge.textContent = 'Rescheduled';
-    badge.className = 'text-[9px] font-bold px-2 py-0.5 rounded-full bg-orange-400 text-white';
+    badge.className = 'text-[0.5625rem] font-bold px-2 py-0.5 rounded-full bg-orange-400 text-white';
   }
   badge.classList.toggle('hidden', !isLogged && !isMissed && !isMoved);
 
@@ -1988,12 +2269,12 @@ function _showMonthTooltip(cellEl, dateLabel, isMoved, logData, isMissed) {
     } else {
       SCHED_PLAN.forEach(function(item, idx) {
         html += '<div class="flex items-start gap-3 py-2 opacity-55 ' + (idx > 0 ? 'border-t border-gray-100' : '') + '">'
-          + '<span class="flex-shrink-0 w-6 h-6 rounded-full bg-amber-100 text-amber-600 text-[10px] font-black flex items-center justify-center mt-0.5">' + (idx + 1) + '</span>'
+          + '<span class="flex-shrink-0 w-6 h-6 rounded-full bg-amber-100 text-amber-600 text-[0.625rem] font-black flex items-center justify-center mt-0.5">' + (idx + 1) + '</span>'
           + '<div class="min-w-0 flex-1">'
           + '<p class="text-sm font-semibold text-gray-600 line-through leading-tight">' + item.name + '</p>'
           + '<div class="flex items-center gap-2 mt-1">'
-          + '<span class="text-[11px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-medium">' + item.sets + ' sets</span>'
-          + '<span class="text-[11px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full font-medium">' + item.reps + '</span>'
+          + '<span class="text-[0.6875rem] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-medium">' + item.sets + ' sets</span>'
+          + '<span class="text-[0.6875rem] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full font-medium">' + item.reps + '</span>'
           + '</div>'
           + '</div>'
           + '</div>';
@@ -2022,13 +2303,13 @@ function _showMonthTooltip(cellEl, dateLabel, isMoved, logData, isMissed) {
         var done = (ex.sets_done !== null && ex.sets_done !== undefined) ? ex.sets_done : '?';
         var pres = ex.prescribed_sets || '?';
         html += '<div class="flex items-start gap-3 py-2 ' + (idx > 0 ? 'border-t border-gray-100' : '') + '">'
-          + '<span class="flex-shrink-0 w-6 h-6 rounded-full bg-green-100 text-green-700 text-[10px] font-black flex items-center justify-center mt-0.5">' + (idx + 1) + '</span>'
+          + '<span class="flex-shrink-0 w-6 h-6 rounded-full bg-green-100 text-green-700 text-[0.625rem] font-black flex items-center justify-center mt-0.5">' + (idx + 1) + '</span>'
           + '<div class="min-w-0 flex-1">'
           + '<p class="text-sm font-semibold text-gray-800 leading-tight">' + ex.name + '</p>'
           + '<div class="flex items-center gap-1.5 mt-1 flex-wrap">'
-          + '<span class="text-[11px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-medium">' + done + '/' + pres + ' sets</span>'
-          + '<span class="text-[11px] bg-brand-50 text-brand-700 px-2 py-0.5 rounded-full font-medium">' + ex.reps_done + '</span>'
-          + (sc !== null ? '<span class="text-[11px] ' + scCls + ' px-2 py-0.5 rounded-full font-bold">' + sc + '%</span>' : '')
+          + '<span class="text-[0.6875rem] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-medium">' + done + '/' + pres + ' sets</span>'
+          + '<span class="text-[0.6875rem] bg-brand-50 text-brand-700 px-2 py-0.5 rounded-full font-medium">' + ex.reps_done + '</span>'
+          + (sc !== null ? '<span class="text-[0.6875rem] ' + scCls + ' px-2 py-0.5 rounded-full font-bold">' + sc + '%</span>' : '')
           + '</div>'
           + '</div>'
           + '</div>';
@@ -2040,12 +2321,12 @@ function _showMonthTooltip(cellEl, dateLabel, isMoved, logData, isMissed) {
     // ── Show prescribed plan ──
     SCHED_PLAN.forEach(function(item, idx) {
       html += '<div class="flex items-start gap-3 py-2 ' + (idx > 0 ? 'border-t border-gray-100' : '') + '">'
-        + '<span class="flex-shrink-0 w-6 h-6 rounded-full bg-brand-100 text-brand-700 text-[10px] font-black flex items-center justify-center mt-0.5">' + (idx + 1) + '</span>'
+        + '<span class="flex-shrink-0 w-6 h-6 rounded-full bg-brand-100 text-brand-700 text-[0.625rem] font-black flex items-center justify-center mt-0.5">' + (idx + 1) + '</span>'
         + '<div class="min-w-0 flex-1">'
         + '<p class="text-sm font-semibold text-gray-800 leading-tight">' + item.name + '</p>'
         + '<div class="flex items-center gap-2 mt-1">'
-        + '<span class="text-[11px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-medium">' + item.sets + ' sets</span>'
-        + '<span class="text-[11px] bg-brand-50 text-brand-700 px-2 py-0.5 rounded-full font-medium">' + item.reps + '</span>'
+        + '<span class="text-[0.6875rem] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-medium">' + item.sets + ' sets</span>'
+        + '<span class="text-[0.6875rem] bg-brand-50 text-brand-700 px-2 py-0.5 rounded-full font-medium">' + item.reps + '</span>'
         + '</div>'
         + '</div>'
         + '</div>';
@@ -2128,9 +2409,12 @@ async function renderMonthly() {
   var grid = document.getElementById('monthly-grid');
   if (!grid) return;
 
+  _updateMonthlyDayHeaders();
+
   var first     = new Date(_calYear, _calMonth, 1);
-  var dow0      = first.getDay();
-  var startDow  = (dow0 === 0 ? 6 : dow0 - 1);
+  var dow0      = first.getDay(); // 0=Sun … 6=Sat
+  // startDow: how many blank cells before the 1st of the month
+  var startDow  = _weekStartPref() === 'sun' ? dow0 : (dow0 === 0 ? 6 : dow0 - 1);
   var daysInMon = new Date(_calYear, _calMonth + 1, 0).getDate();
   var totalCells = Math.ceil((startDow + daysInMon) / 7) * 7;
 
@@ -2228,7 +2512,7 @@ async function renderMonthly() {
     // Date number row
     var topRow = document.createElement('div');
     topRow.className = 'flex items-center justify-between px-1.5 pt-1';
-    var numCls = 'text-[11px] font-bold ' + (isToday ? 'text-brand-600' : isPast ? 'text-gray-400' : 'text-gray-600');
+    var numCls = 'text-[0.6875rem] font-bold ' + (isToday ? 'text-brand-600' : isPast ? 'text-gray-400' : 'text-gray-600');
     var dotColour = isLogged ? 'bg-green-500' : isMissed ? 'bg-amber-400' : isMoved ? 'bg-orange-400' : 'bg-brand-500';
     topRow.innerHTML = '<span class="' + numCls + '">' + dayNum + '</span>'
       + (isSess ? '<span class="w-1.5 h-1.5 rounded-full ' + dotColour + ' shrink-0"></span>' : '');
@@ -2249,44 +2533,44 @@ async function renderMonthly() {
           : 'text-gray-400';
         var painMax2 = Math.max(dayLog.pain_during, dayLog.pain_after);
         var painCls2 = painMax2 >= 6 ? 'text-red-500' : painMax2 >= 4 ? 'text-yellow-600' : 'text-green-600';
-        listHTML += '<p class="text-[8px] font-bold text-green-600 leading-tight flex items-center gap-0.5">'
+        listHTML += '<p class="text-[0.5rem] font-bold text-green-600 leading-tight flex items-center gap-0.5">'
           + '<svg class="w-2.5 h-2.5 shrink-0" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>'
           + (comp2 !== null ? '<span class="' + compCls2 + '">' + comp2 + '%</span>' : 'Logged')
           + '</p>';
         if (dayLog.exercises.length > 0) {
-          listHTML += '<p class="text-[8px] text-gray-500 truncate font-medium leading-tight">' + dayLog.exercises[0].name + '</p>';
+          listHTML += '<p class="text-[0.5rem] text-gray-500 truncate font-medium leading-tight">' + dayLog.exercises[0].name + '</p>';
           if (dayLog.exercises.length > 1) {
-            listHTML += '<p class="text-[8px] text-gray-400">+' + (dayLog.exercises.length - 1) + ' more</p>';
+            listHTML += '<p class="text-[0.5rem] text-gray-400">+' + (dayLog.exercises.length - 1) + ' more</p>';
           }
         }
-        listHTML += '<p class="text-[8px] ' + painCls2 + '">pain ' + dayLog.pain_during + '/' + dayLog.pain_after + '</p>';
+        listHTML += '<p class="text-[0.5rem] ' + painCls2 + '">pain ' + dayLog.pain_during + '/' + dayLog.pain_after + '</p>';
 
       } else if (isMissed) {
-        listHTML += '<p class="text-[8px] font-bold text-amber-600 leading-tight flex items-center gap-0.5">'
+        listHTML += '<p class="text-[0.5rem] font-bold text-amber-600 leading-tight flex items-center gap-0.5">'
           + '<svg class="w-2.5 h-2.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>'
           + 'Missed</p>';
         if (SCHED_PLAN.length > 0) {
-          listHTML += '<p class="text-[8px] text-gray-400 line-through truncate">' + SCHED_PLAN[0].name + '</p>';
+          listHTML += '<p class="text-[0.5rem] text-gray-400 line-through truncate">' + SCHED_PLAN[0].name + '</p>';
         }
 
       } else if (isMoved) {
-        listHTML += '<p class="text-[8px] text-orange-500 font-semibold leading-tight">Rescheduled</p>';
+        listHTML += '<p class="text-[0.5rem] text-orange-500 font-semibold leading-tight">Rescheduled</p>';
         if (SCHED_PLAN.length > 0) {
-          listHTML += '<p class="text-[8px] text-gray-500 truncate font-medium leading-tight">' + SCHED_PLAN[0].name + '</p>';
+          listHTML += '<p class="text-[0.5rem] text-gray-500 truncate font-medium leading-tight">' + SCHED_PLAN[0].name + '</p>';
         }
 
       } else {
         // Normal prescribed view
         var visN = Math.min(SCHED_PLAN.length, 2);
         for (var j = 0; j < visN; j++) {
-          listHTML += '<p class="text-[8px] text-gray-500 truncate font-medium leading-tight">' + SCHED_PLAN[j].name + '</p>';
+          listHTML += '<p class="text-[0.5rem] text-gray-500 truncate font-medium leading-tight">' + SCHED_PLAN[j].name + '</p>';
         }
         if (SCHED_PLAN.length > 2) {
-          listHTML += '<p class="text-[8px] text-brand-400 font-semibold">+' + (SCHED_PLAN.length - 2) + ' more</p>';
+          listHTML += '<p class="text-[0.5rem] text-brand-400 font-semibold">+' + (SCHED_PLAN.length - 2) + ' more</p>';
         }
         // "Not logged" hint when overlay on and today or past
         if (_showLogOverlay && notFutureM) {
-          listHTML += '<p class="text-[8px] text-gray-400 italic">not logged</p>';
+          listHTML += '<p class="text-[0.5rem] text-gray-400 italic">not logged</p>';
         }
       }
 
@@ -2317,7 +2601,24 @@ async function renderMonthly() {
 
 function shiftWeek(delta) {
   _weekOffset += delta;
+  _updateTodayBtn();
   renderWeekly();  // async — fire and forget is fine
+}
+
+function gotoCurrentWeek() {
+  _weekOffset = 0;
+  _updateTodayBtn();
+  renderWeekly();
+}
+
+function _updateTodayBtn() {
+  var btn = document.getElementById('goto-today-btn');
+  if (!btn) return;
+  if (_weekOffset === 0) {
+    btn.classList.add('hidden');
+  } else {
+    btn.classList.remove('hidden');
+  }
 }
 
 function shiftMonth(delta) {
@@ -2351,12 +2652,130 @@ function toggleMonthlyProgram() {
   }
 }
 
+// ── Dashboard layout re-ordering ─────────────────────────────────────────────
+var DASH_LAYOUT = {{ dashboard_layout | safe }};
+var _dashDragSrc = null;
+
+function _applyDashLayout() {
+  var order = (DASH_LAYOUT && DASH_LAYOUT.length) ? DASH_LAYOUT : null;
+  if (!order) return;
+  var container = document.getElementById('dash-layout');
+  if (!container) return;
+  var map = {};
+  container.querySelectorAll('.dash-section[data-section]').forEach(function(el) {
+    map[el.dataset.section] = el;
+  });
+  order.forEach(function(id) { if (map[id]) container.appendChild(map[id]); });
+}
+
+function enterDashEdit() {
+  document.body.classList.add('dash-editing');
+  var bar = document.getElementById('dash-edit-bar');
+  if (bar) bar.classList.remove('hidden');
+  var container = document.getElementById('dash-layout');
+  if (!container) return;
+  container.querySelectorAll('.dash-section').forEach(function(el) {
+    var h = document.createElement('div');
+    h.className = 'dash-handle';
+    h.innerHTML = '<svg width="16" height="10" viewBox="0 0 16 10" fill="currentColor"><circle cx="2" cy="2" r="1.5"/><circle cx="8" cy="2" r="1.5"/><circle cx="14" cy="2" r="1.5"/><circle cx="2" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="14" cy="8" r="1.5"/></svg>';
+    el.insertBefore(h, el.firstChild);
+    el.setAttribute('draggable', 'true');
+    el.addEventListener('dragstart',  _dashOnDragStart);
+    el.addEventListener('dragend',    _dashOnDragEnd);
+    el.addEventListener('dragover',   _dashOnDragOver);
+    el.addEventListener('dragleave',  _dashOnDragLeave);
+    el.addEventListener('drop',       _dashOnDrop);
+  });
+}
+
+function exitDashEdit(save) {
+  document.body.classList.remove('dash-editing');
+  var bar = document.getElementById('dash-edit-bar');
+  if (bar) bar.classList.add('hidden');
+  var container = document.getElementById('dash-layout');
+  if (!container) return;
+  container.querySelectorAll('.dash-section').forEach(function(el) {
+    el.removeAttribute('draggable');
+    el.removeEventListener('dragstart',  _dashOnDragStart);
+    el.removeEventListener('dragend',    _dashOnDragEnd);
+    el.removeEventListener('dragover',   _dashOnDragOver);
+    el.removeEventListener('dragleave',  _dashOnDragLeave);
+    el.removeEventListener('drop',       _dashOnDrop);
+  });
+  container.querySelectorAll('.dash-handle').forEach(function(h) { h.remove(); });
+  if (save) _saveDashLayout();
+  else if (window.location.search.indexOf('layout=1') >= 0) {
+    window.location.href = '/dashboard';
+  }
+}
+
+function _dashOnDragStart(e) {
+  _dashDragSrc = this;
+  this.classList.add('dash-dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', this.dataset.section || '');
+}
+function _dashOnDragEnd(e) {
+  this.classList.remove('dash-dragging');
+  _dashClearDropIndicators();
+}
+function _dashOnDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  if (this === _dashDragSrc) return;
+  _dashClearDropIndicators();
+  var inTop = e.clientY < this.getBoundingClientRect().top + this.getBoundingClientRect().height / 2;
+  this.classList.add(inTop ? 'dash-drop-above' : 'dash-drop-below');
+}
+function _dashOnDragLeave(e) {
+  this.classList.remove('dash-drop-above', 'dash-drop-below');
+}
+function _dashOnDrop(e) {
+  e.preventDefault();
+  if (this === _dashDragSrc) return;
+  var inTop = e.clientY < this.getBoundingClientRect().top + this.getBoundingClientRect().height / 2;
+  this.classList.remove('dash-drop-above', 'dash-drop-below');
+  var container = document.getElementById('dash-layout');
+  container.insertBefore(_dashDragSrc, inTop ? this : this.nextSibling);
+}
+function _dashClearDropIndicators() {
+  var container = document.getElementById('dash-layout');
+  if (container) container.querySelectorAll('.dash-drop-above,.dash-drop-below').forEach(function(el) {
+    el.classList.remove('dash-drop-above', 'dash-drop-below');
+  });
+}
+
+async function _saveDashLayout() {
+  var container = document.getElementById('dash-layout');
+  var order = Array.from(container.querySelectorAll('.dash-section[data-section]')).map(function(el) {
+    return el.dataset.section;
+  });
+  try {
+    await fetch('/api/dashboard-layout', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({layout: order})
+    });
+  } catch(err) { /* network failure — navigate anyway; server may have saved */ }
+  window.location.href = '/dashboard';
+}
+
 // Initialise calendars on page load
 document.addEventListener('DOMContentLoaded', function() {
   var t = new Date();
   _calYear  = t.getFullYear();
   _calMonth = t.getMonth();
-  renderWeekly();
+  _updateWeekStartBtn();
+  _applyDashLayout();
+  if (typeof SCHED_IS_REST_WEEK !== 'undefined') renderWeekly();
+  // Apply colour indicator preference
+  if (localStorage.getItem('teno_color_indicators') === 'off') {
+    document.body.classList.add('teno-mono');
+  }
+  // Enter edit mode if requested via URL
+  if (window.location.search.indexOf('layout=1') >= 0) {
+    enterDashEdit();
+  }
 });
 
 // ── Pain Trend ────────────────────────────────────────────────────────────────
@@ -2413,6 +2832,50 @@ if (chartData.labels.length > 0) {
             limits: {
               y: { min: 0, max: 10 },
             },
+          },
+        },
+      },
+    });
+  }
+}
+
+const stiffData = {{ stiffness_chart_data | safe }};
+let _stiffChartInst = null;
+
+function resetStiffZoom() {
+  if (_stiffChartInst) _stiffChartInst.resetZoom();
+}
+
+if (stiffData.labels.length > 0) {
+  const stiffCtx = document.getElementById('stiffChart');
+  if (stiffCtx) {
+    _stiffChartInst = new Chart(stiffCtx, {
+      type: 'line',
+      data: {
+        labels: stiffData.labels,
+        datasets: [{
+          label: 'Morning Stiffness',
+          data: stiffData.stiffness,
+          borderColor: '#d97706',
+          backgroundColor: 'rgba(217,119,6,0.1)',
+          tension: 0.3,
+          fill: true,
+          pointRadius: 4,
+        }],
+      },
+      options: {
+        responsive: true,
+        scales: {
+          x: { ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 8 } },
+          y: { min: 0, max: 10, ticks: { stepSize: 2 }, title: { display: true, text: 'Stiffness (0–10)' } },
+        },
+        plugins: {
+          legend: { position: 'bottom' },
+          tooltip: { mode: 'index', intersect: false },
+          zoom: {
+            zoom: { wheel: { enabled: true, speed: 0.1 }, pinch: { enabled: true }, mode: 'xy' },
+            pan: { enabled: true, mode: 'xy' },
+            limits: { y: { min: 0, max: 10 } },
           },
         },
       },
@@ -2740,5 +3203,68 @@ renderLsiChart('lsiCrChart',   'lsiCrEmpty',   fc.calf_raise.lsi,   'rgb(220, 38
 renderLsiChart('lsiWbltChart', 'lsiWbltEmpty', fc.wblt.lsi,         'rgb(124, 58, 237)');
 renderLsiChart('lsiHopDistChart', 'lsiHopDistEmpty', fc.hop_distance.lsi,  'rgb(234, 88, 12)');
 renderLsiChart('lsiHopEndChart',  'lsiHopEndEmpty',  fc.hop_endurance.lsi, 'rgb(13, 148, 136)');
+
+// ── Recent Session Logs pagination ───────────────────────────────────────────
+(function () {
+  var _pageSize = 10;
+  var _page     = 0;
+
+  function _rows() {
+    return Array.from(document.querySelectorAll('[data-log-row]'));
+  }
+
+  function _render() {
+    var rows  = _rows();
+    var total = rows.length;
+    if (total === 0) return;
+
+    var totalPages = Math.ceil(total / _pageSize);
+    _page = Math.max(0, Math.min(_page, totalPages - 1));
+
+    var start = _page * _pageSize;
+    var end   = start + _pageSize;
+
+    rows.forEach(function (r) {
+      var idx = parseInt(r.dataset.logRow, 10);
+      r.style.display = (idx >= start && idx < end) ? '' : 'none';
+    });
+
+    var pageLabel = document.getElementById('logs-page-label');
+    if (pageLabel) {
+      pageLabel.textContent = 'Page ' + (_page + 1) + ' of ' + totalPages;
+    }
+
+    var prevBtn = document.getElementById('logs-prev');
+    var nextBtn = document.getElementById('logs-next');
+    if (prevBtn) prevBtn.disabled = (_page === 0);
+    if (nextBtn) nextBtn.disabled = (_page >= totalPages - 1);
+  }
+
+  window.logsSetPageSize = function (n) {
+    _pageSize = n;
+    _page     = 0;
+
+    // Update active button styling
+    document.querySelectorAll('.logs-size-btn').forEach(function (btn) {
+      var active = parseInt(btn.dataset.logsSize, 10) === n;
+      btn.classList.toggle('bg-brand-600',    active);
+      btn.classList.toggle('text-white',       active);
+      btn.classList.toggle('border-brand-600', active);
+      btn.classList.toggle('bg-white',        !active);
+      btn.classList.toggle('text-gray-500',   !active);
+      btn.classList.toggle('border-gray-200', !active);
+    });
+
+    _render();
+  };
+
+  window.logsChangePage = function (delta) {
+    _page += delta;
+    _render();
+  };
+
+  // Initial render once DOM is ready
+  _render();
+})();
 </script>
 {% endblock %}
