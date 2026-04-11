@@ -63,7 +63,7 @@
 <!-- Prompt for onboarding -->
 <div class="bg-brand-50 border border-brand-200 rounded-xl p-6 mb-6 text-center">
   <p class="text-brand-800 font-medium mb-3">
-    You haven't completed an onboarding assessment yet. Start here to generate your rehab plan.
+    You haven't completed an onboarding assessment yet. Start here to generate your program plan.
   </p>
   <a href="/onboarding"
      class="inline-block px-6 py-2 bg-brand-600 text-white rounded-lg font-semibold hover:bg-brand-700 transition-colors">
@@ -646,7 +646,7 @@
       <div>
         <h2 class="font-bold text-gray-900 text-sm">Functional Capacity</h2>
         {% if onboarding %}
-        <p class="text-[0.6875rem] text-gray-400 mt-0.5">Last assessed {{ onboarding.created_at[:10] }}</p>
+        <p class="text-[0.6875rem] text-gray-400 mt-0.5">Last assessed {{ onboarding.created_at | fmt_date(user.date_format) }}</p>
         {% else %}
         <p class="text-[0.6875rem] text-gray-400 mt-0.5">Complete an assessment to see data</p>
         {% endif %}
@@ -862,24 +862,27 @@
 </div>
 {% endif %}
 
-<!-- Current Rehab Plan tile -->
+<!-- Current Program Plan tile -->
 <div class="dash-section bg-white rounded-2xl shadow border border-gray-100 mb-4 overflow-hidden" data-section="rehab_plan">
 
   {# Clickable header — always visible, acts as overview #}
   <button type="button" onclick="toggleTile('tile-plan')"
           class="w-full bg-brand-700 px-5 py-4 flex items-start justify-between gap-3 hover:bg-brand-800 transition-colors text-left focus:outline-none">
     <div>
-      <h2 class="font-black text-white text-base leading-tight">Current Rehab Plan</h2>
+      <h2 class="font-black text-white text-base leading-tight">Current Program Plan</h2>
       <p class="text-xs text-brand-200 mt-0.5">
         {% if session_plan %}{{ session_plan | length }} exercise{{ 's' if session_plan | length != 1 }} — tap to view{% else %}No plan yet — complete assessment{% endif %}
       </p>
     </div>
     <div class="flex items-center gap-2 flex-wrap justify-end shrink-0">
-      {% set ibg = {'high': 'bg-red-400', 'moderate': 'bg-yellow-400', 'low': 'bg-green-400'} %}
-      <span class="text-xs px-2.5 py-1 rounded-full font-bold text-white {{ ibg.get(current_irritability, 'bg-gray-400') }} uppercase">
+      {% if user.color_tags_enabled != 0 %}
+      {% set itx = {'high': 'text-red-600', 'moderate': 'text-yellow-600', 'low': 'text-green-600'} %}
+      {% set stx = {1: 'text-sky-600', 2: 'text-indigo-600', 3: 'text-emerald-600'} %}
+      <span class="text-xs px-2.5 py-1 rounded-full font-bold bg-white {{ itx.get(current_irritability, 'text-gray-600') }} uppercase">
         {{ current_irritability }}
       </span>
-      <span class="text-xs px-2.5 py-1 rounded-full font-bold bg-white/20 text-white">Stage {{ current_stage }}</span>
+      <span class="text-xs px-2.5 py-1 rounded-full font-bold bg-white {{ stx.get(current_stage, 'text-gray-600') }}">Stage {{ current_stage }}</span>
+      {% endif %}
       {% if is_insertional %}
       <span class="text-xs px-2.5 py-1 rounded-full font-bold bg-amber-400 text-white">Insertional</span>
       {% endif %}
@@ -1031,14 +1034,6 @@
       <span class="text-xs px-2.5 py-1 rounded-full bg-brand-50 text-brand-700 font-semibold border border-brand-100">
         {{ weekly_schedule.sessions_per_week }} sessions / week
       </span>
-      <!-- Log overlay toggle -->
-      <button type="button" id="log-overlay-btn" onclick="toggleLogOverlay()"
-              class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-green-300 hover:text-green-700 transition-colors font-medium">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-        </svg>
-        <span id="log-overlay-label">Show completed</span>
-      </button>
       <button type="button" id="week-start-btn"
               onclick="toggleWeekStart()"
               class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-brand-300 hover:text-brand-700 transition-colors font-medium">
@@ -1184,7 +1179,7 @@
     var _currentMonday = null;
     var _dragFromIdx = -1;
     // Log overlay state
-    var _showLogOverlay = false;
+    var _showLogOverlay = true;
 
     var _logCache = {};            // "YYYY-MM-DD" → log object | null
     // Weekly adaptation state
@@ -1448,7 +1443,7 @@
 
       {# Date + badge #}
       <div class="px-4 py-2.5">
-        <p class="text-xs font-bold text-gray-700 whitespace-nowrap">{{ log.created_at[5:7] }}/{{ log.created_at[8:10] }}/{{ log.created_at[:4] }}</p>
+        <p class="text-xs font-bold text-gray-700 whitespace-nowrap">{{ log.created_at | fmt_date(user.date_format) }}</p>
         <span class="mt-0.5 inline-block text-[0.5625rem] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap
           {% if worst >= 6 %}bg-red-100 text-red-700{% elif worst >= 4 %}bg-yellow-100 text-yellow-700{% else %}bg-green-100 text-green-700{% endif %}">
           {% if worst >= 6 %}High{% elif worst >= 4 %}Moderate{% else %}Low{% endif %}
@@ -1518,7 +1513,7 @@
         <span class="px-1.5 py-0.5 bg-{{ lp_dc }}-100 text-{{ lp_dc }}-700 rounded font-bold text-[0.6875rem]">{{ lp.decision }}</span>
         <span>Stage {{ lp.from_stage }} → {{ lp.to_stage }}</span>
         <span class="text-gray-300">·</span>
-        <span>{{ lp.created_at[:10] }}</span>
+        <span>{{ lp.created_at | fmt_date(user.date_format) }}</span>
         <span class="text-gray-300">·</span>
         <span>{{ progression_history | length }} entr{{ 'ies' if progression_history | length != 1 else 'y' }}</span>
       </p>
@@ -1534,7 +1529,7 @@
       <div class="flex items-center gap-3 text-sm">
         <span class="px-2 py-0.5 bg-{{ dc }}-100 text-{{ dc }}-700 rounded font-bold text-xs">{{ prog.decision }}</span>
         <span class="text-gray-600">Stage {{ prog.from_stage }} → Stage {{ prog.to_stage }}</span>
-        <span class="text-xs text-gray-400">{{ prog.created_at[:10] }}</span>
+        <span class="text-xs text-gray-400">{{ prog.created_at | fmt_date(user.date_format) }}</span>
       </div>
       {% endfor %}
     </div>
@@ -2157,25 +2152,6 @@ function _renderAdaptationStrip(adaptation) {
   strip.classList.remove('hidden');
 }
 
-// ── Log overlay ──────────────────────────────────────────────────────────────
-async function toggleLogOverlay() {
-  _showLogOverlay = !_showLogOverlay;
-  var btn   = document.getElementById('log-overlay-btn');
-  var label = document.getElementById('log-overlay-label');
-  if (btn) {
-    btn.classList.toggle('border-green-400', _showLogOverlay);
-    btn.classList.toggle('bg-green-50',  _showLogOverlay);
-    btn.classList.toggle('text-green-700', _showLogOverlay);
-    btn.classList.toggle('border-gray-200', !_showLogOverlay);
-    btn.classList.toggle('text-gray-500', !_showLogOverlay);
-  }
-  if (label) label.textContent = _showLogOverlay ? 'Hide completed' : 'Show completed';
-  // Refresh visible view
-  await renderWeekly();
-  if (!document.getElementById('prog-monthly').classList.contains('hidden')) {
-    await renderMonthly();
-  }
-}
 
 async function _ensureLogsLoaded(fromStr, toStr) {
   // Check whether any date in the local range is missing from cache

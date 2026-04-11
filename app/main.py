@@ -75,6 +75,27 @@ app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="stat
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 
+def _fmt_date(date_str, fmt=None) -> str:
+    """Jinja2 filter: reformat a YYYY-MM-DD string to the user's preferred format."""
+    if not date_str:
+        return ""
+    try:
+        d = datetime.strptime(str(date_str)[:10], "%Y-%m-%d")
+        fmt = fmt or "MM-DD-YYYY"
+        sep = "/" if "/" in fmt else "-"
+        if fmt.startswith("DD"):
+            return d.strftime(f"%d{sep}%m{sep}%Y")
+        elif fmt.startswith("YYYY"):
+            return d.strftime(f"%Y{sep}%m{sep}%d")
+        else:  # MM-first default
+            return d.strftime(f"%m{sep}%d{sep}%Y")
+    except (ValueError, TypeError):
+        return str(date_str)[:10]
+
+
+templates.env.filters["fmt_date"] = _fmt_date
+
+
 # ---------------------------------------------------------------------------
 # Startup
 # ---------------------------------------------------------------------------
@@ -827,6 +848,30 @@ async def account_clear_condition(
     finally:
         await db.close()
     return RedirectResponse("/account?msg=Condition+data+cleared.&msg_type=success", status_code=303)
+
+
+@app.post("/account/update-preferences")
+async def account_update_preferences(
+    teno_session: Optional[str] = Cookie(default=None),
+    date_format: str = Form(default="MM-DD-YYYY"),
+    color_tags_enabled: str = Form(default="0"),
+):
+    user = await get_authenticated_user(teno_session)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    if date_format not in ("MM-DD-YYYY", "DD-MM-YYYY", "YYYY-MM-DD", "MM/DD/YYYY", "DD/MM/YYYY", "YYYY/MM/DD"):
+        date_format = "MM-DD-YYYY"
+    color_tags = 1 if color_tags_enabled == "1" else 0
+    db = await get_db()
+    try:
+        await db.execute(
+            "UPDATE users SET date_format = ?, color_tags_enabled = ? WHERE id = ?",
+            (date_format, color_tags, user["id"]),
+        )
+        await db.commit()
+    finally:
+        await db.close()
+    return RedirectResponse("/account?msg=Preferences+saved.&msg_type=success", status_code=303)
 
 
 @app.post("/account/update-password")
@@ -2399,41 +2444,76 @@ async def exercise_log_get(
     try:
         cursor = await db.execute(
             "SELECT id, pain_during, pain_after, next_day_pain, exercise_log, created_at "
-            "FROM daily_logs WHERE user_id = ? ORDER BY created_at DESC LIMIT 30",
+            "FROM daily_logs WHERE user_id = ? ORDER BY created_at DESC LIMIT 60",
             (user["id"],),
         )
         log_rows = await cursor.fetchall()
         logs = [row_to_dict(r) for r in log_rows]
+
+        # All plans in chronological order — used to attribute each log to a phase
+        cursor = await db.execute(
+            "SELECT id, stage, irritability, decision, created_at "
+            "FROM rehab_plans WHERE user_id = ? ORDER BY created_at ASC",
+            (user["id"],),
+        )
+        plan_rows = await cursor.fetchall()
+        plans = [row_to_dict(r) for r in plan_rows]
     finally:
         await db.close()
 
-    # Group sessions by exercise name so each exercise gets its own history table.
-    # exercise_history: OrderedDict preserving first-seen order (most recent first).
-    exercise_history: dict = {}
+    _STAGE_NAMES = {1: "Capacity Initiation", 2: "Strength Development", 3: "Energy Storage & Release"}
+
+    def _active_plan(log_date: str) -> dict | None:
+        """Return the most recent plan whose created_at <= log_date."""
+        active = None
+        for p in plans:  # ASC order
+            if p["created_at"][:10] <= log_date:
+                active = p
+            else:
+                break
+        return active
+
+    # Build phase_groups keyed by plan id, preserving chronological insertion order
+    # Each phase = {stage, stage_name, irritability, decision, plan_date, exercises: {name: {...}}}
+    phase_groups: dict = {}
 
     for log in logs:
         try:
             ex_log = json.loads(log.get("exercise_log") or "{}")
         except (json.JSONDecodeError, TypeError):
             continue
-
         exercises = ex_log.get("exercises", [])
         if not exercises:
             continue
 
         date_str = log["created_at"][:10]
+        active = _active_plan(date_str)
+        # Use plan id as key; fall back to a synthetic "no-plan" bucket
+        bucket_key = active["id"] if active else 0
 
+        if bucket_key not in phase_groups:
+            stage = active["stage"] if active else 1
+            phase_groups[bucket_key] = {
+                "stage": stage,
+                "stage_name": _STAGE_NAMES.get(stage, f"Stage {stage}"),
+                "irritability": active["irritability"] if active else "",
+                "decision": active["decision"] if active else "",
+                "plan_date": active["created_at"][:10] if active else "",
+                "exercises": {},
+            }
+
+        ex_bucket = phase_groups[bucket_key]["exercises"]
         for ex in exercises:
             name = ex.get("name", "Unknown")
-            if name not in exercise_history:
-                exercise_history[name] = {
+            if name not in ex_bucket:
+                ex_bucket[name] = {
                     "name": name,
                     "type": ex.get("type", ""),
                     "prescribed_sets": ex.get("prescribed_sets"),
                     "prescribed_reps": ex.get("prescribed_reps", ""),
                     "sessions": [],
                 }
-            exercise_history[name]["sessions"].append({
+            ex_bucket[name]["sessions"].append({
                 "date": date_str,
                 "sets_done": ex.get("sets_done"),
                 "reps_done": ex.get("reps_done"),
@@ -2444,14 +2524,26 @@ async def exercise_log_get(
                 "next_day_pain": log["next_day_pain"],
             })
 
+    # Convert to list: current phase first (reverse chronological)
+    phase_list = list(phase_groups.values())
+    phase_list.reverse()
+    _today_str = datetime.utcnow().date().isoformat()
+    if phase_list:
+        phase_list[0]["is_current"] = True
+    # Assign end dates: current → today, previous → start of next phase
+    for i, ph in enumerate(phase_list):
+        ph["end_date"] = _today_str if i == 0 else phase_list[i - 1]["plan_date"]
+
     total_logged = sum(1 for l in logs if json.loads(l.get("exercise_log") or "{}").get("exercises"))
+    total_exercises = sum(len(pg["exercises"]) for pg in phase_list)
 
     return templates.TemplateResponse(
         request, "exercise_log.html",
         context={
             "user": user,
-            "exercise_history": list(exercise_history.values()),
+            "phase_list": phase_list,
             "total_sessions": total_logged,
+            "total_exercises": total_exercises,
         },
     )
 

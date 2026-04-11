@@ -11,18 +11,9 @@
         <h1 class="text-2xl font-black text-white leading-tight">Exercise Library</h1>
         <p class="text-sm text-brand-200 mt-0.5">{{ total_exercises }} exercises across 8 loading categories. Sections with recommendations are highlighted.</p>
       </div>
-      <div class="flex items-center gap-2 flex-wrap justify-end">
-        {% if current_irritability %}
-        {% set ibg = {'high': 'bg-red-400/30 text-red-100 border-red-400/40', 'moderate': 'bg-yellow-400/30 text-yellow-100 border-yellow-400/40', 'low': 'bg-green-400/30 text-green-100 border-green-400/40'} %}
-        <span class="text-xs px-3 py-1.5 rounded-full font-bold border {{ ibg.get(current_irritability, 'bg-white/20 text-white border-white/30') }} uppercase">{{ current_irritability }}</span>
-        {% endif %}
-        {% if current_stage %}
-        <span class="text-xs px-3 py-1.5 rounded-full font-bold bg-white/20 text-white border border-white/30">Stage {{ current_stage }}</span>
-        {% endif %}
-        {% if is_insertional %}
-        <span class="text-xs px-3 py-1.5 rounded-full font-bold bg-amber-400/30 text-amber-100 border border-amber-400/40">Insertional</span>
-        {% endif %}
-      </div>
+      {% if is_insertional %}
+      <span class="text-xs px-3 py-1.5 rounded-full font-bold bg-amber-400/30 text-amber-100 border border-amber-400/40 shrink-0">Insertional</span>
+      {% endif %}
     </div>
   </div>
 
@@ -112,8 +103,19 @@
 
   <!-- Recommended For You -->
   {% if top_recommendations %}
-  <div class="mb-6">
-    <h2 class="text-sm font-bold text-gray-700 uppercase tracking-wide mb-3">Recommended For You</h2>
+  <div class="mb-4 bg-white rounded-2xl border border-brand-200 shadow-sm overflow-hidden">
+    <button type="button" onclick="toggleSection('rec-section')"
+            class="w-full flex items-center justify-between px-5 py-3.5 text-left focus:outline-none hover:bg-gray-50 transition-colors">
+      <div class="flex items-center gap-2.5">
+        <span class="text-sm font-bold text-gray-800">Recommended For You</span>
+        <span class="text-xs px-2 py-0.5 rounded-full bg-brand-100 text-brand-700 font-semibold">{{ top_recommendations | length }}</span>
+      </div>
+      <svg id="rec-section-chevron" class="w-4 h-4 text-gray-400 transition-transform duration-200 rotate-[-90deg]"
+           fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+      </svg>
+    </button>
+    <div id="rec-section" class="hidden px-5 pb-5 pt-3 border-t border-gray-100">
     <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {% for rec in top_recommendations %}
       {% set ex = rec.exercise %}
@@ -156,10 +158,11 @@
       </div>
       {% endfor %}
     </div>
-  </div>
+    </div>{# end rec-section body #}
+  </div>{# end rec card #}
   {% endif %}
 
-  <!-- Functional Measures Grid -->
+  <!-- Functional Measures -->
   {% set ws = wblt_result %}
   {% if has_onboarding %}
   {# ── LSI badge macro ── #}
@@ -172,7 +175,20 @@
     {% endif %}
   {% endmacro %}
 
-  <div class="grid gap-3 sm:grid-cols-2 mb-6">
+  <div class="mb-4 bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+    <button type="button" onclick="toggleSection('func-section')"
+            class="w-full flex items-center justify-between px-5 py-3.5 text-left focus:outline-none hover:bg-gray-50 transition-colors">
+      <div class="flex items-center gap-2.5">
+        <span class="text-sm font-bold text-gray-800">Functional Measures</span>
+        <span class="text-xs text-gray-400">4 assessments</span>
+      </div>
+      <svg id="func-section-chevron" class="w-4 h-4 text-gray-400 transition-transform duration-200 rotate-[-90deg]"
+           fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+      </svg>
+    </button>
+    <div id="func-section" class="hidden px-5 pb-5 pt-3 border-t border-gray-100">
+  <div class="grid gap-3 sm:grid-cols-2">
 
     {# ── WBLT / Dorsiflexion ── #}
     {% if wblt_cm is not none %}
@@ -400,7 +416,9 @@
       </div>
     </div>
 
-  </div>
+  </div>{# end grid #}
+  </div>{# end func-section body #}
+  </div>{# end func card #}
 
   {% elif not has_onboarding %}
   <div class="mb-6 rounded-xl border border-gray-200 bg-gray-50 px-5 py-3 text-sm text-gray-500">
@@ -514,14 +532,14 @@
         </div>
         <svg id="cat-{{ cat_key }}-chevron"
              class="w-4 h-4 text-gray-400 shrink-0 transition-transform duration-200 {{ '' if cat_open else '' }}"
-             style="{{ 'transform: rotate(180deg)' if cat_open else '' }}"
+             style=""
              fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
         </svg>
       </button>
 
       <!-- Collapsible exercise grid -->
-      <div id="cat-{{ cat_key }}" class="{{ '' if cat_open else 'hidden' }} border-t border-gray-100 p-4">
+      <div id="cat-{{ cat_key }}" class="hidden border-t border-gray-100 p-4">
       <div class="grid gap-4 sm:grid-cols-2">
         {% for ex in cat_exercises %}
 
@@ -777,6 +795,15 @@
 
 {% block scripts %}
 <script>
+  function toggleSection(id) {
+    const panel   = document.getElementById(id);
+    const chevron = document.getElementById(id + '-chevron');
+    if (!panel) return;
+    const open = !panel.classList.contains('hidden');
+    panel.classList.toggle('hidden', open);
+    if (chevron) chevron.style.transform = open ? 'rotate(-90deg)' : '';
+  }
+
   function toggleCategory(id) {
     const panel   = document.getElementById(id);
     const chevron = document.getElementById(id + '-chevron');

@@ -343,12 +343,15 @@
         <p class="text-sm text-brand-200 mt-0.5">Log what you completed — your data drives the next plan.</p>
       </div>
       <div class="flex items-center gap-2 flex-wrap justify-end">
+        {% if user.color_tags_enabled != 0 %}
+        {% set itx = {'high': 'text-red-600', 'moderate': 'text-yellow-600', 'low': 'text-green-600'} %}
+        {% set stx = {1: 'text-sky-600', 2: 'text-indigo-600', 3: 'text-emerald-600'} %}
         {% if current_irritability %}
-        {% set ibg = {'high': 'bg-red-400/30 text-red-100 border-red-400/40', 'moderate': 'bg-yellow-400/30 text-yellow-100 border-yellow-400/40', 'low': 'bg-green-400/30 text-green-100 border-green-400/40'} %}
-        <span class="text-xs px-3 py-1.5 rounded-full font-bold border {{ ibg.get(current_irritability, 'bg-white/20 text-white border-white/30') }} uppercase">{{ current_irritability }}</span>
+        <span class="text-xs px-3 py-1.5 rounded-full font-bold bg-white {{ itx.get(current_irritability, 'text-gray-600') }} uppercase">{{ current_irritability }}</span>
         {% endif %}
         {% if current_stage %}
-        <span class="text-xs px-3 py-1.5 rounded-full font-bold bg-white/20 text-white border border-white/30">Stage {{ current_stage }}</span>
+        <span class="text-xs px-3 py-1.5 rounded-full font-bold bg-white {{ stx.get(current_stage, 'text-gray-600') }}">Stage {{ current_stage }}</span>
+        {% endif %}
         {% endif %}
         {% if is_insertional %}
         <span class="text-xs px-3 py-1.5 rounded-full font-bold bg-amber-400/30 text-amber-100 border border-amber-400/40">Insertional</span>
