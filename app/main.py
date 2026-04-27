@@ -49,6 +49,7 @@ from app.engine.rules import (
 )
 from app.engine.visa_a import score_visa_a, get_questions, visa_a_score_from_form
 from app.engine.ai_explainer import generate_explanation
+from app.engine.access import can_override_session_spacing, get_max_weekly_sessions
 from app.notifier import generate_code, send_2fa_code, mask_email
 
 # ---------------------------------------------------------------------------
@@ -1492,6 +1493,7 @@ async def dashboard(
         recent_logs=recent_logs,
         session_plan=rehab_state.get("session_plan", []),
         kb_entries=sched_kb_entries,
+        user=user,
     )
 
     # Dashboard layout order
@@ -1642,6 +1644,7 @@ def _compute_adaptive_schedule(
     recent_logs: list,
     session_plan: list,
     kb_entries: list | None = None,
+    user: dict | None = None,
 ) -> dict:
     """
     Compute the recommended weekly session frequency and day distribution,
@@ -1828,11 +1831,33 @@ def _compute_adaptive_schedule(
         6: [0, 1, 2, 3, 5, 6],
         7: [0, 1, 2, 3, 4, 5, 6],
     }
+    # Enforce session-spacing rules for patient accounts.
+    # Every-other-day pattern is the clinical default; clinician accounts
+    # may override this (access.can_override_session_spacing stub).
+    _max_sessions = get_max_weekly_sessions(user) if user else 4
+    base_freq = min(base_freq, _max_sessions)
+
+    # Non-consecutive day patterns (always at least one rest day between sessions).
+    # Keys 5–7 are intentionally omitted for patient accounts; only reachable
+    # for clinician-level users once access control is fully integrated.
+    day_patterns = {
+        1: [0],            # Mon
+        2: [0, 3],         # Mon, Thu
+        3: [0, 2, 4],      # Mon, Wed, Fri
+        4: [0, 2, 4, 6],   # Mon, Wed, Fri, Sun — every other day
+        # Clinician-only (5–7): require can_override_session_spacing
+        5: [0, 2, 4, 6, 1],  # adds Tue; only reached when clinician override active
+        6: [0, 1, 3, 4, 6, 2],
+        7: [0, 1, 2, 3, 4, 5, 6],
+    }
     session_days = day_patterns.get(min(base_freq, 7), [0, 2, 4])
 
     # ── Frequency note ─────────────────────────────────────────────────────
     min_recovery_h = {1: 24, 2: 48, 3: 72}.get(stage, 48)
-    freq_note = f"{base_freq} day{'s' if base_freq != 1 else ''}/week"
+    # Show a range for 3–4 session frequencies to communicate the alternating
+    # cross-week pattern (e.g. a 4-session week is followed by a 3-session week).
+    sessions_range = f"{base_freq - 1}–{base_freq}" if base_freq >= 3 else str(base_freq)
+    freq_note = f"{sessions_range} session{'s' if base_freq != 1 else ''}/week"
     if stage == 1:
         freq_note += " — isometric loading; adjust daily based on morning pain"
     elif stage == 2:
@@ -1843,6 +1868,7 @@ def _compute_adaptive_schedule(
     return {
         "session_days": session_days,
         "sessions_per_week": base_freq,
+        "sessions_range": sessions_range,
         "freq_note": freq_note,
         "factors": factors,
         "avg_next_day_pain": avg_next_day,
@@ -2013,6 +2039,16 @@ async def daily_log_get(
         if await _log_cur.fetchone():
             return RedirectResponse("/dashboard?already_logged=1", status_code=302)
 
+        # Guard: consecutive-day restriction — sessions must have at least one rest day
+        if not can_override_session_spacing(user):
+            _yesterday_str = (_today_utc - timedelta(days=1)).isoformat()
+            _consec_cur = await db.execute(
+                "SELECT id FROM daily_logs WHERE user_id = ? AND DATE(created_at) = ? LIMIT 1",
+                (user["id"], _yesterday_str),
+            )
+            if await _consec_cur.fetchone():
+                return RedirectResponse("/dashboard?consecutive_blocked=1", status_code=302)
+
         _cur = await db.execute(
             "SELECT session_days FROM schedule_overrides WHERE user_id = ? AND week_start = ?",
             (user["id"], _week_start),
@@ -2043,9 +2079,9 @@ async def daily_log_post(
     response: Response,
     teno_session: Optional[str] = Cookie(default=None),
     pain_during: int = Form(...),
-    pain_after: int = Form(...),
+    pain_after: int = Form(default=0),
     pain_later_same_day: int = Form(default=0),
-    next_day_pain: int = Form(...),
+    next_day_pain: int = Form(default=0),
     next_morning_stiffness: int = Form(default=0),
     difficulty: int = Form(...),
     confidence: int = Form(...),
@@ -2068,7 +2104,8 @@ async def daily_log_post(
         return RedirectResponse("/login", status_code=302)
 
     # Guard: block duplicate logs for the same UTC date
-    _post_today_utc = datetime.utcnow().date().isoformat()
+    _post_today_utc_dt = datetime.utcnow().date()
+    _post_today_utc = _post_today_utc_dt.isoformat()
     _post_db = await get_db()
     try:
         _post_cur = await _post_db.execute(
@@ -2077,6 +2114,16 @@ async def daily_log_post(
         )
         if await _post_cur.fetchone():
             return RedirectResponse("/dashboard?already_logged=1", status_code=302)
+
+        # Guard: consecutive-day restriction
+        if not can_override_session_spacing(user):
+            _post_yesterday = (_post_today_utc_dt - timedelta(days=1)).isoformat()
+            _post_consec = await _post_db.execute(
+                "SELECT id FROM daily_logs WHERE user_id = ? AND DATE(created_at) = ? LIMIT 1",
+                (user["id"], _post_yesterday),
+            )
+            if await _post_consec.fetchone():
+                return RedirectResponse("/dashboard?consecutive_blocked=1", status_code=302)
     finally:
         await _post_db.close()
 
@@ -2288,13 +2335,30 @@ async def daily_log_post(
             loading_context_changes=loading_context_changes,
         )
 
-        # Save log
-        await db.execute(
+        # Save log — time-delayed pain fields start at 0 and are filled via follow-up check-ins
+        _insert_cur = await db.execute(
             """INSERT INTO daily_logs
-               (user_id, session_id, pain_during, pain_after, next_day_pain, morning_stiffness, difficulty, confidence, notes, load_context, exercise_log)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (user["id"], plan_id, pain_during, pain_after, next_day_pain, next_morning_stiffness, difficulty, confidence, notes, load_context_json, exercise_log_json),
+               (user_id, session_id, pain_during, pain_after, pain_later_same_day,
+                next_day_pain, morning_stiffness, difficulty, confidence, notes,
+                load_context, exercise_log, is_complete)
+               VALUES (?, ?, ?, 0, NULL, 0, 0, ?, ?, ?, ?, ?, 0)""",
+            (user["id"], plan_id, pain_during, difficulty, confidence, notes,
+             load_context_json, exercise_log_json),
         )
+        new_log_id = _insert_cur.lastrowid
+
+        # Schedule follow-up check-ins
+        _now_utc = datetime.utcnow()
+        _fu_records = [
+            ("1hr",          (_now_utc + timedelta(hours=1)).isoformat()),
+            ("evening",      (_now_utc + timedelta(hours=6)).isoformat()),
+            ("next_morning", (datetime(_now_utc.year, _now_utc.month, _now_utc.day, 8, 0, 0) + timedelta(days=1)).isoformat()),
+        ]
+        for _chk, _due in _fu_records:
+            await db.execute(
+                "INSERT INTO session_follow_ups (user_id, log_id, checkpoint, due_at) VALUES (?, ?, ?, ?)",
+                (user["id"], new_log_id, _chk, _due),
+            )
 
         # If stage progression is warranted, create new plan
         if progression.can_progress_stage and progression.proposed_stage != current_stage:
@@ -2366,6 +2430,8 @@ async def daily_log_post(
         context={
             "user": user,
             "submitted": True,
+            "pending_followups": True,
+            "new_log_id": new_log_id,
             "session_tolerance": session_tolerance,
             "session_report": session_report,
             "progression": progression,
@@ -2380,6 +2446,209 @@ async def daily_log_post(
             "next_stage": next_stage,
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# GET/POST /daily-log/followup/{log_id}
+# ---------------------------------------------------------------------------
+
+_FOLLOWUP_FIELDS = {
+    "1hr":          {"pain_after": "Pain in the hour after"},
+    "evening":      {"pain_later_same_day": "Pain later same day"},
+    "next_morning": {"next_day_pain": "Pain next morning", "next_morning_stiffness": "Stiffness next morning"},
+}
+_FOLLOWUP_LABELS = {
+    "1hr":          "1 hour after session",
+    "evening":      "Later same day",
+    "next_morning": "Next morning",
+}
+
+
+@app.get("/daily-log/followup/{log_id}", response_class=HTMLResponse)
+async def followup_get(
+    request: Request,
+    log_id: int,
+    teno_session: Optional[str] = Cookie(default=None),
+):
+    user = await get_authenticated_user(teno_session)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    db = await get_db()
+    try:
+        log_cur = await db.execute(
+            "SELECT id, pain_during, created_at, is_complete FROM daily_logs WHERE id = ? AND user_id = ?",
+            (log_id, user["id"]),
+        )
+        log_row = await log_cur.fetchone()
+        if not log_row:
+            return RedirectResponse("/dashboard", status_code=302)
+        log = row_to_dict(log_row)
+
+        fu_cur = await db.execute(
+            "SELECT id, checkpoint, due_at, completed FROM session_follow_ups "
+            "WHERE log_id = ? AND user_id = ? ORDER BY due_at ASC",
+            (log_id, user["id"]),
+        )
+        fu_rows = await fu_cur.fetchall()
+        followups = [row_to_dict(r) for r in fu_rows]
+    finally:
+        await db.close()
+
+    now_utc = datetime.utcnow().isoformat()
+    pending = [f for f in followups if not f["completed"]]
+
+    return templates.TemplateResponse(
+        request, "followup.html",
+        context={
+            "user": user,
+            "log": log,
+            "followups": followups,
+            "pending": pending,
+            "now_utc": now_utc,
+            "checkpoint_labels": _FOLLOWUP_LABELS,
+            "checkpoint_fields": _FOLLOWUP_FIELDS,
+        },
+    )
+
+
+@app.post("/daily-log/followup/{log_id}", response_class=HTMLResponse)
+async def followup_post(
+    request: Request,
+    log_id: int,
+    teno_session: Optional[str] = Cookie(default=None),
+    pain_after: int = Form(default=0),
+    pain_later_same_day: int = Form(default=0),
+    next_day_pain: int = Form(default=0),
+    next_morning_stiffness: int = Form(default=0),
+    submitted_checkpoints: str = Form(default=""),
+):
+    user = await get_authenticated_user(teno_session)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    db = await get_db()
+    try:
+        # Verify log belongs to user
+        log_cur = await db.execute(
+            "SELECT id, pain_during, is_complete FROM daily_logs WHERE id = ? AND user_id = ?",
+            (log_id, user["id"]),
+        )
+        log_row = await log_cur.fetchone()
+        if not log_row:
+            return RedirectResponse("/dashboard", status_code=302)
+
+        checkpoints = [c.strip() for c in submitted_checkpoints.split(",") if c.strip()]
+        now_utc = datetime.utcnow().isoformat()
+
+        # Update pain fields for each submitted checkpoint
+        for chk in checkpoints:
+            if chk == "1hr":
+                await db.execute(
+                    "UPDATE daily_logs SET pain_after = ? WHERE id = ?",
+                    (pain_after, log_id),
+                )
+            elif chk == "evening":
+                await db.execute(
+                    "UPDATE daily_logs SET pain_later_same_day = ? WHERE id = ?",
+                    (pain_later_same_day, log_id),
+                )
+            elif chk == "next_morning":
+                await db.execute(
+                    "UPDATE daily_logs SET next_day_pain = ?, morning_stiffness = ? WHERE id = ?",
+                    (next_day_pain, next_morning_stiffness, log_id),
+                )
+            # Mark this checkpoint as completed
+            await db.execute(
+                "UPDATE session_follow_ups SET completed = 1, completed_at = ? "
+                "WHERE log_id = ? AND checkpoint = ? AND user_id = ?",
+                (now_utc, log_id, chk, user["id"]),
+            )
+
+        # Check if all follow-ups for this log are now done
+        remaining_cur = await db.execute(
+            "SELECT COUNT(*) as cnt FROM session_follow_ups WHERE log_id = ? AND completed = 0",
+            (log_id,),
+        )
+        remaining_row = await remaining_cur.fetchone()
+        all_done = (remaining_row["cnt"] == 0)
+
+        if all_done:
+            await db.execute("UPDATE daily_logs SET is_complete = 1 WHERE id = ?", (log_id,))
+            # Re-evaluate irritability with complete pain data
+            full_log_cur = await db.execute(
+                "SELECT pain_during, pain_after, next_day_pain FROM daily_logs WHERE id = ?",
+                (log_id,),
+            )
+            full_row = await full_log_cur.fetchone()
+            if full_row:
+                _pd, _pa, _nd = full_row["pain_during"], full_row["pain_after"], full_row["next_day_pain"]
+                final_irritability = update_irritability_from_log(_pd, _pa, _nd)
+                # Update most recent plan
+                plan_cur = await db.execute(
+                    "SELECT id FROM rehab_plans WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
+                    (user["id"],),
+                )
+                plan_row = await plan_cur.fetchone()
+                if plan_row:
+                    await db.execute(
+                        "UPDATE rehab_plans SET irritability = ? WHERE id = ?",
+                        (final_irritability, plan_row["id"]),
+                    )
+
+        await db.commit()
+    finally:
+        await db.close()
+
+    return RedirectResponse("/dashboard?followup_saved=1", status_code=302)
+
+
+# ---------------------------------------------------------------------------
+# GET /api/notifications
+# ---------------------------------------------------------------------------
+
+@app.get("/api/notifications")
+async def get_notifications(
+    teno_session: Optional[str] = Cookie(default=None),
+):
+    user = await get_current_user(teno_session)
+    if not user:
+        return {"pending": [], "count": 0}
+
+    now_utc = datetime.utcnow().isoformat()
+    db = await get_db()
+    try:
+        cursor = await db.execute(
+            """SELECT sf.id, sf.log_id, sf.checkpoint, sf.due_at,
+                      DATE(dl.created_at) as session_date
+               FROM session_follow_ups sf
+               JOIN daily_logs dl ON dl.id = sf.log_id
+               WHERE sf.user_id = ? AND sf.completed = 0
+               ORDER BY sf.due_at ASC""",
+            (user["id"],),
+        )
+        rows = await cursor.fetchall()
+    finally:
+        await db.close()
+
+    pending = []
+    due_count = 0
+    for row in rows:
+        r = row_to_dict(row)
+        is_due = r["due_at"] <= now_utc
+        if is_due:
+            due_count += 1
+        pending.append({
+            "id": r["id"],
+            "log_id": r["log_id"],
+            "checkpoint": r["checkpoint"],
+            "checkpoint_label": _FOLLOWUP_LABELS.get(r["checkpoint"], r["checkpoint"]),
+            "due_at": r["due_at"],
+            "is_due": is_due,
+            "session_date": r["session_date"],
+        })
+
+    return {"pending": pending, "count": due_count}
 
 
 # ---------------------------------------------------------------------------
@@ -2690,6 +2959,49 @@ async def save_schedule_override(
     session_days = body.get("session_days", [])
     if not week:
         raise HTTPException(status_code=400, detail="week is required")
+
+    # Enforce session-spacing rules for patient accounts
+    if not can_override_session_spacing(user):
+        from datetime import date as _sched_date, timedelta as _sched_td
+
+        try:
+            week_date = _sched_date.fromisoformat(week)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid week format")
+
+        _today = _sched_date.today()
+
+        # Fetch dates that have an actual logged session this week
+        _log_db = await get_db()
+        try:
+            _log_cur = await _log_db.execute(
+                "SELECT DATE(created_at) as log_date FROM daily_logs "
+                "WHERE user_id = ? AND DATE(created_at) >= ? AND DATE(created_at) <= ?",
+                (user["id"], week_date.isoformat(), (week_date + _sched_td(days=6)).isoformat()),
+            )
+            _log_rows = await _log_cur.fetchall()
+            _logged_dates = {r["log_date"] for r in _log_rows}
+        finally:
+            await _log_db.close()
+
+        sorted_days = sorted(session_days)
+        for i in range(1, len(sorted_days)):
+            if sorted_days[i] - sorted_days[i - 1] == 1:
+                day0_date = week_date + _sched_td(days=sorted_days[i - 1])
+                day1_date = week_date + _sched_td(days=sorted_days[i])
+                # A past day only "counts" if the user actually logged a session then.
+                # A missed scheduled day must not block adjacent scheduling.
+                day0_trained = (day0_date >= _today) or (day0_date.isoformat() in _logged_dates)
+                day1_trained = (day1_date >= _today) or (day1_date.isoformat() in _logged_dates)
+                if day0_trained and day1_trained:
+                    raise HTTPException(status_code=403, detail="consecutive_days")
+
+        if len(session_days) > get_max_weekly_sessions(user):
+            raise HTTPException(
+                status_code=403,
+                detail="session_cap_exceeded",
+            )
+
     db = await get_db()
     try:
         await db.execute(

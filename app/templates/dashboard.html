@@ -41,6 +41,20 @@
 </div>
 {% endif %}
 
+{% if request.query_params.get('consecutive_blocked') %}
+<div class="bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 mb-4 flex items-center gap-3">
+  <svg class="w-5 h-5 text-amber-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+  <p class="text-sm text-amber-800 font-medium">Rest day required — you logged a session yesterday. Sessions must be separated by at least one rest day to allow tendon recovery.</p>
+</div>
+{% endif %}
+
+{% if request.query_params.get('followup_saved') %}
+<div class="bg-green-50 border border-green-300 rounded-xl px-4 py-3 mb-4 flex items-center gap-3">
+  <svg class="w-5 h-5 text-green-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+  <p class="text-sm text-green-800 font-medium">Check-in saved. Your session data has been updated.</p>
+</div>
+{% endif %}
+
 <!-- Already-logged modal -->
 <div id="already-logged-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
   <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="document.getElementById('already-logged-modal').classList.add('hidden')"></div>
@@ -54,6 +68,24 @@
     <p class="text-sm text-gray-600 mb-5">Rest up — come back tomorrow for your next session.</p>
     <button onclick="document.getElementById('already-logged-modal').classList.add('hidden')"
             class="w-full px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-semibold hover:bg-brand-700 transition-colors">
+      Got it
+    </button>
+  </div>
+</div>
+
+<!-- Schedule restriction modal (consecutive days / session cap) -->
+<div id="schedule-restriction-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+  <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="closeScheduleRestrictionModal()"></div>
+  <div class="relative bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 text-center">
+    <div class="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+      <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+      </svg>
+    </div>
+    <h3 id="schedule-restriction-title" class="text-lg font-bold text-gray-900 mb-2">Action not permitted</h3>
+    <p id="schedule-restriction-body" class="text-sm text-gray-500 mb-5"></p>
+    <button onclick="closeScheduleRestrictionModal()"
+            class="w-full px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-semibold hover:bg-amber-600 transition-colors">
       Got it
     </button>
   </div>
@@ -1029,7 +1061,7 @@
     </div>
     <div class="flex items-center gap-2 flex-wrap justify-end">
       <span class="text-xs px-2.5 py-1 rounded-full bg-brand-50 text-brand-700 font-semibold border border-brand-100">
-        {{ weekly_schedule.sessions_per_week }} sessions / week
+        {{ weekly_schedule.sessions_range }} sessions / week
       </span>
       <!-- Log overlay toggle -->
       <button type="button" id="log-overlay-btn" onclick="toggleLogOverlay()"
@@ -1038,14 +1070,6 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
         <span id="log-overlay-label">Show completed</span>
-      </button>
-      <button type="button" id="week-start-btn"
-              onclick="toggleWeekStart()"
-              class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-brand-300 hover:text-brand-700 transition-colors font-medium">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-        </svg>
-        <span id="week-start-label">Mon–Sun</span>
       </button>
       <button type="button" id="prog-toggle-btn"
               onclick="toggleMonthlyProgram()"
@@ -1098,77 +1122,10 @@
   </div>
   {% endif %}
 
-  {# ── Evidence Base strip ── #}
-  {% if weekly_schedule.evidence_sources %}
-  <div class="border-b border-gray-100">
-    {# Toggle button #}
-    <button type="button" onclick="toggleEvidenceBase()"
-            class="w-full px-5 py-3 flex items-center gap-2 bg-blue-50/60 hover:bg-blue-50 transition-colors text-left focus:outline-none">
-      <svg id="evidence-chevron" class="w-3.5 h-3.5 text-blue-400 transition-transform duration-150 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
-      </svg>
-      <span class="text-xs font-semibold text-blue-700">Evidence Base</span>
-      <span class="text-[0.625rem] text-blue-400 ml-1">{{ weekly_schedule.evidence_sources | length }} studies</span>
-      {# Consensus badge — median of study midpoints #}
-      {% set freq_vals = weekly_schedule.evidence_sources | map(attribute='parsed_per_week') | select | list %}
-      {% if freq_vals %}
-      {% set consensus = (freq_vals | sum / freq_vals | length) | round(0) | int %}
-      {% set freq_lo_vals = weekly_schedule.evidence_sources | map(attribute='freq_lo') | select | list %}
-      {% set freq_hi_vals = weekly_schedule.evidence_sources | map(attribute='freq_hi') | select | list %}
-      {% set c_lo = freq_lo_vals | min if freq_lo_vals else consensus %}
-      {% set c_hi = freq_hi_vals | max if freq_hi_vals else consensus %}
-      <span class="ml-auto flex items-center gap-1.5 shrink-0">
-        <span class="text-[0.625rem] text-blue-400">Consensus:</span>
-        <span class="px-2 py-0.5 bg-brand-600 text-white rounded-full font-bold text-[0.6875rem]">
-          {% if c_lo != c_hi %}{{ c_lo }}–{{ c_hi }}{% else %}{{ consensus }}{% endif %}× / week
-        </span>
-      </span>
-      {% endif %}
-    </button>
-
-    {# Expandable panel #}
-    <div id="evidence-base" class="hidden bg-white px-5 pb-4 pt-3">
-
-      {# Study cards grid #}
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
-        {% for src in weekly_schedule.evidence_sources %}
-        <div class="rounded-lg border border-blue-100 bg-blue-50/40 px-3 py-2.5 flex flex-col gap-1.5">
-
-          {# Top row: freq badge + year #}
-          <div class="flex items-center justify-between gap-2">
-            <span class="px-2.5 py-0.5 bg-brand-600 text-white rounded-full font-black text-sm leading-tight">
-              {% if src.freq_lo is defined and src.freq_hi is defined and src.freq_lo != src.freq_hi %}
-                {{ src.freq_lo }}–{{ src.freq_hi }}
-              {% else %}
-                {{ src.freq_lo if src.freq_lo is defined else src.parsed_per_week }}
-              {% endif %}<span class="text-[0.625rem] font-semibold">× /wk</span>
-            </span>
-            <span class="text-[0.625rem] font-semibold text-blue-300 bg-blue-100 px-2 py-0.5 rounded-full">{{ src.year }}</span>
-          </div>
-
-          {# Study title #}
-          <p class="text-[0.6875rem] font-semibold text-gray-700 leading-snug line-clamp-2">{{ src.title }}</p>
-
-          {# Authors + recommended frequency #}
-          <div class="flex flex-col gap-0.5">
-            <p class="text-[0.625rem] text-gray-400 truncate">{{ src.authors }}</p>
-            <p class="text-[0.625rem] text-blue-500 italic">{{ src.recommended_freq }}</p>
-          </div>
-
-        </div>
-        {% endfor %}
-      </div>
-
-      <p class="text-[0.625rem] text-gray-400 leading-relaxed">
-        Frequency is derived from the consensus of these studies and adjusted for your current stage, irritability level, and recent session data.
-      </p>
-    </div>
-  </div>
-  {% endif %}
-
   {# Pass session data to JS #}
   <script>
     var SCHED_SESSION_DAYS = {{ session_idx | tojson }};
+    var SCHED_FREQ = {{ weekly_schedule.sessions_per_week }};
     var SCHED_PLAN = [
       {% for item in session_plan %}
       { name: {{ item.exercise.exercise_name | tojson }}, sets: {{ (item.dosage.sets if item.dosage.sets else 3) | tojson }}, reps: {{ (item.dosage.reps_or_hold_time if item.dosage.reps_or_hold_time else '—') | tojson }} }{% if not loop.last %},{% endif %}
@@ -1181,7 +1138,9 @@
     var _weekOverrideCache = {};   // weekStart → [days] | null
     var _currentWeekStart = null;
     var _currentSessionDays = SCHED_SESSION_DAYS.slice();
-    var _currentMonday = null;
+    var _currentMonday = null;     // displayStart (Sunday in Sun-Sat mode)
+    var _currentSundayDays = [];   // session days for the Sunday cell (prev week's schedule)
+    var _currentPrevWeekStart = null; // canonical Monday of the week that owns the Sunday cell
     var _dragFromIdx = -1;
     // Log overlay state
     var _showLogOverlay = false;
@@ -1256,9 +1215,9 @@
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
         </button>
       </div>
-      <!-- Day-of-week headers — filled/updated by JS via _updateMonthlyDayHeaders() -->
+      <!-- Day-of-week headers: Sun-Sat (hardcoded) -->
       <div id="monthly-day-headers" class="grid grid-cols-7 gap-1.5 mb-1.5">
-        {% for abbr in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] %}
+        {% for abbr in ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] %}
         <div class="text-center text-[0.625rem] font-bold uppercase tracking-widest text-gray-400 py-1">{{ abbr }}</div>
         {% endfor %}
       </div>
@@ -1589,6 +1548,16 @@
 var TODAY_LOGGED = {{ 'true' if today_logged else 'false' }};
 var TODAY_LOG_TIME = {{ today_log_time | tojson }};
 
+function showScheduleRestriction(title, body) {
+  document.getElementById('schedule-restriction-title').textContent = title;
+  document.getElementById('schedule-restriction-body').textContent = body;
+  document.getElementById('schedule-restriction-modal').classList.remove('hidden');
+}
+
+function closeScheduleRestrictionModal() {
+  document.getElementById('schedule-restriction-modal').classList.add('hidden');
+}
+
 function checkDailyLogAllowed(e) {
   if (!TODAY_LOGGED) return; // allow navigation
   e.preventDefault();
@@ -1631,14 +1600,6 @@ function toggleExDetail(exId) {
   if (btn) btn.textContent = open ? 'View ▾' : 'Close ▴';
 }
 
-function toggleEvidenceBase() {
-  const panel   = document.getElementById('evidence-base');
-  const chevron = document.getElementById('evidence-chevron');
-  const open    = !panel.classList.contains('hidden');
-  panel.classList.toggle('hidden', open);
-  chevron.style.transform = open ? '' : 'rotate(180deg)';
-}
-
 function toggleAdaptFactors() {
   const panel   = document.getElementById('adapt-factors');
   const chevron = document.getElementById('adapt-chevron');
@@ -1648,6 +1609,42 @@ function toggleAdaptFactors() {
 }
 
 // ── Calendar helpers ──────────────────────────────────────────────────────────
+
+// Return the default session-day pattern for a given week (ISO Monday string).
+// For base_freq=4 the schedule alternates every week to prevent a cross-week
+// consecutive-day violation (Cycle A ends Sunday; Cycle B starts Tuesday):
+//   Cycle A (even week): [0,2,4,6] = Mon / Wed / Fri / Sun  (4 sessions)
+//   Cycle B (odd  week): [1,3,5]   = Tue / Thu / Sat        (3 sessions)
+// All other frequencies use the same pattern every week.
+var _SCHED_REF_MONDAY = new Date('2024-01-01T00:00:00'); // known Monday
+function _getDefaultDaysForWeek(weekStartStr) {
+  if (SCHED_FREQ !== 4) return SCHED_SESSION_DAYS.slice();
+  var weekDate = new Date(weekStartStr + 'T00:00:00');
+  var diffDays = Math.round((weekDate - _SCHED_REF_MONDAY) / 86400000);
+  var weekNum  = Math.floor(diffDays / 7);
+  return (weekNum % 2 === 0) ? [0, 2, 4, 6] : [1, 3, 5];
+}
+
+// Convert a session-day index (0=Mon … 6=Sun) to its actual Date for the
+// displayed week.  displayStart is Sunday in Sun–Sat mode, Monday in Mon–Sun.
+function _sessionDayToDate(displayStart, sessionDay) {
+  var startDow = displayStart.getDay(); // 0=Sun, 1=Mon
+  var offset = (startDow === 1)
+    ? sessionDay               // Mon-Sun: position equals index
+    : (sessionDay + 1) % 7;   // Sun-Sat: Sunday(idx6) → pos0, Mon(idx0) → pos1 …
+  var d = new Date(displayStart);
+  d.setDate(displayStart.getDate() + offset);
+  return d;
+}
+
+// Return true if _logCache has an actual (non-null) log entry for the given date.
+function _dateHasLog(date) {
+  var key = date.getFullYear() + '-'
+    + String(date.getMonth() + 1).padStart(2, '0') + '-'
+    + String(date.getDate()).padStart(2, '0');
+  return !!_logCache[key]; // undefined or null → false; object → true
+}
+
 function _sameDay(a, b) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
@@ -1668,35 +1665,6 @@ function _getSundayOf(d) {
   return m;
 }
 
-function _weekStartPref() {
-  return localStorage.getItem('teno_week_start') || 'mon';
-}
-
-function toggleWeekStart() {
-  var next = _weekStartPref() === 'mon' ? 'sun' : 'mon';
-  localStorage.setItem('teno_week_start', next);
-  _updateWeekStartBtn();
-  _updateMonthlyDayHeaders();
-  _weekOffset = 0;
-  renderWeekly();
-  var monthly = document.getElementById('prog-monthly');
-  if (monthly && !monthly.classList.contains('hidden')) renderMonthly();
-}
-
-function _updateWeekStartBtn() {
-  var lbl = document.getElementById('week-start-label');
-  if (lbl) lbl.textContent = _weekStartPref() === 'sun' ? 'Sun\u2013Sat' : 'Mon\u2013Sun';
-}
-
-function _updateMonthlyDayHeaders() {
-  var container = document.getElementById('monthly-day-headers');
-  if (!container) return;
-  var abbrs = _weekStartPref() === 'sun'
-    ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
-    : ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-  var divs = container.querySelectorAll('div');
-  divs.forEach(function(div, i) { div.textContent = abbrs[i]; });
-}
 
 function _fmtDate(d, opts) {
   return d.toLocaleDateString('en-US', opts);
@@ -1714,26 +1682,24 @@ async function renderWeekly() {
   var today = new Date();
   today.setHours(0,0,0,0);
 
-  var monday, displayStart;
-  if (_weekStartPref() === 'sun') {
-    // Anchor on the Sunday that contains today; apply offset in whole weeks
-    displayStart = _getSundayOf(today);
-    displayStart.setDate(displayStart.getDate() + _weekOffset * 7);
-    // Canonical Monday for cache keys = displayStart + 1 day
-    monday = new Date(displayStart);
-    monday.setDate(displayStart.getDate() + 1);
-  } else {
-    // Anchor on the Monday that contains today
-    monday = _getMondayOf(today);
-    monday.setDate(monday.getDate() + _weekOffset * 7);
-    displayStart = monday;
-  }
+  // Always Sun-Sat display
+  var displayStart = _getSundayOf(today);
+  displayStart.setDate(displayStart.getDate() + _weekOffset * 7);
+  // Canonical Monday for cache keys = displayStart + 1 day
+  var monday = new Date(displayStart);
+  monday.setDate(displayStart.getDate() + 1);
 
   var weekStart = _getWeekStartStr(monday);
   _currentWeekStart = weekStart;
   _currentMonday = displayStart; // stored for re-render after drag
 
-  // Label: show actual display range
+  // Previous canonical week (the week that owns the Sunday cell at position 0)
+  var prevMonday = new Date(monday);
+  prevMonday.setDate(monday.getDate() - 7);
+  var prevWeekStart = _getWeekStartStr(prevMonday);
+  _currentPrevWeekStart = prevWeekStart;
+
+  // Label: show actual display range (Sun–Sat)
   var displayEnd = new Date(displayStart); displayEnd.setDate(displayStart.getDate() + 6);
   var lbl = document.getElementById('week-range-label');
   if (lbl) {
@@ -1744,8 +1710,8 @@ async function renderWeekly() {
     lbl.textContent = startStr + ' \u2013 ' + endStr + ', ' + displayEnd.getFullYear();
   }
 
-  // Load override (cached or from API)
-  var sessionDays = SCHED_SESSION_DAYS.slice();
+  // Load override for current week (Mon–Sat cells)
+  var sessionDays = _getDefaultDaysForWeek(weekStart);
   var hasOverride = false;
 
   if (_weekOverrideCache.hasOwnProperty(weekStart)) {
@@ -1769,7 +1735,29 @@ async function renderWeekly() {
     } catch(e) { /* fall back to default */ }
   }
 
+  // Load override for previous week (Sunday cell at position 0 belongs to prev week)
+  var sundayDays = _getDefaultDaysForWeek(prevWeekStart);
+  if (_weekOverrideCache.hasOwnProperty(prevWeekStart)) {
+    if (_weekOverrideCache[prevWeekStart] !== null) {
+      sundayDays = _weekOverrideCache[prevWeekStart];
+    }
+  } else {
+    try {
+      var prevResp = await fetch('/api/schedule-override?week=' + prevWeekStart);
+      if (prevResp.ok) {
+        var prevData = await prevResp.json();
+        if (prevData.session_days !== null && Array.isArray(prevData.session_days)) {
+          sundayDays = prevData.session_days;
+          _weekOverrideCache[prevWeekStart] = prevData.session_days;
+        } else {
+          _weekOverrideCache[prevWeekStart] = null;
+        }
+      }
+    } catch(e) { /* fall back to default */ }
+  }
+
   _currentSessionDays = sessionDays;
+  _currentSundayDays = sundayDays;
 
   // Always fetch today's log (needed to lock completed sessions regardless of overlay)
   var todayStr = _getWeekStartStr(today);
@@ -1779,10 +1767,9 @@ async function renderWeekly() {
   var isCurrentWeek = (_weekOffset === 0);
   var sidePromises = [];
 
-  if (_showLogOverlay) {
-    var overlayEnd = new Date(displayStart); overlayEnd.setDate(displayStart.getDate() + 6);
-    sidePromises.push(_ensureLogsLoaded(_getWeekStartStr(displayStart), _getWeekStartStr(overlayEnd)));
-  }
+  // Always load logs for the displayed window — needed for stats chips even when overlay is off
+  var overlayEnd = new Date(displayStart); overlayEnd.setDate(displayStart.getDate() + 6);
+  sidePromises.push(_ensureLogsLoaded(_getWeekStartStr(displayStart), _getWeekStartStr(overlayEnd)));
 
   if (isCurrentWeek && !_weekAdaptationCache.hasOwnProperty(weekStart)) {
     sidePromises.push(
@@ -1802,10 +1789,62 @@ async function renderWeekly() {
 
   if (sidePromises.length) await Promise.all(sidePromises);
 
-  _renderWeekGrid(sessionDays, displayStart, today, hasOverride, isCurrentWeek ? _currentAdaptation : null);
+  _renderWeekGrid(sessionDays, displayStart, today, hasOverride, isCurrentWeek ? _currentAdaptation : null, sundayDays, prevWeekStart);
 }
 
-function _renderWeekGrid(sessionDays, monday, today, hasOverride, adaptation) {
+// Compute done/missed/remaining from _logCache for the exact 7-day displayed window.
+// sundayDays: session days for the Sunday cell (position 0) which belongs to prev week.
+function _computeDisplayStats(sessionDays, displayStart, today, sundayDays) {
+  var done = 0, missed = 0, remaining = 0;
+  var peakPain = 0;
+  var compVals = [];
+  var hasPain = false;
+  for (var i = 0; i < 7; i++) {
+    var d = new Date(displayStart);
+    d.setDate(displayStart.getDate() + i);
+    var cdow = d.getDay();
+    var dowIdx = (cdow === 0 ? 6 : cdow - 1); // Mon=0 … Sun=6
+    // Sunday (i===0) belongs to prev week — use sundayDays for session lookup
+    var effectiveDays = (i === 0 && sundayDays) ? sundayDays : sessionDays;
+    if (effectiveDays.indexOf(dowIdx) === -1) continue;
+    var dateKey = d.getFullYear() + '-'
+      + String(d.getMonth() + 1).padStart(2, '0') + '-'
+      + String(d.getDate()).padStart(2, '0');
+    var log = _logCache.hasOwnProperty(dateKey) ? _logCache[dateKey] : null;
+    var isPast = (d < today) && !_sameDay(d, today);
+    if (log) {
+      done++;
+      var pd = log.pain_during || 0, pa = log.pain_after || 0;
+      if (pd || pa) { hasPain = true; peakPain = Math.max(peakPain, pd, pa); }
+      if (log.overall_compliance !== null && log.overall_compliance !== undefined) {
+        compVals.push(log.overall_compliance);
+      }
+    } else if (isPast) {
+      missed++;
+    } else {
+      remaining++;
+    }
+  }
+  var meanComp = compVals.length
+    ? Math.round(compVals.reduce(function(a, b) { return a + b; }, 0) / compVals.length)
+    : null;
+  return {
+    done: done,
+    missed: missed,
+    remaining: remaining,
+    peak_pain: hasPain ? peakPain : null,
+    compliance: meanComp
+  };
+}
+
+function _renderWeekGrid(sessionDays, monday, today, hasOverride, adaptation, sundayDays, prevWeekStart) {
+  // Patch adaptation stats with client-computed values for the exact Sun-Sat display window.
+  // sundayDays covers the Sunday cell (position 0) which belongs to prev week.
+  if (adaptation) {
+    adaptation = Object.assign({}, adaptation, {
+      stats: _computeDisplayStats(sessionDays, monday, today, sundayDays)
+    });
+  }
   // Render adaptation strip (current week only — adaptation is null for other weeks)
   _renderAdaptationStrip(adaptation || null);
   // Show / hide reset button
@@ -1832,7 +1871,9 @@ function _renderWeekGrid(sessionDays, monday, today, hasOverride, adaptation) {
       // dowIdx: Mon=0 … Sun=6 — used for session day lookup (independent of display order)
       var cdow   = d.getDay();
       var dowIdx = (cdow === 0 ? 6 : cdow - 1);
-      var isSession = sessionDays.indexOf(dowIdx) !== -1;
+      // Sunday cell (dayIdx===0, cdow===0) belongs to prev week — use sundayDays
+      var effectiveDays = (dayIdx === 0 && sundayDays) ? sundayDays : sessionDays;
+      var isSession = effectiveDays.indexOf(dowIdx) !== -1;
       var isToday   = _sameDay(d, today);
       var isPast    = d < today && !isToday;
 
@@ -1848,7 +1889,10 @@ function _renderWeekGrid(sessionDays, monday, today, hasOverride, adaptation) {
       hdr.className = 'px-2 py-2 text-center border-b rounded-t-xl'
         + (isSession ? ' border-brand-200 bg-brand-600' : ' border-gray-100 bg-gray-100');
 
-      var customBadge = (hasOverride && isSession && SCHED_SESSION_DAYS.indexOf(dowIdx) === -1)
+      // MOVED badge: Sunday uses prev week's defaults; all other days use current week
+      var _effectiveWeekStart = (dayIdx === 0 && prevWeekStart) ? prevWeekStart : _currentWeekStart;
+      var _weekDefaultDays = _getDefaultDaysForWeek(_effectiveWeekStart);
+      var customBadge = (hasOverride && isSession && _weekDefaultDays.indexOf(dowIdx) === -1)
         ? '<span class="text-[0.5rem] bg-orange-400 text-white rounded px-1 font-bold">MOVED</span>'
         : '';
 
@@ -1971,8 +2015,9 @@ function _renderWeekGrid(sessionDays, monday, today, hasOverride, adaptation) {
       cell.appendChild(body);
 
       // ── Drag-and-drop ──
+      // Sunday (dayIdx===0) belongs to prev week — disable drag on that cell entirely.
       // Lock dragging if the session has been completed (today has a log)
-      if (isSession && !isPast && !todayLog) {
+      if (dayIdx !== 0 && isSession && !isPast && !todayLog) {
         cell.draggable = true;
         cell.style.cursor = 'grab';
         cell.addEventListener('dragstart', function(e) {
@@ -2018,9 +2063,30 @@ function _renderWeekGrid(sessionDays, monday, today, hasOverride, adaptation) {
         if (!fromIsSession || toIsSession) return;
 
         // Move session from fromIdx → dowIdx
+        var prevDays = _currentSessionDays.slice();
         var newDays = _currentSessionDays.filter(function(d) { return d !== fromIdx; });
         newDays.push(dowIdx);
         newDays.sort(function(a,b) { return a - b; });
+
+        // Client-side consecutive-day guard.
+        // A past day only counts as "occupied" if the user actually logged a session that day.
+        // A missed scheduled day does not block adjacent scheduling.
+        var today2 = new Date(); today2.setHours(0,0,0,0);
+        for (var ci = 1; ci < newDays.length; ci++) {
+          if (newDays[ci] - newDays[ci - 1] === 1) {
+            var d0 = _sessionDayToDate(_currentMonday, newDays[ci - 1]);
+            var d1 = _sessionDayToDate(_currentMonday, newDays[ci]);
+            var d0Trained = (d0 >= today2) || _dateHasLog(d0);
+            var d1Trained = (d1 >= today2) || _dateHasLog(d1);
+            if (d0Trained && d1Trained) {
+              showScheduleRestriction(
+                'Rest day required',
+                'Sessions must have at least one rest day between them. Moving sessions to back-to-back days is not permitted — tendons need time to recover between loading sessions.'
+              );
+              return;
+            }
+          }
+        }
 
         // Optimistic update
         _currentSessionDays = newDays;
@@ -2028,16 +2094,40 @@ function _renderWeekGrid(sessionDays, monday, today, hasOverride, adaptation) {
         // Invalidate adaptation cache so it re-fetches with new schedule
         delete _weekAdaptationCache[_currentWeekStart];
         _currentAdaptation = null;
-        var today2 = new Date(); today2.setHours(0,0,0,0);
-        _renderWeekGrid(newDays, _currentMonday, today2, true, null);
+        _renderWeekGrid(newDays, _currentMonday, today2, true, null, _currentSundayDays, _currentPrevWeekStart);
 
         // Persist + re-fetch adaptation in background
         try {
-          await fetch('/api/schedule-override', {
+          var saveResp = await fetch('/api/schedule-override', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({week: _currentWeekStart, session_days: newDays})
           });
+          if (!saveResp.ok) {
+            var errData = await saveResp.json().catch(function() { return {}; });
+            // Roll back optimistic update
+            _currentSessionDays = prevDays;
+            _weekOverrideCache[_currentWeekStart] = prevDays;
+            var today3 = new Date(); today3.setHours(0,0,0,0);
+            _renderWeekGrid(prevDays, _currentMonday, today3, true, null, _currentSundayDays, _currentPrevWeekStart);
+            if (errData.detail === 'consecutive_days') {
+              showScheduleRestriction(
+                'Rest day required',
+                'Sessions must have at least one rest day between them. Consecutive sessions are not permitted — tendons need time to recover between loading sessions.'
+              );
+            } else if (errData.detail === 'session_cap_exceeded') {
+              showScheduleRestriction(
+                'Weekly session limit reached',
+                'A maximum of 4 sessions per week is recommended for tendon recovery. A clinician-level account is required to schedule more.'
+              );
+            } else {
+              showScheduleRestriction(
+                'Schedule could not be saved',
+                'An unexpected error occurred. Please try again.'
+              );
+            }
+            return;
+          }
         } catch(err) { /* silent — already updated locally */ }
         // Refresh to get updated adaptation
         renderWeekly();
@@ -2047,13 +2137,15 @@ function _renderWeekGrid(sessionDays, monday, today, hasOverride, adaptation) {
     })(i);
   }
 
-  // Gate log buttons: only allow logging when today is a session day in this week
+  // Gate log buttons: only allow logging when today is a session day in this week.
+  // If today is Sunday (position 0), it belongs to prev week — check sundayDays.
   var todayDow = today.getDay();
   var todayIdx = (todayDow === 0 ? 6 : todayDow - 1);
   var sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
   var weekContainsToday = (today >= monday && today <= sunday);
   if (weekContainsToday) {
-    _updateLogButtons(sessionDays.indexOf(todayIdx) !== -1);
+    var daysToCheck = (todayDow === 0 && sundayDays) ? sundayDays : sessionDays;
+    _updateLogButtons(daysToCheck.indexOf(todayIdx) !== -1);
   }
 }
 
@@ -2409,12 +2501,10 @@ async function renderMonthly() {
   var grid = document.getElementById('monthly-grid');
   if (!grid) return;
 
-  _updateMonthlyDayHeaders();
-
   var first     = new Date(_calYear, _calMonth, 1);
   var dow0      = first.getDay(); // 0=Sun … 6=Sat
-  // startDow: how many blank cells before the 1st of the month
-  var startDow  = _weekStartPref() === 'sun' ? dow0 : (dow0 === 0 ? 6 : dow0 - 1);
+  // startDow: blank cells before the 1st — Sun-Sat display, so Sunday = column 0
+  var startDow  = dow0;
   var daysInMon = new Date(_calYear, _calMonth + 1, 0).getDate();
   var totalCells = Math.ceil((startDow + daysInMon) / 7) * 7;
 
@@ -2474,7 +2564,7 @@ async function renderMonthly() {
     var mon2    = _getMondayOf(d);
     var ws2     = _getWeekStartStr(mon2);
     var effDays = (_weekOverrideCache[ws2] !== null && _weekOverrideCache[ws2] !== undefined)
-                    ? _weekOverrideCache[ws2] : SCHED_SESSION_DAYS;
+                    ? _weekOverrideCache[ws2] : _getDefaultDaysForWeek(ws2);
 
     var cdow    = d.getDay();
     var dowIdx  = (cdow === 0 ? 6 : cdow - 1);
@@ -2484,7 +2574,7 @@ async function renderMonthly() {
 
     // Is this day "moved" — a non-default session day for this week?
     var weekHasOverride = _weekOverrideCache.hasOwnProperty(ws2) && _weekOverrideCache[ws2] !== null;
-    var isMoved = weekHasOverride && isSess && SCHED_SESSION_DAYS.indexOf(dowIdx) === -1;
+    var isMoved = weekHasOverride && isSess && _getDefaultDaysForWeek(ws2).indexOf(dowIdx) === -1;
 
     // Log overlay lookup
     var dateKey2 = d.getFullYear() + '-'
@@ -2765,7 +2855,6 @@ document.addEventListener('DOMContentLoaded', function() {
   var t = new Date();
   _calYear  = t.getFullYear();
   _calMonth = t.getMonth();
-  _updateWeekStartBtn();
   _applyDashLayout();
   if (typeof SCHED_IS_REST_WEEK !== 'undefined') renderWeekly();
   // Apply colour indicator preference

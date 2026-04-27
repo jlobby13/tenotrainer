@@ -131,6 +131,18 @@ CREATE TABLE IF NOT EXISTS tfa_codes (
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
+CREATE TABLE IF NOT EXISTS session_follow_ups (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    log_id INTEGER NOT NULL,
+    checkpoint TEXT NOT NULL,
+    due_at TEXT NOT NULL,
+    completed INTEGER NOT NULL DEFAULT 0,
+    completed_at TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (log_id) REFERENCES daily_logs(id)
+);
+
 CREATE TABLE IF NOT EXISTS schedule_overrides (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,

@@ -60,6 +60,10 @@ async def init_db() -> None:
             "ALTER TABLE daily_logs ADD COLUMN exercise_log TEXT NOT NULL DEFAULT '{}'",
             "ALTER TABLE daily_logs ADD COLUMN morning_stiffness INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE users ADD COLUMN dashboard_layout TEXT",
+            "ALTER TABLE users ADD COLUMN date_format TEXT NOT NULL DEFAULT 'MM-DD-YYYY'",
+            "ALTER TABLE users ADD COLUMN color_tags_enabled INTEGER NOT NULL DEFAULT 1",
+            "ALTER TABLE daily_logs ADD COLUMN pain_later_same_day INTEGER",
+            "ALTER TABLE daily_logs ADD COLUMN is_complete INTEGER NOT NULL DEFAULT 0",
         ]
         for migration in migrations:
             try:

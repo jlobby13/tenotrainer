@@ -22,11 +22,11 @@
         {% set recency_colour = "green" %}
         {% set recency_label = "Recent" %}
         {% set recency_note = "Your last assessment was only " ~ days_since_assessment ~ " day(s) ago. Re-assessing this soon is unlikely to reflect meaningful physiological change." %}
-      {% elif days_since_assessment < 28 %}
+      {% elif days_since_assessment < 42 %}
         {% set recency_colour = "yellow" %}
         {% set recency_label = "Approaching window" %}
-        {% set recency_note = "It has been " ~ days_since_assessment ~ " days since your last assessment. You are approaching the minimum recommended interval — consider waiting until 6–8 weeks for more meaningful data." %}
-      {% elif days_since_assessment < 56 %}
+        {% set recency_note = "It has been " ~ days_since_assessment ~ " days since your last assessment. You are approaching the optimal reassessment window — consider waiting until at least 6–8 weeks (42–56 days) for more meaningful data." %}
+      {% elif days_since_assessment < 57 %}
         {% set recency_colour = "blue" %}
         {% set recency_label = "Within optimal window" %}
         {% set recency_note = "It has been " ~ days_since_assessment ~ " days since your last assessment — you are within the recommended 6–8 week reassessment window. This is a good time to reassess." %}
