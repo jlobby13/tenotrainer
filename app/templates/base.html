@@ -711,14 +711,20 @@
 
       <div class="flex items-center gap-4 text-sm">
         {% if user and user.password_hash %}
+        {% if user.role == 'supervisor' %}
+        <a href="/supervisor/dashboard" class="hover:text-brand-200 transition-colors">Supervisor Panel</a>
+        <a href="/admin/knowledge"  class="hover:text-brand-200 transition-colors">Knowledge Base</a>
+        {% else %}
         <a href="/dashboard"        class="hover:text-brand-200 transition-colors">Dashboard</a>
         <a href="/daily-log" onclick="if(typeof checkDailyLogAllowed==='function'){checkDailyLogAllowed(event);}" class="hover:text-brand-200 transition-colors">Track Session</a>
         <a href="/exercise-log"     class="hover:text-brand-200 transition-colors">Exercise Log</a>
         <a href="/exercise-library" class="hover:text-brand-200 transition-colors">Exercise Library</a>
         <a href="/onboarding"       class="hover:text-brand-200 transition-colors">Assessment</a>
         <a href="/admin/knowledge"  class="hover:text-brand-200 transition-colors">Knowledge Base</a>
+        {% endif %}
 
         <!-- ── Notification bell ──────────────────────────────────── -->
+        {% if user.role != 'supervisor' %}
         <div class="relative" id="notif-root">
           <button id="notif-btn" type="button" onclick="toggleNotifMenu()"
                   class="relative p-1 text-brand-200 hover:text-white transition-colors focus:outline-none"
@@ -744,6 +750,7 @@
             </div>
           </div>
         </div>
+        {% endif %}
 
         <!-- ── User dropdown ───────────────────────────────────────── -->
         <div class="relative" id="user-menu-root">
@@ -876,6 +883,13 @@
 
   <!-- User-menu + theme JS -->
   <script>
+    // ── Shared date helper ────────────────────────────────────────────────────
+    function _fmtIsoDate(s) {
+      if (!s) return s || '';
+      var m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      return m ? m[2] + '-' + m[3] + '-' + m[1] : s;
+    }
+
     // ── Notification bell ─────────────────────────────────────────────────────
     var _notifOpen = false;
 
@@ -941,7 +955,7 @@
         var header = '';
         if (!seenLog[logKey]) {
           seenLog[logKey] = true;
-          header = '<div class="px-4 pt-3 pb-1"><p class="text-[0.625rem] font-bold text-gray-400 uppercase tracking-widest">Session ' + item.session_date + '</p></div>';
+          header = '<div class="px-4 pt-3 pb-1"><p class="text-[0.625rem] font-bold text-gray-400 uppercase tracking-widest">Session ' + _fmtIsoDate(item.session_date) + '</p></div>';
         }
         html += header;
         html += '<a href="/daily-log/followup/' + item.log_id + '" class="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors">';
@@ -1001,7 +1015,7 @@
           html += '<div class="flex-1 min-w-0">';
           html += '<p class="notif-item-label text-xs font-semibold text-gray-800 truncate">'
                 + item.checkpoint_label + '</p>';
-          html += '<p class="text-[0.625rem] text-amber-600">Session ' + item.session_date + '</p>';
+          html += '<p class="text-[0.625rem] text-amber-600">Session ' + _fmtIsoDate(item.session_date) + '</p>';
           html += '</div></div>';
         });
         if (dueUndismissed.length > 5) {

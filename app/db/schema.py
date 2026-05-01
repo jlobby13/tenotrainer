@@ -153,6 +153,45 @@ CREATE TABLE IF NOT EXISTS schedule_overrides (
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
+CREATE TABLE IF NOT EXISTS supervisor_patients (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    supervisor_id INTEGER NOT NULL,
+    patient_id INTEGER NOT NULL,
+    assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status TEXT NOT NULL DEFAULT 'active',
+    dismissed_at TIMESTAMP,
+    dismissed_reason TEXT,
+    dismissed_by INTEGER,
+    FOREIGN KEY (supervisor_id) REFERENCES users(id),
+    FOREIGN KEY (patient_id) REFERENCES users(id),
+    UNIQUE(supervisor_id, patient_id)
+);
+
+CREATE TABLE IF NOT EXISTS supervisor_alerts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    patient_id INTEGER NOT NULL,
+    log_id INTEGER,
+    type TEXT NOT NULL,
+    severity TEXT NOT NULL,
+    message TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    resolved INTEGER NOT NULL DEFAULT 0,
+    resolved_at TEXT,
+    FOREIGN KEY (patient_id) REFERENCES users(id),
+    FOREIGN KEY (log_id) REFERENCES daily_logs(id)
+);
+
+CREATE TABLE IF NOT EXISTS supervisor_audit_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    action_type TEXT NOT NULL,
+    target_patient_id INTEGER,
+    changes TEXT NOT NULL DEFAULT '{}',
+    note TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
 CREATE TABLE IF NOT EXISTS exercises (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ex_id TEXT UNIQUE NOT NULL,

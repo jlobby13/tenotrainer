@@ -170,7 +170,7 @@
                     </th>
                     {% for s in tl %}
                     <th class="px-4 py-2 text-center min-w-[90px] {{ 'bg-brand-600' if loop.last else 'bg-gray-50' }}">
-                      <div class="text-[0.6875rem] font-bold {{ 'text-white' if loop.last else 'text-gray-500' }} whitespace-nowrap">{{ s.date }}</div>
+                      <div class="text-[0.6875rem] font-bold {{ 'text-white' if loop.last else 'text-gray-500' }} whitespace-nowrap">{{ s.date | fmt_date }}</div>
                       {% if loop.last %}<div class="text-[0.5625rem] font-bold text-brand-200 uppercase tracking-widest mt-0.5">Latest</div>{% endif %}
                     </th>
                     {% endfor %}

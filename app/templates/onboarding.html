@@ -11,7 +11,7 @@
     {# Header #}
     <div class="bg-brand-700 px-6 py-4">
       <h2 class="text-xl font-black text-white">You have an existing assessment</h2>
-      <p class="text-brand-200 text-sm mt-0.5">Last completed on {{ last_assessment_date }}</p>
+      <p class="text-brand-200 text-sm mt-0.5">Last completed on {{ last_assessment_date | fmt_date }}</p>
     </div>
 
     <div class="px-6 py-5 space-y-5">
@@ -91,14 +91,14 @@
   <div class="flex flex-wrap items-center gap-4 bg-brand-50 border border-brand-200 rounded-xl px-5 py-3 mb-6 text-sm">
     <div class="flex items-center gap-2">
       <span class="text-xs font-semibold text-brand-700 uppercase tracking-wide">Previous assessment</span>
-      <span class="font-bold text-brand-900">{{ last_assessment_date }}</span>
+      <span class="font-bold text-brand-900">{{ last_assessment_date | fmt_date }}</span>
       <span class="text-brand-400">·</span>
       <span class="text-brand-600 text-xs">{{ days_since_assessment }} day{{ 's' if days_since_assessment != 1 else '' }} ago</span>
     </div>
     <div class="h-4 w-px bg-brand-200 hidden sm:block"></div>
     <div class="flex items-center gap-2">
       <span class="text-xs font-semibold text-brand-700 uppercase tracking-wide">Today's re-assessment</span>
-      <span class="font-bold text-brand-900">{{ today_date }}</span>
+      <span class="font-bold text-brand-900">{{ today_date | fmt_date }}</span>
     </div>
   </div>
   {% endif %}

@@ -76,6 +76,27 @@ app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="stat
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 
+def _fmt_date(value: str) -> str:
+    """YYYY-MM-DD[...] → MM-DD-YYYY, preserving HH:MM if present."""
+    if not value:
+        return value or ""
+    try:
+        s = str(value).strip()
+        y, m, d = s[:10].split("-")
+        date_part = f"{m}-{d}-{y}"
+        rest = s[10:].lstrip("T ").strip()
+        time_part = rest[:5] if rest else ""
+        return f"{date_part} {time_part}".strip() if time_part else date_part
+    except Exception:
+        return str(value)
+
+
+templates.env.filters["fmt_date"] = _fmt_date
+
+from app.supervisor import router as _supervisor_router, generate_session_alerts as _generate_session_alerts
+app.include_router(_supervisor_router)
+
+
 # ---------------------------------------------------------------------------
 # Startup
 # ---------------------------------------------------------------------------
@@ -427,6 +448,25 @@ async def login_post(
             {"user": None, "error": "Invalid email or password.", "email": email},
         )
 
+    # Block access for patients whose 14-day window has closed
+    if account.get("role") == "patient" and account.get("access_expires_at"):
+        try:
+            expires_dt = datetime.fromisoformat(str(account["access_expires_at"])[:19])
+            if datetime.utcnow() > expires_dt:
+                return templates.TemplateResponse(
+                    request, "login.html",
+                    {
+                        "user": None,
+                        "error": (
+                            "Your account access has expired. "
+                            "Please contact your supervisor or clinic to reinstate your account."
+                        ),
+                        "email": email,
+                    },
+                )
+        except (ValueError, TypeError):
+            pass
+
     # If 2FA is enabled, start the verification flow before issuing a session
     if account.get("tfa_enabled"):
         redirect = RedirectResponse("/verify-2fa", status_code=302)
@@ -442,7 +482,10 @@ async def login_post(
     finally:
         await db.close()
 
-    redirect = RedirectResponse("/dashboard", status_code=302)
+    if account.get("role") in ("supervisor", "superuser"):
+        redirect = RedirectResponse("/supervisor/dashboard", status_code=302)
+    else:
+        redirect = RedirectResponse("/dashboard", status_code=302)
     _set_session_cookie(redirect, new_token)
     return redirect
 
@@ -1507,6 +1550,20 @@ async def dashboard(
     today_logged = bool(recent_logs and recent_logs[0].get("created_at", "")[:10] == _today_str)
     today_log_time = recent_logs[0].get("created_at", "") if today_logged else ""
 
+    # Dismissal notice — shown once per session via sessionStorage flag in the browser
+    dismissal_notice = None
+    if user.get("access_expires_at"):
+        try:
+            expires_dt = datetime.fromisoformat(str(user["access_expires_at"])[:19])
+            if datetime.utcnow() < expires_dt:
+                days_left = max(0, (expires_dt.date() - datetime.utcnow().date()).days)
+                dismissal_notice = {
+                    "expires_at": str(user["access_expires_at"])[:10],
+                    "days_remaining": days_left,
+                }
+        except (ValueError, TypeError):
+            pass
+
     return templates.TemplateResponse(
         request, "dashboard.html",
         context={
@@ -1528,6 +1585,7 @@ async def dashboard(
             "dashboard_layout": json.dumps(dashboard_layout),
             "today_logged": today_logged,
             "today_log_time": today_log_time,
+            "dismissal_notice": dismissal_notice,
             # Unified rehab state — same data as Track Session and Exercise Library
             **rehab_state,
         },
@@ -2406,6 +2464,15 @@ async def daily_log_post(
 
     finally:
         await db.close()
+
+    # Generate supervisor alerts (non-destructive, layered on top of rule engine)
+    await _generate_session_alerts(
+        user_id=user["id"],
+        log_id=new_log_id,
+        pain_during=pain_during,
+        overall_compliance=exercise_compliance.get("overall_compliance"),
+        recent_logs=existing_logs,
+    )
 
     # Build next-session plan using updated irritability + stage
     next_stage = progression.proposed_stage if progression.can_progress_stage else current_stage

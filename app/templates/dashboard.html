@@ -91,6 +91,48 @@
   </div>
 </div>
 
+{% if dismissal_notice %}
+<!-- Dismissal notice modal — shown once per browser session -->
+<div id="dismissal-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+  <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+  <div class="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden">
+    <div class="bg-red-600 px-6 py-4 flex items-center gap-3">
+      <svg class="w-5 h-5 text-white shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+      </svg>
+      <h3 class="text-base font-black text-white">Case Closed — Action Required</h3>
+    </div>
+    <div class="px-6 py-5">
+      <p class="text-sm text-gray-700 mb-4 leading-relaxed">
+        Your rehabilitation case has been closed by your supervisor. Your account and all your data remain accessible, but your login access will expire in <strong class="text-red-600">{{ dismissal_notice.days_remaining }} day{{ 's' if dismissal_notice.days_remaining != 1 }}</strong>.
+      </p>
+      <div class="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-5">
+        <p class="text-xs font-bold text-red-700 uppercase tracking-wide mb-1">Access expires</p>
+        <p class="text-sm font-semibold text-red-800">{{ dismissal_notice.expires_at }}</p>
+        <p class="text-xs text-red-500 mt-1">After this date your login will be blocked until reinstated.</p>
+      </div>
+      <p class="text-xs text-gray-400 mb-5">If you believe this is an error, please contact your supervisor or clinic directly.</p>
+      <button onclick="closeDismissalNotice()"
+              class="w-full px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-semibold hover:bg-gray-800 transition-colors">
+        I understand
+      </button>
+    </div>
+  </div>
+</div>
+<script>
+(function() {
+  var key = 'teno-dismissal-seen-{{ dismissal_notice.expires_at }}';
+  if (!sessionStorage.getItem(key)) {
+    document.getElementById('dismissal-modal').classList.remove('hidden');
+  }
+  window.closeDismissalNotice = function() {
+    document.getElementById('dismissal-modal').classList.add('hidden');
+    try { sessionStorage.setItem(key, '1'); } catch(e) {}
+  };
+})();
+</script>
+{% endif %}
+
 {% if not has_onboarding %}
 <!-- Prompt for onboarding -->
 <div class="bg-brand-50 border border-brand-200 rounded-xl p-6 mb-6 text-center">
@@ -678,7 +720,7 @@
       <div>
         <h2 class="font-bold text-gray-900 text-sm">Functional Capacity</h2>
         {% if onboarding %}
-        <p class="text-[0.6875rem] text-gray-400 mt-0.5">Last assessed {{ onboarding.created_at[:10] }}</p>
+        <p class="text-[0.6875rem] text-gray-400 mt-0.5">Last assessed {{ onboarding.created_at | fmt_date }}</p>
         {% else %}
         <p class="text-[0.6875rem] text-gray-400 mt-0.5">Complete an assessment to see data</p>
         {% endif %}
@@ -1477,7 +1519,7 @@
         <span class="px-1.5 py-0.5 bg-{{ lp_dc }}-100 text-{{ lp_dc }}-700 rounded font-bold text-[0.6875rem]">{{ lp.decision }}</span>
         <span>Stage {{ lp.from_stage }} → {{ lp.to_stage }}</span>
         <span class="text-gray-300">·</span>
-        <span>{{ lp.created_at[:10] }}</span>
+        <span>{{ lp.created_at | fmt_date }}</span>
         <span class="text-gray-300">·</span>
         <span>{{ progression_history | length }} entr{{ 'ies' if progression_history | length != 1 else 'y' }}</span>
       </p>
@@ -1493,7 +1535,7 @@
       <div class="flex items-center gap-3 text-sm">
         <span class="px-2 py-0.5 bg-{{ dc }}-100 text-{{ dc }}-700 rounded font-bold text-xs">{{ prog.decision }}</span>
         <span class="text-gray-600">Stage {{ prog.from_stage }} → Stage {{ prog.to_stage }}</span>
-        <span class="text-xs text-gray-400">{{ prog.created_at[:10] }}</span>
+        <span class="text-xs text-gray-400">{{ prog.created_at | fmt_date }}</span>
       </div>
       {% endfor %}
     </div>

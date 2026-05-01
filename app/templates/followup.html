@@ -13,7 +13,7 @@
     </div>
     <div>
       <p class="text-xs text-brand-200 font-semibold uppercase tracking-widest mb-0.5">Follow-up Check-in</p>
-      <h1 class="text-xl font-black leading-tight">Session {{ log.created_at[:10] }}</h1>
+      <h1 class="text-xl font-black leading-tight">Session {{ log.created_at | fmt_date }}</h1>
       <p class="text-xs text-brand-200 mt-1">
         Pain during that session: <strong class="text-white">{{ log.pain_during }}/10</strong>
       </p>

@@ -64,6 +64,12 @@ async def init_db() -> None:
             "ALTER TABLE users ADD COLUMN color_tags_enabled INTEGER NOT NULL DEFAULT 1",
             "ALTER TABLE daily_logs ADD COLUMN pain_later_same_day INTEGER",
             "ALTER TABLE daily_logs ADD COLUMN is_complete INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE supervisor_patients ADD COLUMN status TEXT NOT NULL DEFAULT 'active'",
+            "ALTER TABLE supervisor_patients ADD COLUMN dismissed_at TIMESTAMP",
+            "ALTER TABLE supervisor_patients ADD COLUMN dismissed_reason TEXT",
+            "ALTER TABLE supervisor_patients ADD COLUMN dismissed_by INTEGER",
+            "ALTER TABLE users ADD COLUMN dismissed_at TIMESTAMP",
+            "ALTER TABLE users ADD COLUMN access_expires_at TIMESTAMP",
         ]
         for migration in migrations:
             try:
