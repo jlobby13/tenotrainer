@@ -713,6 +713,7 @@
         {% if user and user.password_hash %}
         {% if user.role == 'supervisor' %}
         <a href="/supervisor/dashboard" class="hover:text-brand-200 transition-colors">Supervisor Panel</a>
+        <a href="/supervisor/cases" class="hover:text-brand-200 transition-colors">Caseload</a>
         <a href="/admin/knowledge"  class="hover:text-brand-200 transition-colors">Knowledge Base</a>
         {% else %}
         <a href="/dashboard"        class="hover:text-brand-200 transition-colors">Dashboard</a>
@@ -866,7 +867,7 @@
   </nav>
 
   <!-- Main content -->
-  <main class="flex-1 max-w-5xl mx-auto w-full px-4 py-8">
+  <main class="flex-1 {% block main_class %}max-w-5xl{% endblock %} mx-auto w-full px-4 py-8">
     {% block content %}{% endblock %}
   </main>
 

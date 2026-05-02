@@ -750,6 +750,73 @@ async def _get_recent_sessions(patient_ids: list[int]) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Batch caseload extra metrics
+# ---------------------------------------------------------------------------
+
+async def _get_cases_extra(patient_ids: list[int]) -> dict:
+    """
+    One DB connection, three queries.
+    Returns dict[patient_id, {avg_pain_7d, days_in_program, latest_visa}].
+    """
+    if not patient_ids:
+        return {}
+
+    placeholders = ",".join("?" * len(patient_ids))
+    result: dict[int, dict] = {pid: {"avg_pain_7d": None, "days_in_program": None, "latest_visa": None}
+                                for pid in patient_ids}
+
+    db = await get_db()
+    try:
+        cutoff_7d = (datetime.utcnow() - timedelta(days=7)).isoformat()
+
+        # avg_pain_7d
+        cur = await db.execute(
+            f"SELECT user_id, ROUND(AVG(pain_during), 1) FROM daily_logs "
+            f"WHERE user_id IN ({placeholders}) AND created_at >= ? AND pain_during IS NOT NULL "
+            f"GROUP BY user_id",
+            (*patient_ids, cutoff_7d),
+        )
+        for row in await cur.fetchall():
+            uid, avg = row[0], row[1]
+            if uid in result:
+                result[uid]["avg_pain_7d"] = avg
+
+        # first_session → days_in_program
+        cur = await db.execute(
+            f"SELECT user_id, MIN(created_at) FROM daily_logs "
+            f"WHERE user_id IN ({placeholders}) GROUP BY user_id",
+            patient_ids,
+        )
+        today = datetime.utcnow().date()
+        for row in await cur.fetchall():
+            uid, first_dt = row[0], row[1]
+            if uid in result and first_dt:
+                try:
+                    first_date = datetime.fromisoformat(first_dt[:10]).date()
+                    result[uid]["days_in_program"] = (today - first_date).days
+                except Exception:
+                    pass
+
+        # visa_latest — order by created_at DESC, take first row per user
+        cur = await db.execute(
+            f"SELECT user_id, total_score FROM visa_a_responses "
+            f"WHERE user_id IN ({placeholders}) ORDER BY created_at DESC",
+            patient_ids,
+        )
+        seen_visa: set[int] = set()
+        for row in await cur.fetchall():
+            uid, score = row[0], row[1]
+            if uid in result and uid not in seen_visa:
+                result[uid]["latest_visa"] = score
+                seen_visa.add(uid)
+
+    finally:
+        await db.close()
+
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
 
@@ -818,6 +885,67 @@ async def supervisor_dashboard(
             "review_window_max": _REVIEW_WINDOW_MAX_DAYS,
             "active_cases_count": len(patients),
             "past_cases_count": past_cases_count,
+        },
+    )
+
+
+@router.get("/supervisor/cases", response_class=HTMLResponse)
+async def supervisor_cases(
+    request: Request,
+    teno_session: Optional[str] = Cookie(default=None),
+):
+    supervisor = await _get_supervisor(teno_session)
+    if not supervisor:
+        return RedirectResponse("/login", status_code=302)
+
+    db = await get_db()
+    try:
+        cur = await db.execute(
+            "SELECT patient_id FROM supervisor_patients "
+            "WHERE supervisor_id = ? AND (status IS NULL OR status = 'active')",
+            (supervisor["id"],),
+        )
+        rows = await cur.fetchall()
+        patient_ids = [r[0] for r in rows]
+    finally:
+        await db.close()
+
+    # Check inactivity for all patients, then build summaries
+    patients = []
+    for pid in patient_ids:
+        await _check_inactivity(pid)
+        summary = await _get_patient_summary(pid)
+        if summary:
+            patients.append(summary)
+
+    # Batch-fetch extra metrics and merge
+    extras = await _get_cases_extra(patient_ids)
+    _engage_cutoff = (datetime.utcnow() - timedelta(days=4)).date().isoformat()
+    for p in patients:
+        ex = extras.get(p["id"], {})
+        p["avg_pain_7d"]     = ex.get("avg_pain_7d")
+        p["days_in_program"] = ex.get("days_in_program")
+        p["latest_visa"]     = ex.get("latest_visa")
+        p["sessions_per_week"] = round(p.get("sessions_28d", 0) / 4, 1)
+        last = p.get("last_session_date") or ""
+        p["engagement"] = "engaged" if last >= _engage_cutoff else "behind"
+
+    # Sorted stage values (non-null)
+    stages = sorted({p["stage"] for p in patients if p.get("stage") is not None})
+
+    # Sort: red → yellow → inactive → green
+    _order = {"red": 0, "yellow": 1, "inactive": 2, "green": 3}
+    patients.sort(key=lambda p: _order.get(p.get("status", "green"), 3))
+
+    await _audit(supervisor["id"], "view_cases_page")
+
+    return templates.TemplateResponse(
+        request, "supervisor_cases.html",
+        {
+            "user": supervisor,
+            "patients": patients,
+            "stages": stages,
+            "total": len(patients),
         },
     )
 
