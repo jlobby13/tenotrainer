@@ -20,7 +20,7 @@ from typing import Optional
 import aiosqlite
 import bcrypt as _bcrypt
 from fastapi import Cookie, FastAPI, Form, HTTPException, Request, Response
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -93,7 +93,7 @@ def _fmt_date(value: str) -> str:
 
 templates.env.filters["fmt_date"] = _fmt_date
 
-from app.supervisor import router as _supervisor_router, generate_session_alerts as _generate_session_alerts
+from app.supervisor import router as _supervisor_router, generate_session_alerts as _generate_session_alerts, _fmt_alert_date as _fmt_msg_ts
 app.include_router(_supervisor_router)
 
 
@@ -673,6 +673,94 @@ async def verify_2fa_resend(
 # GET /account  — Account & Dashboard Settings
 # ---------------------------------------------------------------------------
 
+@app.get("/profile", response_class=HTMLResponse)
+async def profile_page(
+    request: Request,
+    teno_session: Optional[str] = Cookie(default=None),
+    msg: Optional[str] = None,
+    msg_type: Optional[str] = None,
+):
+    user = await get_current_user(teno_session)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    bmi_data = None
+    if user.get("height_cm") and user.get("weight_kg"):
+        h_m = user["height_cm"] / 100
+        bmi = round(user["weight_kg"] / (h_m * h_m), 1)
+        # WHO International Classification of adult BMI
+        if bmi < 16.0:
+            cat, color = "Severely underweight", "blue"
+        elif bmi < 18.5:
+            cat, color = "Underweight", "sky"
+        elif bmi < 25.0:
+            cat, color = "Normal weight", "green"
+        elif bmi < 30.0:
+            cat, color = "Overweight", "yellow"
+        elif bmi < 35.0:
+            cat, color = "Obese — Class I", "orange"
+        elif bmi < 40.0:
+            cat, color = "Obese — Class II", "red"
+        else:
+            cat, color = "Obese — Class III", "red"
+        # Position on scale bar (BMI 15–45 = 0–100%)
+        pct = max(2, min(98, round((bmi - 15) / 30 * 100)))
+        bmi_data = {"value": bmi, "category": cat, "color": color, "pct": pct}
+
+    # Parse injury sides JSON → plain list
+    try:
+        injury_sides = json.loads(user.get("injury_sides") or "[]") or []
+    except Exception:
+        injury_sides = []
+
+    return templates.TemplateResponse(
+        request, "profile.html",
+        context={
+            "user": user,
+            "msg": msg,
+            "msg_type": msg_type,
+            "bmi_data": bmi_data,
+            "injury_sides": injury_sides,
+        },
+    )
+
+
+@app.post("/profile/update-injury")
+async def profile_update_injury(
+    teno_session: Optional[str] = Cookie(default=None),
+    injury_right: Optional[str] = Form(default=None),
+    injury_left: Optional[str] = Form(default=None),
+    has_previous_history: Optional[str] = Form(default=None),
+    previous_history: str = Form(default=""),
+):
+    user = await get_current_user(teno_session)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    sides = []
+    if injury_right:
+        sides.append("right")
+    if injury_left:
+        sides.append("left")
+    sides_json = json.dumps(sides) if sides else None
+
+    history_val: Optional[str] = None
+    if has_previous_history:
+        history_val = previous_history.strip()[:2000] or ""
+
+    db = await get_db()
+    try:
+        await db.execute(
+            "UPDATE users SET injury_sides = ?, previous_history = ? WHERE id = ?",
+            (sides_json, history_val, user["id"]),
+        )
+        await db.commit()
+    finally:
+        await db.close()
+
+    return RedirectResponse("/profile?msg=Injury+details+saved.&msg_type=success", status_code=303)
+
+
 @app.get("/account", response_class=HTMLResponse)
 async def account_settings_page(
     request: Request,
@@ -734,10 +822,13 @@ async def account_update_demographics(
     sex: str = Form(default=""),
     height_cm: str = Form(default=""),
     weight_kg: str = Form(default=""),
+    redirect: str = Form(default=""),
 ):
     user = await get_current_user(teno_session)
     if not user:
         return RedirectResponse("/login", status_code=302)
+
+    _back = _redirect_stripped if _redirect_stripped in ("/profile", "/account") else "/account"
 
     def _fail(msg: str):
         return RedirectResponse(f"/account?msg={msg}&msg_type=error", status_code=303)
@@ -784,16 +875,18 @@ async def account_update_demographics(
     finally:
         await db.close()
 
-    return RedirectResponse("/account?msg=Demographics+saved.&msg_type=success", status_code=303)
+    return RedirectResponse(f"{_back}?msg=Demographics+saved.&msg_type=success", status_code=303)
 
 
 @app.post("/account/clear-demographics")
 async def account_clear_demographics(
     teno_session: Optional[str] = Cookie(default=None),
+    redirect: str = Form(default=""),
 ):
     user = await get_current_user(teno_session)
     if not user:
         return RedirectResponse("/login", status_code=302)
+    _back = _redirect_stripped if _redirect_stripped in ("/profile", "/account") else "/account"
     db = await get_db()
     try:
         await db.execute(
@@ -803,7 +896,7 @@ async def account_clear_demographics(
         await db.commit()
     finally:
         await db.close()
-    return RedirectResponse("/account?msg=Demographics+cleared.&msg_type=success", status_code=303)
+    return RedirectResponse(f"{_back}?msg=Demographics+cleared.&msg_type=success", status_code=303)
 
 
 @app.post("/account/update-condition")
@@ -813,10 +906,17 @@ async def account_update_condition(
     activity_level: str = Form(default=""),
     sports: str = Form(default=""),
     condition_timeline: str = Form(default=""),
+    has_previous_history: Optional[str] = Form(default=None),
+    previous_history: str = Form(default=""),
+    seen_by_provider: Optional[str] = Form(default=None),
+    seen_by_provider_notes: str = Form(default=""),
+    redirect: str = Form(default=""),
 ):
     user = await get_current_user(teno_session)
     if not user:
         return RedirectResponse("/login", status_code=302)
+
+    _back = redirect.strip() if redirect.strip() in ("/profile", "/account") else "/account"
 
     def _fail(msg: str):
         return RedirectResponse(f"/account?msg={msg}&msg_type=error", status_code=303)
@@ -834,43 +934,50 @@ async def account_update_condition(
         return _fail("Invalid+timeline+value.")
 
     sports_val = sports.strip()[:200] or None
+    history_val: Optional[str] = previous_history.strip()[:2000] if has_previous_history else None
+    provider_val = 1 if seen_by_provider else 0
+    provider_notes_val: Optional[str] = seen_by_provider_notes.strip()[:1000] if seen_by_provider else None
 
     db = await get_db()
     try:
         await db.execute(
-            """UPDATE users SET affected_side = ?, activity_level = ?, sports = ?, condition_timeline = ?
-               WHERE id = ?""",
+            """UPDATE users SET affected_side = ?, activity_level = ?, sports = ?,
+               condition_timeline = ?, previous_history = ?, seen_by_provider = ?,
+               seen_by_provider_notes = ? WHERE id = ?""",
             (
                 affected_side.strip() or None, activity_level.strip() or None,
                 sports_val, condition_timeline.strip() or None,
-                user["id"],
+                history_val, provider_val, provider_notes_val, user["id"],
             ),
         )
         await db.commit()
     finally:
         await db.close()
 
-    return RedirectResponse("/account?msg=Status+and+Function+saved.&msg_type=success", status_code=303)
+    return RedirectResponse(f"{_back}?msg=Status+and+Function+saved.&msg_type=success", status_code=303)
 
 
 @app.post("/account/clear-condition")
 async def account_clear_condition(
     teno_session: Optional[str] = Cookie(default=None),
+    redirect: str = Form(default=""),
 ):
     user = await get_current_user(teno_session)
     if not user:
         return RedirectResponse("/login", status_code=302)
+    _back = redirect.strip() if redirect.strip() in ("/profile", "/account") else "/account"
     db = await get_db()
     try:
         await db.execute(
             """UPDATE users SET affected_side = NULL, activity_level = NULL,
-               sports = NULL, condition_timeline = NULL WHERE id = ?""",
+               sports = NULL, condition_timeline = NULL, previous_history = NULL,
+               seen_by_provider = 0, seen_by_provider_notes = NULL WHERE id = ?""",
             (user["id"],),
         )
         await db.commit()
     finally:
         await db.close()
-    return RedirectResponse("/account?msg=Condition+data+cleared.&msg_type=success", status_code=303)
+    return RedirectResponse(f"{_back}?msg=Condition+data+cleared.&msg_type=success", status_code=303)
 
 
 @app.post("/account/update-password")
@@ -1041,21 +1148,86 @@ async def onboarding_get(
 
     db = await get_db()
     try:
+        # All assessments (newest first) — used for ledger + pre-fill
         cursor = await db.execute(
-            "SELECT created_at FROM onboarding_assessments WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
+            "SELECT id, created_at, pain_at_rest, morning_stiffness, pain_with_activity, "
+            "pain_after_activity, next_day_pain, calf_raise_reps, functional_tests, stage, "
+            "irritability, injury_duration, problem_list, other_problems, comments "
+            "FROM onboarding_assessments WHERE user_id = ? ORDER BY created_at DESC",
             (user["id"],),
         )
-        row = await cursor.fetchone()
-        if row:
-            row = row_to_dict(row)
-            last_assessment_date = row["created_at"][:10]
-            try:
-                delta = datetime.utcnow() - datetime.fromisoformat(row["created_at"][:19])
-                days_since_assessment = delta.days
-            except Exception:
-                days_since_assessment = None
+        all_oa_rows = [row_to_dict(r) for r in await cursor.fetchall()]
+
+        # All VISA-A responses for same-day matching
+        cursor = await db.execute(
+            "SELECT total_score, created_at FROM visa_a_responses "
+            "WHERE user_id = ? ORDER BY created_at DESC",
+            (user["id"],),
+        )
+        visa_rows = [row_to_dict(r) for r in await cursor.fetchall()]
     finally:
         await db.close()
+
+    # Build per-assessment ledger entries
+    def _lsi(aff, unaff):
+        if aff and unaff and unaff > 0:
+            return round(aff / unaff * 100, 1)
+        return None
+
+    prev_assessments = []
+    for oa in all_oa_rows:
+        try:
+            ft = json.loads(oa.get("functional_tests") or "{}")
+        except Exception:
+            ft = {}
+        try:
+            pl = json.loads(oa.get("problem_list") or "[]")
+        except Exception:
+            pl = []
+        oa_date = (oa.get("created_at") or "")[:10]
+        visa_score = next(
+            (v["total_score"] for v in visa_rows if (v.get("created_at") or "")[:10] == oa_date),
+            None,
+        )
+        cr_aff   = oa.get("calf_raise_reps") or 0
+        cr_unaff = ft.get("calf_raise_reps_unaffected")
+        prev_assessments.append({
+            "id":                       oa["id"],
+            "date":                     oa_date,
+            "pain_at_rest":             oa.get("pain_at_rest"),
+            "morning_stiffness":        oa.get("morning_stiffness"),
+            "pain_with_activity":       oa.get("pain_with_activity"),
+            "pain_after_activity":      oa.get("pain_after_activity"),
+            "next_day_pain":            oa.get("next_day_pain"),
+            "calf_raise_reps":          cr_aff,
+            "calf_raise_reps_unaffected": cr_unaff,
+            "lsi":                      _lsi(cr_aff, cr_unaff),
+            "visa_score":               visa_score,
+            "stage":                    oa.get("stage"),
+            "irritability":             oa.get("irritability"),
+            "injury_duration":          oa.get("injury_duration"),
+            "problem_list":             pl,
+            "other_problems":           oa.get("other_problems") or "",
+            "comments":                 oa.get("comments") or "",
+        })
+
+    # Derive pre-fill values from the most recent assessment
+    prev_comments       = None
+    prev_problem_list:  list = []
+    prev_other_problems = None
+    if prev_assessments:
+        latest = prev_assessments[0]
+        last_assessment_date = latest["date"]
+        prev_comments        = latest["comments"] or None
+        prev_other_problems  = latest["other_problems"] or None
+        prev_problem_list    = latest["problem_list"]
+        try:
+            delta = datetime.utcnow() - datetime.fromisoformat(
+                (all_oa_rows[0].get("created_at") or "")[:19]
+            )
+            days_since_assessment = delta.days
+        except Exception:
+            days_since_assessment = None
 
     show_confirm = last_assessment_date is not None and confirm != "1"
     is_reassessment = last_assessment_date is not None
@@ -1071,6 +1243,10 @@ async def onboarding_get(
             "is_reassessment": is_reassessment,
             "today_date": today_date,
             "questions": get_questions(),
+            "prev_comments": prev_comments,
+            "prev_problem_list": prev_problem_list,
+            "prev_other_problems": prev_other_problems,
+            "prev_assessments": prev_assessments,
         },
     )
 
@@ -1091,7 +1267,7 @@ async def onboarding_post(
     pain_after_activity: int = Form(...),
     next_day_pain: int = Form(...),
     # Capacity
-    calf_raise_reps: int = Form(...),
+    calf_raise_reps: int = Form(default=0),
     calf_raise_reps_unaffected: Optional[int] = Form(default=None),
     wblt_cm: Optional[int] = Form(default=None),
     wblt_cm_unaffected: Optional[int] = Form(default=None),
@@ -1121,6 +1297,21 @@ async def onboarding_post(
     goal_notes: Optional[str] = Form(default=""),
     # Red flags
     red_flags: Optional[str] = Form(default=""),
+    # Problem list checkboxes
+    prob_walking: Optional[str] = Form(default=None),
+    prob_lifting: Optional[str] = Form(default=None),
+    prob_carrying: Optional[str] = Form(default=None),
+    prob_stairs: Optional[str] = Form(default=None),
+    prob_sitting: Optional[str] = Form(default=None),
+    prob_standing: Optional[str] = Form(default=None),
+    prob_running: Optional[str] = Form(default=None),
+    prob_hopping: Optional[str] = Form(default=None),
+    prob_sleeping: Optional[str] = Form(default=None),
+    prob_balance: Optional[str] = Form(default=None),
+    prob_none: Optional[str] = Form(default=None),
+    other_problems: Optional[str] = Form(default=""),
+    # Comments
+    comments: Optional[str] = Form(default=""),
     # User name update
     user_name: Optional[str] = Form(default=None),
     # VISA-A questions
@@ -1136,6 +1327,21 @@ async def onboarding_post(
     user = await get_authenticated_user(teno_session)
     if not user:
         return RedirectResponse("/login", status_code=302)
+
+    # Build problem list
+    problem_list = []
+    if prob_none:
+        problem_list = ["none"]
+    else:
+        for flag, key in [
+            (prob_walking, "walking"), (prob_lifting, "lifting"),
+            (prob_carrying, "carrying"), (prob_stairs, "stairs"),
+            (prob_sitting, "sitting"), (prob_standing, "standing"),
+            (prob_running, "running"), (prob_hopping, "hopping"),
+            (prob_sleeping, "sleeping"), (prob_balance, "balance"),
+        ]:
+            if flag:
+                problem_list.append(key)
 
     # Build risk factors list
     risk_factors = []
@@ -1259,13 +1465,15 @@ async def onboarding_post(
             """INSERT INTO onboarding_assessments
                (user_id, morning_stiffness, pain_at_rest, pain_with_activity, pain_after_activity,
                 next_day_pain, calf_raise_reps, functional_tests, goals, injury_duration,
-                recent_load_change, risk_factors, stage, irritability)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                recent_load_change, risk_factors, stage, irritability, comments,
+                problem_list, other_problems)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 user["id"], morning_stiffness, pain_at_rest, pain_with_activity,
                 pain_after_activity, next_day_pain, calf_raise_reps, functional_tests_json,
                 goals_json, injury_duration, int(bool(int(recent_load_change))),
                 json.dumps(risk_factors), classification.stage, classification.irritability,
+                comments or None, json.dumps(problem_list), other_problems or None,
             ),
         )
 
@@ -2472,6 +2680,7 @@ async def daily_log_post(
         pain_during=pain_during,
         overall_compliance=exercise_compliance.get("overall_compliance"),
         recent_logs=existing_logs,
+        session_notes=notes,
     )
 
     # Build next-session plan using updated irritability + stage
@@ -2734,7 +2943,8 @@ async def exercise_log_get(
     db = await get_db()
     try:
         cursor = await db.execute(
-            "SELECT id, pain_during, pain_after, next_day_pain, exercise_log, created_at "
+            "SELECT id, pain_during, pain_after, next_day_pain, difficulty, confidence, "
+            "morning_stiffness, notes, exercise_log, created_at "
             "FROM daily_logs WHERE user_id = ? ORDER BY created_at DESC LIMIT 30",
             (user["id"],),
         )
@@ -2742,6 +2952,13 @@ async def exercise_log_get(
         logs = [row_to_dict(r) for r in log_rows]
     finally:
         await db.close()
+
+    for _log in logs:
+        try:
+            _ex = json.loads(_log.get("exercise_log") or "{}")
+        except Exception:
+            _ex = {}
+        _log["exercises_parsed"] = _ex.get("exercises", [])
 
     # Group sessions by exercise name so each exercise gets its own history table.
     # exercise_history: OrderedDict preserving first-seen order (most recent first).
@@ -2788,6 +3005,7 @@ async def exercise_log_get(
             "user": user,
             "exercise_history": list(exercise_history.values()),
             "total_sessions": total_logged,
+            "recent_logs": logs,
         },
     )
 
@@ -3587,3 +3805,135 @@ async def exercise_library_page(
             "has_onboarding": state["has_onboarding"],
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# Messaging routes
+# ---------------------------------------------------------------------------
+
+@app.get("/messages", response_class=HTMLResponse)
+async def messages_get(
+    request: Request,
+    teno_session: Optional[str] = Cookie(default=None),
+):
+    user = await get_authenticated_user(teno_session)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    db = await get_db()
+    try:
+        # Find this user's supervisor
+        cur = await db.execute(
+            "SELECT sp.supervisor_id, u.name FROM supervisor_patients sp "
+            "JOIN users u ON u.id = sp.supervisor_id "
+            "WHERE sp.patient_id = ? AND sp.status = 'active' LIMIT 1",
+            (user["id"],),
+        )
+        row = await cur.fetchone()
+        supervisor = {"id": row[0], "name": row[1]} if row else None
+
+        messages = []
+        if supervisor:
+            cur = await db.execute(
+                "SELECT id, sender_id, body, read, created_at FROM messages "
+                "WHERE (sender_id = ? AND recipient_id = ?) OR (sender_id = ? AND recipient_id = ?) "
+                "ORDER BY created_at ASC",
+                (user["id"], supervisor["id"], supervisor["id"], user["id"]),
+            )
+            rows = await cur.fetchall()
+            messages = [
+                {
+                    "id": r[0],
+                    "sender_id": r[1],
+                    "body": r[2],
+                    "read": r[3],
+                    "created_at": _fmt_msg_ts(r[4]),
+                }
+                for r in rows
+            ]
+            # Mark unread messages from supervisor to user as read
+            await db.execute(
+                "UPDATE messages SET read = 1 WHERE sender_id = ? AND recipient_id = ? AND read = 0",
+                (supervisor["id"], user["id"]),
+            )
+            await db.commit()
+    finally:
+        await db.close()
+
+    return templates.TemplateResponse(
+        request, "messages.html",
+        {
+            "user": user,
+            "supervisor": supervisor,
+            "messages": messages,
+        },
+    )
+
+
+@app.post("/messages/send")
+async def messages_send(
+    teno_session: Optional[str] = Cookie(default=None),
+    body: str = Form(...),
+):
+    user = await get_authenticated_user(teno_session)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    body_val = body.strip()[:2000]
+    if not body_val:
+        return RedirectResponse("/messages", status_code=303)
+
+    db = await get_db()
+    try:
+        cur = await db.execute(
+            "SELECT supervisor_id FROM supervisor_patients "
+            "WHERE patient_id = ? AND status = 'active' LIMIT 1",
+            (user["id"],),
+        )
+        row = await cur.fetchone()
+        if row:
+            supervisor_id = row[0]
+            await db.execute(
+                "INSERT INTO messages (sender_id, recipient_id, body) VALUES (?, ?, ?)",
+                (user["id"], supervisor_id, body_val),
+            )
+            await db.commit()
+    finally:
+        await db.close()
+
+    return RedirectResponse("/messages", status_code=303)
+
+
+@app.get("/api/nav-counts")
+async def api_nav_counts(
+    teno_session: Optional[str] = Cookie(default=None),
+):
+    user = await get_authenticated_user(teno_session)
+    if not user:
+        return JSONResponse({"messages": 0, "alerts": 0})
+
+    db = await get_db()
+    try:
+        cur = await db.execute(
+            "SELECT COUNT(*) FROM messages WHERE recipient_id = ? AND read = 0",
+            (user["id"],),
+        )
+        row = await cur.fetchone()
+        msg_count = row[0] if row else 0
+
+        alerts_count = 0
+        if user.get("role") in ("supervisor", "superuser"):
+            cur = await db.execute(
+                "SELECT COUNT(*) FROM supervisor_alerts "
+                "WHERE resolved = 0 AND patient_id IN ("
+                "  SELECT patient_id FROM supervisor_patients "
+                "  WHERE supervisor_id = ? AND status = 'active'"
+                ")",
+                (user["id"],),
+            )
+            row = await cur.fetchone()
+            alerts_count = row[0] if row else 0
+    finally:
+        await db.close()
+
+    return JSONResponse({"messages": msg_count, "alerts": alerts_count})

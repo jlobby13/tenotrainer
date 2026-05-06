@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Messages — TenoTrainer{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+
+  <!-- Page header -->
+  <div class="bg-gradient-to-r from-brand-700 to-brand-500 rounded-2xl px-6 py-5 shadow">
+    <h1 class="text-2xl font-black text-white leading-tight">Messages</h1>
+    <p class="text-brand-200 text-sm mt-1">Your conversation with your supervisor</p>
+  </div>
+
+  {% if not supervisor %}
+  <!-- No supervisor assigned -->
+  <div class="bg-white rounded-2xl shadow border border-gray-100 px-6 py-10 text-center">
+    <svg class="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z"/>
+    </svg>
+    <p class="text-gray-500 text-sm">You haven't been assigned to a supervisor yet.</p>
+  </div>
+
+  {% else %}
+  <!-- Conversation card -->
+  <div class="bg-white rounded-2xl shadow border border-gray-100 overflow-hidden">
+
+    <!-- Chat area -->
+    <div class="chat-scroll max-h-[32rem] overflow-y-auto px-4 py-5 space-y-3 bg-gray-50">
+      {% if not messages %}
+      <p class="text-center text-sm text-gray-400 py-8">No messages yet — send one below</p>
+      {% endif %}
+
+      {% for msg in messages %}
+      {% if msg.sender_id == user.id %}
+      <!-- User's own message — right-aligned -->
+      <div class="flex justify-end">
+        <div class="max-w-[75%]">
+          <div class="bg-brand-600 text-white rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm leading-relaxed">
+            {{ msg.body }}
+          </div>
+          <p class="text-right text-xs text-gray-400 mt-1 mr-1">{{ msg.created_at }}</p>
+        </div>
+      </div>
+      {% else %}
+      <!-- Supervisor's message — left-aligned -->
+      <div class="flex justify-start">
+        <div class="max-w-[75%]">
+          <p class="text-xs font-semibold text-brand-600 mb-1 ml-1">{{ supervisor.name }}</p>
+          <div class="bg-white border border-gray-200 text-gray-800 rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm leading-relaxed shadow-sm">
+            {{ msg.body }}
+          </div>
+          <p class="text-xs text-gray-400 mt-1 ml-1">{{ msg.created_at }}</p>
+        </div>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+
+    <!-- Send form -->
+    <div class="border-t border-gray-100 px-4 py-4">
+      <form method="post" action="/messages/send" class="flex flex-col gap-2">
+        <textarea
+          name="body"
+          rows="3"
+          maxlength="2000"
+          placeholder="Type a message…"
+          required
+          class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-800 resize-none focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400 transition-colors"
+        ></textarea>
+        <div class="flex justify-end">
+          <button type="submit"
+                  class="px-5 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold rounded-xl transition-colors">
+            Send
+          </button>
+        </div>
+      </form>
+    </div>
+
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Auto-scroll chat to bottom
+  (function() {
+    var el = document.querySelector('.chat-scroll');
+    if (el) el.scrollTop = 99999;
+  })();
+</script>
+{% endblock %}

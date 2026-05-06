@@ -77,6 +77,247 @@
     </div>
   </div>
 
+  {# ── Previous Assessments Ledger ── #}
+  {% if prev_assessments %}
+  <div class="bg-white rounded-2xl shadow border border-gray-100 overflow-hidden mt-6">
+
+    {# Header — clickable to collapse #}
+    <button type="button" onclick="toggleLedger()"
+            class="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors text-left">
+      <div>
+        <h2 class="text-base font-black text-gray-900">Previous Assessments</h2>
+        <p class="text-xs text-gray-400 mt-0.5">{{ prev_assessments | length }} record{{ 's' if prev_assessments | length != 1 else '' }} — click any row to view full details</p>
+      </div>
+      <svg id="ledger-chevron" class="w-4 h-4 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+      </svg>
+    </button>
+
+    <div id="ledger-body">
+      {# Column headers #}
+      <div class="grid grid-cols-4 gap-2 px-6 py-2 bg-gray-50 border-t border-b border-gray-100 text-[0.6rem] font-bold uppercase tracking-widest text-gray-400">
+        <span>Date</span>
+        <span class="text-center">LSI</span>
+        <span class="text-center">VISA-A</span>
+        <span class="text-center">Pain at Rest</span>
+      </div>
+
+      {# Rows #}
+      {% for a in prev_assessments %}
+      <button type="button"
+              class="ledger-row w-full grid grid-cols-4 gap-2 px-6 py-3 border-b border-gray-50 hover:bg-brand-50 transition-colors text-left items-center
+                     {% if loop.last %}border-b-0{% endif %}"
+              onclick="openDetail({{ loop.index0 }})"
+              data-idx="{{ loop.index0 }}">
+
+        {# Date #}
+        <span class="text-sm font-semibold text-gray-700">{{ a.date | fmt_date }}</span>
+
+        {# LSI #}
+        <span class="text-sm font-bold text-center
+          {% if a.lsi is not none %}
+            {% if a.lsi >= 90 %}text-green-600{% elif a.lsi >= 75 %}text-amber-600{% else %}text-red-600{% endif %}
+          {% else %}text-gray-400{% endif %}">
+          {% if a.lsi is not none %}{{ a.lsi }}%{% else %}—{% endif %}
+        </span>
+
+        {# VISA-A #}
+        <span class="text-sm font-bold text-center
+          {% if a.visa_score is not none %}
+            {% if a.visa_score >= 60 %}text-green-600{% elif a.visa_score >= 30 %}text-amber-600{% else %}text-red-600{% endif %}
+          {% else %}text-gray-400{% endif %}">
+          {% if a.visa_score is not none %}{{ a.visa_score }}/80{% else %}—{% endif %}
+        </span>
+
+        {# Pain at rest #}
+        <span class="text-sm font-bold text-center
+          {% if a.pain_at_rest is not none %}
+            {% if a.pain_at_rest <= 3 %}text-green-600{% elif a.pain_at_rest <= 6 %}text-amber-600{% else %}text-red-600{% endif %}
+          {% else %}text-gray-400{% endif %}">
+          {% if a.pain_at_rest is not none %}{{ a.pain_at_rest }}/10{% else %}—{% endif %}
+        </span>
+      </button>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ── Detail Modal ── #}
+  <div id="detail-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
+
+      {# Modal header #}
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+        <div>
+          <h3 id="modal-title" class="text-base font-black text-gray-900">Assessment Detail</h3>
+          <p id="modal-subtitle" class="text-xs text-gray-400 mt-0.5"></p>
+        </div>
+        <button type="button" onclick="closeDetail()" class="text-gray-400 hover:text-gray-600 transition-colors p-1">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      {# Modal body #}
+      <div id="modal-body" class="overflow-y-auto flex-1 px-6 py-5 space-y-5 text-sm text-gray-700"></div>
+    </div>
+  </div>
+
+  {# Serialise all assessment data for JS #}
+  <script>
+  var _assessments = {{ prev_assessments | tojson }};
+  var _probLabels = {
+    "walking":  "Difficulty with walking",
+    "lifting":  "Difficulty with lifting of objects",
+    "carrying": "Difficulty with carrying of objects",
+    "stairs":   "Difficulty with performance of stairs",
+    "sitting":  "Difficulty with sitting for prolonged periods",
+    "standing": "Difficulty with standing for prolonged periods",
+    "running":  "Difficulty with running",
+    "hopping":  "Difficulty with hopping / jumping",
+    "sleeping": "Difficulty with sleeping",
+    "balance":  "Difficulty with balance",
+    "none":     "None apply",
+  };
+  var _irrLabels = {"low":"Low","moderate":"Moderate","high":"High"};
+  var _durLabels = {"acute":"Acute (<6 weeks)","subacute":"Sub-acute (6–12 weeks)","chronic":"Chronic (>12 weeks)"};
+  var _dateFormat = {{ (user.date_format if user.date_format else 'MM-DD-YYYY') | tojson }};
+
+  function _fmtDate(iso) {
+    if (!iso) return '—';
+    var p = iso.slice(0, 10).split('-');
+    if (p.length !== 3) return iso;
+    return (_dateFormat || 'MM-DD-YYYY').replace('YYYY', p[0]).replace('MM', p[1]).replace('DD', p[2]);
+  }
+
+  function toggleLedger() {
+    var body = document.getElementById('ledger-body');
+    var chev = document.getElementById('ledger-chevron');
+    var hidden = body.classList.toggle('hidden');
+    chev.style.transform = hidden ? 'rotate(-90deg)' : '';
+  }
+
+  function openDetail(idx) {
+    var a = _assessments[idx];
+    if (!a) return;
+    document.getElementById('modal-title').textContent = 'Assessment — ' + _fmtDate(a.date);
+    document.getElementById('modal-subtitle').textContent =
+      'Stage ' + (a.stage || '—') + ' · ' + (_irrLabels[a.irritability] || a.irritability || '—') + ' irritability';
+
+    var html = '';
+
+    // Snapshot bar
+    html += '<div class="grid grid-cols-3 gap-3">';
+    html += _statBox('LSI', a.lsi !== null ? a.lsi + '%' : '—', a.lsi !== null ? (a.lsi >= 90 ? 'green' : a.lsi >= 75 ? 'amber' : 'red') : 'gray');
+    html += _statBox('VISA-A', a.visa_score !== null ? a.visa_score + '/80' : '—', a.visa_score !== null ? (a.visa_score >= 60 ? 'green' : a.visa_score >= 30 ? 'amber' : 'red') : 'gray');
+    html += _statBox('Pain at Rest', a.pain_at_rest !== null ? a.pain_at_rest + '/10' : '—', a.pain_at_rest !== null ? (a.pain_at_rest <= 3 ? 'green' : a.pain_at_rest <= 6 ? 'amber' : 'red') : 'gray');
+    html += '</div>';
+
+    // Pain scores
+    html += '<div>';
+    html += '<p class="text-[0.6rem] font-bold uppercase tracking-widest text-gray-400 mb-2">Pain Scores</p>';
+    html += '<div class="grid grid-cols-2 gap-2">';
+    var pains = [
+      ['Morning stiffness', a.morning_stiffness],
+      ['Pain at rest',      a.pain_at_rest],
+      ['Pain with activity', a.pain_with_activity],
+      ['Pain after activity', a.pain_after_activity],
+      ['Next-day pain',     a.next_day_pain],
+    ];
+    pains.forEach(function(p) {
+      var v = p[1];
+      var col = v <= 3 ? '#16a34a' : v <= 6 ? '#d97706' : '#dc2626';
+      html += '<div class="flex justify-between items-center px-3 py-1.5 bg-gray-50 rounded-lg">';
+      html += '<span class="text-xs text-gray-600">' + p[0] + '</span>';
+      html += '<span class="text-sm font-bold" style="color:' + col + '">' + (v !== null && v !== undefined ? v + '/10' : '—') + '</span>';
+      html += '</div>';
+    });
+    html += '</div></div>';
+
+    // Calf raise / LSI
+    if (a.calf_raise_reps || a.calf_raise_reps_unaffected) {
+      html += '<div>';
+      html += '<p class="text-[0.6rem] font-bold uppercase tracking-widest text-gray-400 mb-2">Functional Capacity</p>';
+      html += '<div class="grid grid-cols-3 gap-2">';
+      html += _statBox('Affected', (a.calf_raise_reps || '—') + ' reps', 'gray');
+      html += _statBox('Unaffected', (a.calf_raise_reps_unaffected || '—') + ' reps', 'gray');
+      html += _statBox('LSI', a.lsi !== null ? a.lsi + '%' : '—', a.lsi !== null ? (a.lsi >= 90 ? 'green' : a.lsi >= 75 ? 'amber' : 'red') : 'gray');
+      html += '</div></div>';
+    }
+
+    // Problem list — always shown
+    html += '<div>';
+    html += '<p class="text-[0.6rem] font-bold uppercase tracking-widest text-gray-400 mb-2">Problem List</p>';
+    var activeProblems = (a.problem_list || []).filter(function(k) { return k !== 'none'; });
+    var noneSelected   = (a.problem_list || []).indexOf('none') !== -1;
+    if (activeProblems.length > 0) {
+      html += '<div class="flex flex-wrap gap-1.5">';
+      activeProblems.forEach(function(k) {
+        html += '<span class="text-[0.65rem] font-semibold bg-red-50 text-red-700 border border-red-100 px-2 py-0.5 rounded-full">'
+              + (_probLabels[k] || k) + '</span>';
+      });
+      html += '</div>';
+    } else if (noneSelected) {
+      html += '<p class="text-xs text-gray-400 italic">None reported</p>';
+    } else {
+      html += '<p class="text-xs text-gray-300 italic">Not recorded</p>';
+    }
+    html += '</div>';
+
+    // Other problems / medical history — always shown
+    html += '<div>';
+    html += '<p class="text-[0.6rem] font-bold uppercase tracking-widest text-gray-400 mb-1">Other Problems / Medical History</p>';
+    if (a.other_problems && a.other_problems.trim()) {
+      html += '<p class="text-xs text-gray-700 leading-relaxed whitespace-pre-wrap bg-gray-50 rounded-lg px-3 py-2">' + _esc(a.other_problems) + '</p>';
+    } else {
+      html += '<p class="text-xs text-gray-300 italic">None reported</p>';
+    }
+    html += '</div>';
+
+    // Patient comments — always shown
+    html += '<div>';
+    html += '<p class="text-[0.6rem] font-bold uppercase tracking-widest text-gray-400 mb-1">Patient Comments</p>';
+    if (a.comments && a.comments.trim()) {
+      html += '<p class="text-xs text-gray-700 leading-relaxed whitespace-pre-wrap bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">' + _esc(a.comments) + '</p>';
+    } else {
+      html += '<p class="text-xs text-gray-300 italic">No comments recorded</p>';
+    }
+    html += '</div>';
+
+    document.getElementById('modal-body').innerHTML = html;
+    document.getElementById('detail-modal').classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+  }
+
+  function _statBox(label, value, color) {
+    var colors = {
+      green: 'bg-green-50 text-green-700',
+      amber: 'bg-amber-50 text-amber-700',
+      red:   'bg-red-50 text-red-700',
+      gray:  'bg-gray-50 text-gray-600',
+    };
+    var cls = colors[color] || colors.gray;
+    return '<div class="' + cls + ' rounded-xl px-3 py-3 text-center">'
+      + '<p class="text-[0.55rem] font-bold uppercase tracking-widest opacity-60 mb-0.5">' + label + '</p>'
+      + '<p class="text-base font-black">' + value + '</p>'
+      + '</div>';
+  }
+
+  function _esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function closeDetail() {
+    document.getElementById('detail-modal').classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
+  }
+  document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeDetail(); });
+  document.getElementById('detail-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeDetail();
+  });
+  </script>
+  {% endif %}
+
   {% else %}
   <div class="rounded-2xl bg-gradient-to-r from-brand-700 to-brand-500 px-6 py-5 mb-6 shadow-md">
     <h1 class="text-2xl font-black text-white leading-tight">
@@ -179,27 +420,17 @@
   <form method="POST" action="/onboarding" class="space-y-8">
 
     <!-- Section 1: Safety Check — Red Flags -->
-    <div class="bg-red-50 rounded-xl border border-red-200 p-6">
-      <h2 class="text-xl font-bold text-red-800 mb-2">Safety Check — Red Flags</h2>
-      <p class="text-sm text-red-700 mb-3">
-        If any of the following apply to you, do NOT proceed with self-managed rehabilitation.
-        Seek immediate medical assessment.
+    <div class="bg-red-50 border border-red-200 rounded-2xl p-4">
+      <h3 class="text-sm font-bold text-red-800 mb-1">Safety Check</h3>
+      <p class="text-[0.6875rem] text-red-600 mb-2">
+        Sudden popping or snapping sound · complete inability to plantarflex · visible gap or depression in the tendon · sudden severe bruising and swelling · inability to bear weight — describe below to trigger an immediate safety halt.
       </p>
-      <ul class="text-sm text-red-700 mb-4 space-y-1 list-disc list-inside">
-        <li>Sudden popping or snapping sound at the back of the ankle</li>
-        <li>Complete inability to point foot downward (plantarflex)</li>
-        <li>Visible gap or depression in the tendon above the heel</li>
-        <li>Sudden severe bruising and swelling around the Achilles</li>
-        <li>Inability to bear weight on the affected leg</li>
-        <li><strong>Thompson test positive:</strong> lie face-down with your foot hanging off a surface; squeeze the calf firmly — if the foot does <em>not</em> move, this indicates a likely Achilles rupture requiring urgent medical assessment</li>
-      </ul>
-      <div>
-        <label class="block text-sm font-medium text-red-800 mb-1">
-          If any apply, describe briefly (optional — this triggers a safety halt):
-        </label>
-        <textarea name="red_flags" rows="2" placeholder="e.g. 'heard a pop', 'cannot point foot down'"
-                  class="w-full border border-red-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-400 focus:outline-none bg-white"></textarea>
-      </div>
+      <p class="text-[0.6875rem] text-red-500 mb-2">
+        <strong>Thompson test:</strong> lie face-down, foot hanging free — squeeze the calf. If the foot does <em>not</em> plantarflex, suspect a rupture and seek urgent medical assessment before continuing.
+      </p>
+      <input type="text" name="red_flags"
+             placeholder="Describe any concerning symptoms (e.g. 'heard a pop', 'cannot point foot down')"
+             class="w-full border border-red-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-400 focus:outline-none bg-white" />
     </div>
 
     <!-- Section 2: Your Details -->
@@ -293,138 +524,6 @@
       {% endfor %}
     </div>
 
-    <!-- Section 3: Functional Capacity -->
-    <div class="bg-white rounded-xl shadow p-6 border border-gray-100">
-      <h2 class="text-xl font-bold text-gray-800 mb-1">Functional Capacity</h2>
-      <p class="text-sm text-gray-500 mb-5">
-        These tests measure how your Achilles tendon tolerates load. Complete only what is currently pain-free or within tolerable pain (&le;3/10).
-      </p>
-
-      <!-- Calf Raise -->
-      <div class="mb-6">
-        <h3 class="text-sm font-semibold text-gray-700 mb-0.5">Single-Leg Calf Raise</h3>
-        <p class="text-xs text-gray-500 mb-2">
-          On a flat surface, rise onto tiptoe on each leg separately and lower slowly. Count reps until you cannot continue due to pain or fatigue. This is the primary loading test for Achilles tendinopathy and directly informs your rehab stage and starting dosage. Recording both sides allows a Limb Symmetry Index (LSI) to be calculated — an LSI &lt;90% indicates a meaningful strength deficit on the affected side.
-        </p>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Affected side (required)</label>
-            <div class="flex items-center gap-2">
-              <input type="number" name="calf_raise_reps" min="0" max="100" value="10" required
-                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
-              <span class="text-sm text-gray-500">reps</span>
-            </div>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Unaffected side <span class="text-gray-400 font-normal">— optional, for LSI</span></label>
-            <div class="flex items-center gap-2">
-              <input type="number" name="calf_raise_reps_unaffected" min="0" max="100" placeholder="—"
-                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
-              <span class="text-sm text-gray-500">reps</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- WBLT -->
-      <div class="mb-6">
-        <h3 class="text-sm font-semibold text-gray-700 mb-0.5">Weight Bearing Lunge Test (WBLT) <span class="text-gray-400 font-normal">— optional</span></h3>
-        <p class="text-xs text-gray-500 mb-2">
-          Stand facing a wall with your foot flat on the floor. Lunge your knee toward the wall while keeping your heel grounded. Measure the maximum distance (cm) your toe can be from the wall while still allowing the knee to touch it. The WBLT measures ankle dorsiflexion range — reduced mobility (&lt;10 cm) increases load on the Achilles during walking and running and is a key modifiable risk factor. Recording both sides allows an LSI comparison — a side-to-side difference &gt;10% suggests asymmetric dorsiflexion restriction that may be contributing to tendon overload.
-        </p>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Affected side (cm)</label>
-            <div class="flex items-center gap-2">
-              <input type="number" name="wblt_cm" min="0" max="30" placeholder="—"
-                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
-              <span class="text-sm text-gray-500">cm</span>
-            </div>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Unaffected side (cm) <span class="text-gray-400 font-normal">— for LSI</span></label>
-            <div class="flex items-center gap-2">
-              <input type="number" name="wblt_cm_unaffected" min="0" max="30" placeholder="—"
-                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
-              <span class="text-sm text-gray-500">cm</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Hopping — only relevant if pain allows -->
-      <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
-        <h3 class="text-sm font-semibold text-gray-700 mb-1">Hopping Capacity <span class="text-gray-400 font-normal">— optional, complete only if pain &le;3/10 during activity</span></h3>
-        <p class="text-xs text-gray-500 mb-4">
-          Hopping tests assess the Achilles tendon's ability to store and release energy under higher-speed load — a capacity required for running, jumping, and sport. These are relevant if you are targeting a return to running or sport, and are used to benchmark progress across rehab stages. Skip these if you are in acute pain or cannot walk comfortably.
-        </p>
-        <!-- Distance hop -->
-        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Distance Hop</p>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Double-leg hop — best of 3 (cm)</label>
-            <p class="text-xs text-gray-400 mb-2">Stand on both feet, hop forward as far as possible, land on both feet. Measure from take-off line to nearest heel.</p>
-            <div class="flex items-center gap-2">
-              <input type="number" name="double_leg_hop_cm" min="0" max="400" placeholder="—"
-                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
-              <span class="text-sm text-gray-500">cm</span>
-            </div>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Single-leg hop — affected side (cm)</label>
-            <p class="text-xs text-gray-400 mb-2">Same as above on the affected leg only.</p>
-            <div class="flex items-center gap-2">
-              <input type="number" name="single_leg_hop_cm" min="0" max="300" placeholder="—"
-                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
-              <span class="text-sm text-gray-500">cm</span>
-            </div>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Single-leg hop — unaffected side (cm)</label>
-            <p class="text-xs text-gray-400 mb-2">Same test on the unaffected leg. Used to calculate LSI (affected ÷ unaffected × 100). &lt;90% indicates meaningful deficit.</p>
-            <div class="flex items-center gap-2">
-              <input type="number" name="single_leg_hop_cm_unaffected" min="0" max="300" placeholder="—"
-                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
-              <span class="text-sm text-gray-500">cm</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- In-place endurance hop -->
-        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">In-Place Endurance Hop</p>
-        <p class="text-xs text-gray-400 mb-3">Hop continuously on the spot at a comfortable pace. Count total hops until pain, fatigue, or form breaks down. Measures tendon endurance under repeated elastic loading — a higher-demand capacity than distance hopping, relevant for running and sport return.</p>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Double-leg in-place hop (reps)</label>
-            <p class="text-xs text-gray-400 mb-2">Both feet, hopping on the spot.</p>
-            <div class="flex items-center gap-2">
-              <input type="number" name="double_leg_hop_endurance_reps" min="0" max="500" placeholder="—"
-                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
-              <span class="text-sm text-gray-500">reps</span>
-            </div>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Single-leg in-place hop — affected (reps)</label>
-            <p class="text-xs text-gray-400 mb-2">Affected leg only, hopping on the spot.</p>
-            <div class="flex items-center gap-2">
-              <input type="number" name="single_leg_hop_endurance_reps" min="0" max="500" placeholder="—"
-                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
-              <span class="text-sm text-gray-500">reps</span>
-            </div>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Single-leg in-place hop — unaffected (reps)</label>
-            <p class="text-xs text-gray-400 mb-2">Unaffected leg, used to compute LSI (affected ÷ unaffected × 100).</p>
-            <div class="flex items-center gap-2">
-              <input type="number" name="single_leg_hop_endurance_reps_unaffected" min="0" max="500" placeholder="—"
-                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
-              <span class="text-sm text-gray-500">reps</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- Section 4: Goals & Activity -->
     <div class="bg-white rounded-xl shadow p-6 border border-gray-100">
       <h2 class="text-xl font-bold text-gray-800 mb-1">Goals &amp; Activity</h2>
@@ -462,29 +561,80 @@
       </div>
     </div>
 
-    <!-- Section 5: Risk Factors -->
+    <!-- Section 5: Problem List -->
     <div class="bg-white rounded-xl shadow p-6 border border-gray-100">
-      <h2 class="text-xl font-bold text-gray-800 mb-1">Risk Factors</h2>
+      <h2 class="text-xl font-bold text-gray-800 mb-1">Problem List</h2>
       <p class="text-sm text-gray-500 mb-4">
-        Tick any that apply. These inform conservative dosing bias — they do not prevent participation.
+        Tick any activities or situations you currently find difficult due to your condition.
+        {% if is_reassessment and prev_problem_list %}
+        Your previous selections are shown — update them to reflect how you feel now.
+        {% endif %}
       </p>
-      <div class="grid grid-cols-2 gap-3">
-        {% set risk_items = [
-          ("risk_obesity", "obesity", "Obesity (BMI > 30)"),
-          ("risk_hypertension", "hypertension", "Hypertension"),
-          ("risk_diabetes", "diabetes", "Diabetes (Type 1 or 2)"),
-          ("risk_steroids", "steroids", "Recent corticosteroid use"),
-          ("risk_load_spikes", "load_spikes", "History of load spikes / overtraining"),
-          ("risk_family_history", "family_history", "Family history of tendinopathy or tendon rupture"),
-        ] %}
-        {% for field_name, value, label in risk_items %}
-        <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-          <input type="checkbox" name="{{ field_name }}" value="{{ value }}"
-                 class="accent-brand-600 w-4 h-4" />
+
+      {% set problems = [
+        ("prob_walking",  "walking",  "Difficulty with walking"),
+        ("prob_lifting",  "lifting",  "Difficulty with lifting of objects"),
+        ("prob_carrying", "carrying", "Difficulty with carrying of objects"),
+        ("prob_stairs",   "stairs",   "Difficulty with performance of stairs"),
+        ("prob_sitting",  "sitting",  "Difficulty with sitting for prolonged periods"),
+        ("prob_standing", "standing", "Difficulty with standing for prolonged periods"),
+        ("prob_running",  "running",  "Difficulty with running"),
+        ("prob_hopping",  "hopping",  "Difficulty with hopping / jumping"),
+        ("prob_sleeping", "sleeping", "Difficulty with sleeping"),
+        ("prob_balance",  "balance",  "Difficulty with balance"),
+      ] %}
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4" id="problem-list-grid">
+        {% for field_name, value, label in problems %}
+        <label class="flex items-center gap-2.5 text-sm text-gray-700 cursor-pointer select-none">
+          <input type="checkbox"
+                 name="{{ field_name }}"
+                 value="{{ value }}"
+                 id="chk_{{ value }}"
+                 {% if is_reassessment and value in prev_problem_list %}checked{% endif %}
+                 onchange="onProblemChange(this)"
+                 class="accent-brand-600 w-4 h-4 shrink-0" />
           {{ label }}
         </label>
         {% endfor %}
       </div>
+
+      <div class="border-t border-gray-100 pt-4">
+        <label class="flex items-center gap-2.5 text-sm font-semibold text-gray-700 cursor-pointer select-none">
+          <input type="checkbox"
+                 name="prob_none"
+                 value="none"
+                 id="chk_none"
+                 {% if is_reassessment and 'none' in prev_problem_list %}checked{% endif %}
+                 onchange="onNoneChange(this)"
+                 class="accent-brand-600 w-4 h-4 shrink-0" />
+          None of the above apply
+        </label>
+      </div>
+
+      <div class="mt-5">
+        <label class="block text-sm font-medium text-gray-700 mb-1">
+          Other problems or relevant physical / medical history
+          <span class="text-gray-400 font-normal">— optional</span>
+        </label>
+        <textarea name="other_problems" rows="3"
+                  placeholder="e.g. Previous ankle injury, knee osteoarthritis, recent surgery, diabetes…"
+                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none leading-relaxed">{% if is_reassessment and prev_other_problems %}{{ prev_other_problems }}{% endif %}</textarea>
+      </div>
+    </div>
+
+    <!-- Section 5: Comments -->
+    <div class="bg-white rounded-xl shadow p-6 border border-gray-100">
+      <h2 class="text-xl font-bold text-gray-800 mb-1">Comments</h2>
+      <p class="text-sm text-gray-500 mb-4">
+        Add any notes about your current condition, recent changes, or anything else that may be relevant to your assessment.
+        {% if is_reassessment and prev_comments %}
+        Your previous comments are shown below — update or replace them as needed.
+        {% endif %}
+      </p>
+      <textarea name="comments" rows="4"
+                placeholder="e.g. 'Pain has improved since reducing my weekly mileage', 'Started new job with more walking'"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none leading-relaxed">{% if is_reassessment and prev_comments %}{{ prev_comments }}{% endif %}</textarea>
     </div>
 
     <!-- Section 6: VISA-A Questionnaire -->
@@ -553,4 +703,23 @@
 
   {% endif %}{# end show_confirm #}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+var _problemInputs = document.querySelectorAll('#problem-list-grid input[type="checkbox"]');
+var _noneInput = document.getElementById('chk_none');
+
+function onProblemChange(el) {
+  if (el.checked && _noneInput) {
+    _noneInput.checked = false;
+  }
+}
+
+function onNoneChange(el) {
+  if (el.checked) {
+    _problemInputs.forEach(function(inp) { inp.checked = false; });
+  }
+}
+</script>
 {% endblock %}

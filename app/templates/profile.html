@@ -1,0 +1,664 @@
+{% extends "base.html" %}
+{% block title %}Profile Information — TenoTrainer{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+
+  <!-- Header -->
+  <div class="rounded-2xl bg-gradient-to-r from-brand-700 to-brand-500 px-6 py-5 mb-6 shadow-md">
+    <h1 class="text-2xl font-black text-white leading-tight">Profile Information</h1>
+    <p class="text-sm text-brand-200 mt-0.5">Your demographics and condition status used to personalise your rehabilitation.</p>
+  </div>
+
+  <!-- Flash message -->
+  {% if msg %}
+  <div class="mb-4 px-4 py-2.5 rounded-lg text-sm font-medium
+    {% if msg_type == 'success' %}bg-green-50 text-green-800 border border-green-200
+    {% else %}bg-red-50 text-red-700 border border-red-200{% endif %}">
+    {{ msg }}
+  </div>
+  {% endif %}
+
+  <!-- Shared computed values -->
+  {% set has_demo = user.age or user.sex or user.height_cm or user.weight_kg %}
+  {% set has_condition = user.affected_side or user.activity_level or user.sports or user.condition_timeline or (user.previous_history is not none) or user.seen_by_provider %}
+  {% if user.height_cm %}
+    {% set _total_in = (user.height_cm / 2.54) | round(0, 'floor') | int %}
+    {% set _ft = _total_in // 12 %}
+    {% set _in = _total_in % 12 %}
+  {% else %}
+    {% set _ft = 0 %}
+    {% set _in = 0 %}
+  {% endif %}
+  {% set sex_labels = {'male': 'Male', 'female': 'Female', 'intersex': 'Intersex', 'prefer_not_to_say': 'Prefer not to say'} %}
+  {% set side_labels = {'left': 'Left', 'right': 'Right', 'bilateral': 'Bilateral'} %}
+  {% set activity_labels = {'sedentary': 'Sedentary', 'lightly_active': 'Lightly Active', 'moderately_active': 'Moderately Active', 'very_active': 'Very Active', 'elite': 'Elite / Athlete'} %}
+  {% set timeline_labels = {'acute': 'Acute (<6 weeks)', 'subacute': 'Subacute (6 wks – 3 mo)', 'chronic': 'Chronic (>3 – 6 mo)'} %}
+
+  <!-- Demographics card -->
+  <div class="bg-white rounded-xl shadow p-6 border border-gray-100 mb-5">
+
+    <!-- Card header -->
+    <div class="flex items-center justify-between mb-1">
+      <h2 class="text-base font-bold text-gray-800">Demographics</h2>
+      <div class="flex items-center gap-2">
+
+        <!-- Single Metric / Imperial toggle -->
+        <div class="flex rounded-lg border border-gray-200 overflow-hidden text-[0.6875rem] font-semibold">
+          <button type="button" id="unit-metric-btn" onclick="setUnits('metric')"
+                  class="px-2.5 py-1 bg-brand-600 text-white transition-colors">Metric</button>
+          <button type="button" id="unit-imperial-btn" onclick="setUnits('imperial')"
+                  class="px-2.5 py-1 bg-white text-gray-500 transition-colors">Imperial</button>
+        </div>
+
+        {% if has_demo %}
+        <button type="button" onclick="demoEdit()"
+                class="text-xs px-3 py-1.5 bg-brand-50 text-brand-700 border border-brand-200 rounded-lg font-semibold hover:bg-brand-100 transition-colors">
+          Edit
+        </button>
+        <form method="post" action="/account/clear-demographics" onsubmit="return confirm('Remove all demographic data?')">
+          <input type="hidden" name="redirect" value="/profile">
+          <button type="submit"
+                  class="text-xs px-3 py-1.5 border border-gray-200 text-gray-500 rounded-lg font-semibold hover:bg-gray-50 transition-colors">
+            Clear
+          </button>
+        </form>
+        {% endif %}
+
+      </div>
+    </div>
+    <p class="text-xs text-gray-500 mb-5">Used to contextualise your rehabilitation data. All fields are optional.</p>
+
+    {# ── View state ── #}
+    <div id="demo-view" style="{{ 'display:none' if not has_demo else '' }}">
+      <dl class="grid grid-cols-2 gap-x-6 gap-y-3">
+        <div>
+          <dt class="text-[0.625rem] font-semibold uppercase tracking-wide text-gray-400 mb-0.5">Age</dt>
+          <dd class="text-sm font-medium text-gray-800">{{ user.age ~ ' years' if user.age else '—' }}</dd>
+        </div>
+        <div>
+          <dt class="text-[0.625rem] font-semibold uppercase tracking-wide text-gray-400 mb-0.5">Sex assigned at birth</dt>
+          <dd class="text-sm font-medium text-gray-800">{{ sex_labels.get(user.sex, '—') if user.sex else '—' }}</dd>
+        </div>
+        <div>
+          <dt class="text-[0.625rem] font-semibold uppercase tracking-wide text-gray-400 mb-0.5">Height</dt>
+          <dd class="text-sm font-medium text-gray-800">
+            {% if user.height_cm %}
+              <span id="v-height-metric">{{ '%.1f'|format(user.height_cm) }} cm</span>
+              <span id="v-height-imperial" style="display:none">{{ _ft }}'{{ _in }}"</span>
+            {% else %}—{% endif %}
+          </dd>
+        </div>
+        <div>
+          <dt class="text-[0.625rem] font-semibold uppercase tracking-wide text-gray-400 mb-0.5">Weight</dt>
+          <dd class="text-sm font-medium text-gray-800">
+            {% if user.weight_kg %}
+              <span id="v-weight-metric">{{ '%.1f'|format(user.weight_kg) }} kg</span>
+              <span id="v-weight-imperial" style="display:none">{{ '%.1f'|format(user.weight_kg * 2.20462) }} lbs</span>
+            {% else %}—{% endif %}
+          </dd>
+        </div>
+      </dl>
+    </div>
+
+    {# ── Edit / entry form ── #}
+    <div id="demo-form-wrap" style="{{ '' if not has_demo else 'display:none' }}">
+      <form method="post" action="/account/update-demographics">
+        <input type="hidden" name="redirect" value="/profile">
+        <div class="grid grid-cols-2 gap-4 mb-4">
+
+          <!-- Age -->
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1" for="d_age">Age <span class="font-normal text-gray-400">(years)</span></label>
+            <input id="d_age" name="age" type="number" min="1" max="120" step="1"
+                   value="{{ user.age or '' }}" placeholder="e.g. 34"
+                   class="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-400">
+          </div>
+
+          <!-- Sex -->
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1" for="d_sex">Sex assigned at birth</label>
+            <select id="d_sex" name="sex"
+                    class="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-400 bg-white">
+              <option value="">Prefer not to say</option>
+              <option value="male"              {{ 'selected' if user.sex == 'male' }}>Male</option>
+              <option value="female"            {{ 'selected' if user.sex == 'female' }}>Female</option>
+              <option value="intersex"          {{ 'selected' if user.sex == 'intersex' }}>Intersex</option>
+              <option value="prefer_not_to_say" {{ 'selected' if user.sex == 'prefer_not_to_say' }}>Prefer not to say</option>
+            </select>
+          </div>
+
+          <!-- Height -->
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">
+              Height <span id="f-height-unit-label" class="font-normal text-gray-400">(cm)</span>
+            </label>
+            <input id="height_cm" name="height_cm" type="number" min="50" max="300" step="0.1"
+                   value="{{ '%.1f'|format(user.height_cm) if user.height_cm else '' }}"
+                   placeholder="e.g. 178.0"
+                   class="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-400">
+            <div id="h-ft-wrap" style="display:none" class="flex gap-2 mt-1">
+              <input id="d_height_ft" type="number" min="1" max="9" step="1" placeholder="ft"
+                     oninput="syncHeightFromFt()"
+                     class="w-1/2 text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-400">
+              <input id="d_height_in" type="number" min="0" max="11" step="0.5" placeholder="in"
+                     oninput="syncHeightFromFt()"
+                     class="w-1/2 text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-400">
+            </div>
+          </div>
+
+          <!-- Weight -->
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">
+              Weight <span id="f-weight-unit-label" class="font-normal text-gray-400">(kg)</span>
+            </label>
+            <input id="weight_kg" name="weight_kg" type="number" min="20" max="500" step="0.1"
+                   value="{{ '%.1f'|format(user.weight_kg) if user.weight_kg else '' }}"
+                   placeholder="e.g. 75.0"
+                   class="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-400">
+            <div id="w-lb-wrap" style="display:none" class="mt-1">
+              <input id="d_weight_lb" type="number" min="44" max="1100" step="0.5" placeholder="lbs"
+                     oninput="syncWeightFromLb()"
+                     class="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-400">
+            </div>
+          </div>
+
+        </div>
+
+        <div class="flex items-center gap-3">
+          <button type="submit"
+                  class="px-4 py-2 bg-brand-600 text-white text-sm font-semibold rounded-lg hover:bg-brand-700 transition-colors">
+            Save Demographics
+          </button>
+          {% if has_demo %}
+          <button type="button" onclick="demoCancel()"
+                  class="px-4 py-2 border border-gray-200 text-gray-600 text-sm font-semibold rounded-lg hover:bg-gray-50 transition-colors">
+            Cancel
+          </button>
+          {% endif %}
+        </div>
+      </form>
+    </div>
+
+  </div>
+
+  <!-- BMI card -->
+  {% if bmi_data %}
+  {% set bc = bmi_data.color %}
+  <div class="bg-white rounded-xl shadow border border-gray-100 mb-5 overflow-hidden">
+    <!-- BMI header always visible -->
+    <div class="flex items-center justify-between px-6 py-4">
+      <div>
+        <h2 class="text-base font-bold text-gray-800">Body Mass Index (BMI)</h2>
+        <p class="text-[0.625rem] font-semibold uppercase tracking-wide text-gray-400 mt-0.5">WHO Classification</p>
+      </div>
+      <!-- Enable / disable toggle -->
+      <button type="button" id="bmi-toggle-btn" onclick="toggleBmi()"
+              class="flex items-center gap-2 text-xs font-semibold text-gray-500 hover:text-gray-700 transition-colors focus:outline-none select-none">
+        <span id="bmi-toggle-label">Hide</span>
+        <span id="bmi-toggle-track"
+              class="relative inline-flex h-5 w-9 items-center rounded-full bg-brand-500 transition-colors duration-200">
+          <span id="bmi-toggle-thumb"
+                class="inline-block h-3.5 w-3.5 translate-x-4 rounded-full bg-white shadow transition-transform duration-200"></span>
+        </span>
+      </button>
+    </div>
+
+    <!-- BMI body — togglable -->
+    <div id="bmi-body" class="border-t border-gray-100 px-6 pb-6 pt-4">
+
+    <p class="text-xs text-gray-500 mb-4">
+      BMI = weight (kg) ÷ height (m)² ·
+      <span id="bmi-meas-metric" class="text-gray-600 font-medium">
+        {{ '%.1f'|format(user.height_cm) }} cm · {{ '%.1f'|format(user.weight_kg) }} kg
+      </span>
+      <span id="bmi-meas-imperial" class="text-gray-600 font-medium" style="display:none">
+        {{ _ft }}'{{ _in }}" · {{ '%.1f'|format(user.weight_kg * 2.20462) }} lbs
+      </span>
+    </p>
+
+    <div class="flex items-center gap-4 mb-4">
+      <!-- Number -->
+      <div class="shrink-0">
+        <p class="text-2xl font-black leading-none
+          {% if bc == 'green' %}text-green-600
+          {% elif bc == 'sky' %}text-sky-500
+          {% elif bc == 'blue' %}text-blue-700
+          {% elif bc == 'yellow' %}text-yellow-600
+          {% elif bc == 'orange' %}text-orange-500
+          {% else %}text-red-600{% endif %}">
+          {{ bmi_data.value }}
+        </p>
+        <p class="text-[0.625rem] text-gray-400 mt-0.5">kg/m²</p>
+      </div>
+      <!-- Category badge + contextual notes -->
+      <div>
+        <span class="inline-block px-3 py-1 rounded-full text-xs font-bold
+          {% if bc == 'green' %}bg-green-100 text-green-700
+          {% elif bc == 'sky' %}bg-sky-100 text-sky-700
+          {% elif bc == 'blue' %}bg-blue-100 text-blue-800
+          {% elif bc == 'yellow' %}bg-yellow-100 text-yellow-700
+          {% elif bc == 'orange' %}bg-orange-100 text-orange-700
+          {% else %}bg-red-100 text-red-700{% endif %}">
+          {{ bmi_data.category }}
+        </span>
+        {% if user.age and user.age < 18 %}
+        <p class="text-[0.6875rem] text-amber-600 mt-1.5">Note: Standard adult BMI thresholds may not apply for ages under 18.</p>
+        {% elif user.age and user.age >= 65 %}
+        <p class="text-[0.6875rem] text-gray-400 mt-1.5">Note: For adults 65+, a BMI of 22–27 is generally considered optimal.</p>
+        {% endif %}
+        {% if user.sex == 'female' %}
+        <p class="text-[0.6875rem] text-gray-400 mt-1">Women typically carry ~5–8% more body fat at the same BMI as men.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Scale bar -->
+    <div class="relative mb-2">
+      <div class="h-3 rounded-full overflow-hidden flex">
+        <div class="w-[13%] bg-blue-300"></div>
+        <div class="w-[11%] bg-sky-300"></div>
+        <div class="w-[22%] bg-green-400"></div>
+        <div class="w-[17%] bg-yellow-400"></div>
+        <div class="w-[17%] bg-orange-400"></div>
+        <div class="w-[10%] bg-orange-600"></div>
+        <div class="flex-1 bg-red-600"></div>
+      </div>
+      <!-- Marker -->
+      <div class="absolute top-0 h-3 flex items-center" style="left: calc({{ bmi_data.pct }}% - 5px)">
+        <div class="w-2.5 h-5 -mt-1 bg-gray-800 rounded-sm opacity-80 shadow"></div>
+      </div>
+    </div>
+    <!-- Scale labels -->
+    <div class="flex text-[0.5625rem] text-gray-400 font-medium justify-between px-0.5 mb-4">
+      <span>15</span>
+      <span>16</span>
+      <span>18.5</span>
+      <span>25</span>
+      <span>30</span>
+      <span>35</span>
+      <span>40</span>
+      <span>45+</span>
+    </div>
+
+    <!-- Legend -->
+    <div class="grid grid-cols-2 gap-x-4 gap-y-1.5">
+      {% for label, color_cls in [
+        ('< 16.0 — Severely underweight', 'bg-blue-300'),
+        ('16.0–18.4 — Underweight', 'bg-sky-300'),
+        ('18.5–24.9 — Normal weight', 'bg-green-400'),
+        ('25.0–29.9 — Overweight', 'bg-yellow-400'),
+        ('30.0–34.9 — Obese Class I', 'bg-orange-400'),
+        ('35.0–39.9 — Obese Class II', 'bg-orange-600'),
+        ('≥ 40.0 — Obese Class III', 'bg-red-600'),
+      ] %}
+      <div class="flex items-center gap-1.5">
+        <div class="w-2.5 h-2.5 rounded-sm shrink-0 {{ color_cls }}"></div>
+        <span class="text-[0.6rem] text-gray-500">{{ label }}</span>
+      </div>
+      {% endfor %}
+    </div>
+
+    <p class="text-[0.6rem] text-gray-400 mt-4">Source: WHO Expert Consultation (2004). BMI does not directly measure body fat and should be interpreted alongside clinical context.</p>
+
+    </div>{# /bmi-body #}
+  </div>
+  {% elif user.height_cm or user.weight_kg %}
+  <div class="bg-white rounded-xl shadow p-5 border border-gray-100 mb-5">
+    <h2 class="text-base font-bold text-gray-800 mb-1">Body Mass Index (BMI)</h2>
+    <p class="text-sm text-gray-500">Enter both <span class="font-medium text-gray-700">height</span> and <span class="font-medium text-gray-700">weight</span> in Demographics above to calculate your BMI.</p>
+  </div>
+  {% else %}
+  <div class="bg-white rounded-xl shadow p-5 border border-gray-100 mb-5">
+    <h2 class="text-base font-bold text-gray-800 mb-1">Body Mass Index (BMI)</h2>
+    <p class="text-sm text-gray-500">Add your height and weight in Demographics above to see your BMI.</p>
+  </div>
+  {% endif %}
+
+  <!-- Status and Function card -->
+  <div class="bg-white rounded-xl shadow p-6 border border-gray-100 mb-5">
+    <div class="flex items-center justify-between mb-1">
+      <h2 class="text-base font-bold text-gray-800">Status and Function</h2>
+      {% if has_condition %}
+      <div class="flex items-center gap-2">
+        <button type="button" onclick="condEdit()"
+                class="text-xs px-3 py-1.5 bg-brand-50 text-brand-700 border border-brand-200 rounded-lg font-semibold hover:bg-brand-100 transition-colors">
+          Edit
+        </button>
+        <form method="post" action="/account/clear-condition" onsubmit="return confirm('Remove all condition data?')">
+          <input type="hidden" name="redirect" value="/profile">
+          <button type="submit"
+                  class="text-xs px-3 py-1.5 border border-gray-200 text-gray-500 rounded-lg font-semibold hover:bg-gray-50 transition-colors">
+            Clear
+          </button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+    <p class="text-xs text-gray-500 mb-5">Describes your current condition and activity profile. All fields are optional.</p>
+
+    {# ── View state ── #}
+    <div id="cond-view" style="{{ 'display:none' if not has_condition else '' }}">
+      <dl class="grid grid-cols-2 gap-x-6 gap-y-3">
+        <div>
+          <dt class="text-[0.625rem] font-semibold uppercase tracking-wide text-gray-400 mb-0.5">Affected Side</dt>
+          <dd class="text-sm font-medium text-gray-800">{{ side_labels.get(user.affected_side, '—') if user.affected_side else '—' }}</dd>
+        </div>
+        <div>
+          <dt class="text-[0.625rem] font-semibold uppercase tracking-wide text-gray-400 mb-0.5">Symptom Timeline</dt>
+          <dd class="text-sm font-medium text-gray-800">{{ timeline_labels.get(user.condition_timeline, '—') if user.condition_timeline else '—' }}</dd>
+        </div>
+        <div>
+          <dt class="text-[0.625rem] font-semibold uppercase tracking-wide text-gray-400 mb-0.5">Activity Level</dt>
+          <dd class="text-sm font-medium text-gray-800">{{ activity_labels.get(user.activity_level, '—') if user.activity_level else '—' }}</dd>
+        </div>
+        <div>
+          <dt class="text-[0.625rem] font-semibold uppercase tracking-wide text-gray-400 mb-0.5">Sport(s)</dt>
+          <dd class="text-sm font-medium text-gray-800">{{ user.sports if user.sports else '—' }}</dd>
+        </div>
+        <div class="col-span-2 mt-1">
+          <dt class="text-[0.625rem] font-semibold uppercase tracking-wide text-gray-400 mb-0.5">Previous Injury History</dt>
+          {% if user.previous_history is not none %}
+            {% if user.previous_history %}
+            <dd class="text-sm text-gray-800 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 leading-relaxed">{{ user.previous_history }}</dd>
+            {% else %}
+            <dd class="text-sm text-gray-500">Reported — no description provided</dd>
+            {% endif %}
+          {% else %}
+          <dd class="text-sm font-medium text-gray-800">—</dd>
+          {% endif %}
+        </div>
+        <div class="col-span-2 mt-1">
+          <dt class="text-[0.625rem] font-semibold uppercase tracking-wide text-gray-400 mb-0.5">Seen by a Provider</dt>
+          {% if user.seen_by_provider %}
+          <dd class="text-sm font-medium text-gray-800 mb-1">Yes — a medical professional or other provider has been involved</dd>
+          {% if user.seen_by_provider_notes %}
+          <dd class="text-sm text-gray-800 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 leading-relaxed">{{ user.seen_by_provider_notes }}</dd>
+          {% endif %}
+          {% else %}
+          <dd class="text-sm font-medium text-gray-800">—</dd>
+          {% endif %}
+        </div>
+      </dl>
+    </div>
+
+    {# ── Edit / entry form ── #}
+    <div id="cond-form-wrap" style="{{ '' if not has_condition else 'display:none' }}">
+      <form method="post" action="/account/update-condition">
+        <input type="hidden" name="redirect" value="/profile">
+        <div class="grid grid-cols-2 gap-4 mb-4">
+
+          <!-- Affected Side -->
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1" for="c_affected_side">Affected Side</label>
+            <select id="c_affected_side" name="affected_side"
+                    class="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-400 bg-white">
+              <option value="">— Select —</option>
+              <option value="left"      {{ 'selected' if user.affected_side == 'left' }}>Left</option>
+              <option value="right"     {{ 'selected' if user.affected_side == 'right' }}>Right</option>
+              <option value="bilateral" {{ 'selected' if user.affected_side == 'bilateral' }}>Bilateral</option>
+            </select>
+          </div>
+
+          <!-- Timeline -->
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1" for="c_timeline">Symptom Timeline</label>
+            <select id="c_timeline" name="condition_timeline"
+                    class="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-400 bg-white">
+              <option value="">— Select —</option>
+              <option value="acute"    {{ 'selected' if user.condition_timeline == 'acute' }}>Acute (&lt;6 weeks)</option>
+              <option value="subacute" {{ 'selected' if user.condition_timeline == 'subacute' }}>Subacute (6 wks – 3 mo)</option>
+              <option value="chronic"  {{ 'selected' if user.condition_timeline == 'chronic' }}>Chronic (&gt;3 – 6 mo)</option>
+            </select>
+          </div>
+
+          <!-- Activity Level -->
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1" for="c_activity">Activity Level</label>
+            <select id="c_activity" name="activity_level"
+                    class="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-400 bg-white">
+              <option value="">— Select —</option>
+              <option value="sedentary"         {{ 'selected' if user.activity_level == 'sedentary' }}>Sedentary</option>
+              <option value="lightly_active"    {{ 'selected' if user.activity_level == 'lightly_active' }}>Lightly Active</option>
+              <option value="moderately_active" {{ 'selected' if user.activity_level == 'moderately_active' }}>Moderately Active</option>
+              <option value="very_active"       {{ 'selected' if user.activity_level == 'very_active' }}>Very Active</option>
+              <option value="elite"             {{ 'selected' if user.activity_level == 'elite' }}>Elite / Athlete</option>
+            </select>
+          </div>
+
+          <!-- Sports -->
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1" for="c_sports">Sport(s)</label>
+            <input id="c_sports" name="sports" type="text" maxlength="200"
+                   value="{{ user.sports or '' }}" placeholder="e.g. Running, Basketball"
+                   class="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-400">
+          </div>
+
+          <!-- Previous History — full width -->
+          <div class="col-span-2">
+            <label class="flex items-start gap-2.5 cursor-pointer group mb-2">
+              <input type="checkbox" name="has_previous_history" value="1" id="prev-hist-check"
+                     {{ 'checked' if user.previous_history is not none }}
+                     onchange="toggleHistoryTextarea(this.checked)"
+                     class="w-4 h-4 mt-0.5 rounded border-gray-300 text-brand-600 focus:ring-brand-400 accent-brand-600 shrink-0">
+              <span class="text-xs font-semibold text-gray-600 group-hover:text-gray-800 transition-colors leading-snug mt-0.5">
+                Previous history of tendon injury or related condition
+              </span>
+            </label>
+            <div id="history-textarea-wrap" style="{{ '' if user.previous_history is not none else 'display:none' }}">
+              <textarea id="previous_history" name="previous_history" rows="3" maxlength="2000"
+                        placeholder="e.g. Right Achilles tendinopathy treated 2 years ago, 6 weeks physio, flare-up 2023…"
+                        class="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-400 resize-y">{{ user.previous_history or '' }}</textarea>
+              <p class="text-[0.625rem] text-gray-400 mt-0.5 text-right"><span id="hist-char-count">{{ (user.previous_history or '') | length }}</span> / 2000</p>
+            </div>
+          </div>
+
+          <!-- Seen by Provider — full width -->
+          <div class="col-span-2">
+            <label class="flex items-start gap-2.5 cursor-pointer group mb-2">
+              <input type="checkbox" name="seen_by_provider" value="1" id="seen-by-provider-check"
+                     {{ 'checked' if user.seen_by_provider }}
+                     onchange="toggleProviderTextarea(this.checked)"
+                     class="w-4 h-4 mt-0.5 rounded border-gray-300 text-brand-600 focus:ring-brand-400 accent-brand-600 shrink-0">
+              <span class="text-xs font-semibold text-gray-600 group-hover:text-gray-800 transition-colors leading-snug mt-0.5">
+                A medical professional or other provider has seen me for this issue before or currently
+              </span>
+            </label>
+            <div id="provider-textarea-wrap" style="{{ '' if user.seen_by_provider else 'display:none' }}">
+              <textarea id="seen_by_provider_notes" name="seen_by_provider_notes" rows="3" maxlength="1000"
+                        placeholder="e.g. Physiotherapist, 6 sessions in 2024; GP referral pending…"
+                        class="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-400 resize-y">{{ user.seen_by_provider_notes or '' }}</textarea>
+              <p class="text-[0.625rem] text-gray-400 mt-0.5 text-right"><span id="provider-char-count">{{ (user.seen_by_provider_notes or '') | length }}</span> / 1000</p>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="flex items-center gap-3">
+          <button type="submit"
+                  class="px-4 py-2 bg-brand-600 text-white text-sm font-semibold rounded-lg hover:bg-brand-700 transition-colors">
+            Save
+          </button>
+          {% if has_condition %}
+          <button type="button" onclick="condCancel()"
+                  class="px-4 py-2 border border-gray-200 text-gray-600 text-sm font-semibold rounded-lg hover:bg-gray-50 transition-colors">
+            Cancel
+          </button>
+          {% endif %}
+        </div>
+      </form>
+    </div>
+
+  </div>
+
+
+</div>
+
+<script>
+  var _units = localStorage.getItem('teno_units') || 'metric';
+
+  function setUnits(mode) {
+    _units = mode;
+    localStorage.setItem('teno_units', mode);
+    _applyUnits();
+  }
+
+  function _applyUnits() {
+    var imp = _units === 'imperial';
+
+    /* ── Toggle button styling ── */
+    var mBtn = document.getElementById('unit-metric-btn');
+    var iBtn = document.getElementById('unit-imperial-btn');
+    if (mBtn) {
+      mBtn.classList.toggle('bg-brand-600', !imp); mBtn.classList.toggle('text-white', !imp);
+      mBtn.classList.toggle('bg-white', imp);       mBtn.classList.toggle('text-gray-500', imp);
+      iBtn.classList.toggle('bg-brand-600', imp);   iBtn.classList.toggle('text-white', imp);
+      iBtn.classList.toggle('bg-white', !imp);      iBtn.classList.toggle('text-gray-500', !imp);
+    }
+
+    /* ── View state: height ── */
+    _showEl('v-height-metric', !imp);
+    _showEl('v-height-imperial', imp);
+
+    /* ── View state: weight ── */
+    _showEl('v-weight-metric', !imp);
+    _showEl('v-weight-imperial', imp);
+
+    /* ── Edit form: height ── */
+    var cmInput = document.getElementById('height_cm');
+    var ftWrap  = document.getElementById('h-ft-wrap');
+    if (cmInput) {
+      if (imp) {
+        var cm = parseFloat(cmInput.value) || 0;
+        if (cm > 0) {
+          var totalIn = cm / 2.54;
+          document.getElementById('d_height_ft').value = Math.floor(totalIn / 12);
+          document.getElementById('d_height_in').value = (totalIn % 12).toFixed(1);
+        }
+      } else {
+        var ft  = parseFloat(document.getElementById('d_height_ft').value) || 0;
+        var ins = parseFloat(document.getElementById('d_height_in').value) || 0;
+        if (ft > 0 || ins > 0) cmInput.value = ((ft * 12 + ins) * 2.54).toFixed(1);
+      }
+      cmInput.style.display = imp ? 'none' : '';
+      if (ftWrap) ftWrap.style.display = imp ? '' : 'none';
+    }
+
+    /* ── Edit form: weight ── */
+    var kgInput = document.getElementById('weight_kg');
+    var lbWrap  = document.getElementById('w-lb-wrap');
+    if (kgInput) {
+      if (imp) {
+        var kg = parseFloat(kgInput.value) || 0;
+        if (kg > 0) document.getElementById('d_weight_lb').value = (kg * 2.20462).toFixed(1);
+      } else {
+        var lb = parseFloat(document.getElementById('d_weight_lb').value) || 0;
+        if (lb > 0) kgInput.value = (lb / 2.20462).toFixed(1);
+      }
+      kgInput.style.display = imp ? 'none' : '';
+      if (lbWrap) lbWrap.style.display = imp ? '' : 'none';
+    }
+
+    /* ── Edit form: unit labels ── */
+    var hLabel = document.getElementById('f-height-unit-label');
+    var wLabel = document.getElementById('f-weight-unit-label');
+    if (hLabel) hLabel.textContent = imp ? '(ft / in)' : '(cm)';
+    if (wLabel) wLabel.textContent = imp ? '(lbs)' : '(kg)';
+
+    /* ── BMI measurement display ── */
+    _showEl('bmi-meas-metric', !imp);
+    _showEl('bmi-meas-imperial', imp);
+  }
+
+  function _showEl(id, visible) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = visible ? '' : 'none';
+  }
+
+  function syncHeightFromFt() {
+    var ft  = parseFloat(document.getElementById('d_height_ft').value) || 0;
+    var ins = parseFloat(document.getElementById('d_height_in').value) || 0;
+    document.getElementById('height_cm').value = ((ft * 12 + ins) * 2.54).toFixed(1);
+  }
+
+  function syncWeightFromLb() {
+    var lb = parseFloat(document.getElementById('d_weight_lb').value) || 0;
+    document.getElementById('weight_kg').value = (lb / 2.20462).toFixed(1);
+  }
+
+  /* ── Demographics view/edit toggle ── */
+  function demoEdit() {
+    document.getElementById('demo-view').style.display = 'none';
+    document.getElementById('demo-form-wrap').style.display = '';
+    _applyUnits(); // ensure form reflects current unit state
+  }
+  function demoCancel() {
+    document.getElementById('demo-form-wrap').style.display = 'none';
+    document.getElementById('demo-view').style.display = '';
+  }
+  function condEdit() {
+    document.getElementById('cond-view').style.display = 'none';
+    document.getElementById('cond-form-wrap').style.display = '';
+  }
+  function condCancel() {
+    document.getElementById('cond-form-wrap').style.display = 'none';
+    document.getElementById('cond-view').style.display = '';
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    _applyUnits();
+    _applyBmiToggle();
+  });
+
+  /* ── BMI toggle ── */
+  var _bmiShown = localStorage.getItem('teno_bmi_shown') !== '0';
+
+  function toggleBmi() {
+    _bmiShown = !_bmiShown;
+    localStorage.setItem('teno_bmi_shown', _bmiShown ? '1' : '0');
+    _applyBmiToggle();
+  }
+
+  function _applyBmiToggle() {
+    var body  = document.getElementById('bmi-body');
+    var track = document.getElementById('bmi-toggle-track');
+    var thumb = document.getElementById('bmi-toggle-thumb');
+    var label = document.getElementById('bmi-toggle-label');
+    if (!body) return;
+    if (_bmiShown) {
+      body.style.display = '';
+      if (track) { track.classList.add('bg-brand-500'); track.classList.remove('bg-gray-300'); }
+      if (thumb) { thumb.classList.add('translate-x-4'); thumb.classList.remove('translate-x-1'); }
+      if (label) label.textContent = 'Hide';
+    } else {
+      body.style.display = 'none';
+      if (track) { track.classList.remove('bg-brand-500'); track.classList.add('bg-gray-300'); }
+      if (thumb) { thumb.classList.remove('translate-x-4'); thumb.classList.add('translate-x-1'); }
+      if (label) label.textContent = 'Show';
+    }
+  }
+
+  /* ── Injury Details helpers ── */
+  function toggleHistoryTextarea(show) {
+    document.getElementById('history-textarea-wrap').style.display = show ? '' : 'none';
+  }
+
+  var _histTa = document.getElementById('previous_history');
+  if (_histTa) {
+    _histTa.addEventListener('input', function() {
+      document.getElementById('hist-char-count').textContent = _histTa.value.length;
+    });
+  }
+
+  function toggleProviderTextarea(show) {
+    document.getElementById('provider-textarea-wrap').style.display = show ? '' : 'none';
+  }
+
+  var _provTa = document.getElementById('seen_by_provider_notes');
+  if (_provTa) {
+    _provTa.addEventListener('input', function() {
+      document.getElementById('provider-char-count').textContent = _provTa.value.length;
+    });
+  }
+</script>
+{% endblock %}

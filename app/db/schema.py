@@ -30,6 +30,9 @@ CREATE TABLE IF NOT EXISTS onboarding_assessments (
     risk_factors TEXT NOT NULL DEFAULT '[]',
     stage INTEGER NOT NULL,
     irritability TEXT NOT NULL,
+    comments TEXT,
+    problem_list TEXT NOT NULL DEFAULT '[]',
+    other_problems TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
@@ -192,6 +195,29 @@ CREATE TABLE IF NOT EXISTS supervisor_audit_logs (
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
+CREATE TABLE IF NOT EXISTS supervisor_session_comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    supervisor_id INTEGER NOT NULL,
+    daily_log_id INTEGER NOT NULL,
+    comment TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(supervisor_id, daily_log_id),
+    FOREIGN KEY (supervisor_id) REFERENCES users(id),
+    FOREIGN KEY (daily_log_id) REFERENCES daily_logs(id)
+);
+
+CREATE TABLE IF NOT EXISTS messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sender_id INTEGER NOT NULL,
+    recipient_id INTEGER NOT NULL,
+    body TEXT NOT NULL,
+    read INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (sender_id) REFERENCES users(id),
+    FOREIGN KEY (recipient_id) REFERENCES users(id)
+);
+
 CREATE TABLE IF NOT EXISTS exercises (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ex_id TEXT UNIQUE NOT NULL,
@@ -222,5 +248,29 @@ CREATE TABLE IF NOT EXISTS exercises (
     patient_facing_explanation TEXT,
     clinician_notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS supervisor_assessments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    patient_id INTEGER NOT NULL,
+    supervisor_id INTEGER NOT NULL,
+    calf_raise_reps INTEGER,
+    functional_tests TEXT NOT NULL DEFAULT '{}',
+    risk_factors TEXT NOT NULL DEFAULT '[]',
+    objective_info TEXT,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (patient_id) REFERENCES users(id),
+    FOREIGN KEY (supervisor_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS supervisor_case_notes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    patient_id INTEGER NOT NULL,
+    supervisor_id INTEGER NOT NULL,
+    note TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (patient_id) REFERENCES users(id),
+    FOREIGN KEY (supervisor_id) REFERENCES users(id)
 );
 """

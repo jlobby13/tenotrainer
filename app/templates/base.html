@@ -172,6 +172,8 @@
     [data-theme$="-dark"] .bg-gray-50         { background-color: #0c1220 !important; }
     [data-theme$="-dark"] .bg-gray-100        { background-color: #1a2540 !important; }
     [data-theme$="-dark"] .bg-gray-200        { background-color: #22304e !important; }
+    [data-theme$="-dark"] .bg-gray-50\/60     { background-color: rgb(255 255 255 / 0.03) !important; }
+    [data-theme$="-dark"] .bg-gray-50\/80     { background-color: rgb(255 255 255 / 0.04) !important; }
     /* Ring offset — default offset colour is #fff which shows as a white halo in dark mode */
     [data-theme$="-dark"] .ring-offset-1 { --tw-ring-offset-color: #18243a !important; }
     [data-theme$="-dark"] .ring-offset-2 { --tw-ring-offset-color: #18243a !important; }
@@ -714,7 +716,22 @@
         {% if user.role == 'supervisor' %}
         <a href="/supervisor/dashboard" class="hover:text-brand-200 transition-colors">Supervisor Panel</a>
         <a href="/supervisor/cases" class="hover:text-brand-200 transition-colors">Caseload</a>
+        <a href="/supervisor/assessments" class="hover:text-brand-200 transition-colors">Assessments</a>
         <a href="/admin/knowledge"  class="hover:text-brand-200 transition-colors">Knowledge Base</a>
+        <!-- Supervisor messages icon -->
+        <a href="/supervisor/messages" class="relative p-1 text-brand-200 hover:text-white transition-colors" aria-label="Messages">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z"/>
+          </svg>
+          <span id="nav-msg-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[1rem] h-4 px-0.5 bg-red-500 text-white text-[0.5rem] font-black rounded-full flex items-center justify-center leading-none">0</span>
+        </a>
+        <!-- Supervisor alert count icon -->
+        <a href="/supervisor/alerts" class="relative p-1 text-brand-200 hover:text-white transition-colors" aria-label="Active alerts">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+          </svg>
+          <span id="nav-alert-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[1rem] h-4 px-0.5 bg-amber-400 text-amber-900 text-[0.5rem] font-black rounded-full flex items-center justify-center leading-none">0</span>
+        </a>
         {% else %}
         <a href="/dashboard"        class="hover:text-brand-200 transition-colors">Dashboard</a>
         <a href="/daily-log" onclick="if(typeof checkDailyLogAllowed==='function'){checkDailyLogAllowed(event);}" class="hover:text-brand-200 transition-colors">Track Session</a>
@@ -726,6 +743,13 @@
 
         <!-- ── Notification bell ──────────────────────────────────── -->
         {% if user.role != 'supervisor' %}
+        <!-- Messages icon -->
+        <a href="/messages" class="relative p-1 text-brand-200 hover:text-white transition-colors" aria-label="Messages">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z"/>
+          </svg>
+          <span id="nav-msg-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[1rem] h-4 px-0.5 bg-red-500 text-white text-[0.5rem] font-black rounded-full flex items-center justify-center leading-none">0</span>
+        </a>
         <div class="relative" id="notif-root">
           <button id="notif-btn" type="button" onclick="toggleNotifMenu()"
                   class="relative p-1 text-brand-200 hover:text-white transition-colors focus:outline-none"
@@ -788,6 +812,14 @@
                   <circle cx="12" cy="12" r="3"/>
                 </svg>
                 Account Settings
+              </a>
+              <a href="/profile"
+                 class="flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm text-gray-700 hover:bg-brand-50 hover:text-brand-700 transition-colors">
+                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <circle cx="12" cy="8" r="4"/>
+                  <path stroke-linecap="round" d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+                </svg>
+                Profile Information
               </a>
               <a href="/logout"
                  class="flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50 transition-colors">
@@ -1151,6 +1183,27 @@
       _highlightActiveTheme();
       _highlightActiveTextSize();
     });
+
+    // Nav badge counts
+    (function() {
+      function updateNavBadge(id, count) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        if (count > 0) {
+          el.textContent = count > 99 ? '99+' : count;
+          el.classList.remove('hidden');
+        } else {
+          el.classList.add('hidden');
+        }
+      }
+      fetch('/api/nav-counts', {credentials: 'same-origin'})
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          updateNavBadge('nav-msg-badge', d.messages || 0);
+          updateNavBadge('nav-alert-badge', d.alerts || 0);
+        })
+        .catch(function() {});
+    })();
   </script>
 
   <!-- ── Check-in alert modal ─────────────────────────────────────────────── -->

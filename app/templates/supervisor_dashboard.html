@@ -15,8 +15,8 @@
     {% if total_alerts.n > 0 %}
     {% set alerted_patients = patients | selectattr('alert_count', 'gt', 0) | list %}
     <div class="relative shrink-0 cursor-default" id="alerts-badge">
-      <div class="flex items-center gap-2 bg-amber-400 text-amber-900 rounded-xl px-4 py-2 border border-amber-300 shadow-sm">
-        <svg class="w-4 h-4 text-amber-700 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <div class="flex items-center gap-2 bg-amber-400 text-amber-900 dark:bg-amber-900/50 dark:text-amber-200 dark:border-amber-700/60 rounded-xl px-4 py-2 border border-amber-300 shadow-sm">
+        <svg class="w-4 h-4 text-amber-700 dark:text-amber-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
         </svg>
         <span class="text-sm font-bold">{{ total_alerts.n }} alert{{ 's' if total_alerts.n != 1 else '' }}</span>
@@ -60,6 +60,153 @@
     {% endif %}
   </div>
 </div>
+
+{# ── Alert Overview ── #}
+{% if patients %}
+{% set total_alert_count = alert_by_type | sum(attribute='count') %}
+<div class="mb-6">
+
+  <div class="flex items-center justify-between mb-3">
+    <div class="flex items-center gap-2">
+      <svg class="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+      </svg>
+      <h2 class="text-xs font-bold text-gray-500 uppercase tracking-widest">Alert Overview</h2>
+      {% if total_alert_count > 0 %}
+      <span class="text-[0.6rem] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
+        {{ total_alert_count }} unresolved
+      </span>
+      {% else %}
+      <span class="text-[0.6rem] font-semibold text-gray-300">All clear</span>
+      {% endif %}
+    </div>
+    <a href="/supervisor/alerts"
+       class="text-xs text-brand-600 hover:text-brand-700 font-semibold transition-colors">
+      Manage alerts →
+    </a>
+  </div>
+
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+
+    {# Each category card #}
+    {% set _cfg = {
+      'pain': (
+        'bg-red-50 border-red-200',
+        'hover:bg-red-100/60',
+        'text-red-700',
+        'text-red-500',
+        'border-red-100 bg-red-50/60',
+        'text-red-600',
+        'Pain',
+        'M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z'
+      ),
+      'compliance': (
+        'bg-yellow-50 border-yellow-200',
+        'hover:bg-yellow-100/60',
+        'text-yellow-700',
+        'text-yellow-500',
+        'border-yellow-100 bg-yellow-50/60',
+        'text-yellow-600',
+        'Compliance',
+        'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z'
+      ),
+      'inactivity': (
+        'bg-blue-50 border-blue-200',
+        'hover:bg-blue-100/60',
+        'text-blue-700',
+        'text-blue-500',
+        'border-blue-100 bg-blue-50/60',
+        'text-blue-600',
+        'Inactivity',
+        'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'
+      ),
+      'comment': (
+        'bg-purple-50 border-purple-200',
+        'hover:bg-purple-100/60',
+        'text-purple-700',
+        'text-purple-500',
+        'border-purple-100 bg-purple-50/60',
+        'text-purple-600',
+        'Comment',
+        'M8 10h.01M12 10h.01M16 10h.01M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z'
+      ),
+    } %}
+
+    {% for item in alert_by_type %}
+    {% set c = _cfg.get(item.type, ('bg-gray-50 border-gray-200','','text-gray-500','text-gray-400','border-gray-100 bg-gray-50','text-gray-500','Unknown','')) %}
+    {% set has_alerts = item.count > 0 %}
+
+    <div class="relative group rounded-xl border transition-colors
+                {{ c[0] ~ ' ' ~ c[1] if has_alerts else 'bg-gray-50 border-gray-200' }}">
+
+      {# Invisible link overlay for clickable cards #}
+      {% if has_alerts %}
+      <a href="/supervisor/alerts?type={{ item.type }}" class="absolute inset-0 rounded-xl z-10"
+         aria-label="View {{ c[6] | lower }} alerts"></a>
+      {% endif %}
+
+      <div class="px-4 py-4">
+
+        {# Header row: icon + label #}
+        <div class="flex items-center gap-1.5 mb-3">
+          <svg class="w-3.5 h-3.5 shrink-0 {{ c[2] if has_alerts else 'text-gray-300' }}"
+               fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="{{ c[7] }}"/>
+          </svg>
+          <p class="text-[0.6rem] font-bold uppercase tracking-widest
+                    {{ c[2] if has_alerts else 'text-gray-400' }}">{{ c[6] }}</p>
+          {% if has_alerts %}
+          <span class="ml-auto text-[0.6rem] font-bold {{ c[2] }} opacity-60">→</span>
+          {% endif %}
+        </div>
+
+        {# Count #}
+        <p class="text-4xl font-black leading-none mb-1.5
+                  {{ c[2] if has_alerts else 'text-gray-200' }}">{{ item.count }}</p>
+
+        {# Patient count sub-label #}
+        <p class="text-[0.65rem] font-semibold
+                  {{ c[3] if has_alerts else 'text-gray-300' }}">
+          {% if has_alerts %}
+            {{ item.patient_count }} patient{{ 's' if item.patient_count != 1 else '' }} affected
+          {% else %}
+            No active alerts
+          {% endif %}
+        </p>
+
+      </div>
+
+      {# Hover tooltip: patient names #}
+      {% if item.names %}
+      <div class="absolute left-0 top-full mt-2 z-30 w-52 min-w-max
+                  opacity-0 invisible pointer-events-none
+                  group-hover:opacity-100 group-hover:visible group-hover:pointer-events-auto
+                  transition-all duration-150 rounded-xl bg-white border border-gray-200 shadow-2xl overflow-hidden">
+        <div class="px-3 py-2 border-b {{ c[4] }}">
+          <p class="text-[0.6rem] font-bold uppercase tracking-widest {{ c[5] }}">
+            {{ c[6] }} Alerts · {{ item.count }} total
+          </p>
+        </div>
+        <div class="py-1 max-h-40 overflow-y-auto">
+          {% for name in item.names %}
+          <div class="flex items-center gap-2 px-3 py-1.5">
+            <span class="w-1.5 h-1.5 rounded-full {{ c[3] }} shrink-0"></span>
+            <p class="text-xs text-gray-700">{{ name }}</p>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="px-3 py-1.5 border-t border-gray-100 bg-gray-50">
+          <p class="text-[0.55rem] text-gray-400">Click card to view in Alerts</p>
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+    {% endfor %}
+
+  </div>
+</div>
+{% endif %}
 
 {# ── Case Overview + Program Reviews ── #}
 {% if patients %}
@@ -110,9 +257,19 @@
             <div class="py-1 max-h-48 overflow-y-auto">
               {% for p in engaged %}
               <a href="/supervisor/patients/{{ p.id }}" class="flex items-center gap-2 px-3 py-1.5 hover:bg-green-50 group/row transition-colors">
-                <span class="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0"></span>
-                <span class="text-xs text-green-800 font-medium truncate group-hover/row:text-brand-700 transition-colors">{{ p.name }}</span>
-                <span class="text-[0.6rem] text-green-500 ml-auto shrink-0">{{ p.last_session_date | fmt_date }}</span>
+                <span class="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0 mt-0.5"></span>
+                <div class="flex-1 min-w-0">
+                  <p class="text-xs text-green-800 font-medium truncate group-hover/row:text-brand-700 transition-colors">{{ p.name }}</p>
+                  {% if p.injury_sides_list %}
+                  {% set side_label = 'Bilateral' if p.injury_sides_list | length > 1 else (p.injury_sides_list[0] | capitalize) %}
+                  <span class="inline-block text-[0.55rem] font-bold px-1.5 py-0.5 rounded-full
+                    {% if side_label == 'Left' %}bg-blue-100 text-blue-700
+                    {% elif side_label == 'Right' %}bg-orange-100 text-orange-700
+                    {% else %}bg-purple-100 text-purple-700{% endif %}
+                    leading-none mt-0.5">{{ side_label }}</span>
+                  {% endif %}
+                </div>
+                <span class="text-[0.6rem] text-green-500 ml-auto shrink-0 self-start pt-0.5">{{ p.last_session_date | fmt_date }}</span>
               </a>
               {% endfor %}
             </div>
@@ -144,9 +301,19 @@
             <div class="py-1 max-h-48 overflow-y-auto">
               {% for p in behind %}
               <a href="/supervisor/patients/{{ p.id }}" class="flex items-center gap-2 px-3 py-1.5 hover:bg-amber-50 group/row transition-colors">
-                <span class="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0"></span>
-                <span class="text-xs text-amber-800 font-medium truncate group-hover/row:text-brand-700 transition-colors">{{ p.name }}</span>
-                <span class="text-[0.6rem] text-amber-500 ml-auto shrink-0">{{ p.last_session_date | fmt_date if p.last_session_date else 'Never' }}</span>
+                <span class="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0 mt-0.5"></span>
+                <div class="flex-1 min-w-0">
+                  <p class="text-xs text-amber-800 font-medium truncate group-hover/row:text-brand-700 transition-colors">{{ p.name }}</p>
+                  {% if p.injury_sides_list %}
+                  {% set side_label = 'Bilateral' if p.injury_sides_list | length > 1 else (p.injury_sides_list[0] | capitalize) %}
+                  <span class="inline-block text-[0.55rem] font-bold px-1.5 py-0.5 rounded-full
+                    {% if side_label == 'Left' %}bg-blue-100 text-blue-700
+                    {% elif side_label == 'Right' %}bg-orange-100 text-orange-700
+                    {% else %}bg-purple-100 text-purple-700{% endif %}
+                    leading-none mt-0.5">{{ side_label }}</span>
+                  {% endif %}
+                </div>
+                <span class="text-[0.6rem] text-amber-500 ml-auto shrink-0 self-start pt-0.5">{{ p.last_session_date | fmt_date if p.last_session_date else 'Never' }}</span>
               </a>
               {% endfor %}
             </div>
@@ -319,7 +486,7 @@
           class="w-full px-5 py-4 flex items-center gap-3 text-left hover:bg-gray-50 transition-colors rounded-xl">
     <div class="flex-1 min-w-0">
       <h2 class="font-black text-gray-900 text-lg">Upcoming Sessions</h2>
-      <p class="text-xs text-gray-400 mt-0.5">Scheduled sessions across your caseload for the current week.</p>
+      <p class="text-xs text-gray-400 mt-0.5">Scheduled sessions across your caseload.</p>
     </div>
     <svg id="upcoming-sessions-chevron" class="w-4 h-4 text-gray-400 shrink-0 transition-transform duration-200"
          fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
@@ -327,77 +494,62 @@
     </svg>
   </button>
 
-  <div id="upcoming-sessions-body" class="border-t border-gray-100 px-5 py-5">
-    <div class="grid grid-cols-7 gap-2">
-      {% for day in weekly_schedule.days %}
-      {% set sched_count = day.scheduled | length %}
-      {% set done_count = day.completed | length %}
-      {% set has_data = sched_count > 0 or done_count > 0 %}
-      <div class="relative group/day flex flex-col items-center gap-1 cursor-default">
+  <div id="upcoming-sessions-body" class="border-t border-gray-100 px-5 py-4">
 
-        <p class="text-[0.65rem] font-bold uppercase tracking-widest
-                  {% if day.is_today %}text-brand-600{% elif day.is_past %}text-gray-300{% else %}text-gray-400{% endif %}">
-          {{ day.label }}
-        </p>
-        <p class="text-[0.6rem]
-                  {% if day.is_today %}text-brand-400{% elif day.is_past %}text-gray-300{% else %}text-gray-400{% endif %}">
-          {{ day.day_num }}
-        </p>
+    <!-- Controls row -->
+    <div class="flex items-center gap-2 mb-4 flex-wrap">
 
-        <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-black transition-colors
-                    {% if day.is_today and has_data %}bg-brand-600 text-white ring-2 ring-brand-300
-                    {% elif day.is_today %}bg-brand-50 text-brand-400 ring-2 ring-brand-200
-                    {% elif day.is_past and done_count > 0 %}bg-green-100 text-green-700
-                    {% elif day.is_past %}bg-gray-50 text-gray-300
-                    {% elif sched_count > 0 %}bg-brand-50 text-brand-700
-                    {% else %}bg-gray-50 text-gray-300{% endif %}">
-          {% if sched_count > 0 or done_count > 0 %}
-            {{ sched_count if not day.is_past else done_count }}
-          {% else %}—{% endif %}
-        </div>
-
-        {% if day.is_past and done_count > 0 %}
-        <span class="text-[0.55rem] font-bold text-green-500">{{ done_count }} done</span>
-        {% elif day.is_past and sched_count > 0 %}
-        <span class="text-[0.55rem] font-bold text-amber-400">{{ sched_count }} missed</span>
-        {% elif not day.is_past and sched_count > 0 %}
-        <span class="text-[0.55rem] font-bold text-brand-400">scheduled</span>
-        {% else %}
-        <span class="text-[0.55rem] text-gray-200">·</span>
-        {% endif %}
-
-        {% set hover_list = day.completed if day.is_past else day.scheduled %}
-        {% if hover_list %}
-        <div class="absolute top-full mt-2 z-30 w-48
-                    opacity-0 invisible pointer-events-none
-                    group-hover/day:opacity-100 group-hover/day:visible group-hover/day:pointer-events-auto
-                    transition-all duration-150 rounded-xl bg-white border border-gray-200 shadow-xl overflow-hidden
-                    {% if day.index <= 1 %}left-0{% elif day.index >= 5 %}right-0{% else %}left-1/2 -translate-x-1/2{% endif %}">
-          <div class="px-3 py-2 border-b border-gray-100 bg-gray-50">
-            <p class="text-xs font-bold text-gray-600">{{ day.label }} · {{ day.date | fmt_date }}</p>
-            <p class="text-[0.6rem] text-gray-400">{{ 'Completed' if day.is_past else 'Scheduled' }}</p>
-          </div>
-          <div class="py-1 max-h-44 overflow-y-auto">
-            {% for p in hover_list %}
-            <a href="/supervisor/patients/{{ p.id }}" class="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 group/row transition-colors">
-              <span class="w-1.5 h-1.5 rounded-full shrink-0
-                           {% if day.is_past %}bg-green-400{% else %}bg-brand-400{% endif %}"></span>
-              <span class="text-xs text-gray-700 font-medium truncate group-hover/row:text-brand-700 transition-colors">{{ p.name }}</span>
-            </a>
-            {% endfor %}
-          </div>
-        </div>
-        {% endif %}
-
+      <!-- Day-range pills -->
+      <div class="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+        {% for n in [7, 14, 21, 28] %}
+        <button type="button" onclick="setSchedDays({{ n }})" id="sched-days-{{ n }}"
+                class="sched-days-btn px-2.5 py-1 rounded-md text-xs font-semibold transition-colors
+                       {% if n == 7 %}bg-white text-gray-800 shadow-sm{% else %}text-gray-500 hover:text-gray-700{% endif %}">
+          {{ n }}d
+        </button>
+        {% endfor %}
       </div>
-      {% endfor %}
+
+      <!-- Spacer -->
+      <div class="flex-1"></div>
+
+      <!-- Date range label -->
+      <span id="sched-range-label" class="text-xs font-semibold text-gray-500 min-w-0 truncate"></span>
+
+      <!-- Prev / Today / Next -->
+      <div class="flex items-center gap-1">
+        <button type="button" onclick="stepSched(-1)"
+                class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 transition-colors">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+          </svg>
+        </button>
+        <button type="button" onclick="resetSchedToToday()" id="sched-today-btn"
+                class="px-2.5 py-1 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100 transition-colors">
+          Today
+        </button>
+        <button type="button" onclick="stepSched(1)"
+                class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 transition-colors">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+          </svg>
+        </button>
+      </div>
+
     </div>
 
-    <div class="flex items-center gap-4 mt-4 pt-4 border-t border-gray-50 text-[0.65rem] text-gray-400">
-      <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-brand-600 inline-block"></span>Today</span>
-      <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-brand-50 border border-brand-200 inline-block"></span>Upcoming</span>
+    <!-- Grid area — populated by JS -->
+    <div id="sched-grid" class="min-h-[6rem] flex items-center justify-center">
+      <span class="text-xs text-gray-400">Loading…</span>
+    </div>
+
+    <!-- Legend (always visible) -->
+    <div class="flex items-center gap-4 mt-4 pt-4 border-t border-gray-50 text-[0.65rem] text-gray-400 flex-wrap">
+      <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-brand-600 ring-2 ring-offset-1 ring-brand-400 inline-block"></span>Today</span>
+      <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-brand-50 border border-brand-300 inline-block"></span>Upcoming</span>
       <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-green-100 inline-block"></span>Completed</span>
-      <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-gray-100 inline-block"></span>Missed</span>
+      <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-amber-100 inline-block"></span>Missed</span>
+      <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-gray-100 inline-block"></span>No sessions</span>
     </div>
   </div>
 </div>
@@ -613,6 +765,20 @@
         <div class="flex-1 min-w-0">
           <p class="text-sm font-bold text-gray-900 truncate group-hover:text-brand-700 transition-colors">{{ p.name }}</p>
           <p class="text-xs text-gray-400 truncate">{{ p.email }}</p>
+          {% if p.injury_sides_list or p.previous_history is not none %}
+          <div class="flex items-center gap-1 mt-0.5 flex-wrap">
+            {% if p.injury_sides_list %}
+            {% set side_label = 'Bilateral' if p.injury_sides_list | length > 1 else (p.injury_sides_list[0] | capitalize) %}
+            <span class="text-[0.55rem] font-bold px-1.5 py-0.5 rounded-full leading-none
+              {% if side_label == 'Left' %}bg-blue-100 text-blue-700
+              {% elif side_label == 'Right' %}bg-orange-100 text-orange-700
+              {% else %}bg-purple-100 text-purple-700{% endif %}">{{ side_label }}</span>
+            {% endif %}
+            {% if p.previous_history is not none %}
+            <span class="text-[0.55rem] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 leading-none" title="Previous injury history reported">Hx</span>
+            {% endif %}
+          </div>
+          {% endif %}
         </div>
 
         <div class="hidden sm:block text-center w-16 shrink-0">
@@ -706,6 +872,164 @@
 
 <script>
   var _SECTIONS = ['case-overview', 'program-reviews', 'upcoming-sessions', 'recent-sessions', 'patient-list'];
+
+  // ── Upcoming Sessions — dynamic schedule ─────────────────────────────────────
+  var _schedOffset = 0;
+  var _schedDays   = 7;
+  var _schedLoading = false;
+
+  function setSchedDays(n) {
+    _schedDays = n;
+    _schedOffset = 0;          // reset to current period when changing range
+    document.querySelectorAll('.sched-days-btn').forEach(function(b) {
+      var active = parseInt(b.id.replace('sched-days-', '')) === n;
+      b.classList.toggle('bg-white',    active);
+      b.classList.toggle('text-gray-800', active);
+      b.classList.toggle('shadow-sm',   active);
+      b.classList.toggle('text-gray-500', !active);
+    });
+    loadSched();
+  }
+
+  function stepSched(dir) {
+    _schedOffset += dir * (_schedDays / 7);
+    loadSched();
+  }
+
+  function resetSchedToToday() {
+    _schedOffset = 0;
+    loadSched();
+  }
+
+  function _escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function _fmtDate(iso) {
+    // YYYY-MM-DD → MM-DD-YYYY
+    try {
+      var p = iso.split('-');
+      return p[1] + '-' + p[2] + '-' + p[0];
+    } catch(e) { return iso; }
+  }
+
+  function _renderDayCell(day) {
+    var sc = day.scheduled.length, dc = day.completed.length;
+    var isMissed = day.is_past && sc > 0 && dc === 0;
+
+    // Circle style
+    var circleCls;
+    if      (day.is_today)            circleCls = 'bg-brand-600 text-white ring-[3px] ring-offset-2 ring-brand-400 shadow-md';
+    else if (day.is_past && dc > 0)   circleCls = 'bg-green-100 text-green-700';
+    else if (isMissed)                circleCls = 'bg-amber-100 text-amber-700';
+    else if (day.is_past)             circleCls = 'bg-gray-50 text-gray-300';
+    else if (sc > 0)                  circleCls = 'bg-brand-50 text-brand-700';
+    else                              circleCls = 'bg-gray-50 text-gray-200';
+
+    // Count inside circle
+    var countTxt;
+    if      (day.is_today && sc > 0)  countTxt = String(sc);
+    else if (day.is_today)            countTxt = '—';
+    else if (day.is_past && dc > 0)   countTxt = String(dc);
+    else if (isMissed)                countTxt = String(sc);
+    else if (sc > 0)                  countTxt = String(sc);
+    else                              countTxt = '—';
+
+    // Day label + number — today gets heavier treatment
+    var labelCls = day.is_today
+      ? 'text-brand-700 font-black'
+      : (day.is_past ? 'text-gray-300 font-bold' : 'text-gray-400 font-bold');
+    var numCls = day.is_today
+      ? 'text-brand-600 font-semibold'
+      : (day.is_past ? 'text-gray-300' : 'text-gray-400');
+
+    // Status label below circle
+    var statusHtml;
+    if      (day.is_today)            statusHtml = '<span class="text-[0.55rem] font-black text-brand-600 uppercase tracking-wide">Today</span>';
+    else if (day.is_past && dc > 0)   statusHtml = '<span class="text-[0.55rem] font-bold text-green-500">' + dc + ' done</span>';
+    else if (isMissed)                statusHtml = '<span class="text-[0.55rem] font-bold text-amber-500">' + sc + ' missed</span>';
+    else if (!day.is_past && sc > 0)  statusHtml = '<span class="text-[0.55rem] font-bold text-brand-400">sched.</span>';
+    else                              statusHtml = '<span class="text-[0.55rem] text-gray-200">·</span>';
+
+    // Hover patient list
+    var hoverList = day.is_past ? day.completed : day.scheduled;
+    var hoverHtml = '';
+    if (hoverList.length > 0) {
+      var ci = day.col_idx;
+      var posCls = ci <= 1 ? 'left-0' : (ci >= 5 ? 'right-0' : 'left-1/2 -translate-x-1/2');
+      var dotCls = day.is_past ? 'bg-green-400' : 'bg-brand-400';
+      var rows = hoverList.map(function(p) {
+        return '<a href="/supervisor/patients/' + p.id + '" class="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 group/row transition-colors">'
+          + '<span class="w-1.5 h-1.5 rounded-full shrink-0 ' + dotCls + '"></span>'
+          + '<span class="text-xs text-gray-700 font-medium truncate group-hover/row:text-brand-700 transition-colors">' + _escHtml(p.name) + '</span>'
+          + '</a>';
+      }).join('');
+      hoverHtml = '<div class="absolute top-full mt-2 z-30 w-48 opacity-0 invisible pointer-events-none group-hover/day:opacity-100 group-hover/day:visible group-hover/day:pointer-events-auto transition-all duration-150 rounded-xl bg-white border border-gray-200 shadow-xl overflow-hidden ' + posCls + '">'
+        + '<div class="px-3 py-2 border-b border-gray-100 bg-gray-50">'
+        + '<p class="text-xs font-bold text-gray-600">' + _escHtml(day.label) + ' · ' + _fmtDate(day.date) + '</p>'
+        + '<p class="text-[0.6rem] text-gray-400">' + (day.is_past ? 'Completed' : 'Scheduled') + '</p>'
+        + '</div><div class="py-1 max-h-44 overflow-y-auto">' + rows + '</div></div>';
+    }
+
+    // Cell wrapper — today gets a soft highlight background
+    var wrapCls = day.is_today
+      ? 'relative group/day flex flex-col items-center gap-1 cursor-default bg-brand-50/60 rounded-xl py-1 -mx-0.5 px-0.5'
+      : 'relative group/day flex flex-col items-center gap-1 cursor-default';
+
+    return '<div class="' + wrapCls + '">'
+      + '<p class="text-[0.65rem] uppercase tracking-widest ' + labelCls + '">' + day.label + '</p>'
+      + '<p class="text-[0.6rem] ' + numCls + '">' + day.day_num + '</p>'
+      + '<div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-black transition-colors ' + circleCls + '">' + countTxt + '</div>'
+      + statusHtml + hoverHtml + '</div>';
+  }
+
+  function _renderWeekRow(weekDays, showHeader) {
+    var headerHtml = '';
+    if (showHeader) {
+      var first = weekDays[0], last = weekDays[weekDays.length - 1];
+      headerHtml = '<p class="text-[0.6rem] font-semibold text-gray-400 uppercase tracking-wide mb-2">'
+        + first.month_abbr + ' ' + first.day_num + ' – ' + last.month_abbr + ' ' + last.day_num + '</p>';
+    }
+    return '<div>' + headerHtml + '<div class="grid grid-cols-7 gap-2 w-full">' + weekDays.map(_renderDayCell).join('') + '</div></div>';
+  }
+
+  function loadSched() {
+    if (_schedLoading) return;
+    _schedLoading = true;
+    var grid = document.getElementById('sched-grid');
+    if (grid) grid.innerHTML = '<span class="text-xs text-gray-400 py-6 block text-center">Loading…</span>';
+
+    fetch('/supervisor/api/schedule?offset=' + _schedOffset + '&days=' + _schedDays, {credentials: 'same-origin'})
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        _schedLoading = false;
+        // Update range label
+        var lbl = document.getElementById('sched-range-label');
+        if (lbl) lbl.textContent = data.range_label || '';
+        // Update Today button highlight
+        var todayBtn = document.getElementById('sched-today-btn');
+        if (todayBtn) todayBtn.classList.toggle('text-brand-600', _schedOffset === 0);
+        // Render grid
+        var numWeeks = data.num_days / 7;
+        var showHeaders = numWeeks > 1;
+        var html = '';
+        for (var w = 0; w < numWeeks; w++) {
+          var weekDays = data.days.slice(w * 7, w * 7 + 7);
+          html += _renderWeekRow(weekDays, showHeaders);
+        }
+        if (grid) grid.innerHTML = html
+          ? '<div class="w-full flex flex-col gap-5">' + html + '</div>'
+          : '<p class="text-xs text-gray-400 text-center py-4">No data</p>';
+      })
+      .catch(function() {
+        _schedLoading = false;
+        var grid = document.getElementById('sched-grid');
+        if (grid) grid.innerHTML = '<p class="text-xs text-red-400 text-center py-4">Failed to load schedule.</p>';
+      });
+  }
+
+  // Load on page ready
+  document.addEventListener('DOMContentLoaded', loadSched);
 
   // ── Recent Sessions filter ────────────────────────────────────────────────
   var _sessionsDays = 28;

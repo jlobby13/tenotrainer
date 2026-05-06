@@ -1,0 +1,342 @@
+{% extends "base.html" %}
+{% block title %}Assessment — {{ patient.name }} — TenoTrainer{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+
+  {# Header #}
+  <div class="rounded-2xl bg-gradient-to-r from-brand-700 to-brand-500 px-6 py-5 mb-6 shadow-md">
+    <p class="text-[0.65rem] text-brand-200 uppercase tracking-widest font-bold mb-0.5">
+      <a href="/supervisor/dashboard" class="hover:text-white transition-colors">Supervisor Panel</a>
+      <span class="mx-1 opacity-50">/</span>
+      <a href="/supervisor/patients/{{ patient.id }}" class="hover:text-white transition-colors">{{ patient.name }}</a>
+      <span class="mx-1 opacity-50">/</span>Assessment
+    </p>
+    <h1 class="text-2xl font-black text-white leading-tight">Clinical Assessment</h1>
+    <p class="text-sm text-brand-200 mt-0.5">{{ patient.name }} · {{ patient.email }}</p>
+  </div>
+
+  <form method="post" action="/supervisor/patients/{{ patient.id }}/assessment"
+        onsubmit="syncNotes()" class="space-y-5">
+
+    {# Section 1: Functional Capacity #}
+    <div class="bg-white rounded-xl shadow p-6 border border-gray-100">
+      <h2 class="text-xl font-bold text-gray-800 mb-1">Functional Capacity</h2>
+      <p class="text-sm text-gray-500 mb-5">
+        Objective loading tests measured during the clinical assessment. Complete only what the patient can tolerate (&le;3/10 pain).
+      </p>
+
+      {# Calf Raise #}
+      <div class="mb-6">
+        <h3 class="text-sm font-semibold text-gray-700 mb-0.5">Single-Leg Calf Raise</h3>
+        <p class="text-xs text-gray-500 mb-2">
+          On a flat surface, rise onto tiptoe on each leg separately and lower slowly. Count reps until unable to continue due to pain or fatigue. Primary loading test — directly informs rehab stage and starting dosage.
+        </p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Affected side (reps)</label>
+            <div class="flex items-center gap-2">
+              <input type="number" name="calf_raise_reps" min="0" max="100"
+                     value="{{ prev.calf_raise_reps if prev and prev.calf_raise_reps is not none else '' }}"
+                     placeholder="&#8212;"
+                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+              <span class="text-sm text-gray-500">reps</span>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Unaffected side <span class="text-gray-400 font-normal">— for LSI</span></label>
+            <div class="flex items-center gap-2">
+              <input type="number" name="calf_raise_reps_unaffected" min="0" max="100"
+                     value="{{ prev.functional_tests.calf_raise_reps_unaffected if prev and prev.functional_tests and prev.functional_tests.calf_raise_reps_unaffected is not none else '' }}"
+                     placeholder="&#8212;"
+                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+              <span class="text-sm text-gray-500">reps</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {# WBLT #}
+      <div class="mb-6">
+        <h3 class="text-sm font-semibold text-gray-700 mb-0.5">Weight Bearing Lunge Test (WBLT) <span class="text-gray-400 font-normal">— optional</span></h3>
+        <p class="text-xs text-gray-500 mb-2">
+          Maximum distance (cm) toe can be from wall while knee touches it with heel grounded. Measures ankle dorsiflexion — &lt;10 cm indicates restricted mobility that increases Achilles load.
+        </p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Affected side (cm)</label>
+            <div class="flex items-center gap-2">
+              <input type="number" name="wblt_cm" min="0" max="30"
+                     value="{{ prev.functional_tests.wblt_cm if prev and prev.functional_tests and prev.functional_tests.wblt_cm is not none else '' }}"
+                     placeholder="&#8212;"
+                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+              <span class="text-sm text-gray-500">cm</span>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Unaffected side (cm) <span class="text-gray-400 font-normal">— for LSI</span></label>
+            <div class="flex items-center gap-2">
+              <input type="number" name="wblt_cm_unaffected" min="0" max="30"
+                     value="{{ prev.functional_tests.wblt_cm_unaffected if prev and prev.functional_tests and prev.functional_tests.wblt_cm_unaffected is not none else '' }}"
+                     placeholder="&#8212;"
+                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+              <span class="text-sm text-gray-500">cm</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {# Hopping #}
+      <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+        <h3 class="text-sm font-semibold text-gray-700 mb-1">Hopping Capacity <span class="text-gray-400 font-normal">— optional, complete only if pain &le;3/10</span></h3>
+        <p class="text-xs text-gray-500 mb-4">
+          Assesses Achilles tendon's ability to store and release energy under higher-speed load. Relevant for return-to-running and sport benchmarking.
+        </p>
+
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Distance Hop</p>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Double-leg hop — best of 3 (cm)</label>
+            <div class="flex items-center gap-2">
+              <input type="number" name="double_leg_hop_cm" min="0" max="400"
+                     value="{{ prev.functional_tests.double_leg_hop_cm if prev and prev.functional_tests and prev.functional_tests.double_leg_hop_cm is not none else '' }}"
+                     placeholder="&#8212;"
+                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+              <span class="text-sm text-gray-500">cm</span>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Single-leg hop — affected (cm)</label>
+            <div class="flex items-center gap-2">
+              <input type="number" name="single_leg_hop_cm" min="0" max="300"
+                     value="{{ prev.functional_tests.single_leg_hop_cm if prev and prev.functional_tests and prev.functional_tests.single_leg_hop_cm is not none else '' }}"
+                     placeholder="&#8212;"
+                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+              <span class="text-sm text-gray-500">cm</span>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Single-leg hop — unaffected (cm)</label>
+            <div class="flex items-center gap-2">
+              <input type="number" name="single_leg_hop_cm_unaffected" min="0" max="300"
+                     value="{{ prev.functional_tests.single_leg_hop_cm_unaffected if prev and prev.functional_tests and prev.functional_tests.single_leg_hop_cm_unaffected is not none else '' }}"
+                     placeholder="&#8212;"
+                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+              <span class="text-sm text-gray-500">cm</span>
+            </div>
+          </div>
+        </div>
+
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">In-Place Endurance Hop</p>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Double-leg in-place hop (reps)</label>
+            <div class="flex items-center gap-2">
+              <input type="number" name="double_leg_hop_endurance_reps" min="0" max="500"
+                     value="{{ prev.functional_tests.double_leg_hop_endurance_reps if prev and prev.functional_tests and prev.functional_tests.double_leg_hop_endurance_reps is not none else '' }}"
+                     placeholder="&#8212;"
+                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+              <span class="text-sm text-gray-500">reps</span>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Single-leg in-place — affected (reps)</label>
+            <div class="flex items-center gap-2">
+              <input type="number" name="single_leg_hop_endurance_reps" min="0" max="500"
+                     value="{{ prev.functional_tests.single_leg_hop_endurance_reps if prev and prev.functional_tests and prev.functional_tests.single_leg_hop_endurance_reps is not none else '' }}"
+                     placeholder="&#8212;"
+                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+              <span class="text-sm text-gray-500">reps</span>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Single-leg in-place — unaffected (reps)</label>
+            <div class="flex items-center gap-2">
+              <input type="number" name="single_leg_hop_endurance_reps_unaffected" min="0" max="500"
+                     value="{{ prev.functional_tests.single_leg_hop_endurance_reps_unaffected if prev and prev.functional_tests and prev.functional_tests.single_leg_hop_endurance_reps_unaffected is not none else '' }}"
+                     placeholder="&#8212;"
+                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+              <span class="text-sm text-gray-500">reps</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# Section 2: Risk Factors #}
+    <div class="bg-white rounded-xl shadow p-6 border border-gray-100">
+      <h2 class="text-xl font-bold text-gray-800 mb-1">Risk Factors</h2>
+      <p class="text-sm text-gray-500 mb-4">
+        Tick any that apply. These inform conservative dosing bias in the rehab algorithm.
+      </p>
+      {% set prev_rf = prev.risk_factors if prev and prev.risk_factors else [] %}
+      {% set risk_items = [
+        ("risk_obesity", "obesity", "Obesity (BMI > 30)"),
+        ("risk_hypertension", "hypertension", "Hypertension"),
+        ("risk_diabetes", "diabetes", "Diabetes (Type 1 or 2)"),
+        ("risk_steroids", "steroids", "Recent corticosteroid use"),
+        ("risk_load_spikes", "load_spikes", "History of load spikes / overtraining"),
+        ("risk_family_history", "family_history", "Family history of tendinopathy or tendon rupture"),
+      ] %}
+      <div class="grid grid-cols-2 gap-3">
+        {% for field_name, value, label in risk_items %}
+        <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <input type="checkbox" name="{{ field_name }}" value="{{ value }}"
+                 {% if value in prev_rf %}checked{% endif %}
+                 class="accent-brand-600 w-4 h-4" />
+          {{ label }}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    {# Section 3: Other Objective Information (placeholder) #}
+    <div class="bg-white rounded-xl shadow p-6 border border-gray-100">
+      <h2 class="text-xl font-bold text-gray-800 mb-1">Other Objective Information</h2>
+      <p class="text-sm text-gray-500 mb-4">Additional clinical objective findings recorded during this assessment.</p>
+      <div class="bg-gray-50 border border-dashed border-gray-300 rounded-lg p-4 text-center text-sm text-gray-400 mb-4">
+        Additional objective assessment fields coming soon.
+      </div>
+      <textarea name="objective_info" rows="3" disabled
+                placeholder="Objective findings (coming soon)"
+                class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-400 bg-gray-50 cursor-not-allowed focus:outline-none"></textarea>
+    </div>
+
+    {# Patient Comments (read-only, from latest onboarding) #}
+    {% if patient_comment %}
+    <div class="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4">
+      <div class="flex items-start gap-3">
+        <svg class="w-4 h-4 text-amber-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-4l-4 4z"/>
+        </svg>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-1">
+            <p class="text-xs font-bold text-amber-700 uppercase tracking-widest">Patient Comments</p>
+            {% if patient_comment_date %}
+            <span class="text-[0.6rem] text-amber-500">{{ patient_comment_date }}</span>
+            {% endif %}
+          </div>
+          <p class="text-sm text-amber-800 leading-relaxed whitespace-pre-wrap">{{ patient_comment }}</p>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {# Section 4: Notes #}
+    <div class="bg-white rounded-xl shadow p-6 border border-gray-100">
+      <div class="flex items-center justify-between mb-1">
+        <h2 class="text-xl font-bold text-gray-800">Assessment Notes</h2>
+        {% if prev and prev.notes %}
+        <span class="text-xs text-amber-600 font-medium">Previous notes shown in orange — select and replace to update</span>
+        {% endif %}
+      </div>
+      <p class="text-sm text-gray-500 mb-3">
+        Clinical observations, subjective findings, and any additional notes for this assessment.
+      </p>
+
+      {# Editor wrapper — position relative so icon can be overlaid #}
+      <div class="relative">
+        <div id="notes-editor"
+             contenteditable="true"
+             class="min-h-[140px] w-full border border-gray-300 rounded-lg px-3 py-2.5 pr-10 text-sm text-gray-800 focus:ring-2 focus:ring-brand-400 outline-none leading-relaxed"
+             oninput="syncNotesLive()">{% if prev and prev.notes %}<span class="prev-notes" style="color: #d97706;">{{ prev.notes | e }}</span>{% endif %}</div>
+
+        {# Version history icon — top-right corner of the editor #}
+        {% if notes_history %}
+        <button type="button"
+                onclick="openHistoryModal()"
+                title="View notes history"
+                class="absolute top-2 right-2 p-1 rounded text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </button>
+        {% endif %}
+      </div>
+
+      <input type="hidden" name="notes" id="notes-hidden" />
+      <p class="text-xs text-gray-400 mt-1.5">
+        Click to type. Select the orange text and replace to update.
+        {% if notes_history %}
+        <button type="button" onclick="openHistoryModal()" class="text-brand-500 hover:text-brand-700 underline ml-1">View history ({{ notes_history | length }})</button>
+        {% endif %}
+      </p>
+    </div>
+
+    {# Version history modal #}
+    {% if notes_history %}
+    <div id="history-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <div>
+            <h3 class="text-base font-black text-gray-900">Notes History</h3>
+            <p class="text-xs text-gray-400 mt-0.5">{{ notes_history | length }} previous entr{{ 'ies' if notes_history | length != 1 else 'y' }} — newest first</p>
+          </div>
+          <button type="button" onclick="closeHistoryModal()"
+                  class="text-gray-400 hover:text-gray-600 transition-colors p-1">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <div class="overflow-y-auto flex-1 px-5 py-4 space-y-4">
+          {% for entry in notes_history %}
+          <div class="border border-gray-100 rounded-xl p-4 {% if loop.first %}bg-brand-50 border-brand-100{% else %}bg-gray-50{% endif %}">
+            <div class="flex items-center gap-2 mb-2">
+              {% if loop.first %}
+              <span class="text-[0.6rem] font-bold bg-brand-600 text-white px-2 py-0.5 rounded-full uppercase tracking-wide">Most Recent</span>
+              {% else %}
+              <span class="text-[0.6rem] font-bold bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full uppercase tracking-wide">Entry {{ loop.index }}</span>
+              {% endif %}
+              <span class="text-xs text-gray-400">{{ entry.date }}</span>
+            </div>
+            <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{{ entry.notes }}</p>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {# Form actions #}
+    <div class="flex items-center justify-between gap-3 pb-4">
+      <a href="/supervisor/patients/{{ patient.id }}"
+         class="px-5 py-2.5 text-sm font-semibold text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+        Cancel
+      </a>
+      <button type="submit"
+              class="px-6 py-2.5 text-sm font-bold bg-brand-600 text-white rounded-xl hover:bg-brand-700 transition-colors shadow-sm">
+        Save Assessment
+      </button>
+    </div>
+
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function syncNotes() {
+  var editor = document.getElementById('notes-editor');
+  var hidden = document.getElementById('notes-hidden');
+  if (editor && hidden) hidden.value = editor.innerText.trim();
+}
+function syncNotesLive() { syncNotes(); }
+document.addEventListener('DOMContentLoaded', function() { syncNotes(); });
+
+function openHistoryModal() {
+  var m = document.getElementById('history-modal');
+  if (m) m.classList.remove('hidden');
+}
+function closeHistoryModal() {
+  var m = document.getElementById('history-modal');
+  if (m) m.classList.add('hidden');
+}
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeHistoryModal();
+});
+document.getElementById('history-modal') && document.getElementById('history-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeHistoryModal();
+});
+</script>
+{% endblock %}
