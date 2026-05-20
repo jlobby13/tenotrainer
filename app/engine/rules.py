@@ -1354,7 +1354,7 @@ def compute_recovery_timeline(
 def compute_phase_exit_checklist(
     stage: int,
     session_logs: list,
-    visa_history: list = None,
+    visa_history: list | None = None,
 ) -> dict:
     """
     Build a phase-exit checklist for the user's current stage.

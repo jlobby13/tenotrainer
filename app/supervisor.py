@@ -94,7 +94,7 @@ async def _get_supervisor(session_token: Optional[str]) -> Optional[dict]:
 # ---------------------------------------------------------------------------
 
 async def _audit(user_id: int, action_type: str, target_patient_id: Optional[int] = None,
-                 changes: dict = None, note: Optional[str] = None) -> None:
+                 changes: dict | None = None, note: Optional[str] = None) -> None:
     db = await get_db()
     try:
         await db.execute(
@@ -536,7 +536,7 @@ async def _get_patient_summary(patient_id: int) -> dict:
             "CASE severity WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END, created_at DESC",
             (patient_id,),
         )
-        alert_rows = await cur.fetchall()
+        alert_rows = list(await cur.fetchall())
         p["alert_count"] = len(alert_rows)
         p["alerts"] = [
             {"id": r[0], "type": r[1], "severity": r[2], "message": r[3],

@@ -88,7 +88,9 @@ async def generate_explanation(plan: dict, kb_entries: list[dict], user_name: st
             ],
         )
 
-        return message.content[0].text
+        from anthropic.types import TextBlock
+        text_block = next((b for b in message.content if isinstance(b, TextBlock)), None)
+        return text_block.text if text_block else FALLBACK_EXPLANATION
 
     except ImportError:
         logger.warning("anthropic package not installed — returning static placeholder.")

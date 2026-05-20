@@ -248,6 +248,7 @@ async def get_or_create_user(session_token: Optional[str], response: Response) -
             "SELECT * FROM users WHERE session_token = ?", (token,)
         )
         row = await cursor.fetchone()
+        assert row is not None
         user = row_to_dict(row)
         _set_session_cookie(response, token)
         return user
@@ -828,6 +829,7 @@ async def account_update_demographics(
     if not user:
         return RedirectResponse("/login", status_code=302)
 
+    _redirect_stripped = redirect.strip()
     _back = _redirect_stripped if _redirect_stripped in ("/profile", "/account") else "/account"
 
     def _fail(msg: str):
@@ -886,6 +888,7 @@ async def account_clear_demographics(
     user = await get_current_user(teno_session)
     if not user:
         return RedirectResponse("/login", status_code=302)
+    _redirect_stripped = redirect.strip()
     _back = _redirect_stripped if _redirect_stripped in ("/profile", "/account") else "/account"
     db = await get_db()
     try:
@@ -1498,7 +1501,7 @@ async def onboarding_post(
 
         # Save VISA-A if all 8 questions answered
         visa_result = None
-        if all(v is not None for v in [q1, q2, q3, q4, q5, q6, q7, q8]):
+        if q1 is not None and q2 is not None and q3 is not None and q4 is not None and q5 is not None and q6 is not None and q7 is not None and q8 is not None:
             visa_result = score_visa_a(q1, q2, q3, q4, q5, q6, q7, q8)
             await db.execute(
                 """INSERT INTO visa_a_responses
@@ -2455,6 +2458,7 @@ async def daily_log_post(
             plan_id = p["id"]
             current_exercises = p.get("exercises", [])
 
+        o: dict = {}
         if onboarding_row:
             o = parse_json_fields(row_to_dict(onboarding_row), ["risk_factors"])
             baseline_reps = o.get("calf_raise_reps", 0)
@@ -2674,6 +2678,7 @@ async def daily_log_post(
         await db.close()
 
     # Generate supervisor alerts (non-destructive, layered on top of rule engine)
+    assert new_log_id is not None
     await _generate_session_alerts(
         user_id=user["id"],
         log_id=new_log_id,
@@ -2690,8 +2695,8 @@ async def daily_log_post(
     except Exception:
         lib_all = []
     _next_wblt = classify_wblt(
-        onboarding_row and parse_json_fields(row_to_dict(onboarding_row), ["functional_tests"]).get("functional_tests", {}).get("wblt_cm"),
-        onboarding_row and parse_json_fields(row_to_dict(onboarding_row), ["functional_tests"]).get("functional_tests", {}).get("wblt_cm_unaffected"),
+        parse_json_fields(row_to_dict(onboarding_row), ["functional_tests"]).get("functional_tests", {}).get("wblt_cm"),
+        parse_json_fields(row_to_dict(onboarding_row), ["functional_tests"]).get("functional_tests", {}).get("wblt_cm_unaffected"),
     ) if onboarding_row else classify_wblt(None, None)
     _is_insertional_post = False
     if onboarding_row:
@@ -2847,7 +2852,7 @@ async def followup_post(
             (log_id,),
         )
         remaining_row = await remaining_cur.fetchone()
-        all_done = (remaining_row["cnt"] == 0)
+        all_done = remaining_row is not None and remaining_row["cnt"] == 0
 
         if all_done:
             await db.execute("UPDATE daily_logs SET is_complete = 1 WHERE id = ?", (log_id,))

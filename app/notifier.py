@@ -36,7 +36,7 @@ async def send_2fa_email(to_email: str, code: str, user_name: str) -> bool:
     smtp_host = os.getenv("SMTP_HOST")
     smtp_user = os.getenv("SMTP_USER")
     smtp_pass = os.getenv("SMTP_PASS")
-    smtp_from = os.getenv("SMTP_FROM") or smtp_user
+    smtp_from = os.getenv("SMTP_FROM") or smtp_user or ""
     smtp_port = int(os.getenv("SMTP_PORT", "587"))
 
     if not smtp_host or not smtp_user:
@@ -114,7 +114,7 @@ async def send_dismissal_email(
     smtp_host = os.getenv("SMTP_HOST")
     smtp_user = os.getenv("SMTP_USER")
     smtp_pass = os.getenv("SMTP_PASS")
-    smtp_from = os.getenv("SMTP_FROM") or smtp_user
+    smtp_from = os.getenv("SMTP_FROM") or smtp_user or ""
     smtp_port = int(os.getenv("SMTP_PORT", "587"))
 
     if not smtp_host or not smtp_user:
