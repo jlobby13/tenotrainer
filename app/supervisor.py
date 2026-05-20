@@ -1320,6 +1320,7 @@ async def supervisor_assessment_get(
         )
         prev_row = await cur.fetchone()
         prev = None
+        prev_obj: dict = {}
         if prev_row:
             prev = dict(prev_row)
             for field in ("functional_tests", "risk_factors"):
@@ -1328,6 +1329,13 @@ async def supervisor_assessment_get(
                         prev[field] = _json.loads(prev[field])
                     except Exception:
                         prev[field] = {} if field == "functional_tests" else []
+            if isinstance(prev.get("objective_info"), str):
+                try:
+                    prev_obj = _json.loads(prev["objective_info"])
+                    if not isinstance(prev_obj, dict):
+                        prev_obj = {}
+                except Exception:
+                    prev_obj = {}
 
         # All supervisor assessment notes for this patient (version history)
         cur = await db.execute(
@@ -1366,6 +1374,7 @@ async def supervisor_assessment_get(
             "user": supervisor,
             "patient": patient,
             "prev": prev,
+            "prev_obj": prev_obj,
             "notes_history": notes_history,
             "patient_comment": patient_comment,
             "patient_comment_date": patient_comment_date,
@@ -1396,8 +1405,41 @@ async def supervisor_assessment_post(
     risk_steroids: Optional[str] = Form(default=None),
     risk_load_spikes: Optional[str] = Form(default=None),
     risk_family_history: Optional[str] = Form(default=None),
-    # Objective info + notes
-    objective_info: Optional[str] = Form(default=""),
+    # Range of motion — involved side flags
+    rom_involved_left: Optional[str] = Form(default=None),
+    rom_involved_right: Optional[str] = Form(default=None),
+    rom_dorsiflexion: Optional[int] = Form(default=None),
+    rom_dorsiflexion_unaffected: Optional[int] = Form(default=None),
+    rom_plantarflexion: Optional[int] = Form(default=None),
+    rom_plantarflexion_unaffected: Optional[int] = Form(default=None),
+    rom_inversion: Optional[int] = Form(default=None),
+    rom_inversion_unaffected: Optional[int] = Form(default=None),
+    rom_eversion: Optional[int] = Form(default=None),
+    rom_eversion_unaffected: Optional[int] = Form(default=None),
+    # Inspection sub-fields
+    inspection_swelling: Optional[str] = Form(default=""),
+    inspection_redness: Optional[str] = Form(default=""),
+    inspection_tenderness: Optional[str] = Form(default=""),
+    inspection_pain_rating: Optional[int] = Form(default=None),
+    # Posture sub-fields
+    posture_foot: Optional[str] = Form(default=""),
+    posture_lower_extremity: Optional[str] = Form(default=""),
+    joint_mobility_passive: Optional[str] = Form(default=""),
+    joint_mobility_active: Optional[str] = Form(default=""),
+    joint_mobility_end_feel: Optional[str] = Form(default=""),
+    ms_gait: Optional[str] = Form(default=""),
+    ms_squat: Optional[str] = Form(default=""),
+    ms_lunge: Optional[str] = Form(default=""),
+    ms_single_leg_squat: Optional[str] = Form(default=""),
+    ms_y_balance_forward_left: Optional[float] = Form(default=None),
+    ms_y_balance_forward_right: Optional[float] = Form(default=None),
+    ms_y_balance_back_inward_left: Optional[float] = Form(default=None),
+    ms_y_balance_back_inward_right: Optional[float] = Form(default=None),
+    ms_y_balance_back_outward_left: Optional[float] = Form(default=None),
+    ms_y_balance_back_outward_right: Optional[float] = Form(default=None),
+    ms_tandem_ankle: Optional[str] = Form(default=""),
+    ms_tandem_lunge: Optional[str] = Form(default=""),
+    # Notes
     notes: Optional[str] = Form(default=""),
 ):
     import json as _json
@@ -1425,6 +1467,54 @@ async def supervisor_assessment_post(
         ("diabetes", risk_diabetes), ("steroids", risk_steroids),
         ("load_spikes", risk_load_spikes), ("family_history", risk_family_history),
     ] if val]
+
+    rom = {k: v for k, v in {
+        "involved_left": True if rom_involved_left else None,
+        "involved_right": True if rom_involved_right else None,
+        "dorsiflexion": rom_dorsiflexion,
+        "dorsiflexion_unaffected": rom_dorsiflexion_unaffected,
+        "plantarflexion": rom_plantarflexion,
+        "plantarflexion_unaffected": rom_plantarflexion_unaffected,
+        "inversion": rom_inversion,
+        "inversion_unaffected": rom_inversion_unaffected,
+        "eversion": rom_eversion,
+        "eversion_unaffected": rom_eversion_unaffected,
+    }.items() if v is not None}
+
+    objective_info = _json.dumps({
+        "rom": rom,
+        "inspection": {
+            "swelling": inspection_swelling or "",
+            "redness": inspection_redness or "",
+            "tenderness": inspection_tenderness or "",
+            "pain_rating": inspection_pain_rating,
+        },
+        "posture": {
+            "foot": posture_foot or "",
+            "lower_extremity": posture_lower_extremity or "",
+        },
+        "joint_mobility": {
+            "passive": joint_mobility_passive or "",
+            "active": joint_mobility_active or "",
+            "end_feel": joint_mobility_end_feel or "",
+        },
+        "movement_screen": {
+            "gait": ms_gait or "",
+            "squat": ms_squat or "",
+            "lunge": ms_lunge or "",
+            "single_leg_squat": ms_single_leg_squat or "",
+            "y_balance": {
+                "forward_left": ms_y_balance_forward_left,
+                "forward_right": ms_y_balance_forward_right,
+                "back_inward_left": ms_y_balance_back_inward_left,
+                "back_inward_right": ms_y_balance_back_inward_right,
+                "back_outward_left": ms_y_balance_back_outward_left,
+                "back_outward_right": ms_y_balance_back_outward_right,
+            },
+            "tandem_ankle": ms_tandem_ankle or "",
+            "tandem_lunge": ms_tandem_lunge or "",
+        },
+    })
 
     functional_tests = {k: v for k, v in {
         "calf_raise_reps_unaffected": calf_raise_reps_unaffected,

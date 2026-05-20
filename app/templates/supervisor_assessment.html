@@ -5,29 +5,28 @@
 <div class="max-w-3xl mx-auto">
 
   {# Header #}
-  <div class="rounded-2xl bg-gradient-to-r from-brand-700 to-brand-500 px-6 py-5 mb-6 shadow-md">
+  <div class="rounded-xl bg-gradient-to-r from-brand-700 to-brand-500 px-5 py-3 mb-3 shadow-md">
     <p class="text-[0.65rem] text-brand-200 uppercase tracking-widest font-bold mb-0.5">
       <a href="/supervisor/dashboard" class="hover:text-white transition-colors">Supervisor Panel</a>
       <span class="mx-1 opacity-50">/</span>
       <a href="/supervisor/patients/{{ patient.id }}" class="hover:text-white transition-colors">{{ patient.name }}</a>
       <span class="mx-1 opacity-50">/</span>Assessment
     </p>
-    <h1 class="text-2xl font-black text-white leading-tight">Clinical Assessment</h1>
-    <p class="text-sm text-brand-200 mt-0.5">{{ patient.name }} · {{ patient.email }}</p>
+    <h1 class="text-lg font-black text-white leading-tight">Clinical Assessment <span class="font-normal text-brand-200">· {{ patient.name }}</span></h1>
   </div>
 
   <form method="post" action="/supervisor/patients/{{ patient.id }}/assessment"
-        onsubmit="syncNotes()" class="space-y-5">
+        onsubmit="syncNotes()" class="space-y-3">
 
     {# Section 1: Functional Capacity #}
-    <div class="bg-white rounded-xl shadow p-6 border border-gray-100">
-      <h2 class="text-xl font-bold text-gray-800 mb-1">Functional Capacity</h2>
-      <p class="text-sm text-gray-500 mb-5">
-        Objective loading tests measured during the clinical assessment. Complete only what the patient can tolerate (&le;3/10 pain).
+    <div class="bg-white rounded-xl shadow p-4 border border-gray-100">
+      <h2 class="text-sm font-bold text-gray-800 mb-0.5">Functional Capacity</h2>
+      <p class="text-xs text-gray-400 mb-4">
+        Objective loading tests. Complete only what the patient can tolerate (&le;3/10 pain).
       </p>
 
       {# Calf Raise #}
-      <div class="mb-6">
+      <div class="mb-4">
         <div class="flex items-center gap-1.5 mb-2">
           <h3 class="text-sm font-semibold text-gray-700">Single-Leg Calf Raise</h3>
           <span class="relative group">
@@ -39,32 +38,32 @@
             </span>
           </span>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Affected side (reps)</label>
             <div class="flex items-center gap-2">
               <input type="number" name="calf_raise_reps" min="0" max="100"
                      value="{{ prev.calf_raise_reps if prev and prev.calf_raise_reps is not none else '' }}"
                      placeholder="&#8212;"
-                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
-              <span class="text-sm text-gray-500">reps</span>
+                     class="w-24 border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+              <span class="text-xs text-gray-400">reps</span>
             </div>
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Unaffected side <span class="text-gray-400 font-normal">— for LSI</span></label>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Unaffected side <span class="text-gray-400 font-normal">— LSI</span></label>
             <div class="flex items-center gap-2">
               <input type="number" name="calf_raise_reps_unaffected" min="0" max="100"
                      value="{{ prev.functional_tests.calf_raise_reps_unaffected if prev and prev.functional_tests and prev.functional_tests.calf_raise_reps_unaffected is not none else '' }}"
                      placeholder="&#8212;"
-                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
-              <span class="text-sm text-gray-500">reps</span>
+                     class="w-24 border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+              <span class="text-xs text-gray-400">reps</span>
             </div>
           </div>
         </div>
       </div>
 
       {# WBLT #}
-      <div class="mb-6">
+      <div class="mb-4">
         <div class="flex items-center gap-1.5 mb-2">
           <h3 class="text-sm font-semibold text-gray-700">Weight Bearing Lunge Test (WBLT) <span class="text-gray-400 font-normal">— optional</span></h3>
           <span class="relative group">
@@ -76,33 +75,33 @@
             </span>
           </span>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Affected side (cm)</label>
             <div class="flex items-center gap-2">
               <input type="number" name="wblt_cm" min="0" max="30"
                      value="{{ prev.functional_tests.wblt_cm if prev and prev.functional_tests and prev.functional_tests.wblt_cm is not none else '' }}"
                      placeholder="&#8212;"
-                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
-              <span class="text-sm text-gray-500">cm</span>
+                     class="w-24 border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+              <span class="text-xs text-gray-400">cm</span>
             </div>
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Unaffected side (cm) <span class="text-gray-400 font-normal">— for LSI</span></label>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Unaffected side (cm) <span class="text-gray-400 font-normal">— LSI</span></label>
             <div class="flex items-center gap-2">
               <input type="number" name="wblt_cm_unaffected" min="0" max="30"
                      value="{{ prev.functional_tests.wblt_cm_unaffected if prev and prev.functional_tests and prev.functional_tests.wblt_cm_unaffected is not none else '' }}"
                      placeholder="&#8212;"
-                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
-              <span class="text-sm text-gray-500">cm</span>
+                     class="w-24 border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+              <span class="text-xs text-gray-400">cm</span>
             </div>
           </div>
         </div>
       </div>
 
       {# Hopping #}
-      <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
-        <div class="flex items-center gap-1.5 mb-3">
+      <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+        <div class="flex items-center gap-1.5 mb-2">
           <h3 class="text-sm font-semibold text-gray-700">Hopping Capacity <span class="text-gray-400 font-normal">— optional, complete only if pain &le;3/10</span></h3>
           <span class="relative group">
             <svg class="w-4 h-4 text-gray-400 hover:text-brand-500 cursor-default transition-colors" fill="currentColor" viewBox="0 0 20 20">
@@ -114,70 +113,70 @@
           </span>
         </div>
 
-        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Distance Hop</p>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+        <p class="text-[0.65rem] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Distance Hop</p>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Double-leg hop — best of 3 (cm)</label>
-            <div class="flex items-center gap-2">
+            <label class="block text-xs font-medium text-gray-600 mb-1">Double-leg — best of 3 (cm)</label>
+            <div class="flex items-center gap-1.5">
               <input type="number" name="double_leg_hop_cm" min="0" max="400"
                      value="{{ prev.functional_tests.double_leg_hop_cm if prev and prev.functional_tests and prev.functional_tests.double_leg_hop_cm is not none else '' }}"
                      placeholder="&#8212;"
-                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
-              <span class="text-sm text-gray-500">cm</span>
+                     class="w-24 border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+              <span class="text-xs text-gray-400">cm</span>
             </div>
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Single-leg hop — affected (cm)</label>
-            <div class="flex items-center gap-2">
+            <label class="block text-xs font-medium text-gray-600 mb-1">Single-leg — affected (cm)</label>
+            <div class="flex items-center gap-1.5">
               <input type="number" name="single_leg_hop_cm" min="0" max="300"
                      value="{{ prev.functional_tests.single_leg_hop_cm if prev and prev.functional_tests and prev.functional_tests.single_leg_hop_cm is not none else '' }}"
                      placeholder="&#8212;"
-                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
-              <span class="text-sm text-gray-500">cm</span>
+                     class="w-24 border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+              <span class="text-xs text-gray-400">cm</span>
             </div>
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Single-leg hop — unaffected (cm)</label>
-            <div class="flex items-center gap-2">
+            <label class="block text-xs font-medium text-gray-600 mb-1">Single-leg — unaffected (cm)</label>
+            <div class="flex items-center gap-1.5">
               <input type="number" name="single_leg_hop_cm_unaffected" min="0" max="300"
                      value="{{ prev.functional_tests.single_leg_hop_cm_unaffected if prev and prev.functional_tests and prev.functional_tests.single_leg_hop_cm_unaffected is not none else '' }}"
                      placeholder="&#8212;"
-                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
-              <span class="text-sm text-gray-500">cm</span>
+                     class="w-24 border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+              <span class="text-xs text-gray-400">cm</span>
             </div>
           </div>
         </div>
 
-        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">In-Place Endurance Hop</p>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <p class="text-[0.65rem] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">In-Place Endurance Hop</p>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Double-leg in-place hop (reps)</label>
-            <div class="flex items-center gap-2">
+            <label class="block text-xs font-medium text-gray-600 mb-1">Double-leg (reps)</label>
+            <div class="flex items-center gap-1.5">
               <input type="number" name="double_leg_hop_endurance_reps" min="0" max="500"
                      value="{{ prev.functional_tests.double_leg_hop_endurance_reps if prev and prev.functional_tests and prev.functional_tests.double_leg_hop_endurance_reps is not none else '' }}"
                      placeholder="&#8212;"
-                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
-              <span class="text-sm text-gray-500">reps</span>
+                     class="w-24 border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+              <span class="text-xs text-gray-400">reps</span>
             </div>
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Single-leg in-place — affected (reps)</label>
-            <div class="flex items-center gap-2">
+            <label class="block text-xs font-medium text-gray-600 mb-1">Single-leg — affected (reps)</label>
+            <div class="flex items-center gap-1.5">
               <input type="number" name="single_leg_hop_endurance_reps" min="0" max="500"
                      value="{{ prev.functional_tests.single_leg_hop_endurance_reps if prev and prev.functional_tests and prev.functional_tests.single_leg_hop_endurance_reps is not none else '' }}"
                      placeholder="&#8212;"
-                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
-              <span class="text-sm text-gray-500">reps</span>
+                     class="w-24 border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+              <span class="text-xs text-gray-400">reps</span>
             </div>
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Single-leg in-place — unaffected (reps)</label>
-            <div class="flex items-center gap-2">
+            <label class="block text-xs font-medium text-gray-600 mb-1">Single-leg — unaffected (reps)</label>
+            <div class="flex items-center gap-1.5">
               <input type="number" name="single_leg_hop_endurance_reps_unaffected" min="0" max="500"
                      value="{{ prev.functional_tests.single_leg_hop_endurance_reps_unaffected if prev and prev.functional_tests and prev.functional_tests.single_leg_hop_endurance_reps_unaffected is not none else '' }}"
                      placeholder="&#8212;"
-                     class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
-              <span class="text-sm text-gray-500">reps</span>
+                     class="w-24 border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+              <span class="text-xs text-gray-400">reps</span>
             </div>
           </div>
         </div>
@@ -185,11 +184,9 @@
     </div>
 
     {# Section 2: Risk Factors #}
-    <div class="bg-white rounded-xl shadow p-6 border border-gray-100">
-      <h2 class="text-xl font-bold text-gray-800 mb-1">Risk Factors</h2>
-      <p class="text-sm text-gray-500 mb-4">
-        Tick any that apply. These inform conservative dosing bias in the rehab algorithm.
-      </p>
+    <div class="bg-white rounded-xl shadow p-4 border border-gray-100">
+      <h2 class="text-sm font-bold text-gray-800 mb-0.5">Risk Factors</h2>
+      <p class="text-xs text-gray-400 mb-3">Tick any that apply. These inform conservative dosing bias in the rehab algorithm.</p>
       {% set prev_rf = prev.risk_factors if prev and prev.risk_factors else [] %}
       {% set risk_items = [
         ("risk_obesity", "obesity", "Obesity (BMI > 30)"),
@@ -199,33 +196,245 @@
         ("risk_load_spikes", "load_spikes", "History of load spikes / overtraining"),
         ("risk_family_history", "family_history", "Family history of tendinopathy or tendon rupture"),
       ] %}
-      <div class="grid grid-cols-2 gap-3">
+      <div class="grid grid-cols-2 gap-2">
         {% for field_name, value, label in risk_items %}
-        <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+        <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
           <input type="checkbox" name="{{ field_name }}" value="{{ value }}"
                  {% if value in prev_rf %}checked{% endif %}
-                 class="accent-brand-600 w-4 h-4" />
+                 class="accent-brand-600 w-3.5 h-3.5" />
           {{ label }}
         </label>
         {% endfor %}
       </div>
     </div>
 
-    {# Section 3: Other Objective Information (placeholder) #}
-    <div class="bg-white rounded-xl shadow p-6 border border-gray-100">
-      <h2 class="text-xl font-bold text-gray-800 mb-1">Other Objective Information</h2>
-      <p class="text-sm text-gray-500 mb-4">Additional clinical objective findings recorded during this assessment.</p>
-      <div class="bg-gray-50 border border-dashed border-gray-300 rounded-lg p-4 text-center text-sm text-gray-400 mb-4">
-        Additional objective assessment fields coming soon.
+    {# Section 3: Other Objective Information #}
+    <div class="bg-white rounded-xl shadow p-4 border border-gray-100">
+      <h2 class="text-sm font-bold text-gray-800 mb-0.5">Other Objective Information</h2>
+      <p class="text-xs text-gray-400 mb-4">Additional objective findings recorded during this assessment.</p>
+
+      {# Range of Motion #}
+      {% set rom = prev_obj.get("rom", {}) if prev_obj else {} %}
+      <div class="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+        <p class="text-xs font-semibold text-gray-600 mb-2">Range of Motion <span class="font-normal text-gray-400">(degrees)</span></p>
+      <table class="w-full text-sm border-collapse">
+        <thead>
+          <tr class="border-b border-gray-200">
+            <th class="text-left text-xs font-medium text-gray-400 py-2 pr-4 w-1/2">Movement</th>
+            <th class="py-2 px-3 text-center">
+              <span class="text-xs font-medium text-gray-400">Left</span>
+              <label class="flex items-center justify-center gap-1 mt-1 cursor-pointer">
+                <input type="checkbox" name="rom_involved_left" value="1"
+                       {% if prev_obj and prev_obj.get("rom", {}).get("involved_left") %}checked{% endif %}
+                       class="accent-brand-600 w-3.5 h-3.5" />
+                <span class="text-[0.65rem] text-gray-400">Involved</span>
+              </label>
+            </th>
+            <th class="py-2 px-3 text-center">
+              <span class="text-xs font-medium text-gray-400">Right</span>
+              <label class="flex items-center justify-center gap-1 mt-1 cursor-pointer">
+                <input type="checkbox" name="rom_involved_right" value="1"
+                       {% if prev_obj and prev_obj.get("rom", {}).get("involved_right") %}checked{% endif %}
+                       class="accent-brand-600 w-3.5 h-3.5" />
+                <span class="text-[0.65rem] text-gray-400">Involved</span>
+              </label>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for label, key in [
+            ("Dorsiflexion", "dorsiflexion"),
+            ("Plantarflexion", "plantarflexion"),
+            ("Inversion", "inversion"),
+            ("Eversion", "eversion"),
+          ] %}
+          <tr class="border-b border-gray-100">
+            <td class="py-1.5 pr-4 text-sm text-gray-700">{{ label }}</td>
+            <td class="py-1.5 px-3 text-center">
+              <input type="number" name="rom_{{ key }}" min="0" max="180"
+                     value="{{ rom[key] if rom and key in rom else '' }}"
+                     placeholder="—"
+                     class="w-20 border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm text-center focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+            </td>
+            <td class="py-1.5 px-3 text-center">
+              <input type="number" name="rom_{{ key }}_unaffected" min="0" max="180"
+                     value="{{ rom[key ~ '_unaffected'] if rom and (key ~ '_unaffected') in rom else '' }}"
+                     placeholder="—"
+                     class="w-20 border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm text-center focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
       </div>
-      <textarea name="objective_info" rows="3" disabled
-                placeholder="Objective findings (coming soon)"
-                class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-400 bg-gray-50 cursor-not-allowed focus:outline-none"></textarea>
+
+      {# Observation sections #}
+      <h3 class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Observations</h3>
+
+      {# Inspection — structured #}
+      {% set insp = prev_obj.get("inspection", {}) if prev_obj else {} %}
+      {% set insp = insp if insp is mapping else {} %}
+      <div class="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+        <p class="text-xs font-semibold text-gray-600 mb-2">Inspection</p>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {% for label, field_name, key in [
+            ("Swelling",            "inspection_swelling",   "swelling"),
+            ("Redness",             "inspection_redness",    "redness"),
+            ("Tendon Tenderness",   "inspection_tenderness", "tenderness"),
+          ] %}
+          <div>
+            <label class="block text-[0.65rem] font-medium text-gray-500 mb-1">{{ label }}</label>
+            <select name="{{ field_name }}"
+                    class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:ring-2 focus:ring-brand-400 focus:outline-none bg-white">
+              <option value="">—</option>
+              {% for opt in ["None", "Mild", "Moderate", "Severe"] %}
+              <option value="{{ opt }}" {% if insp.get(key) == opt %}selected{% endif %}>{{ opt }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% endfor %}
+          <div>
+            <label class="block text-[0.65rem] font-medium text-gray-500 mb-1">Pain Rating (0–10)</label>
+            <input type="number" name="inspection_pain_rating" min="0" max="10"
+                   value="{{ insp.get('pain_rating') if insp.get('pain_rating') is not none else '' }}"
+                   placeholder="—"
+                   class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+          </div>
+        </div>
+      </div>
+
+      {# Posture — structured #}
+      {% set post = prev_obj.get("posture", {}) if prev_obj else {} %}
+      {% set post = post if post is mapping else {} %}
+      <div class="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+        <p class="text-xs font-semibold text-gray-600 mb-2">Posture</p>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[0.65rem] font-medium text-gray-500 mb-1">Resting Foot Posture</label>
+            <textarea name="posture_foot" rows="2" placeholder="Findings…"
+                      class="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-brand-400 focus:outline-none leading-relaxed resize-none">{{ post.get("foot") or "" }}</textarea>
+          </div>
+          <div>
+            <label class="block text-[0.65rem] font-medium text-gray-500 mb-1">Other Lower Extremity Posture</label>
+            <textarea name="posture_lower_extremity" rows="2" placeholder="Findings…"
+                      class="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-brand-400 focus:outline-none leading-relaxed resize-none">{{ post.get("lower_extremity") or "" }}</textarea>
+          </div>
+        </div>
+      </div>
+
+      {# Joint Mobility — structured #}
+      {% set jm = prev_obj.get("joint_mobility", {}) if prev_obj else {} %}
+      {% set jm = jm if jm is mapping else {} %}
+      <div class="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+        <p class="text-xs font-semibold text-gray-600 mb-2">Joint Mobility</p>
+        <div class="grid grid-cols-3 gap-3">
+          {% for label, field_name, key in [
+            ("Passive Joint Mobility", "joint_mobility_passive",  "passive"),
+            ("Active Mobility",        "joint_mobility_active",   "active"),
+            ("End-Feel",               "joint_mobility_end_feel", "end_feel"),
+          ] %}
+          <div>
+            <label class="block text-[0.65rem] font-medium text-gray-500 mb-1">{{ label }}</label>
+            <textarea name="{{ field_name }}" rows="2" placeholder="Findings…"
+                      class="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-brand-400 focus:outline-none leading-relaxed resize-none">{{ jm.get(key) or "" }}</textarea>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      {# Movement Screen — structured #}
+      {% set ms = prev_obj.get("movement_screen", {}) if prev_obj else {} %}
+      {% set ms = ms if ms is mapping else {} %}
+      {% set ms_yb = ms.get("y_balance", {}) %}
+      {% set ms_yb = ms_yb if ms_yb is mapping else {} %}
+      <div class="p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-3">
+        <p class="text-xs font-semibold text-gray-600">Movement Screen</p>
+
+        {# Gait #}
+        <div>
+          <label class="block text-[0.65rem] font-medium text-gray-400 uppercase tracking-wide mb-1">Gait</label>
+          <textarea name="ms_gait" rows="2" placeholder="Findings…"
+                    class="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-brand-400 focus:outline-none leading-relaxed resize-none">{{ ms.get("gait") or "" }}</textarea>
+        </div>
+
+        {# Loading group #}
+        <div>
+          <p class="text-[0.65rem] font-medium text-gray-400 uppercase tracking-wide mb-1.5">Loading</p>
+          <div class="grid grid-cols-3 gap-3">
+            {% for label, field_name, key in [
+              ("Squat",           "ms_squat",           "squat"),
+              ("Lunge",           "ms_lunge",           "lunge"),
+              ("Single Leg Squat","ms_single_leg_squat","single_leg_squat"),
+            ] %}
+            <div>
+              <label class="block text-[0.65rem] font-medium text-gray-500 mb-1">{{ label }}</label>
+              <textarea name="{{ field_name }}" rows="2" placeholder="Findings…"
+                        class="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-brand-400 focus:outline-none leading-relaxed resize-none">{{ ms.get(key) or "" }}</textarea>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        {# Y-Balance #}
+        <div>
+          <p class="text-[0.65rem] font-medium text-gray-400 uppercase tracking-wide mb-1.5">Y-Balance <span class="normal-case font-normal">(cm)</span></p>
+          <table class="w-full border-collapse">
+            <thead>
+              <tr class="border-b border-gray-200">
+                <th class="text-left text-[0.65rem] font-medium text-gray-400 py-1.5 pr-4">Direction</th>
+                <th class="text-center text-[0.65rem] font-medium text-gray-400 py-1.5 px-3">Left</th>
+                <th class="text-center text-[0.65rem] font-medium text-gray-400 py-1.5 px-3">Right</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for label, left_field, right_field, left_key, right_key in [
+                ("Forward",        "ms_y_balance_forward_left",      "ms_y_balance_forward_right",      "forward_left",      "forward_right"),
+                ("Back & Inward",  "ms_y_balance_back_inward_left",  "ms_y_balance_back_inward_right",  "back_inward_left",  "back_inward_right"),
+                ("Back & Outward", "ms_y_balance_back_outward_left", "ms_y_balance_back_outward_right", "back_outward_left", "back_outward_right"),
+              ] %}
+              <tr class="border-b border-gray-100">
+                <td class="py-1.5 pr-4 text-xs text-gray-700">{{ label }}</td>
+                <td class="py-1.5 px-3 text-center">
+                  <input type="number" name="{{ left_field }}" min="0" max="200" step="0.1"
+                         value="{{ ms_yb.get(left_key) if ms_yb.get(left_key) is not none else '' }}"
+                         placeholder="—"
+                         class="w-20 border border-gray-300 rounded-lg px-2 py-1.5 text-xs text-center focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+                </td>
+                <td class="py-1.5 px-3 text-center">
+                  <input type="number" name="{{ right_field }}" min="0" max="200" step="0.1"
+                         value="{{ ms_yb.get(right_key) if ms_yb.get(right_key) is not none else '' }}"
+                         placeholder="—"
+                         class="w-20 border border-gray-300 rounded-lg px-2 py-1.5 text-xs text-center focus:ring-2 focus:ring-brand-400 focus:outline-none" />
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        {# Additional Movement Screening #}
+        <div>
+          <p class="text-[0.65rem] font-medium text-gray-400 uppercase tracking-wide mb-1.5">Additional Movement Screening</p>
+          <div class="grid grid-cols-2 gap-3">
+            {% for label, field_name, key in [
+              ("Tandem Ankle Test", "ms_tandem_ankle", "tandem_ankle"),
+              ("Tandem Lunge Test", "ms_tandem_lunge", "tandem_lunge"),
+            ] %}
+            <div>
+              <label class="block text-[0.65rem] font-medium text-gray-500 mb-1">{{ label }}</label>
+              <textarea name="{{ field_name }}" rows="2" placeholder="Findings…"
+                        class="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-brand-400 focus:outline-none leading-relaxed resize-none">{{ ms.get(key) or "" }}</textarea>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+      </div>
     </div>
 
     {# Patient Comments (read-only, from latest onboarding) #}
     {% if patient_comment %}
-    <div class="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4">
+    <div class="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
       <div class="flex items-start gap-3">
         <svg class="w-4 h-4 text-amber-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-4l-4 4z"/>
@@ -244,22 +453,20 @@
     {% endif %}
 
     {# Section 4: Notes #}
-    <div class="bg-white rounded-xl shadow p-6 border border-gray-100">
-      <div class="flex items-center justify-between mb-1">
-        <h2 class="text-xl font-bold text-gray-800">Assessment Notes</h2>
+    <div class="bg-white rounded-xl shadow p-4 border border-gray-100">
+      <div class="flex items-center justify-between mb-0.5">
+        <h2 class="text-sm font-bold text-gray-800">Assessment Notes</h2>
         {% if prev and prev.notes %}
-        <span class="text-xs text-amber-600 font-medium">Previous notes shown in orange — select and replace to update</span>
+        <span class="text-xs text-amber-600 font-medium">Previous notes in orange — select and replace to update</span>
         {% endif %}
       </div>
-      <p class="text-sm text-gray-500 mb-3">
-        Clinical observations, subjective findings, and any additional notes for this assessment.
-      </p>
+      <p class="text-xs text-gray-400 mb-2">Subjective findings and any additional notes for this assessment.</p>
 
       {# Editor wrapper — position relative so icon can be overlaid #}
       <div class="relative">
         <div id="notes-editor"
              contenteditable="true"
-             class="min-h-[140px] w-full border border-gray-300 rounded-lg px-3 py-2.5 pr-10 text-sm text-gray-800 focus:ring-2 focus:ring-brand-400 outline-none leading-relaxed"
+             class="min-h-[100px] w-full border border-gray-300 rounded-lg px-3 py-2 pr-10 text-sm text-gray-800 focus:ring-2 focus:ring-brand-400 outline-none leading-relaxed"
              oninput="syncNotesLive()">{% if prev and prev.notes %}<span class="prev-notes" style="color: #d97706;">{{ prev.notes | e }}</span>{% endif %}</div>
 
         {# Version history icon — top-right corner of the editor #}
@@ -320,7 +527,7 @@
     {% endif %}
 
     {# Form actions #}
-    <div class="flex items-center justify-between gap-3 pb-4">
+    <div class="flex items-center justify-between gap-3 pb-2">
       <a href="/supervisor/patients/{{ patient.id }}"
          class="px-5 py-2.5 text-sm font-semibold text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
         Cancel
