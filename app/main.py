@@ -300,7 +300,8 @@ def compute_exercise_compliance(exercises: list[dict], form_data) -> dict:
             sets_compliance = None
 
         results.append({
-            "name": ex["name"],
+            "exercise_id": ex.get("ex_id") or ex.get("id") or "",
+            "name": ex.get("name") or ex.get("exercise_name", ""),
             "type": ex.get("type", ""),
             "prescribed_sets": prescribed_sets,
             "prescribed_reps": prescribed_reps,
@@ -1409,11 +1410,22 @@ async def onboarding_post(
     # Run rule engine — clinical decisions happen HERE
     classification = classify_onboarding(data)
 
+    # Load library exercises for plan selection (separate connection; main DB write opens later)
+    _onb_lib_db = await get_db()
+    try:
+        _onb_lib_exercises = await _load_exercises_from_db(_onb_lib_db)
+    finally:
+        await _onb_lib_db.close()
+
+    _is_insertional_onb = "insertional" in [r.lower() for r in risk_factors]
+
     # Select exercises with dosing
     exercises = select_exercises_for_plan(
         classification.stage,
         classification.irritability,
         classification.conservative_bias,
+        lib_exercises=_onb_lib_exercises,
+        insertional=_is_insertional_onb,
     )
 
     # Get relevant KB entries
@@ -2633,7 +2645,11 @@ async def daily_log_post(
         # If stage progression is warranted, create new plan
         if progression.can_progress_stage and progression.proposed_stage != current_stage:
             new_stage = progression.proposed_stage
-            exercises = select_exercises_for_plan(new_stage, new_irritability, conservative_bias)
+            exercises = select_exercises_for_plan(
+                new_stage, new_irritability, conservative_bias,
+                lib_exercises=lib_exercises_for_compliance,
+                insertional=is_insertional_now,
+            )
             relevant_tags = select_relevant_kb_tags(new_stage, new_irritability)
             kb_entries = await get_kb_entries_by_tags(relevant_tags)
 
@@ -3069,10 +3085,11 @@ async def view_plan(
 @app.get("/admin/knowledge", response_class=HTMLResponse)
 async def admin_knowledge_get(
     request: Request,
-    response: Response,
     teno_session: Optional[str] = Cookie(default=None),
 ):
-    user = await get_or_create_user(teno_session, response)
+    user = await get_authenticated_user(teno_session)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
     entries = await get_all_kb_entries()
     return templates.TemplateResponse(
         request, "admin_knowledge.html",
@@ -3089,7 +3106,6 @@ async def admin_knowledge_get(
 @app.post("/admin/knowledge", response_class=HTMLResponse)
 async def admin_knowledge_post(
     request: Request,
-    response: Response,
     teno_session: Optional[str] = Cookie(default=None),
     title: str = Form(...),
     authors: str = Form(...),
@@ -3104,7 +3120,11 @@ async def admin_knowledge_post(
     regression_criteria: str = Form(default=""),
     contraindications: str = Form(default=""),
 ):
-    user = await get_or_create_user(teno_session, response)
+    user = await get_authenticated_user(teno_session)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    if user.get("role") not in ("supervisor", "superuser"):
+        return RedirectResponse("/dashboard", status_code=302)
 
     # Parse key_points and tags as newline-separated lists
     key_points_list = [p.strip() for p in key_points.split("\n") if p.strip()]

@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}
+  {% if purpose == 'delete' %}Confirm Account Deletion
+  {% elif purpose and purpose.startswith('enable_2fa') %}Enable Two-Factor Authentication
+  {% else %}Verify Your Identity
+  {% endif %} — TenoTrainer
+{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto">
+  <div class="bg-white rounded-xl shadow p-8 border border-gray-100">
+
+    <!-- Icon + heading -->
+    <div class="flex flex-col items-center mb-6">
+      <div class="w-14 h-14 rounded-full flex items-center justify-center mb-4
+        {% if purpose == 'delete' %}bg-red-50{% else %}bg-brand-50{% endif %}">
+        {% if purpose == 'delete' %}
+        <svg class="w-7 h-7 text-red-500" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+        </svg>
+        {% else %}
+        <svg class="w-7 h-7 text-brand-600" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+        </svg>
+        {% endif %}
+      </div>
+
+      <h1 class="text-xl font-bold text-gray-900 text-center">
+        {% if purpose == 'delete' %}
+          Confirm account deletion
+        {% elif purpose and purpose.startswith('enable_2fa') %}
+          Enable two-factor authentication
+        {% else %}
+          Verify your identity
+        {% endif %}
+      </h1>
+
+      <p class="text-sm text-gray-500 text-center mt-1">
+        We sent a 6-digit code to <span class="font-medium text-gray-700">{{ masked_destination }}</span>.
+        Enter it below to continue.
+      </p>
+    </div>
+
+    <!-- Error -->
+    {% if error %}
+    <div class="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 mb-5">
+      {{ error }}
+    </div>
+    {% endif %}
+
+    <!-- Code entry form -->
+    <form method="POST" action="/verify-2fa" class="space-y-5">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1 sr-only">Verification code</label>
+        <input
+          type="text"
+          name="code"
+          inputmode="numeric"
+          autocomplete="one-time-code"
+          maxlength="6"
+          placeholder="000000"
+          required
+          autofocus
+          class="w-full border border-gray-300 rounded-lg px-4 py-3 text-center text-2xl font-mono tracking-[0.5em] focus:ring-2 focus:ring-brand-400 focus:outline-none"
+        />
+        <p class="mt-1.5 text-xs text-gray-400 text-center">Code expires in 10 minutes.</p>
+      </div>
+
+      <button type="submit"
+              class="w-full py-2.5 font-semibold rounded-lg transition-colors
+                {% if purpose == 'delete' %}
+                  bg-red-600 hover:bg-red-700 text-white
+                {% else %}
+                  bg-brand-600 hover:bg-brand-700 text-white
+                {% endif %}">
+        {% if purpose == 'delete' %}
+          Confirm and delete account
+        {% elif purpose and purpose.startswith('enable_2fa') %}
+          Enable two-factor authentication
+        {% else %}
+          Verify and continue
+        {% endif %}
+      </button>
+    </form>
+
+    <!-- Resend + cancel -->
+    <div class="mt-5 flex items-center justify-between text-sm">
+      <form method="POST" action="/verify-2fa/resend">
+        <button type="submit" class="text-brand-600 hover:underline font-medium">
+          Resend code
+        </button>
+      </form>
+
+      <a href="/login" class="text-gray-400 hover:text-gray-600 transition-colors">
+        Back to login
+      </a>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

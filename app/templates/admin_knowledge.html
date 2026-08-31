@@ -12,10 +12,12 @@
           <span id="visibleCount">{{ entries|length }}</span> of {{ entries|length }} entries — all citations served exclusively from this knowledge base.
         </p>
       </div>
+      {% if user and user.role in ('supervisor', 'superuser') %}
       <button onclick="document.getElementById('addForm').classList.toggle('hidden')"
               class="shrink-0 px-4 py-2 bg-white/20 text-white text-sm font-bold rounded-xl hover:bg-white/30 transition-colors border border-white/20 whitespace-nowrap">
         + Add Entry
       </button>
+      {% endif %}
     </div>
   </div>
 
@@ -25,7 +27,8 @@
   </div>
   {% endif %}
 
-  <!-- Add Entry Form (hidden by default) -->
+  <!-- Add Entry Form — supervisors only -->
+  {% if user and user.role in ('supervisor', 'superuser') %}
   <div id="addForm" class="hidden bg-white rounded-xl shadow p-6 border border-gray-100 mb-8">
     <h2 class="text-xl font-bold text-gray-800 mb-4">Add Knowledge Entry</h2>
     <form method="POST" action="/admin/knowledge" class="space-y-4">
@@ -105,6 +108,7 @@
       </div>
     </form>
   </div>
+  {% endif %}
 
   <!-- ── Search + Filter Panel ── -->
   <div class="bg-white rounded-xl border border-gray-200 shadow-sm mb-4 overflow-hidden">
@@ -337,7 +341,9 @@
   {% if not entries %}
   <div class="text-center py-12 text-gray-400">
     <p class="text-lg mb-2">No entries yet.</p>
+    {% if user and user.role in ('supervisor', 'superuser') %}
     <p class="text-sm">Click "+ Add Entry" to add the first knowledge base entry.</p>
+    {% endif %}
   </div>
   {% endif %}
 

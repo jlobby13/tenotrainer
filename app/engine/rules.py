@@ -605,20 +605,45 @@ def update_irritability_from_log(
 # Exercise Selection with Dosing
 # ---------------------------------------------------------------------------
 
+def _lib_ex_to_plan_format(lib_ex: dict) -> dict:
+    """Convert a library exercise dict to the flat plan/compliance format."""
+    dosage = lib_ex.get("dosage_defaults") or {}
+    return {
+        "ex_id":       lib_ex.get("ex_id", lib_ex.get("id", "")),
+        "name":        lib_ex.get("exercise_name", ""),
+        "type":        lib_ex.get("loading_profile", lib_ex.get("category", "")),
+        "description": lib_ex.get("patient_facing_explanation") or lib_ex.get("setup_instructions", ""),
+        "sets":        dosage.get("sets", 3),
+        "reps":        dosage.get("reps_or_hold_time", ""),
+        "tempo":       dosage.get("tempo", ""),
+        "notes":       lib_ex.get("contraindications_or_cautions", ""),
+    }
+
+
 def select_exercises_for_plan(
     stage: int,
     irritability: str,
     conservative_bias: bool,
+    lib_exercises: Optional[list] = None,
+    insertional: bool = False,
 ) -> list[dict]:
     """
-    Select exercises from the library for the given stage and apply dosing modifiers.
-    Import happens here to avoid circular imports.
-    """
-    from app.data.exercises import EXERCISES
+    Select exercises for the given stage from the 47-exercise library.
 
+    When lib_exercises is supplied (loaded from DB), uses select_initial_exercises()
+    to pick clinically appropriate exercises and returns them in plan/compliance format.
+    Falls back to the legacy hardcoded dict only when lib_exercises is None.
+    """
+    if lib_exercises is not None:
+        selected = select_initial_exercises(
+            lib_exercises, irritability, stage, insertional, limit=4
+        )
+        return [_lib_ex_to_plan_format(ex) for ex in selected]
+
+    # Legacy fallback — only reached when lib_exercises is unavailable
+    from app.data.exercises import EXERCISES
     base_exercises = EXERCISES.get(stage, EXERCISES[1])
-    dosed = [apply_dosing_modifier(ex, irritability) for ex in base_exercises]
-    return dosed
+    return [apply_dosing_modifier(ex, irritability) for ex in base_exercises]
 
 
 # ---------------------------------------------------------------------------
