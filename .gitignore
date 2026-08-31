@@ -4,4 +4,17 @@
 __pycache__/
 *.pyc
 .env
+.env.local
+.env.*.local
+.env.production
 *.db
+
+# Next.js
+web/.next/
+web/node_modules/
+web/out/
+web/.turbo/
+
+# Supabase
+supabase/.branches/
+supabase/.temp/
