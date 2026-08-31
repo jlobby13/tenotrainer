@@ -20,6 +20,5 @@ export async function loginAction(formData: FormData) {
     redirect(`/login?${params}`);
   }
 
-  // Redirect to where they were trying to go, defaulting to dashboard
   redirect(next.startsWith("/") ? next : "/dashboard");
 }
