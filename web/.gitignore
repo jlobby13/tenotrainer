@@ -30,9 +30,10 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files — real secrets are gitignored, example is committed for reference
+# env files — real secrets are gitignored, example files are committed for reference
 .env*
 !.env.local.example
+!.env.production.example
 
 # vercel
 .vercel

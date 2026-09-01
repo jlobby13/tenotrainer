@@ -1929,6 +1929,35 @@ _VALID_DASH_SECTIONS = {
     "rehab_plan", "weekly", "logs", "progression",
 }
 
+@app.get("/api/super/overview")
+async def super_overview(request: Request):
+    """Return clinician list with patient counts for the Next.js super-user dashboard."""
+    bridge_secret = os.environ.get("BRIDGE_SECRET", "")
+    auth = request.headers.get("Authorization", "")
+    if not bridge_secret or auth != f"Bearer {bridge_secret}":
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    db = await get_db()
+    try:
+        cursor = await db.execute("""
+            SELECT
+                u.id, u.email, u.role, u.supabase_id,
+                COUNT(CASE WHEN sp.status = 'active' THEN 1 END) AS active_patients,
+                COUNT(sp.id) AS total_patients
+            FROM users u
+            LEFT JOIN supervisor_patients sp ON sp.supervisor_id = u.id
+            WHERE u.role IN ('supervisor', 'superuser')
+            GROUP BY u.id
+            ORDER BY u.email
+        """)
+        rows = await cursor.fetchall()
+        supervisors = [row_to_dict(r) for r in rows]
+    finally:
+        await db.close()
+
+    return JSONResponse({"supervisors": supervisors})
+
+
 @app.post("/api/dashboard-layout")
 async def save_dashboard_layout(
     request: Request,

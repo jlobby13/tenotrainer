@@ -27,12 +27,13 @@ export async function sendInvitationAction(formData: FormData) {
 
   const email = (formData.get("email") as string).trim().toLowerCase();
   const invitationType = formData.get("invitation_type") as string;
+  const base = (formData.get("_redirect_base") as string | null) ?? "/admin/invitations";
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    redirect("/admin/invitations?error=Invalid+email+address");
+    redirect(`${base}&error=Invalid+email+address`);
   }
   if (!(invitationType in INVITATION_ROLE_MAP)) {
-    redirect("/admin/invitations?error=Invalid+invitation+type");
+    redirect(`${base}&error=Invalid+invitation+type`);
   }
 
   const grantedRole = INVITATION_ROLE_MAP[invitationType as InvitationType];
@@ -66,26 +67,24 @@ export async function sendInvitationAction(formData: FormData) {
   });
 
   if (error) {
-    redirect(`/admin/invitations?error=${encodeURIComponent("Failed to create invitation: " + error.message)}`);
+    redirect(`${base}&error=${encodeURIComponent("Failed to create invitation: " + error.message)}`);
   }
 
   if (!emailResult.sent) {
-    // Invitation created but email failed — show link for manual sharing
     redirect(
-      `/admin/invitations?sent=1&token=${token}&email=${encodeURIComponent(email)}&email_warn=${encodeURIComponent(emailResult.reason)}`
+      `${base}&sent=1&token=${token}&email=${encodeURIComponent(email)}&email_warn=${encodeURIComponent(emailResult.reason)}`
     );
   }
 
-  redirect(
-    `/admin/invitations?sent=1&token=${token}&email=${encodeURIComponent(email)}&emailed=1`
-  );
+  redirect(`${base}&sent=1&token=${token}&email=${encodeURIComponent(email)}&emailed=1`);
 }
 
 export async function cancelInvitationAction(formData: FormData) {
   const { orgId } = await getAdminContext();
 
   const invitationId = formData.get("invitation_id") as string;
-  if (!invitationId) redirect("/admin/invitations?error=Missing+invitation+ID");
+  const base = (formData.get("_redirect_base") as string | null) ?? "/admin/invitations";
+  if (!invitationId) redirect(`${base}?error=Missing+invitation+ID`);
 
   const service = createServiceRoleClient();
 
@@ -96,10 +95,10 @@ export async function cancelInvitationAction(formData: FormData) {
     .maybeSingle();
 
   if (!inv || inv.organization_id !== orgId) {
-    redirect("/admin/invitations?error=Invitation+not+found");
+    redirect(`${base}?error=Invitation+not+found`);
   }
   if (inv.status !== "pending") {
-    redirect("/admin/invitations?error=Only+pending+invitations+can+be+cancelled");
+    redirect(`${base}?error=Only+pending+invitations+can+be+cancelled`);
   }
 
   const { error } = await service
@@ -108,9 +107,10 @@ export async function cancelInvitationAction(formData: FormData) {
     .eq("id", invitationId);
 
   if (error) {
-    redirect(`/admin/invitations?error=${encodeURIComponent("Failed to cancel: " + error.message)}`);
+    redirect(`${base}?error=${encodeURIComponent("Failed to cancel: " + error.message)}`);
   }
 
   revalidatePath("/admin/invitations");
-  redirect("/admin/invitations?cancelled=1");
+  revalidatePath("/super/dashboard");
+  redirect(`${base}?cancelled=1`);
 }

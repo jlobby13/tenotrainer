@@ -28,6 +28,11 @@ export default async function DashboardPage() {
 
   const session = await getSessionInfo();
 
+  // Super-users have their own dedicated dashboard
+  if (session.memberships.some((m) => m.role === "super_user")) {
+    redirect("/super/dashboard");
+  }
+
   const checks = {
     signedIn: !!session.user,
     sessionPersists: !!session.user, // reaching this page proves the session survived the request
