@@ -77,6 +77,8 @@ async def init_db() -> None:
             "ALTER TABLE users ADD COLUMN previous_history TEXT",
             "ALTER TABLE users ADD COLUMN seen_by_provider INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE users ADD COLUMN seen_by_provider_notes TEXT",
+            # Supabase bridge — store the Supabase UUID for cross-app identity
+            "ALTER TABLE users ADD COLUMN supabase_id TEXT",
         ]
         for migration in migrations:
             try:

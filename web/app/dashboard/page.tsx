@@ -46,6 +46,11 @@ export default async function DashboardPage() {
         <span className="text-xl font-bold text-brand-600">TenoTrainer</span>
         <div className="flex items-center gap-4">
           <span className="text-sm text-gray-500">{session.user?.email}</span>
+          {session.memberships.some((m) => ["super_user", "clinician_admin"].includes(m.role)) && (
+            <a href="/admin/invitations" className="text-sm text-brand-600 font-medium hover:underline">
+              Manage invitations
+            </a>
+          )}
           <a href="/logout" className="text-sm text-gray-600 hover:text-brand-600 font-medium">
             Log out
           </a>
@@ -120,6 +125,24 @@ export default async function DashboardPage() {
             {JSON.stringify(session, null, 2)}
           </pre>
         </div>
+
+        {/* TenoTrainer dashboard bridge */}
+        {checks.hasOrgMembership && (
+          <div className="bg-white rounded-xl shadow border border-gray-100 p-6 flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-base font-semibold text-gray-900">TenoTrainer Dashboard</h2>
+              <p className="text-sm text-gray-500 mt-0.5">
+                Open the rehab dashboard — your Supabase session will carry over automatically.
+              </p>
+            </div>
+            <a
+              href="/api/auth/launch-dashboard"
+              className="shrink-0 px-5 py-2.5 bg-brand-600 text-white font-semibold rounded-lg hover:bg-brand-700 active:bg-brand-800 transition-colors text-sm"
+            >
+              Open dashboard
+            </a>
+          </div>
+        )}
 
         {/* Logout test */}
         <div className="bg-white rounded-xl shadow border border-gray-100 p-6">

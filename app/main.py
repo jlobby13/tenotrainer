@@ -222,9 +222,9 @@ async def get_user_from_session(session_token: Optional[str]) -> Optional[dict]:
 
 
 async def get_authenticated_user(session_token: Optional[str]) -> Optional[dict]:
-    """Return user only if they have a registered account (password set)."""
+    """Return user only if they have a registered account (password or Supabase auth)."""
     user = await get_user_from_session(session_token)
-    if user and user.get("password_hash"):
+    if user and (user.get("password_hash") or user.get("supabase_id")):
         return user
     return None
 
@@ -445,6 +445,20 @@ async def login_post(
         await db.close()
 
     if not account or not account.get("password_hash") or not verify_password(password, account["password_hash"]):
+        # If the account exists but authenticates via Supabase, redirect to the web portal
+        nextjs_url = os.environ.get("NEXTJS_URL", "http://localhost:3000")
+        if account and account.get("supabase_id"):
+            return templates.TemplateResponse(
+                request, "login.html",
+                {
+                    "user": None,
+                    "error": (
+                        f"This account uses TenoTrainer single sign-on. "
+                        f"Please log in at {nextjs_url} and use the 'Open Dashboard' button."
+                    ),
+                    "email": email,
+                },
+            )
         return templates.TemplateResponse(
             request, "login.html",
             {"user": None, "error": "Invalid email or password.", "email": email},
@@ -497,6 +511,97 @@ async def logout():
     redirect = RedirectResponse("/login", status_code=302)
     redirect.delete_cookie(SESSION_COOKIE, httponly=True, samesite="lax")
     return redirect
+
+
+# ---------------------------------------------------------------------------
+# Supabase auth bridge — accepts a one-time token from the Next.js app
+# and establishes a teno_session without requiring a second login.
+# ---------------------------------------------------------------------------
+
+@app.get("/auth/supabase", response_class=HTMLResponse)
+async def supabase_bridge(
+    request: Request,
+    token: str = "",
+):
+    """Validate a bridge OTT from localhost:3000, upsert the user, and issue a session."""
+    import httpx
+
+    bridge_secret = os.environ.get("BRIDGE_SECRET", "")
+    nextjs_url = os.environ.get("NEXTJS_URL", "http://localhost:3000")
+
+    if not bridge_secret:
+        return templates.TemplateResponse(
+            request, "login.html",
+            {"user": None, "error": "Single sign-on is not configured. Please log in directly."},
+        )
+
+    if not token:
+        return RedirectResponse("/login?error=Missing+token", status_code=302)
+
+    # Server-to-server: validate the one-time token with Next.js
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"{nextjs_url}/api/auth/validate-bridge",
+                json={"token": token},
+                headers={"Authorization": f"Bearer {bridge_secret}"},
+                timeout=10.0,
+            )
+    except httpx.RequestError as exc:
+        logger.error("Bridge token validation failed — could not reach Next.js: %s", exc)
+        return templates.TemplateResponse(
+            request, "login.html",
+            {"user": None, "error": "Authentication service unreachable. Please try again."},
+        )
+
+    if resp.status_code != 200:
+        return templates.TemplateResponse(
+            request, "login.html",
+            {"user": None, "error": "This sign-on link has expired or already been used. Please return to TenoTrainer and try again."},
+        )
+
+    data = resp.json()
+    email: str = data.get("email", "").lower().strip()
+    supabase_id: str = data.get("supabase_id", "")
+    fastapi_role: str = data.get("fastapi_role", "patient")
+    name: str = data.get("name", email.split("@")[0])
+
+    if not email:
+        return templates.TemplateResponse(
+            request, "login.html",
+            {"user": None, "error": "Invalid bridge response. Please contact support."},
+        )
+
+    db = await get_db()
+    try:
+        cursor = await db.execute("SELECT * FROM users WHERE email = ?", (email,))
+        row = await cursor.fetchone()
+        existing = row_to_dict(row) if row else None
+
+        new_token = secrets.token_urlsafe(32)
+
+        if existing:
+            # Update role, session, and supabase_id; preserve password_hash
+            await db.execute(
+                "UPDATE users SET role = ?, session_token = ?, supabase_id = ? WHERE email = ?",
+                (fastapi_role, new_token, supabase_id or existing.get("supabase_id"), email),
+            )
+        else:
+            # Create a passwordless user — they authenticated via Supabase
+            await db.execute(
+                "INSERT INTO users (name, email, role, session_token, supabase_id) VALUES (?, ?, ?, ?, ?)",
+                (name, email, fastapi_role, new_token, supabase_id or None),
+            )
+        await db.commit()
+    finally:
+        await db.close()
+
+    if fastapi_role in ("supervisor", "superuser"):
+        dest = RedirectResponse("/supervisor/dashboard", status_code=302)
+    else:
+        dest = RedirectResponse("/dashboard", status_code=302)
+    _set_session_cookie(dest, new_token)
+    return dest
 
 
 # ---------------------------------------------------------------------------
