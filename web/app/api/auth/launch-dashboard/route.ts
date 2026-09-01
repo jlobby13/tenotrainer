@@ -17,6 +17,12 @@ export async function GET(_request: NextRequest) {
 
   const session = await getSessionInfo();
   const supabaseRole = session.memberships[0]?.role ?? "member";
+
+  // Super-users stay on :3000 — they have a dedicated Next.js dashboard
+  if (supabaseRole === "super_user") {
+    return NextResponse.redirect(new URL("/super/dashboard", _request.url));
+  }
+
   const fastapiRole = FASTAPI_ROLE[supabaseRole] ?? "patient";
   const name = session.profile?.name ?? user.email ?? "";
 
