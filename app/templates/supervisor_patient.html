@@ -1,0 +1,1512 @@
+{% extends "base.html" %}
+{% block title %}{{ patient.name }} — Supervisor View{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+{% endblock %}
+
+{% block content %}
+
+{# ── Back link ── #}
+<div class="mb-3">
+  <a href="/supervisor/dashboard"
+     class="inline-flex items-center gap-1.5 text-sm text-brand-600 hover:text-brand-800 font-medium transition-colors">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+    </svg>
+    Back to panel
+  </a>
+</div>
+
+{# ── Header ── #}
+{% set status_colours = {
+  'green':   ('bg-green-100', 'text-green-800', 'bg-green-500'),
+  'yellow':  ('bg-yellow-100', 'text-yellow-800', 'bg-yellow-400'),
+  'red':     ('bg-red-100', 'text-red-800', 'bg-red-500'),
+  'inactive':('bg-gray-100', 'text-gray-600', 'bg-gray-400'),
+} %}
+{% set sc = status_colours.get(patient.status, ('bg-gray-100','text-gray-600','bg-gray-400')) %}
+<div class="rounded-2xl bg-gradient-to-r from-brand-700 to-brand-500 px-5 py-4 mb-4 shadow-md">
+  <div class="flex items-center justify-between gap-4 flex-wrap">
+    <div>
+      <div class="flex items-center gap-2.5 mb-0.5">
+        <span class="w-2.5 h-2.5 rounded-full {{ sc[2] }} shrink-0"></span>
+        <h1 class="text-xl font-black text-white leading-tight">{{ patient.name }}</h1>
+        <span class="px-2 py-0.5 rounded-full text-xs font-bold {{ sc[0] }} {{ sc[1] }}">
+          {{ patient.status | capitalize }}
+        </span>
+      </div>
+      <p class="text-xs text-brand-200">{{ patient.email }}
+        {% if patient.stage %} · Stage {{ patient.stage }}{% endif %}
+        {% if patient.irritability %}
+        {% set irr_cls = {'high': 'text-red-200', 'moderate': 'text-yellow-200', 'low': 'text-green-200', 'minimal': 'text-green-200'} %}
+        · <span class="{{ irr_cls.get(patient.irritability|lower, 'text-brand-200') }}">{{ patient.irritability | capitalize }} irritability</span>
+        {% endif %}
+      </p>
+    </div>
+    <div class="flex items-center gap-2 shrink-0">
+      <a href="/supervisor/patients/{{ patient.id }}/assessment"
+         class="px-3 py-1.5 rounded-lg text-xs font-bold bg-brand-600 text-white hover:bg-brand-700 transition-colors">
+        Assess
+      </a>
+      {% if case_status == 'active' %}
+      <button onclick="openDismissModal()"
+              class="px-4 py-2 rounded-lg text-xs font-bold bg-red-600 text-white border-2 border-red-700 shadow hover:bg-red-700 hover:border-red-800 transition-colors">
+        Dismiss Patient
+      </button>
+      {% else %}
+      <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-gray-400/20 text-gray-200 border border-gray-400/20">Dismissed</span>
+      <button onclick="openReinstateModal()"
+              class="px-3 py-1.5 rounded-lg text-xs font-bold bg-green-500/20 text-green-100 border border-green-400/30 hover:bg-green-500/40 transition-colors">
+        Reinstate
+      </button>
+      {% if user.role == 'superuser' %}
+      <button onclick="openDeleteModal()"
+              class="px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-600/40 text-gray-200 border border-gray-500/30 hover:bg-gray-600/60 transition-colors">
+        Delete
+      </button>
+      {% endif %}
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{# ── Dismissed banner ── #}
+{% if case_status == 'dismissed' %}
+{% set reason_labels = {
+  'completed_program':    'User completed program',
+  'goals_achieved':       'User goals achieved',
+  'removed_from_program': 'Remove user from program',
+  'non_compliance':       'Non-compliance',
+  'user_discontinued':    'User discontinued program',
+} %}
+<div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 mb-4 flex items-center gap-3">
+  <svg class="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+  </svg>
+  <p class="text-xs text-gray-500">
+    <span class="font-semibold text-gray-700">Case dismissed</span> ·
+    {{ reason_labels.get(dismissed_reason, dismissed_reason or 'Not specified') }}
+    {% if dismissed_at %} · {{ dismissed_at[:10] }}{% endif %}
+  </p>
+</div>
+{% endif %}
+
+{# ── Reinstate modal ── #}
+<div id="reinstate-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+    <div class="px-6 pt-5 pb-4">
+      <div class="flex items-center justify-center w-12 h-12 rounded-full bg-green-100 mx-auto mb-4">
+        <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      </div>
+      <h2 class="text-base font-black text-gray-900 text-center mb-1">Reinstate Patient</h2>
+      <p class="text-xs text-gray-500 text-center mb-4">Reinstating <span class="font-semibold text-gray-700">{{ patient.name }}</span> will restore their active case status and re-enable their account access.</p>
+      <p class="text-[0.6875rem] text-gray-400 text-center">This will remove their access expiry and return them to your active caseload.</p>
+    </div>
+    <div class="px-6 pb-5 flex gap-2">
+      <button onclick="document.getElementById('reinstate-modal').classList.add('hidden')"
+              class="flex-1 px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors font-medium">Cancel</button>
+      <button onclick="confirmReinstate()" id="reinstate-confirm-btn"
+              class="flex-1 px-4 py-2 text-sm bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-colors">
+        Reinstate
+      </button>
+    </div>
+  </div>
+</div>
+
+{% if user.role == 'superuser' %}
+{# ── Delete profile modal ── #}
+<div id="delete-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+    <div class="px-6 pt-5 pb-4">
+      <div class="flex items-center justify-center w-12 h-12 rounded-full bg-gray-900/10 mx-auto mb-4">
+        <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+        </svg>
+      </div>
+      <h2 class="text-base font-black text-gray-900 text-center mb-1">Delete Profile Permanently</h2>
+      <p class="text-xs text-gray-500 text-center mb-3">You are about to permanently delete all data for <span class="font-semibold text-gray-700">{{ patient.name }}</span>. This cannot be undone.</p>
+      <div class="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 mb-2">
+        <p class="text-xs text-gray-600 leading-relaxed">All session logs, assessments, rehab plans, and account information will be <strong>permanently erased</strong>. This action is irreversible.</p>
+      </div>
+    </div>
+    <div class="px-6 pb-5 flex gap-2">
+      <button onclick="document.getElementById('delete-modal').classList.add('hidden')"
+              class="flex-1 px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors font-medium">Cancel</button>
+      <button onclick="confirmDelete()" id="delete-confirm-btn"
+              class="flex-1 px-4 py-2 text-sm bg-gray-900 text-white rounded-xl font-semibold hover:bg-black transition-colors">
+        Delete Permanently
+      </button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# ── Dismiss modal ── #}
+<div id="dismiss-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+    <div id="dismiss-step-1">
+      <div class="px-6 pt-5 pb-4">
+        <h2 class="text-base font-black text-gray-900 mb-1">Dismiss Patient</h2>
+        <p class="text-xs text-gray-500 mb-4">Select a reason for dismissing <span class="font-semibold text-gray-700">{{ patient.name }}</span> from your caseload.</p>
+        <div class="space-y-2">
+          {% set reasons = [
+            ('completed_program',    'User completed program'),
+            ('goals_achieved',       'User goals achieved'),
+            ('removed_from_program', 'Remove user from program'),
+            ('non_compliance',       'Non-compliance'),
+            ('user_discontinued',    'User discontinued program'),
+          ] %}
+          {% for slug, label in reasons %}
+          <label class="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors has-[:checked]:border-brand-400 has-[:checked]:bg-brand-50">
+            <input type="radio" name="dismiss_reason" value="{{ slug }}" class="accent-brand-600">
+            <span class="text-sm text-gray-700 font-medium">{{ label }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="px-6 pb-5 flex gap-2">
+        <button onclick="closeDismissModal()" class="flex-1 px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors font-medium">Cancel</button>
+        <button onclick="advanceDismissStep()" class="flex-1 px-4 py-2 text-sm bg-brand-600 text-white rounded-xl font-semibold hover:bg-brand-700 transition-colors">Continue</button>
+      </div>
+    </div>
+    <div id="dismiss-step-2" class="hidden">
+      <div class="px-6 pt-5 pb-4">
+        <div class="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 mx-auto mb-4">
+          <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+          </svg>
+        </div>
+        <h2 class="text-base font-black text-gray-900 text-center mb-1">Confirm Dismissal</h2>
+        <p class="text-xs text-gray-500 text-center mb-1">You are about to dismiss <span class="font-semibold text-gray-700">{{ patient.name }}</span> from your caseload.</p>
+        <p class="text-xs text-center mb-4">Reason: <span id="dismiss-reason-label" class="font-semibold text-gray-700"></span></p>
+        <p class="text-[0.6875rem] text-gray-400 text-center">Their data is preserved and the case will appear in your past cases.</p>
+      </div>
+      <div class="px-6 pb-5 flex gap-2">
+        <button onclick="backDismissStep()" class="flex-1 px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors font-medium">Back</button>
+        <button onclick="confirmDismiss()" id="dismiss-confirm-btn"
+                class="flex-1 px-4 py-2 text-sm bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 transition-colors">
+          Confirm Dismiss
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Active Alerts (compact) ── #}
+{% if patient.alerts %}
+<div class="bg-white rounded-xl shadow border border-gray-100 overflow-hidden mb-4">
+  <div class="px-4 py-2 border-b border-gray-100 flex items-center gap-2">
+    <svg class="w-3.5 h-3.5 text-amber-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+    </svg>
+    <h2 class="font-bold text-gray-900 text-sm">Active Alerts</h2>
+    <span class="ml-auto text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{{ patient.alert_count }}</span>
+  </div>
+  <div class="divide-y divide-gray-50">
+    {% for alert in patient.alerts %}
+    {% set sev_cls = {
+      'high':   ('bg-red-50', 'border-red-200', 'text-red-700', 'bg-red-100 text-red-700'),
+      'medium': ('bg-yellow-50', 'border-yellow-200', 'text-yellow-700', 'bg-yellow-100 text-yellow-700'),
+      'low':    ('bg-gray-50', 'border-gray-200', 'text-gray-700', 'bg-gray-100 text-gray-600'),
+    } %}
+    {% set cls = sev_cls.get(alert.severity, sev_cls['low']) %}
+    <div class="flex items-center gap-3 px-4 py-2 {{ cls[0] }} border-l-4 {{ cls[1] }}">
+      <div class="flex-1 min-w-0 flex items-center gap-2">
+        <span class="text-[0.625rem] font-bold px-1.5 py-0.5 rounded-full shrink-0 {{ cls[3] }}">{{ alert.severity | upper }}</span>
+        <span class="text-xs {{ cls[2] }} truncate">{{ alert.message }}</span>
+        <span class="text-[0.625rem] text-gray-400 ml-auto shrink-0">{{ alert.created_at }}</span>
+      </div>
+      <form method="post" action="/supervisor/alerts/{{ alert.id }}/resolve" class="shrink-0">
+        <button type="submit" class="text-xs px-2.5 py-0.5 rounded border border-gray-300 text-gray-500 hover:bg-white hover:text-brand-700 hover:border-brand-300 transition-colors font-semibold">Resolve</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{# ── Compact stats strip ── #}
+<div class="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-4">
+  <div class="bg-white rounded-lg border border-gray-100 shadow-sm px-3 py-2 text-center">
+    <p class="text-[0.6rem] text-gray-400 uppercase tracking-wide font-semibold mb-0.5">Stage</p>
+    <p class="text-xl font-black text-gray-800 leading-none">{{ patient.stage or '—' }}</p>
+  </div>
+  <div class="bg-white rounded-lg border border-gray-100 shadow-sm px-3 py-2 text-center">
+    <p class="text-[0.6rem] text-gray-400 uppercase tracking-wide font-semibold mb-0.5">Irritability</p>
+    {% if patient.irritability %}
+    {% set ic = {'high': 'text-red-600', 'moderate': 'text-yellow-600', 'low': 'text-green-600', 'minimal': 'text-green-500'} %}
+    <p class="text-sm font-black leading-none {{ ic.get(patient.irritability|lower, 'text-gray-700') }}">{{ patient.irritability | capitalize }}</p>
+    {% else %}
+    <p class="text-xl font-black text-gray-300 leading-none">—</p>
+    {% endif %}
+  </div>
+  <div class="bg-white rounded-lg border border-gray-100 shadow-sm px-3 py-2 text-center">
+    <p class="text-[0.6rem] text-gray-400 uppercase tracking-wide font-semibold mb-0.5">Last Session</p>
+    <p class="text-xs font-bold text-gray-700 mt-0.5">{{ patient.last_session_date | fmt_date if patient.last_session_date else 'Never' }}</p>
+  </div>
+  <div class="bg-white rounded-lg border border-gray-100 shadow-sm px-3 py-2 text-center">
+    <p class="text-[0.6rem] text-gray-400 uppercase tracking-wide font-semibold mb-0.5">Sessions (28d)</p>
+    <p class="text-xl font-black text-gray-800 leading-none">{{ patient.sessions_28d }}</p>
+  </div>
+  <div class="bg-white rounded-lg border border-gray-100 shadow-sm px-3 py-2 text-center">
+    <p class="text-[0.6rem] text-gray-400 uppercase tracking-wide font-semibold mb-0.5">Avg Pain</p>
+    {% if patient.avg_pain is not none %}
+    {% set pc = 'text-red-600' if patient.avg_pain >= 6 else ('text-yellow-600' if patient.avg_pain >= 4 else 'text-green-600') %}
+    <p class="text-xl font-black leading-none {{ pc }}">{{ patient.avg_pain }}<span class="text-xs font-normal text-gray-400">/10</span></p>
+    {% else %}
+    <p class="text-xl font-black text-gray-300 leading-none">—</p>
+    {% endif %}
+  </div>
+  <div class="bg-white rounded-lg border border-gray-100 shadow-sm px-3 py-2 text-center">
+    <p class="text-[0.6rem] text-gray-400 uppercase tracking-wide font-semibold mb-0.5">Compliance</p>
+    {% if patient.avg_compliance is not none %}
+    {% set cc = 'text-green-600' if patient.avg_compliance >= 80 else ('text-yellow-600' if patient.avg_compliance >= 60 else 'text-red-500') %}
+    <p class="text-xl font-black leading-none {{ cc }}">{{ patient.avg_compliance }}<span class="text-xs font-normal text-gray-400">%</span></p>
+    {% else %}
+    <p class="text-xl font-black text-gray-300 leading-none">—</p>
+    {% endif %}
+  </div>
+</div>
+
+{# ── Case Notes ── #}
+<div class="bg-white rounded-xl shadow border border-gray-100 overflow-hidden mb-3">
+  <div class="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+    <svg class="w-3.5 h-3.5 text-brand-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+    </svg>
+    <h2 class="font-bold text-gray-900 text-sm">Case Notes</h2>
+    <span class="text-[0.65rem] text-gray-400">Supervisor-only</span>
+    {% if patient.case_notes_history %}
+    <span class="relative group/cnhist ml-auto shrink-0">
+      <button type="button" onclick="openHistoryModal('case-notes')"
+              class="flex items-center gap-1.5 text-xs text-gray-400 hover:text-brand-700 transition-colors">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        {{ patient.case_notes_history | length }} entr{{ 'ies' if patient.case_notes_history | length != 1 else 'y' }}
+      </button>
+      <span class="pointer-events-none absolute right-0 bottom-full mb-2 z-50 opacity-0 group-hover/cnhist:opacity-100 transition-opacity duration-150 whitespace-nowrap">
+        <span class="block bg-gray-900 text-white text-xs rounded-lg px-2.5 py-1.5 shadow-lg">View note history</span>
+      </span>
+    </span>
+    {% endif %}
+  </div>
+  <div class="px-4 py-3 space-y-3">
+    {# Latest note preview #}
+    <div id="cn-latest-preview" class="{% if not patient.latest_case_note %}hidden {% endif %}bg-brand-50 border border-brand-100 rounded-xl px-3 py-2.5">
+      <p class="text-[0.6rem] text-brand-600 font-bold uppercase tracking-wide mb-1">
+        Last saved — <span id="cn-latest-date">{{ patient.latest_case_note.created_at | fmt_date if patient.latest_case_note else '' }}</span>
+      </p>
+      <p id="cn-latest-text" class="text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">{{ patient.latest_case_note.note if patient.latest_case_note else '' }}</p>
+    </div>
+    {# New note input #}
+    <div>
+      <label class="block text-[0.6rem] text-gray-500 font-bold uppercase tracking-wide mb-1.5">New Note</label>
+      <textarea id="cn-text" rows="4" maxlength="4000"
+                placeholder="Add a clinical note…"
+                class="w-full text-sm px-3 py-2.5 border border-gray-200 rounded-xl resize-y focus:outline-none focus:ring-2 focus:ring-brand-400 transition-colors placeholder-gray-400"></textarea>
+      <div class="flex items-center justify-between mt-1.5">
+        <span class="text-[0.6rem] text-gray-400"><span id="cn-chars">0</span> / 4000</span>
+        <div class="flex items-center gap-2">
+          <span id="cn-success" class="hidden text-xs text-green-600 font-semibold">Saved!</span>
+          <span id="cn-error" class="hidden text-xs text-red-600"></span>
+          <button type="button" onclick="saveCaseNote()" id="cn-save-btn"
+                  class="px-3 py-1.5 text-xs font-bold bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors">
+            Save Note
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Patient Profile ── #}
+{% set _has_demo = patient.age or patient.sex or patient.height_cm or patient.weight_kg %}
+{% set _has_cond = patient.affected_side or patient.injury_sides_list or patient.activity_level or patient.sports or patient.condition_timeline %}
+{% set _has_hist = patient.previous_history is not none or patient.seen_by_provider %}
+{% if _has_demo or _has_cond or _has_hist %}
+{% set sex_labels = {'male': 'Male', 'female': 'Female', 'intersex': 'Intersex', 'prefer_not_to_say': 'Prefer not to say'} %}
+{% set activity_labels = {'sedentary': 'Sedentary', 'lightly_active': 'Lightly Active', 'moderately_active': 'Moderately Active', 'very_active': 'Very Active', 'elite': 'Elite / Athlete'} %}
+{% set timeline_labels = {'acute': 'Acute (<6 wks)', 'subacute': 'Subacute (6 wks–3 mo)', 'chronic': 'Chronic (>3–6 mo)', 'chronic_plus': 'Long-term (>6 mo)'} %}
+{% set side_labels = {'left': 'Left', 'right': 'Right', 'bilateral': 'Bilateral'} %}
+<div class="bg-white rounded-xl shadow border border-gray-100 overflow-hidden mb-3">
+  <div class="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+    <svg class="w-3.5 h-3.5 text-brand-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <circle cx="12" cy="8" r="4"/><path stroke-linecap="round" d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+    </svg>
+    <h2 class="font-bold text-gray-900 text-sm">Patient Profile</h2>
+    <span class="ml-auto text-[0.6rem] font-semibold text-gray-400 uppercase tracking-wide">Self-reported</span>
+  </div>
+  <div class="px-4 py-3 space-y-4">
+
+    {# Demographics + BMI #}
+    {% if _has_demo %}
+    <div>
+      <div class="flex items-center justify-between mb-2">
+        <p class="text-[0.625rem] font-semibold uppercase tracking-wide text-gray-400">Demographics</p>
+        {% if patient.height_cm or patient.weight_kg %}
+        <div class="flex items-center gap-0.5 bg-gray-100 rounded-lg p-0.5">
+          <button type="button" id="sup-unit-metric" onclick="setSupUnits('metric')"
+                  class="px-2 py-0.5 rounded-md text-[0.6rem] font-bold transition-colors bg-white text-gray-800 shadow-sm">Metric</button>
+          <button type="button" id="sup-unit-imperial" onclick="setSupUnits('imperial')"
+                  class="px-2 py-0.5 rounded-md text-[0.6rem] font-bold transition-colors text-gray-500 hover:text-gray-700">Imperial</button>
+        </div>
+        {% endif %}
+      </div>
+      <dl class="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2">
+        <div>
+          <dt class="text-[0.6rem] text-gray-400 uppercase tracking-wide font-semibold">Age</dt>
+          <dd class="text-sm font-semibold text-gray-800">{{ patient.age ~ ' yrs' if patient.age else '—' }}</dd>
+        </div>
+        <div>
+          <dt class="text-[0.6rem] text-gray-400 uppercase tracking-wide font-semibold">Sex</dt>
+          <dd class="text-sm font-semibold text-gray-800">{{ sex_labels.get(patient.sex, '—') if patient.sex else '—' }}</dd>
+        </div>
+        <div>
+          <dt class="text-[0.6rem] text-gray-400 uppercase tracking-wide font-semibold">Height</dt>
+          <dd class="text-sm font-semibold text-gray-800">
+            {% if patient.height_cm %}
+              <span class="sup-unit-metric">{{ '%.1f'|format(patient.height_cm) }} cm</span>
+              {% if patient.bmi_data %}
+              <span class="sup-unit-imperial" style="display:none">{{ patient.bmi_data.height_ft }}'{{ patient.bmi_data.height_in }}"</span>
+              {% endif %}
+            {% else %}—{% endif %}
+          </dd>
+        </div>
+        <div>
+          <dt class="text-[0.6rem] text-gray-400 uppercase tracking-wide font-semibold">Weight</dt>
+          <dd class="text-sm font-semibold text-gray-800">
+            {% if patient.weight_kg %}
+              <span class="sup-unit-metric">{{ '%.1f'|format(patient.weight_kg) }} kg</span>
+              {% if patient.bmi_data %}
+              <span class="sup-unit-imperial" style="display:none">{{ patient.bmi_data.weight_lbs }} lbs</span>
+              {% endif %}
+            {% else %}—{% endif %}
+          </dd>
+        </div>
+      </dl>
+
+      {# BMI #}
+      {% if patient.bmi_data %}
+      {% set bd = patient.bmi_data %}
+      <div class="mt-3 pt-3 border-t border-gray-100">
+        <p class="text-[0.625rem] font-semibold uppercase tracking-wide text-gray-400 mb-2">BMI (Body Mass Index)</p>
+        <div class="flex items-start gap-3 mb-3">
+          <div class="shrink-0 text-center">
+            <p class="text-2xl font-black leading-none
+              {% if bd.color == 'green' %}text-green-600
+              {% elif bd.color == 'sky' %}text-sky-500
+              {% elif bd.color == 'blue' %}text-blue-700
+              {% elif bd.color == 'yellow' %}text-yellow-600
+              {% elif bd.color == 'orange' %}text-orange-500
+              {% else %}text-red-600{% endif %}">{{ bd.value }}</p>
+            <p class="text-[0.55rem] text-gray-400 mt-0.5">kg/m²</p>
+          </div>
+          <div>
+            <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold
+              {% if bd.color == 'green' %}bg-green-100 text-green-700
+              {% elif bd.color == 'sky' %}bg-sky-100 text-sky-700
+              {% elif bd.color == 'blue' %}bg-blue-100 text-blue-800
+              {% elif bd.color == 'yellow' %}bg-yellow-100 text-yellow-700
+              {% elif bd.color == 'orange' %}bg-orange-100 text-orange-700
+              {% else %}bg-red-100 text-red-700{% endif %}">{{ bd.category }}</span>
+            {% if patient.age and patient.age < 18 %}
+            <p class="text-[0.6rem] text-amber-500 mt-1">Standard adult thresholds may not apply under 18.</p>
+            {% elif patient.age and patient.age >= 65 %}
+            <p class="text-[0.6rem] text-gray-400 mt-1">For adults 65+, BMI 22–27 is generally optimal.</p>
+            {% endif %}
+            {% if patient.sex == 'female' %}
+            <p class="text-[0.6rem] text-gray-400 mt-0.5">Women typically carry ~5–8% more body fat at the same BMI.</p>
+            {% endif %}
+          </div>
+        </div>
+        <div class="relative mb-1.5">
+          <div class="h-2.5 rounded-full overflow-hidden flex">
+            <div class="w-[13%] bg-blue-300"></div>
+            <div class="w-[11%] bg-sky-300"></div>
+            <div class="w-[22%] bg-green-400"></div>
+            <div class="w-[17%] bg-yellow-400"></div>
+            <div class="w-[17%] bg-orange-400"></div>
+            <div class="w-[10%] bg-orange-600"></div>
+            <div class="flex-1 bg-red-600"></div>
+          </div>
+          <div class="absolute top-0 h-2.5 flex items-center" style="left: calc({{ bd.pct }}% - 4px)">
+            <div class="w-2 h-4 -mt-0.5 bg-gray-800 rounded-sm opacity-80 shadow"></div>
+          </div>
+        </div>
+        <div class="flex text-[0.5rem] text-gray-400 font-medium justify-between px-0.5">
+          <span>15</span><span>16</span><span>18.5</span><span>25</span><span>30</span><span>35</span><span>40</span><span>45+</span>
+        </div>
+      </div>
+      {% elif patient.height_cm or patient.weight_kg %}
+      <p class="text-[0.65rem] text-gray-400 mt-2">BMI requires both height and weight to calculate.</p>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {# Condition / Function #}
+    {% if _has_cond %}
+    <div>
+      <p class="text-[0.625rem] font-semibold uppercase tracking-wide text-gray-400 mb-2">Condition &amp; Function</p>
+      <dl class="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2">
+        <div>
+          <dt class="text-[0.6rem] text-gray-400 uppercase tracking-wide font-semibold">Affected Side</dt>
+          <dd class="text-sm font-semibold text-gray-800">
+            {% if patient.injury_sides_list %}
+              {% if patient.injury_sides_list | length > 1 %}Bilateral
+              {% else %}{{ patient.injury_sides_list[0] | capitalize }}{% endif %}
+            {% elif patient.affected_side %}
+              {{ side_labels.get(patient.affected_side, patient.affected_side | capitalize) }}
+            {% else %}—{% endif %}
+          </dd>
+        </div>
+        <div>
+          <dt class="text-[0.6rem] text-gray-400 uppercase tracking-wide font-semibold">Timeline</dt>
+          <dd class="text-sm font-semibold text-gray-800">{{ timeline_labels.get(patient.condition_timeline, '—') if patient.condition_timeline else '—' }}</dd>
+        </div>
+        <div>
+          <dt class="text-[0.6rem] text-gray-400 uppercase tracking-wide font-semibold">Activity Level</dt>
+          <dd class="text-sm font-semibold text-gray-800">{{ activity_labels.get(patient.activity_level, '—') if patient.activity_level else '—' }}</dd>
+        </div>
+        {% if patient.sports %}
+        <div class="col-span-2 sm:col-span-3">
+          <dt class="text-[0.6rem] text-gray-400 uppercase tracking-wide font-semibold">Sport(s)</dt>
+          <dd class="text-sm font-semibold text-gray-800">{{ patient.sports }}</dd>
+        </div>
+        {% endif %}
+      </dl>
+    </div>
+    {% endif %}
+
+    {# Provider involvement #}
+    {% if patient.seen_by_provider %}
+    <div>
+      <p class="text-[0.625rem] font-semibold uppercase tracking-wide text-gray-400 mb-1">Provider Involvement</p>
+      <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 border border-blue-200 text-blue-800">
+        <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" d="M9 12l2 2 4-4M12 3a9 9 0 100 18A9 9 0 0012 3z"/>
+        </svg>
+        Seen by a medical professional or provider
+      </span>
+      {% if patient.seen_by_provider_notes %}
+      <div class="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 mt-2">
+        <p class="text-xs text-blue-800 leading-relaxed">{{ patient.seen_by_provider_notes }}</p>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {# Previous history #}
+    {% if patient.previous_history is not none %}
+    <div>
+      <p class="text-[0.625rem] font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Previous Injury History</p>
+      {% if patient.previous_history %}
+      <div class="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+        <p class="text-xs text-amber-800 leading-relaxed">{{ patient.previous_history }}</p>
+      </div>
+      {% else %}
+      <p class="text-sm text-gray-500">Reported — no description provided</p>
+      {% endif %}
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endif %}
+
+{# ── Patient Assessment Comments ── #}
+{% if patient.assessment_comments_history %}
+<div class="bg-white rounded-xl shadow border border-gray-100 overflow-hidden mb-3">
+  <div class="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+    <svg class="w-3.5 h-3.5 text-amber-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z"/>
+    </svg>
+    <h2 class="font-bold text-gray-900 text-sm">Patient Comments</h2>
+    <span class="text-[0.65rem] text-gray-400">From assessments</span>
+    <span class="relative group/pchist ml-auto shrink-0">
+      <button type="button" onclick="openHistoryModal('patient-comments')"
+              class="flex items-center gap-1.5 text-xs text-gray-400 hover:text-amber-600 transition-colors">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        {{ patient.assessment_comments_history | length }} entr{{ 'ies' if patient.assessment_comments_history | length != 1 else 'y' }}
+      </button>
+      <span class="pointer-events-none absolute right-0 bottom-full mb-2 z-50 opacity-0 group-hover/pchist:opacity-100 transition-opacity duration-150 whitespace-nowrap">
+        <span class="block bg-gray-900 text-white text-xs rounded-lg px-2.5 py-1.5 shadow-lg">View all comments</span>
+      </span>
+    </span>
+  </div>
+  <div class="px-4 py-3">
+    <div class="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5">
+      <p class="text-[0.6rem] text-amber-700 font-bold uppercase tracking-wide mb-1">
+        Most recent — {{ patient.latest_assessment_comment.created_at | fmt_date }}
+      </p>
+      <p class="text-sm text-amber-900 leading-relaxed whitespace-pre-wrap">{{ patient.latest_assessment_comment.note }}</p>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# ── Program vs. Completion (open by default) ── #}
+<div class="bg-white rounded-xl shadow border border-gray-100 overflow-hidden mb-3">
+  <button type="button" onclick="toggleTile('sp-prog')"
+          class="w-full px-4 py-3 hover:bg-gray-50 transition-colors text-left focus:outline-none">
+    <div class="flex items-center justify-between gap-2">
+      <div>
+        <h2 class="font-bold text-gray-900 text-sm">Program vs. Completion</h2>
+        <p class="text-[0.6875rem] text-gray-400">Most recent session — prescribed vs. recorded sets</p>
+      </div>
+      <svg id="sp-prog-chev" class="w-4 h-4 text-gray-300 shrink-0 transition-transform" style="transform:rotate(180deg)" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+      </svg>
+    </div>
+  </button>
+  <div id="sp-prog" class="border-t border-gray-100">
+    {% if patient.comparison %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-xs">
+        <thead>
+          <tr class="border-b border-gray-100 bg-gray-50">
+            <th class="px-4 py-2 text-left font-semibold text-gray-500 uppercase tracking-wide">Exercise</th>
+            <th class="px-3 py-2 text-center font-semibold text-gray-500 uppercase tracking-wide">Prescribed</th>
+            <th class="px-3 py-2 text-center font-semibold text-gray-500 uppercase tracking-wide">Completed</th>
+            <th class="px-3 py-2 text-center font-semibold text-gray-500 uppercase tracking-wide">Delta</th>
+            <th class="px-3 py-2 text-center font-semibold text-gray-500 uppercase tracking-wide">Compliance</th>
+            <th class="px-3 py-2 text-center font-semibold text-gray-500 uppercase tracking-wide">Pain</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50">
+          {% for ex in patient.comparison %}
+          {% set flag_cls = {
+            'stop':    ('bg-red-100 text-red-700', 'STOP'),
+            'caution': ('bg-yellow-100 text-yellow-700', 'CAUTION'),
+            'none':    ('bg-green-50 text-green-600', 'OK'),
+          } %}
+          {% set flag = flag_cls.get(ex.pain_flag, flag_cls['none']) %}
+          {% set comp_cls = ('text-green-600 font-bold' if (ex.sets_compliance or 0) >= 90 else ('text-yellow-600 font-semibold' if (ex.sets_compliance or 0) >= 70 else ('text-red-500 font-bold' if ex.sets_compliance is not none else 'text-gray-400'))) %}
+          <tr class="hover:bg-gray-50">
+            <td class="px-4 py-2 font-semibold text-gray-800">{{ ex.name }}</td>
+            <td class="px-3 py-2 text-center text-gray-600">{{ ex.prescribed_sets }} × {{ ex.prescribed_reps }}</td>
+            <td class="px-3 py-2 text-center text-gray-700 font-medium">
+              {% if ex.sets_done is not none %}{{ ex.sets_done }} × {{ ex.reps_done }}{% else %}<span class="text-gray-300">—</span>{% endif %}
+            </td>
+            <td class="px-3 py-2 text-center font-bold">
+              {% if ex.delta is not none %}
+              <span class="{{ 'text-red-500' if ex.delta < 0 else 'text-green-600' }}">{{ '+' if ex.delta > 0 else '' }}{{ ex.delta }}</span>
+              {% else %}<span class="text-gray-300">—</span>{% endif %}
+            </td>
+            <td class="px-3 py-2 text-center {{ comp_cls }}">{{ ex.sets_compliance ~ '%' if ex.sets_compliance is not none else '—' }}</td>
+            <td class="px-3 py-2 text-center">
+              <span class="px-2 py-0.5 rounded-full text-[0.625rem] font-bold {{ flag[0] }}">{{ flag[1] }}</span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="px-4 py-2 border-t border-gray-50 bg-gray-50">
+      <p class="text-[0.625rem] text-gray-400">Pain flag: ≥7 = STOP, ≥4 = CAUTION, &lt;4 = OK. Delta = completed − prescribed sets.</p>
+    </div>
+    {% else %}
+    <div class="px-5 py-8 text-center">
+      <p class="text-sm text-gray-400">No session data yet.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{# ── Recent Sessions (collapsible, closed by default) ── #}
+{% if patient.recent_sessions %}
+<div class="bg-white rounded-xl shadow border border-gray-100 overflow-hidden mb-3">
+  <button type="button" onclick="toggleTile('sp-sessions')"
+          class="w-full px-4 py-3 hover:bg-gray-50 transition-colors text-left focus:outline-none">
+    <div class="flex items-center justify-between gap-2">
+      <div>
+        <h2 class="font-bold text-gray-900 text-sm">Recent Sessions</h2>
+        <p class="text-[0.6875rem] text-gray-400">Last {{ patient.recent_sessions | length }} sessions — pain, next-day pain, compliance</p>
+      </div>
+      <svg id="sp-sessions-chev" class="w-4 h-4 text-gray-300 shrink-0 transition-transform" style="transform:rotate(180deg)" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+      </svg>
+    </div>
+  </button>
+  <div id="sp-sessions" class="border-t border-gray-100">
+    <div class="overflow-x-auto">
+      <table class="w-full text-xs">
+        <thead>
+          <tr class="border-b border-gray-100 bg-gray-50">
+            <th class="px-4 py-1.5 text-left font-semibold text-gray-500 uppercase tracking-wide">Date</th>
+            <th class="px-3 py-1.5 text-center font-semibold text-gray-500 uppercase tracking-wide">Pain</th>
+            <th class="px-3 py-1.5 text-center font-semibold text-gray-500 uppercase tracking-wide">After</th>
+            <th class="px-3 py-1.5 text-center font-semibold text-gray-500 uppercase tracking-wide">Next Day</th>
+            <th class="px-3 py-1.5 text-center font-semibold text-gray-500 uppercase tracking-wide">Compliance</th>
+            <th class="px-3 py-1.5 text-center font-semibold text-gray-500 uppercase tracking-wide">Notes</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50">
+          {% for s in patient.recent_sessions %}
+          {% set p_cls = 'text-red-600 font-bold' if (s.pain_during or 0) >= 6 else ('text-yellow-600 font-semibold' if (s.pain_during or 0) >= 4 else 'text-green-600') %}
+          {% set c_cls = 'text-green-600 font-bold' if (s.compliance or 0) >= 80 else ('text-yellow-600 font-semibold' if (s.compliance or 0) >= 60 else ('text-red-500 font-bold' if s.compliance is not none else 'text-gray-400')) %}
+          <tr class="hover:bg-gray-50">
+            <td class="px-4 py-1.5 text-gray-600 font-medium">{{ s.date | fmt_date }}</td>
+            <td class="px-3 py-1.5 text-center {{ p_cls }}">{{ s.pain_during if s.pain_during is not none else '—' }}</td>
+            <td class="px-3 py-1.5 text-center text-gray-500">{{ s.pain_after if s.pain_after is not none else '—' }}</td>
+            <td class="px-3 py-1.5 text-center text-gray-500">{{ s.next_day_pain if s.next_day_pain is not none else '—' }}</td>
+            <td class="px-3 py-1.5 text-center {{ c_cls }}">{{ s.compliance ~ '%' if s.compliance is not none else '—' }}</td>
+            <td class="px-3 py-1.5 text-center">
+              <div class="flex items-center justify-center gap-0.5">
+
+                {# Supervisor note icon #}
+                <span class="relative group/sv">
+                  <button type="button"
+                          id="comment-icon-{{ s.log_id }}"
+                          data-log-id="{{ s.log_id }}"
+                          data-date="{{ s.date | fmt_date }}"
+                          data-comment="{{ s.supervisor_comment | e }}"
+                          onclick="openCommentModal(this)"
+                          class="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-gray-100 transition-colors {{ 'text-brand-500' if s.supervisor_comment else 'text-gray-300' }}">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z"/>
+                    </svg>
+                  </button>
+                  <span class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 opacity-0 group-hover/sv:opacity-100 transition-opacity duration-150 w-max max-w-xs">
+                    <span class="block bg-gray-900 text-white text-xs font-normal rounded-lg px-3 py-2 leading-relaxed break-words whitespace-normal text-left shadow-lg">
+                      {{ s.supervisor_comment if s.supervisor_comment else 'Add supervisor note' }}
+                    </span>
+                  </span>
+                </span>
+
+                {# Patient note icon #}
+                <span class="relative {% if s.notes %}group/pt{% endif %}">
+                  <button type="button"
+                          data-date="{{ s.date | fmt_date }}"
+                          data-note="{{ s.notes | e }}"
+                          onclick="openPatientNoteModal(this)"
+                          class="inline-flex items-center justify-center w-6 h-6 rounded transition-colors {{ 'text-amber-500 hover:bg-amber-50' if s.notes else 'text-gray-300 cursor-default' }}"
+                          {{ 'disabled' if not s.notes }}>
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                  </button>
+                  {% if s.notes %}
+                  <span class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 opacity-0 group-hover/pt:opacity-100 transition-opacity duration-150 w-max max-w-xs">
+                    <span class="block bg-gray-900 text-white text-xs font-normal rounded-lg px-3 py-2 leading-relaxed break-words whitespace-normal text-left shadow-lg">
+                      {{ s.notes }}
+                    </span>
+                  </span>
+                  {% endif %}
+                </span>
+
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# ── Patient Trends — tabbed, lazy chart init ── #}
+<div class="bg-white rounded-xl shadow border border-gray-100 overflow-hidden mb-3">
+  <button type="button" onclick="toggleTrends()"
+          class="w-full px-4 py-3 hover:bg-gray-50 transition-colors text-left focus:outline-none">
+    <div class="flex items-center justify-between gap-2">
+      <div>
+        <h2 class="font-bold text-gray-900 text-sm">Patient Trends</h2>
+        <p class="text-[0.6875rem] text-gray-400">Pain · Stiffness · VISA-A · Functional capacity</p>
+      </div>
+      <svg id="sp-trends-chev" class="w-4 h-4 text-gray-300 shrink-0 transition-transform" style="transform:rotate(180deg)" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+      </svg>
+    </div>
+  </button>
+  <div id="sp-trends" class="border-t border-gray-100">
+    {# Tab bar #}
+    <div class="flex border-b border-gray-100 px-3 pt-2 gap-0.5 overflow-x-auto items-end">
+      {% for tab_id, tab_label in [('pain','Pain'),('stiff','Stiffness'),('visa','VISA-A'),('fc','Functional')] %}
+      <button type="button" onclick="switchChartTab('{{ tab_id }}')" id="tab-btn-{{ tab_id }}"
+              class="px-3 py-1.5 text-xs font-semibold rounded-t border-b-2 whitespace-nowrap transition-colors
+                     {% if loop.first %}border-brand-500 text-brand-700{% else %}border-transparent text-gray-400 hover:text-gray-600{% endif %}">
+        {{ tab_label }}
+      </button>
+      {% endfor %}
+      <div class="ml-auto flex items-center gap-1 pb-1.5 shrink-0 pl-3">
+        {% for n, lbl in [(3,'3d'),(5,'5d'),(7,'7d'),(14,'14d'),(28,'28d')] %}
+        <button type="button" onclick="setDayRange({{ n }})" data-days="{{ n }}"
+                class="sp-day-btn text-[0.6rem] font-semibold px-2 py-0.5 rounded border transition-colors whitespace-nowrap bg-gray-50 text-gray-500 border-gray-200 hover:border-brand-400 hover:text-brand-600">
+          {{ lbl }}
+        </button>
+        {% endfor %}
+        <button type="button" onclick="setDayRange(null)" data-days="all"
+                class="sp-day-btn text-[0.6rem] font-semibold px-2 py-0.5 rounded border transition-colors whitespace-nowrap bg-brand-600 text-white border-brand-600">
+          All
+        </button>
+      </div>
+    </div>
+    {# Panels #}
+    <div class="px-5 py-4">
+
+      <div id="tabpanel-pain">
+        {% if patient.pain_chart_data and patient.pain_chart_data.labels %}
+        <canvas id="spPainChart" height="190"></canvas>
+        <div class="flex justify-end mt-1.5">
+          <button onclick="if(window._spPainChart) window._spPainChart.resetZoom()" class="text-[0.6875rem] px-2.5 py-0.5 rounded border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors">Reset zoom</button>
+        </div>
+        {% else %}
+        <div class="h-40 flex items-center justify-center text-sm text-gray-400">No session data yet.</div>
+        {% endif %}
+      </div>
+
+      <div id="tabpanel-stiff" class="hidden">
+        {% if patient.stiffness_chart_data and patient.stiffness_chart_data.labels %}
+        <canvas id="spStiffChart" height="190"></canvas>
+        <div class="flex justify-end mt-1.5">
+          <button onclick="if(window._spStiffChart) window._spStiffChart.resetZoom()" class="text-[0.6875rem] px-2.5 py-0.5 rounded border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors">Reset zoom</button>
+        </div>
+        {% else %}
+        <div class="h-40 flex items-center justify-center text-sm text-gray-400">No stiffness data yet.</div>
+        {% endif %}
+      </div>
+
+      <div id="tabpanel-visa" class="hidden">
+        {% if patient.visa_history %}
+        <canvas id="spVisaChart" height="190"></canvas>
+        <div class="flex justify-end mt-1.5">
+          <button onclick="if(window._spVisaChart) window._spVisaChart.resetZoom()" class="text-[0.6875rem] px-2.5 py-0.5 rounded border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors">Reset zoom</button>
+        </div>
+        {% else %}
+        <div class="h-40 flex items-center justify-center text-sm text-gray-400">No VISA-A scores yet.</div>
+        {% endif %}
+      </div>
+
+      <div id="tabpanel-fc" class="hidden">
+        {% if patient.functional_chart_data and patient.functional_chart_data.labels %}
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div>
+            <p class="text-xs font-semibold text-gray-600 mb-1.5">Calf Raise (reps)</p>
+            <canvas id="spCrChart" height="160"></canvas>
+          </div>
+          <div>
+            <p class="text-xs font-semibold text-gray-600 mb-1.5">WBLT (cm)</p>
+            <canvas id="spWbltChart" height="160"></canvas>
+          </div>
+          <div>
+            <p class="text-xs font-semibold text-gray-600 mb-1.5">Hop Distance (in)</p>
+            <canvas id="spHopDistChart" height="160"></canvas>
+          </div>
+          <div>
+            <p class="text-xs font-semibold text-gray-600 mb-1.5">Hop Endurance (reps)</p>
+            <canvas id="spHopEndChart" height="160"></canvas>
+          </div>
+        </div>
+        {% else %}
+        <div class="h-40 flex items-center justify-center text-sm text-gray-400">No reassessment data yet.</div>
+        {% endif %}
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{# ── Note / Comment History modal ── #}
+<div id="history-modal" style="display:none"
+     class="fixed inset-0 z-50 flex items-center justify-center p-4">
+  <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="closeHistoryModal()"></div>
+  <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-lg flex flex-col overflow-hidden" style="max-height:80vh">
+    <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
+      <div>
+        <h3 id="hist-title" class="font-bold text-gray-900 text-sm"></h3>
+        <p id="hist-count" class="text-xs text-gray-400 mt-0.5"></p>
+      </div>
+      <button type="button" onclick="closeHistoryModal()"
+              class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div id="hist-list" class="overflow-y-auto flex-1 p-4 space-y-3"></div>
+  </div>
+</div>
+
+{# ── Patient note modal (read-only) ── #}
+<div id="patient-note-modal" style="display:none"
+     class="fixed inset-0 z-50 flex items-center justify-center p-4">
+  <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="closePatientNoteModal()"></div>
+  <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-md p-5 flex flex-col gap-3">
+    <div class="flex items-center justify-between gap-2">
+      <div>
+        <h3 class="font-bold text-gray-900 text-sm">Patient Note</h3>
+        <p id="patient-note-modal-date" class="text-xs text-gray-400"></p>
+      </div>
+      <button type="button" onclick="closePatientNoteModal()"
+              class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div class="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+      <p id="patient-note-modal-text" class="text-sm text-amber-900 leading-relaxed whitespace-pre-wrap"></p>
+    </div>
+    <div class="flex justify-end">
+      <button type="button" onclick="closePatientNoteModal()"
+              class="px-3 py-1.5 text-xs font-semibold text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+        Close
+      </button>
+    </div>
+  </div>
+</div>
+
+{# ── Session comment modal ── #}
+<div id="comment-modal" style="display:none"
+     class="fixed inset-0 z-50 flex items-center justify-center p-4">
+  <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="closeCommentModal()"></div>
+  <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-md p-5 flex flex-col gap-3">
+    <div class="flex items-center justify-between gap-2">
+      <div>
+        <h3 class="font-bold text-gray-900 text-sm">Session Note</h3>
+        <p id="comment-modal-date" class="text-xs text-gray-400"></p>
+      </div>
+      <button type="button" onclick="closeCommentModal()"
+              class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <textarea id="comment-modal-text" rows="5" maxlength="2000"
+              placeholder="Add a clinical note for this session…"
+              class="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-400 resize-y"></textarea>
+    <p class="text-[0.625rem] text-gray-400 text-right -mt-1"><span id="comment-modal-char">0</span> / 2000</p>
+    <div id="comment-modal-error" class="hidden text-xs text-red-600"></div>
+    <div class="flex items-center gap-2 justify-end">
+      <button type="button" onclick="closeCommentModal()"
+              class="px-3 py-1.5 text-xs font-semibold text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+        Cancel
+      </button>
+      <button type="button" onclick="saveComment()"
+              class="px-3 py-1.5 text-xs font-semibold text-white bg-brand-600 rounded-lg hover:bg-brand-700 transition-colors">
+        Save
+      </button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+var _PATIENT_ID = {{ patient.id }};
+
+// ── Imperial / Metric unit toggle ─────────────────────────────────────────────
+(function () {
+  var _units = localStorage.getItem('teno_units') || 'metric';
+
+  function applySupUnits() {
+    var imp = _units === 'imperial';
+    document.querySelectorAll('.sup-unit-metric').forEach(function (el) {
+      el.style.display = imp ? 'none' : '';
+    });
+    document.querySelectorAll('.sup-unit-imperial').forEach(function (el) {
+      el.style.display = imp ? '' : 'none';
+    });
+    var mb = document.getElementById('sup-unit-metric');
+    var ib = document.getElementById('sup-unit-imperial');
+    if (mb && ib) {
+      var activeClass  = 'bg-white text-gray-800 shadow-sm';
+      var inactiveClass = 'text-gray-500 hover:text-gray-700';
+      mb.className = mb.className.replace(activeClass, '').replace(inactiveClass, '').trim()
+        + ' ' + (imp ? inactiveClass : activeClass);
+      ib.className = ib.className.replace(activeClass, '').replace(inactiveClass, '').trim()
+        + ' ' + (imp ? activeClass : inactiveClass);
+    }
+  }
+
+  window.setSupUnits = function (mode) {
+    _units = mode;
+    localStorage.setItem('teno_units', mode);
+    applySupUnits();
+  };
+
+  document.addEventListener('DOMContentLoaded', applySupUnits);
+})();
+
+// ── Patient note modal (read-only) ───────────────────────────────────────────
+function openPatientNoteModal(btn) {
+  if (!btn.dataset.note) return;
+  document.getElementById('patient-note-modal-date').textContent = btn.dataset.date;
+  document.getElementById('patient-note-modal-text').textContent = btn.dataset.note;
+  document.getElementById('patient-note-modal').style.display = '';
+}
+
+function closePatientNoteModal() {
+  document.getElementById('patient-note-modal').style.display = 'none';
+}
+
+// ── Session comment modal ─────────────────────────────────────────────────────
+var _activeLogId = null;
+
+function openCommentModal(btn) {
+  _activeLogId = btn.dataset.logId;
+  document.getElementById('comment-modal-date').textContent = btn.dataset.date;
+  var text = btn.dataset.comment || '';
+  var ta = document.getElementById('comment-modal-text');
+  ta.value = text;
+  document.getElementById('comment-modal-char').textContent = text.length;
+  document.getElementById('comment-modal-error').classList.add('hidden');
+  document.getElementById('comment-modal').style.display = '';
+  ta.focus();
+}
+
+function closeCommentModal() {
+  document.getElementById('comment-modal').style.display = 'none';
+  _activeLogId = null;
+}
+
+document.getElementById('comment-modal-text').addEventListener('input', function() {
+  document.getElementById('comment-modal-char').textContent = this.value.length;
+});
+
+async function saveComment() {
+  if (!_activeLogId) return;
+  var comment = document.getElementById('comment-modal-text').value.trim();
+  var errEl = document.getElementById('comment-modal-error');
+  errEl.classList.add('hidden');
+
+  try {
+    var res = await fetch('/supervisor/patients/' + _PATIENT_ID + '/session-comment', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: 'daily_log_id=' + encodeURIComponent(_activeLogId) + '&comment=' + encodeURIComponent(comment),
+    });
+    var data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Save failed');
+
+    var btn = document.getElementById('comment-icon-' + _activeLogId);
+    if (btn) {
+      btn.dataset.comment = comment;
+      btn.title = comment || 'Add note';
+      if (comment) {
+        btn.classList.remove('text-gray-300');
+        btn.classList.add('text-brand-500');
+      } else {
+        btn.classList.remove('text-brand-500');
+        btn.classList.add('text-gray-300');
+      }
+    }
+    closeCommentModal();
+  } catch (e) {
+    errEl.textContent = 'Could not save note. Please try again.';
+    errEl.classList.remove('hidden');
+  }
+}
+
+var _REASON_LABELS = {
+  completed_program:    'User completed program',
+  goals_achieved:       'User goals achieved',
+  removed_from_program: 'Remove user from program',
+  non_compliance:       'Non-compliance',
+  user_discontinued:    'User discontinued program',
+};
+
+// ── Tile toggle ───────────────────────────────────────────────────────────────
+function toggleTile(id) {
+  var body = document.getElementById(id);
+  var chev = document.getElementById(id + '-chev');
+  if (!body) return;
+  var open = !body.classList.contains('hidden');
+  body.classList.toggle('hidden', open);
+  if (chev) chev.style.transform = open ? '' : 'rotate(180deg)';
+}
+
+// ── Trends tile + lazy chart init ────────────────────────────────────────────
+var _spTabInited = {};
+var _spCurTab = 'pain';
+
+function toggleTrends() {
+  var body = document.getElementById('sp-trends');
+  var chev = document.getElementById('sp-trends-chev');
+  if (!body) return;
+  var open = !body.classList.contains('hidden');
+  body.classList.toggle('hidden', open);
+  if (chev) chev.style.transform = open ? '' : 'rotate(180deg)';
+  // lazy-init the current tab on first open
+  if (!open) _initTab(_spCurTab);
+}
+
+function switchChartTab(tab) {
+  ['pain','stiff','visa','fc'].forEach(function(t) {
+    var panel = document.getElementById('tabpanel-' + t);
+    var btn   = document.getElementById('tab-btn-' + t);
+    var active = t === tab;
+    if (panel) panel.classList.toggle('hidden', !active);
+    if (btn) {
+      btn.classList.toggle('border-brand-500', active);
+      btn.classList.toggle('text-brand-700',   active);
+      btn.classList.toggle('border-transparent', !active);
+      btn.classList.toggle('text-gray-400',    !active);
+    }
+    if (active) _initTab(t);
+  });
+  _spCurTab = tab;
+}
+
+function _initTab(tab) {
+  if (_spTabInited[tab]) return;
+  _spTabInited[tab] = true;
+  var fn = _spChartIniters[tab];
+  if (fn) fn();
+}
+
+// ── Chart data from server ────────────────────────────────────────────────────
+var _painData  = {{ patient.pain_chart_data | tojson | safe }};
+var _stiffData = {{ patient.stiffness_chart_data | tojson | safe }};
+var _fcData    = {{ patient.functional_chart_data | tojson | safe }};
+{% if patient.visa_history %}
+var _visaLabels = {{ patient.visa_labels | tojson | safe }};
+var _visaDates  = {{ patient.visa_dates  | tojson | safe }};
+var _visaScores = {{ patient.visa_history | map(attribute='total_score') | list | tojson | safe }};
+{% else %}
+var _visaLabels = [], _visaDates = [], _visaScores = [];
+{% endif %}
+
+// ── Zoom opts helper ──────────────────────────────────────────────────────────
+function _zoomOpts(yMin, yMax) {
+  return {
+    zoom: { wheel: { enabled: true, speed: 0.1 }, pinch: { enabled: true }, mode: 'xy' },
+    pan:  { enabled: true, mode: 'xy' },
+    limits: { y: { min: yMin, max: yMax } },
+  };
+}
+
+// ── Day-range system ──────────────────────────────────────────────────────────
+var _activeDays = null;
+var _spChartReg = {};
+
+function _startIdxForDays(dates, days) {
+  if (!days || !dates || !dates.length) return 0;
+  var latest = dates.reduce(function(a, b) { return b > a ? b : a; });
+  var cutoff = new Date(latest);
+  cutoff.setDate(cutoff.getDate() - days + 1);
+  var cutoffStr = cutoff.toISOString().slice(0, 10);
+  for (var i = 0; i < dates.length; i++) {
+    if (dates[i] >= cutoffStr) return i;
+  }
+  return dates.length - 1;
+}
+
+function _setXLimits(chart, xOpts) {
+  var zp = chart.options && chart.options.plugins && chart.options.plugins.zoom;
+  if (!zp) return;
+  if (!zp.limits) zp.limits = {};
+  zp.limits.x = xOpts;
+}
+
+function _applyViewWindow(entry, days) {
+  var chart = entry.chart;
+  // Restore full dataset so zoom-out can reveal older data
+  chart.data.labels = entry.labels;
+  entry.arrays.forEach(function(arr, i) {
+    if (chart.data.datasets[i]) chart.data.datasets[i].data = arr;
+  });
+
+  if (!days || !entry.dates || !entry.dates.length) {
+    // "All": no axis restriction, allow free zoom-in
+    if (chart.options.scales && chart.options.scales.x) {
+      chart.options.scales.x.min = undefined;
+      chart.options.scales.x.max = undefined;
+    }
+    _setXLimits(chart, { minRange: 2 });
+    chart.update('none');
+    if (chart.resetZoom) chart.resetZoom();
+    return;
+  }
+
+  var startIdx    = _startIdxForDays(entry.dates, days);
+  var endIdx      = entry.labels.length - 1;
+  if (startIdx > endIdx) startIdx = 0;
+  var visibleCount = endIdx - startIdx + 1;
+
+  // Pin the "reset" anchor to the N-day window so Reset Zoom restores it
+  if (!chart.options.scales) chart.options.scales = {};
+  if (!chart.options.scales.x)  chart.options.scales.x  = {};
+  chart.options.scales.x.min = entry.labels[startIdx];
+  chart.options.scales.x.max = entry.labels[endIdx];
+
+  if (days <= 7) {
+    // 3 / 5 / 7 d — can zoom OUT to see history, cannot zoom IN beyond the window
+    _setXLimits(chart, { minRange: visibleCount });
+  } else {
+    // 14 / 28 d — can zoom IN for detail and OUT to see history
+    _setXLimits(chart, { minRange: Math.max(2, Math.ceil(visibleCount / 7)) });
+  }
+
+  chart.update('none');
+  if (chart.resetZoom) chart.resetZoom();
+}
+
+function setDayRange(n) {
+  _activeDays = n;
+  document.querySelectorAll('.sp-day-btn').forEach(function(b) {
+    var match = n === null ? b.dataset.days === 'all' : +b.dataset.days === n;
+    b.classList.toggle('bg-brand-600',     match);
+    b.classList.toggle('text-white',       match);
+    b.classList.toggle('border-brand-600', match);
+    b.classList.toggle('bg-gray-50',      !match);
+    b.classList.toggle('text-gray-500',   !match);
+    b.classList.toggle('border-gray-200', !match);
+  });
+  Object.keys(_spChartReg).forEach(function(k) { _applyViewWindow(_spChartReg[k], n); });
+}
+
+// ── Chart initialisers ────────────────────────────────────────────────────────
+var _spChartIniters = {
+
+  pain: function() {
+    if (!_painData || !_painData.labels || !_painData.labels.length) return;
+    var ctx = document.getElementById('spPainChart');
+    if (!ctx) return;
+    window._spPainChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: _painData.labels,
+        datasets: [
+          { label: 'During',   data: _painData.during,   borderColor: '#dc2626', backgroundColor: 'rgba(220,38,38,0.08)',  tension: 0.3, fill: false, pointRadius: 4 },
+          { label: 'After',    data: _painData.after,    borderColor: '#d97706', backgroundColor: 'rgba(217,119,6,0.08)',  tension: 0.3, fill: false, pointRadius: 4 },
+          { label: 'Next Day', data: _painData.next_day, borderColor: '#7c3aed', backgroundColor: 'rgba(124,58,237,0.08)', tension: 0.3, fill: false, pointRadius: 4 },
+        ],
+      },
+      options: {
+        responsive: true,
+        scales: {
+          x: { ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 8 } },
+          y: { min: 0, max: 10, ticks: { stepSize: 2 }, title: { display: true, text: 'Pain (0–10)' } },
+        },
+        plugins: { legend: { position: 'bottom' }, tooltip: { mode: 'index', intersect: false }, zoom: _zoomOpts(0, 10) },
+      },
+    });
+    _spChartReg['pain'] = { chart: window._spPainChart, dates: _painData.dates, labels: _painData.labels, arrays: [_painData.during, _painData.after, _painData.next_day] };
+    _applyViewWindow(_spChartReg['pain'], _activeDays);
+  },
+
+  stiff: function() {
+    if (!_stiffData || !_stiffData.labels || !_stiffData.labels.length) return;
+    var ctx = document.getElementById('spStiffChart');
+    if (!ctx) return;
+    window._spStiffChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: _stiffData.labels,
+        datasets: [{ label: 'Morning Stiffness', data: _stiffData.stiffness, borderColor: '#d97706', backgroundColor: 'rgba(217,119,6,0.1)', tension: 0.3, fill: true, pointRadius: 4 }],
+      },
+      options: {
+        responsive: true,
+        scales: {
+          x: { ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 8 } },
+          y: { min: 0, max: 10, ticks: { stepSize: 2 }, title: { display: true, text: 'Stiffness (0–10)' } },
+        },
+        plugins: { legend: { position: 'bottom' }, tooltip: { mode: 'index', intersect: false }, zoom: _zoomOpts(0, 10) },
+      },
+    });
+    _spChartReg['stiff'] = { chart: window._spStiffChart, dates: _stiffData.dates, labels: _stiffData.labels, arrays: [_stiffData.stiffness] };
+    _applyViewWindow(_spChartReg['stiff'], _activeDays);
+  },
+
+  visa: function() {
+    if (!_visaScores || !_visaScores.length) return;
+    var ctx = document.getElementById('spVisaChart');
+    if (!ctx) return;
+    window._spVisaChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: _visaLabels,
+        datasets: [{ label: 'VISA-A Score', data: _visaScores, borderColor: '#0284c7', backgroundColor: 'rgba(2,132,199,0.1)', tension: 0.3, fill: true, pointRadius: 5 }],
+      },
+      options: {
+        responsive: true,
+        scales: {
+          x: { ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 8 } },
+          y: { min: 0, max: 80, ticks: { stepSize: 10 }, title: { display: true, text: 'Score (0–80)' } },
+        },
+        plugins: {
+          legend: { position: 'bottom' },
+          annotation: { annotations: { goodLine: { type: 'line', yMin: 64, yMax: 64, borderColor: 'green', borderWidth: 1, borderDash: [4,4], label: { content: 'Good function', display: true } } } },
+          zoom: _zoomOpts(0, 80),
+        },
+      },
+    });
+    _spChartReg['visa'] = { chart: window._spVisaChart, dates: _visaDates, labels: _visaLabels, arrays: [_visaScores] };
+    _applyViewWindow(_spChartReg['visa'], _activeDays);
+  },
+
+  fc: function() {
+    if (!_fcData || !_fcData.labels || !_fcData.labels.length) return;
+
+    function lsiDs(data) {
+      return { label: 'LSI %', data: data, borderColor: '#6b7280', backgroundColor: 'transparent', borderDash: [5,4], borderWidth: 1.5, pointRadius: 4, yAxisID: 'lsi', tension: 0.2 };
+    }
+    function fcOpts(yLabel, yMax) {
+      return {
+        responsive: true,
+        scales: { x: { ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 8 } }, y: { min: 0, suggestedMax: yMax, title: { display: true, text: yLabel } } },
+        plugins: { legend: { position: 'bottom' }, zoom: { zoom: { wheel: { enabled: true, speed: 0.1 }, pinch: { enabled: true }, mode: 'x' }, pan: { enabled: true, mode: 'x' }, limits: {} } },
+      };
+    }
+    function withLsi(opts) {
+      opts.scales.lsi = { position: 'right', min: 0, suggestedMax: 120, title: { display: true, text: 'LSI %' }, grid: { drawOnChartArea: false } };
+      return opts;
+    }
+
+    (function() {
+      var ctx = document.getElementById('spCrChart'); if (!ctx) return;
+      var ds = [
+        { label: 'Affected',   data: _fcData.calf_raise.affected,   borderColor: '#dc2626', backgroundColor: 'rgba(220,38,38,0.08)', pointRadius: 4, tension: 0.2, fill: false },
+        { label: 'Unaffected', data: _fcData.calf_raise.unaffected, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,0.08)', pointRadius: 4, tension: 0.2, fill: false },
+      ];
+      var hasBoth = _fcData.calf_raise.lsi.some(function(v){ return v !== null; });
+      if (hasBoth) ds.push(lsiDs(_fcData.calf_raise.lsi));
+      var opts = fcOpts('Reps', 40); if (hasBoth) withLsi(opts);
+      window._spCrChart = new Chart(ctx, { type: 'line', data: { labels: _fcData.labels, datasets: ds }, options: opts });
+      var arrays = [_fcData.calf_raise.affected, _fcData.calf_raise.unaffected];
+      if (hasBoth) arrays.push(_fcData.calf_raise.lsi);
+      _spChartReg['fc-cr'] = { chart: window._spCrChart, dates: _fcData.dates, labels: _fcData.labels, arrays: arrays };
+      _applyViewWindow(_spChartReg['fc-cr'], _activeDays);
+    })();
+
+    (function() {
+      var ctx = document.getElementById('spWbltChart'); if (!ctx) return;
+      var ds = [
+        { label: 'Affected',   data: _fcData.wblt.affected,   borderColor: '#7c3aed', backgroundColor: 'rgba(124,58,237,0.08)', pointRadius: 4, tension: 0.2, fill: false },
+        { label: 'Unaffected', data: _fcData.wblt.unaffected, borderColor: '#0ea5e9', backgroundColor: 'rgba(14,165,233,0.08)', pointRadius: 4, tension: 0.2, fill: false },
+      ];
+      var hasBoth = _fcData.wblt.lsi.some(function(v){ return v !== null; });
+      if (hasBoth) ds.push(lsiDs(_fcData.wblt.lsi));
+      var opts = fcOpts('cm', 20); if (hasBoth) withLsi(opts);
+      opts.plugins.annotation = { annotations: { threshold: { type: 'line', yMin: 10, yMax: 10, borderColor: '#f59e0b', borderWidth: 1.5, borderDash: [4,3], label: { content: '10 cm', display: true, position: 'start', font: { size: 10 } } } } };
+      window._spWbltChart = new Chart(ctx, { type: 'line', data: { labels: _fcData.labels, datasets: ds }, options: opts });
+      var arrays = [_fcData.wblt.affected, _fcData.wblt.unaffected];
+      if (hasBoth) arrays.push(_fcData.wblt.lsi);
+      _spChartReg['fc-wblt'] = { chart: window._spWbltChart, dates: _fcData.dates, labels: _fcData.labels, arrays: arrays };
+      _applyViewWindow(_spChartReg['fc-wblt'], _activeDays);
+    })();
+
+    (function() {
+      var ctx = document.getElementById('spHopDistChart'); if (!ctx) return;
+      var ds = [
+        { label: 'Double-leg',    data: _fcData.hop_distance.double,      borderColor: '#0284c7', backgroundColor: 'rgba(2,132,199,0.08)',  pointRadius: 4, tension: 0.2, fill: false },
+        { label: 'Single (aff)',  data: _fcData.hop_distance.single,      borderColor: '#ea580c', backgroundColor: 'rgba(234,88,12,0.08)',  pointRadius: 4, tension: 0.2, fill: false },
+        { label: 'Single (unaff)', data: _fcData.hop_distance.unaffected, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,0.08)', pointRadius: 4, tension: 0.2, fill: false, borderDash: [5,3] },
+      ];
+      var hasBoth = _fcData.hop_distance.lsi.some(function(v){ return v !== null; });
+      if (hasBoth) ds.push(lsiDs(_fcData.hop_distance.lsi));
+      var opts = fcOpts('in', 500); opts.scales.y.max = 500; opts.scales.y.ticks = { stepSize: 100 };
+      if (hasBoth) withLsi(opts);
+      window._spHopDistChart = new Chart(ctx, { type: 'line', data: { labels: _fcData.labels, datasets: ds }, options: opts });
+      var arrays = [_fcData.hop_distance.double, _fcData.hop_distance.single, _fcData.hop_distance.unaffected];
+      if (hasBoth) arrays.push(_fcData.hop_distance.lsi);
+      _spChartReg['fc-hop-dist'] = { chart: window._spHopDistChart, dates: _fcData.dates, labels: _fcData.labels, arrays: arrays };
+      _applyViewWindow(_spChartReg['fc-hop-dist'], _activeDays);
+    })();
+
+    (function() {
+      var ctx = document.getElementById('spHopEndChart'); if (!ctx) return;
+      var ds = [
+        { label: 'Double-leg',    data: _fcData.hop_endurance.double,      borderColor: '#0284c7', backgroundColor: 'rgba(2,132,199,0.08)', pointRadius: 4, tension: 0.2, fill: false },
+        { label: 'Single (aff)',   data: _fcData.hop_endurance.single,     borderColor: '#ea580c', backgroundColor: 'rgba(234,88,12,0.08)', pointRadius: 4, tension: 0.2, fill: false },
+        { label: 'Single (unaff)', data: _fcData.hop_endurance.unaffected, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,0.08)', pointRadius: 4, tension: 0.2, fill: false, borderDash: [5,3] },
+      ];
+      var hasBoth = _fcData.hop_endurance.lsi.some(function(v){ return v !== null; });
+      if (hasBoth) ds.push(lsiDs(_fcData.hop_endurance.lsi));
+      var opts = fcOpts('Reps', 500); opts.scales.y.max = 500; opts.scales.y.ticks = { stepSize: 100 };
+      if (hasBoth) withLsi(opts);
+      window._spHopEndChart = new Chart(ctx, { type: 'line', data: { labels: _fcData.labels, datasets: ds }, options: opts });
+      var arrays = [_fcData.hop_endurance.double, _fcData.hop_endurance.single, _fcData.hop_endurance.unaffected];
+      if (hasBoth) arrays.push(_fcData.hop_endurance.lsi);
+      _spChartReg['fc-hop-end'] = { chart: window._spHopEndChart, dates: _fcData.dates, labels: _fcData.labels, arrays: arrays };
+      _applyViewWindow(_spChartReg['fc-hop-end'], _activeDays);
+    })();
+  },
+};
+
+// ── Modal functions ───────────────────────────────────────────────────────────
+function openDismissModal() {
+  document.getElementById('dismiss-modal').classList.remove('hidden');
+  document.getElementById('dismiss-step-1').classList.remove('hidden');
+  document.getElementById('dismiss-step-2').classList.add('hidden');
+  document.querySelectorAll('input[name="dismiss_reason"]').forEach(function(r) { r.checked = false; });
+}
+function closeDismissModal() { document.getElementById('dismiss-modal').classList.add('hidden'); }
+
+function advanceDismissStep() {
+  var selected = document.querySelector('input[name="dismiss_reason"]:checked');
+  if (!selected) { alert('Please select a reason before continuing.'); return; }
+  document.getElementById('dismiss-reason-label').textContent = _REASON_LABELS[selected.value] || selected.value;
+  document.getElementById('dismiss-step-1').classList.add('hidden');
+  document.getElementById('dismiss-step-2').classList.remove('hidden');
+}
+function backDismissStep() {
+  document.getElementById('dismiss-step-2').classList.add('hidden');
+  document.getElementById('dismiss-step-1').classList.remove('hidden');
+}
+function confirmDismiss() {
+  var selected = document.querySelector('input[name="dismiss_reason"]:checked');
+  if (!selected) return;
+  var btn = document.getElementById('dismiss-confirm-btn');
+  btn.disabled = true; btn.textContent = 'Dismissing…';
+  fetch('/supervisor/patients/' + _PATIENT_ID + '/dismiss', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({reason: selected.value}),
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.ok) { window.location.href = '/supervisor/dashboard'; }
+    else { btn.disabled = false; btn.textContent = 'Confirm Dismiss'; alert('Error: ' + (data.error || 'Could not dismiss.')); }
+  })
+  .catch(function() { btn.disabled = false; btn.textContent = 'Confirm Dismiss'; alert('Network error.'); });
+}
+document.getElementById('dismiss-modal').addEventListener('click', function(e) { if (e.target === this) closeDismissModal(); });
+
+function openReinstateModal() { document.getElementById('reinstate-modal').classList.remove('hidden'); }
+function confirmReinstate() {
+  var btn = document.getElementById('reinstate-confirm-btn');
+  btn.disabled = true; btn.textContent = 'Reinstating…';
+  fetch('/supervisor/patients/' + _PATIENT_ID + '/reinstate', {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}',
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.ok) { window.location.href = '/supervisor/dashboard'; }
+    else { btn.disabled = false; btn.textContent = 'Reinstate'; alert('Error: ' + (data.error || 'Could not reinstate.')); }
+  })
+  .catch(function() { btn.disabled = false; btn.textContent = 'Reinstate'; alert('Network error.'); });
+}
+
+function openDeleteModal() { document.getElementById('delete-modal').classList.remove('hidden'); }
+function confirmDelete() {
+  var btn = document.getElementById('delete-confirm-btn');
+  btn.disabled = true; btn.textContent = 'Deleting…';
+  fetch('/supervisor/patients/' + _PATIENT_ID + '/delete-profile', {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}',
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.ok) { window.location.href = '/supervisor/dashboard'; }
+    else { btn.disabled = false; btn.textContent = 'Delete Permanently'; alert('Error: ' + (data.error || 'Could not delete.')); }
+  })
+  .catch(function() { btn.disabled = false; btn.textContent = 'Delete Permanently'; alert('Network error.'); });
+}
+
+// Trends tile is open on load — init the default pain chart immediately
+_initTab('pain');
+
+// ── Case note + history ───────────────────────────────────────────────────────
+var _caseNotesHistory      = {{ patient.case_notes_history | tojson | safe }};
+var _assessCommentsHistory = {{ patient.assessment_comments_history | tojson | safe }};
+
+(function () {
+  var ta = document.getElementById('cn-text');
+  if (ta) {
+    ta.addEventListener('input', function () {
+      document.getElementById('cn-chars').textContent = this.value.length;
+    });
+  }
+})();
+
+function _esc(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+async function saveCaseNote() {
+  var ta  = document.getElementById('cn-text');
+  var btn = document.getElementById('cn-save-btn');
+  var suc = document.getElementById('cn-success');
+  var err = document.getElementById('cn-error');
+  var note = ta ? ta.value.trim() : '';
+  if (!note) return;
+
+  suc.classList.add('hidden');
+  err.classList.add('hidden');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  try {
+    var res  = await fetch('/supervisor/patients/' + _PATIENT_ID + '/case-note', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: 'note=' + encodeURIComponent(note),
+    });
+    var data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Save failed');
+
+    var entry = {note: note, created_at: data.created_at};
+    _caseNotesHistory.unshift(entry);
+
+    // Update the latest-note preview panel
+    document.getElementById('cn-latest-text').textContent = note;
+    document.getElementById('cn-latest-date').textContent = data.created_at;
+    document.getElementById('cn-latest-preview').classList.remove('hidden');
+
+    ta.value = '';
+    document.getElementById('cn-chars').textContent = '0';
+    suc.classList.remove('hidden');
+    setTimeout(function () { suc.classList.add('hidden'); }, 3000);
+  } catch (e) {
+    err.textContent = e.message || 'Could not save — please try again.';
+    err.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save Note';
+  }
+}
+
+function openHistoryModal(type) {
+  var isCaseNotes = type === 'case-notes';
+  var data  = isCaseNotes ? _caseNotesHistory : _assessCommentsHistory;
+  var title = isCaseNotes ? 'Case Note History' : 'Patient Comment History';
+  var accent = isCaseNotes ? 'brand' : 'amber';
+
+  document.getElementById('hist-title').textContent = title;
+  document.getElementById('hist-count').textContent =
+    data.length + ' entr' + (data.length === 1 ? 'y' : 'ies');
+
+  var list = document.getElementById('hist-list');
+  if (!data.length) {
+    list.innerHTML = '<p class="text-sm text-gray-400 text-center py-8">No history yet.</p>';
+  } else {
+    list.innerHTML = data.map(function (entry, i) {
+      var isLatest = i === 0;
+      var bgDate   = isCaseNotes ? 'bg-brand-50 text-brand-700' : 'bg-amber-50 text-amber-700';
+      var bgBody   = isCaseNotes ? 'text-gray-700' : 'text-amber-900';
+      return '<div class="rounded-xl border border-gray-100 overflow-hidden">' +
+        '<div class="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-100">' +
+          '<span class="text-[0.65rem] font-bold text-gray-500 uppercase tracking-wide">' + _esc(entry.created_at) + '</span>' +
+          (isLatest ? '<span class="text-[0.55rem] font-bold px-1.5 py-0.5 rounded-full ' + bgDate + '">Latest</span>' : '') +
+        '</div>' +
+        '<div class="px-3 py-2.5">' +
+          '<p class="text-sm ' + bgBody + ' leading-relaxed whitespace-pre-wrap">' + _esc(entry.note) + '</p>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  document.getElementById('history-modal').style.display = '';
+}
+
+function closeHistoryModal() {
+  document.getElementById('history-modal').style.display = 'none';
+}
+
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') closeHistoryModal();
+});
+</script>
+{% endblock %}

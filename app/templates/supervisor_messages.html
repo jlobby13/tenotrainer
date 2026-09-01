@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+{% block title %}Messages — TenoTrainer{% endblock %}
+{% block main_class %}max-w-5xl{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-4">
+
+  <!-- Page header -->
+  <div class="bg-gradient-to-r from-brand-700 to-brand-500 rounded-2xl px-6 py-5 shadow">
+    <h1 class="text-2xl font-black text-white leading-tight">Messages</h1>
+    <p class="text-brand-200 text-sm mt-1">Patient conversations</p>
+  </div>
+
+  <!-- Two-column layout -->
+  <div class="flex flex-col sm:flex-row gap-4 items-start">
+
+    <!-- Left: patient list sidebar -->
+    <div class="w-full sm:w-64 shrink-0 bg-white rounded-2xl shadow border border-gray-100 overflow-hidden">
+      <div class="px-4 py-3 border-b border-gray-100">
+        <h2 class="text-xs font-bold text-gray-500 uppercase tracking-widest">Conversations</h2>
+      </div>
+      <div class="divide-y divide-gray-50" id="conv-list">
+        {% if not patients %}
+        <p class="px-4 py-6 text-sm text-gray-400 text-center">No active patients</p>
+        {% endif %}
+        {% for p in patients %}
+        <button type="button"
+                id="conv-btn-{{ p.id }}"
+                data-pid="{{ p.id }}"
+                data-name="{{ p.name }}"
+                data-email="{{ p.email }}"
+                onclick="selectConv(+this.dataset.pid, this.dataset.name, this.dataset.email)"
+                class="w-full text-left flex items-center gap-3 px-4 py-3 hover:bg-brand-50 transition-colors conv-item">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between gap-1 mb-0.5">
+              <p class="text-sm font-semibold text-gray-800 truncate conv-name">{{ p.name }}</p>
+              <span id="unread-{{ p.id }}"
+                    class="shrink-0 min-w-[1.25rem] h-4 px-1 bg-red-500 text-white text-[0.55rem] font-black rounded-full flex items-center justify-center leading-none
+                           {% if not p.unread or p.unread == 0 %}hidden{% endif %}">
+                {{ p.unread or 0 }}
+              </span>
+            </div>
+            {% if p.last_msg_body %}
+            <p id="preview-{{ p.id }}" class="text-[0.7rem] text-gray-400 truncate leading-snug">{{ p.last_msg_body }}{% if p.last_msg_body | length >= 60 %}…{% endif %}</p>
+            {% else %}
+            <p id="preview-{{ p.id }}" class="text-[0.7rem] text-gray-300 italic">No messages yet</p>
+            {% endif %}
+          </div>
+        </button>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Right: conversation panel -->
+    <div class="flex-1 min-w-0" id="conv-panel">
+      <!-- Empty state — replaced by JS when a conversation is selected -->
+      <div id="conv-empty" class="bg-white rounded-2xl shadow border border-gray-100 px-6 py-16 text-center">
+        <svg class="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z"/>
+        </svg>
+        <p class="text-gray-400 text-sm">Select a patient to view the conversation</p>
+      </div>
+
+      <div id="conv-view" class="hidden bg-white rounded-2xl shadow border border-gray-100 overflow-hidden flex flex-col">
+
+        <!-- Conversation header -->
+        <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
+          <div>
+            <p id="conv-header-name" class="font-bold text-gray-800"></p>
+            <p id="conv-header-email" class="text-xs text-gray-400"></p>
+          </div>
+          <a id="conv-profile-link" href="#"
+             class="text-xs text-brand-600 hover:text-brand-700 font-semibold transition-colors">
+            Patient profile →
+          </a>
+        </div>
+
+        <!-- Loading indicator -->
+        <div id="conv-loading" class="hidden px-4 py-8 text-center">
+          <div class="inline-block w-6 h-6 border-2 border-brand-400 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+
+        <!-- Chat area -->
+        <div id="conv-messages" class="flex-1 max-h-96 overflow-y-auto px-4 py-5 space-y-3 bg-gray-50">
+        </div>
+
+        <!-- Send form -->
+        <div class="border-t border-gray-100 px-4 py-4 shrink-0">
+          <form id="send-form" onsubmit="sendMsg(event)" class="flex flex-col gap-2">
+            <textarea
+              id="msg-body"
+              name="body"
+              rows="3"
+              maxlength="2000"
+              placeholder="Type a message…"
+              required
+              class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-800 resize-none focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400 transition-colors"
+            ></textarea>
+            <div class="flex justify-end">
+              <button id="send-btn" type="submit"
+                      class="px-5 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold rounded-xl transition-colors disabled:opacity-50">
+                Send
+              </button>
+            </div>
+          </form>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var _activeId = null;
+  var _activeName = '';
+  var _supId = {{ user.id }};
+
+  // ---- helpers ----
+  function _escHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+      .replace(/\n/g, '<br>');
+  }
+
+  function _bubble(msg, ptName) {
+    if (msg.is_mine) {
+      return '<div class="flex justify-end">' +
+        '<div class="max-w-[75%]">' +
+          '<div class="bg-brand-600 text-white rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm leading-relaxed">' + _escHtml(msg.body) + '</div>' +
+          '<p class="text-right text-xs text-gray-400 mt-1 mr-1">' + _escHtml(msg.created_at) + '</p>' +
+        '</div>' +
+      '</div>';
+    } else {
+      return '<div class="flex justify-start">' +
+        '<div class="max-w-[75%]">' +
+          '<p class="text-xs font-semibold text-brand-600 mb-1 ml-1">' + _escHtml(ptName || '') + '</p>' +
+          '<div class="bg-white border border-gray-200 text-gray-800 rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm leading-relaxed shadow-sm">' + _escHtml(msg.body) + '</div>' +
+          '<p class="text-xs text-gray-400 mt-1 ml-1">' + _escHtml(msg.created_at) + '</p>' +
+        '</div>' +
+      '</div>';
+    }
+  }
+
+  function _scrollBottom() {
+    var el = document.getElementById('conv-messages');
+    if (el) el.scrollTop = el.scrollHeight;
+  }
+
+  function _setLoading(on) {
+    document.getElementById('conv-loading').classList.toggle('hidden', !on);
+    document.getElementById('conv-messages').classList.toggle('hidden', on);
+  }
+
+  function _setActive(pid) {
+    document.querySelectorAll('.conv-item').forEach(function (btn) {
+      var isActive = btn.id === 'conv-btn-' + pid;
+      btn.classList.toggle('bg-brand-50', isActive);
+      btn.classList.toggle('border-l-2', isActive);
+      btn.classList.toggle('border-brand-500', isActive);
+    });
+  }
+
+  function _clearUnread(pid) {
+    var badge = document.getElementById('unread-' + pid);
+    if (badge) badge.classList.add('hidden');
+  }
+
+  // ---- main select ----
+  window.selectConv = function (pid, name, email) {
+    if (_activeId === pid) return;
+    _activeId = pid;
+    _activeName = name;
+
+    // Show conversation view
+    document.getElementById('conv-empty').classList.add('hidden');
+    document.getElementById('conv-view').classList.remove('hidden');
+
+    // Update header
+    document.getElementById('conv-header-name').textContent = name;
+    document.getElementById('conv-header-email').textContent = email;
+    document.getElementById('conv-profile-link').href = '/supervisor/patients/' + pid;
+
+    _setActive(pid);
+    _setLoading(true);
+
+    // Push URL without reload
+    history.pushState({pid: pid, name: name, email: email}, '', '/supervisor/messages/' + pid);
+
+    // Fetch conversation
+    fetch('/supervisor/api/messages/' + pid, {credentials: 'same-origin'})
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        _setLoading(false);
+        if (!data.ok) { return; }
+        var area = document.getElementById('conv-messages');
+        if (data.messages.length === 0) {
+          area.innerHTML = '<p class="text-center text-sm text-gray-400 py-8">No messages yet — send one below</p>';
+        } else {
+          area.innerHTML = data.messages.map(function (m) { return _bubble(m, name); }).join('');
+        }
+        _scrollBottom();
+        _clearUnread(pid);
+      })
+      .catch(function () {
+        _setLoading(false);
+        document.getElementById('conv-messages').innerHTML =
+          '<p class="text-center text-sm text-red-400 py-8">Failed to load messages</p>';
+      });
+  };
+
+  // ---- send ----
+  window.sendMsg = function (e) {
+    e.preventDefault();
+    if (!_activeId) return;
+    var bodyEl = document.getElementById('msg-body');
+    var btn = document.getElementById('send-btn');
+    var text = bodyEl.value.trim();
+    if (!text) return;
+
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+
+    fetch('/supervisor/api/messages/' + _activeId + '/send', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({body: text}),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        btn.disabled = false;
+        btn.textContent = 'Send';
+        if (!data.ok) { return; }
+        bodyEl.value = '';
+        var area = document.getElementById('conv-messages');
+        // Remove empty state if present
+        var empty = area.querySelector('p.text-center');
+        if (empty) area.innerHTML = '';
+        area.insertAdjacentHTML('beforeend', _bubble(data.message, _activeName));
+        _scrollBottom();
+        // Update sidebar preview
+        var preview = document.getElementById('preview-' + _activeId);
+        if (preview) {
+          preview.className = 'text-[0.7rem] text-gray-400 truncate leading-snug';
+          preview.textContent = text.substring(0, 60) + (text.length > 60 ? '…' : '');
+        }
+      })
+      .catch(function () {
+        btn.disabled = false;
+        btn.textContent = 'Send';
+      });
+  };
+
+  // ---- keyboard shortcut: Ctrl+Enter / Cmd+Enter to send ----
+  document.getElementById('msg-body').addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      document.getElementById('send-form').dispatchEvent(new Event('submit', {cancelable: true, bubbles: true}));
+    }
+  });
+
+  // ---- handle browser back/forward ----
+  window.addEventListener('popstate', function (e) {
+    if (e.state && e.state.pid) {
+      selectConv(e.state.pid, e.state.name, e.state.email);
+    } else {
+      _activeId = null;
+      document.getElementById('conv-empty').classList.remove('hidden');
+      document.getElementById('conv-view').classList.add('hidden');
+    }
+  });
+
+  // ---- auto-load if URL has a patient ID ----
+  (function () {
+    var m = location.pathname.match(/\/supervisor\/messages\/(\d+)/);
+    if (!m) return;
+    var pid = parseInt(m[1], 10);
+    var btn = document.getElementById('conv-btn-' + pid);
+    if (!btn) return;
+    var nameEl = btn.querySelector('.conv-name');
+    var emailEl = null; // email not in sidebar button — fetch from header after load
+    selectConv(pid, nameEl ? nameEl.textContent.trim() : '', '');
+  })();
+})();
+</script>
+{% endblock %}

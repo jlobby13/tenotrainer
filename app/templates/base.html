@@ -1,9 +1,670 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="ocean">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{% block title %}TenoTrainer{% endblock %}</title>
+
+  <!-- ── Theme CSS variables ────────────────────────────────────────────────
+       Each variable is a raw "R G B" triplet so Tailwind can apply opacity:
+         bg-brand-600/50  →  background: rgb(var(--brand-600) / 0.5)
+       Applied BEFORE the Tailwind CDN script so brand-* classes resolve on
+       first paint. Saved theme is applied inline below before first paint.
+  ──────────────────────────────────────────────────────────────────────── -->
+  <style>
+
+    /* ══════════════════════════════════════════════════════════
+       LIGHT THEMES
+       ══════════════════════════════════════════════════════════ */
+
+    :root,
+    [data-theme="ocean"] {
+      --brand-50:  240 249 255;
+      --brand-100: 224 242 254;
+      --brand-200: 186 230 253;
+      --brand-300: 125 211 252;
+      --brand-400:  56 189 248;
+      --brand-500:  14 165 233;
+      --brand-600:   2 132 199;
+      --brand-700:   3 105 161;
+      --brand-800:   7  89 133;
+      --brand-900:  12  74 110;
+    }
+
+    [data-theme="forest"] {
+      --brand-50:  240 253 244;
+      --brand-100: 220 252 231;
+      --brand-200: 187 247 208;
+      --brand-300: 134 239 172;
+      --brand-400:  74 222 128;
+      --brand-500:  34 197  94;
+      --brand-600:  22 163  74;
+      --brand-700:  21 128  61;
+      --brand-800:  22 101  52;
+      --brand-900:  20  83  45;
+    }
+
+    [data-theme="sunset"] {
+      --brand-50:  255 247 237;
+      --brand-100: 255 237 213;
+      --brand-200: 254 215 170;
+      --brand-300: 253 186 116;
+      --brand-400: 251 146  60;
+      --brand-500: 249 115  22;
+      --brand-600: 234  88  12;
+      --brand-700: 194  65  12;
+      --brand-800: 154  52  18;
+      --brand-900: 124  45  18;
+    }
+
+    [data-theme="slate"] {
+      --brand-50:  248 250 252;
+      --brand-100: 241 245 249;
+      --brand-200: 226 232 240;
+      --brand-300: 203 213 225;
+      --brand-400: 148 163 184;
+      --brand-500: 100 116 139;
+      --brand-600:  71  85 105;
+      --brand-700:  51  65  85;
+      --brand-800:  30  41  59;
+      --brand-900:  15  23  42;
+    }
+
+    [data-theme="violet"] {
+      --brand-50:  245 243 255;
+      --brand-100: 237 233 254;
+      --brand-200: 221 214 254;
+      --brand-300: 196 181 253;
+      --brand-400: 167 139 250;
+      --brand-500: 139  92 246;
+      --brand-600: 124  58 237;
+      --brand-700: 109  40 217;
+      --brand-800:  91  33 182;
+      --brand-900:  76  29 149;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       DARK THEMES — brand palette
+       ─────────────────────────────────────────────────────────
+       Key design decisions:
+         brand-50/100  → very dark tinted surface (sunken panels)
+         brand-200     → KEPT LIGHT for nav text (text-brand-200)
+         brand-300-600 → vibrant (readable on dark cards)
+         brand-700     → VERY DARK for nav background (bg-brand-700)
+         brand-800/900 → darkest
+       ══════════════════════════════════════════════════════════ */
+
+    [data-theme="ocean-dark"] {
+      --brand-50:   5  12  25;
+      --brand-100:  8  20  42;
+      --brand-200: 186 230 253;   /* sky-200 — light, for nav text */
+      --brand-300: 125 211 252;
+      --brand-400:  56 189 248;   /* vibrant — used by text-brand-700 override */
+      --brand-500:  14 165 233;
+      --brand-600:   2 132 199;   /* same as light — CTA buttons */
+      --brand-700:   5  25  50;   /* very dark navy — nav bg */
+      --brand-800:   3  14  30;
+      --brand-900:   2   8  18;
+    }
+
+    [data-theme="forest-dark"] {
+      --brand-50:   3  12   6;
+      --brand-100:  5  20  10;
+      --brand-200: 187 247 208;   /* green-200 — light */
+      --brand-300: 134 239 172;
+      --brand-400:  74 222 128;
+      --brand-500:  34 197  94;
+      --brand-600:  22 163  74;
+      --brand-700:   4  28  14;   /* very dark green */
+      --brand-800:   2  16   8;
+      --brand-900:   1   8   4;
+    }
+
+    [data-theme="sunset-dark"] {
+      --brand-50:  18   6   2;
+      --brand-100: 30  10   3;
+      --brand-200: 254 215 170;   /* orange-200 — light */
+      --brand-300: 253 186 116;
+      --brand-400: 251 146  60;
+      --brand-500: 249 115  22;
+      --brand-600: 234  88  12;
+      --brand-700:  38  12   3;   /* very dark burnt orange */
+      --brand-800:  22   6   1;
+      --brand-900:  12   3   1;
+    }
+
+    [data-theme="slate-dark"] {
+      --brand-50:   8  10  16;
+      --brand-100: 12  16  26;
+      --brand-200: 203 213 225;   /* slate-300 — light */
+      --brand-300: 168 180 195;   /* brightened for text use */
+      --brand-400: 148 163 184;   /* slate-400 — vibrant enough for text on dark */
+      --brand-500: 100 116 139;   /* slate-500 */
+      --brand-600:  71  85 105;   /* slate-600 — CTA button bg (white text = 4.7:1) */
+      --brand-700:   8  12  22;   /* near-black slate — nav bg */
+      --brand-800:   5   7  14;
+      --brand-900:   2   4   8;
+    }
+
+    [data-theme="violet-dark"] {
+      --brand-50:  12   5  28;
+      --brand-100: 20   8  48;
+      --brand-200: 221 214 254;   /* violet-200 — light */
+      --brand-300: 196 181 253;
+      --brand-400: 167 139 250;
+      --brand-500: 139  92 246;
+      --brand-600: 124  58 237;
+      --brand-700:  20   8  52;   /* very dark purple */
+      --brand-800:  12   4  32;
+      --brand-900:   7   2  18;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       DARK SURFACE OVERRIDES
+       Applies to ALL -dark themes via the $= (ends-with) selector.
+       Overrides Tailwind's generated gray/white classes so every
+       card, panel, text, and border adapts automatically.
+       ══════════════════════════════════════════════════════════ */
+
+    /* Page & surface backgrounds */
+    [data-theme$="-dark"] body                { background-color: #0c1220; color: #f8fafc; }
+    [data-theme$="-dark"] .bg-white           { background-color: #18243a !important; }
+    [data-theme$="-dark"] .bg-gray-50         { background-color: #0c1220 !important; }
+    [data-theme$="-dark"] .bg-gray-100        { background-color: #1a2540 !important; }
+    [data-theme$="-dark"] .bg-gray-200        { background-color: #22304e !important; }
+    [data-theme$="-dark"] .bg-gray-50\/60     { background-color: rgb(255 255 255 / 0.03) !important; }
+    [data-theme$="-dark"] .bg-gray-50\/80     { background-color: rgb(255 255 255 / 0.04) !important; }
+    /* Ring offset — default offset colour is #fff which shows as a white halo in dark mode */
+    [data-theme$="-dark"] .ring-offset-1 { --tw-ring-offset-color: #18243a !important; }
+    [data-theme$="-dark"] .ring-offset-2 { --tw-ring-offset-color: #18243a !important; }
+    [data-theme$="-dark"] .ring-offset-4 { --tw-ring-offset-color: #18243a !important; }
+
+    /* Hover states for gray/white — tile headers, menu items, buttons */
+    [data-theme$="-dark"] .hover\:bg-white:hover      { background-color: #1e2d48 !important; }
+    [data-theme$="-dark"] .hover\:bg-gray-50:hover    { background-color: #1e2d48 !important; }
+    [data-theme$="-dark"] .hover\:bg-gray-50\/60:hover { background-color: rgb(255 255 255 / 0.04) !important; }
+    [data-theme$="-dark"] .hover\:bg-gray-50\/80:hover { background-color: rgb(255 255 255 / 0.05) !important; }
+    [data-theme$="-dark"] .hover\:bg-gray-100:hover   { background-color: #22304e !important; }
+    [data-theme$="-dark"] .hover\:bg-gray-200:hover   { background-color: #2a3d5e !important; }
+
+    /* Text — maximised for dark surface readability.
+       gray-500/400 are the most-used "muted" shades — pushed to slate-300/400
+       so captions, labels, and secondary copy are always comfortable to read. */
+    [data-theme$="-dark"] .text-gray-900      { color: #ffffff   !important; }
+    [data-theme$="-dark"] .text-gray-800      { color: #f8fafc   !important; }
+    [data-theme$="-dark"] .text-gray-700      { color: #f1f5f9   !important; }
+    [data-theme$="-dark"] .text-gray-600      { color: #e2e8f0   !important; }
+    [data-theme$="-dark"] .text-gray-500      { color: #cbd5e1   !important; }
+    [data-theme$="-dark"] .text-gray-400      { color: #94a3b8   !important; }
+    [data-theme$="-dark"] .text-gray-300      { color: #64748b   !important; }
+    [data-theme$="-dark"] .text-black         { color: #ffffff   !important; }
+
+    /* Borders */
+    [data-theme$="-dark"] .border-gray-100    { border-color: rgb(255 255 255 / 0.07) !important; }
+    [data-theme$="-dark"] .border-gray-200    { border-color: rgb(255 255 255 / 0.10) !important; }
+    [data-theme$="-dark"] .border-gray-300    { border-color: rgb(255 255 255 / 0.15) !important; }
+    [data-theme$="-dark"] .divide-gray-100    { --tw-divide-opacity: 1; border-color: rgb(255 255 255 / 0.07) !important; }
+    [data-theme$="-dark"] .divide-gray-200    { border-color: rgb(255 255 255 / 0.10) !important; }
+
+    /* Shadows — stronger contrast on dark bg */
+    [data-theme$="-dark"] .shadow             { box-shadow: 0 1px 3px 0 rgb(0 0 0/.5), 0 1px 2px -1px rgb(0 0 0/.5) !important; }
+    [data-theme$="-dark"] .shadow-md          { box-shadow: 0 4px 6px -1px rgb(0 0 0/.6), 0 2px 4px -2px rgb(0 0 0/.6) !important; }
+    [data-theme$="-dark"] .shadow-lg          { box-shadow: 0 10px 15px -3px rgb(0 0 0/.6), 0 4px 6px -4px rgb(0 0 0/.6) !important; }
+    [data-theme$="-dark"] .shadow-2xl         { box-shadow: 0 25px 50px -12px rgb(0 0 0/.8) !important; }
+
+    /* Flip brand text shades — brand-600 through 900 are mid-to-dark values
+       designed for use on LIGHT backgrounds; on dark cards they need to be
+       redirected to the lighter, vibrant end of the dark palette. */
+    [data-theme$="-dark"] .text-brand-600     { color: rgb(var(--brand-400)) !important; }
+    [data-theme$="-dark"] .text-brand-700     { color: rgb(var(--brand-400)) !important; }
+    [data-theme$="-dark"] .text-brand-800     { color: rgb(var(--brand-300)) !important; }
+    [data-theme$="-dark"] .text-brand-900     { color: rgb(var(--brand-200)) !important; }
+
+    /* Divide-gray-50 — rehab plan row dividers */
+    [data-theme$="-dark"] .divide-gray-50 > * + * { border-color: rgb(255 255 255 / 0.06) !important; }
+
+    /* Tile / section headers — bg-brand-700 inside <main> should be vibrant, not near-black */
+    [data-theme$="-dark"] main .bg-brand-700 { background-color: rgb(var(--brand-600) / 0.85) !important; }
+
+    /* Semantic colour backgrounds — badges, status boxes, notices */
+    /* Sky */
+    [data-theme$="-dark"] .bg-sky-50   { background-color: rgb(2 132 199 / 0.12) !important; }
+    [data-theme$="-dark"] .bg-sky-100  { background-color: rgb(2 132 199 / 0.18) !important; }
+    [data-theme$="-dark"] .bg-sky-200  { background-color: rgb(2 132 199 / 0.25) !important; }
+    [data-theme$="-dark"] .bg-sky-300  { background-color: rgb(14 165 233 / 0.30) !important; }
+    /* Blue */
+    [data-theme$="-dark"] .bg-blue-50\/40  { background-color: rgb(37 99 235 / 0.10) !important; }
+    [data-theme$="-dark"] .bg-blue-50\/60  { background-color: rgb(37 99 235 / 0.10) !important; }
+    [data-theme$="-dark"] .bg-blue-50      { background-color: rgb(37 99 235 / 0.12) !important; }
+    /* Opacity variants for table column tints and checklist rows */
+    [data-theme$="-dark"] .bg-green-50\/60 { background-color: rgb(22 163 74 / 0.10) !important; }
+    [data-theme$="-dark"] .bg-red-50\/60   { background-color: rgb(220 38 38 / 0.10) !important; }
+    [data-theme$="-dark"] .bg-red-50\/20   { background-color: rgb(220 38 38 / 0.05) !important; }
+    [data-theme$="-dark"] .bg-sky-50\/20   { background-color: rgb(2 132 199 / 0.05) !important; }
+    [data-theme$="-dark"] .bg-brand-50\/20 { background-color: rgb(var(--brand-600) / 0.05) !important; }
+    [data-theme$="-dark"] .hover\:bg-blue-50:hover { background-color: rgb(37 99 235 / 0.20) !important; }
+    [data-theme$="-dark"] .bg-blue-100 { background-color: rgb(37 99 235 / 0.18) !important; }
+    [data-theme$="-dark"] .bg-blue-200 { background-color: rgb(59 130 246 / 0.25) !important; }
+    [data-theme$="-dark"] .bg-blue-300 { background-color: rgb(96 165 250 / 0.30) !important; }
+    /* Indigo */
+    [data-theme$="-dark"] .bg-indigo-50  { background-color: rgb(79 70 229 / 0.12) !important; }
+    [data-theme$="-dark"] .bg-indigo-100 { background-color: rgb(79 70 229 / 0.18) !important; }
+    [data-theme$="-dark"] .bg-indigo-200 { background-color: rgb(99 102 241 / 0.25) !important; }
+    [data-theme$="-dark"] .bg-indigo-300 { background-color: rgb(129 140 248 / 0.30) !important; }
+    /* Violet */
+    [data-theme$="-dark"] .bg-violet-50  { background-color: rgb(124 58 237 / 0.10) !important; }
+    [data-theme$="-dark"] .bg-violet-100 { background-color: rgb(124 58 237 / 0.18) !important; }
+    [data-theme$="-dark"] .bg-violet-200 { background-color: rgb(139 92 246 / 0.25) !important; }
+    [data-theme$="-dark"] .bg-violet-300 { background-color: rgb(167 139 250 / 0.30) !important; }
+    /* Purple */
+    [data-theme$="-dark"] .bg-purple-50  { background-color: rgb(147 51 234 / 0.10) !important; }
+    [data-theme$="-dark"] .bg-purple-100 { background-color: rgb(147 51 234 / 0.18) !important; }
+    [data-theme$="-dark"] .bg-purple-200 { background-color: rgb(168 85 247 / 0.25) !important; }
+    /* Cyan */
+    [data-theme$="-dark"] .bg-cyan-50  { background-color: rgb(8 145 178 / 0.12) !important; }
+    [data-theme$="-dark"] .bg-cyan-100 { background-color: rgb(6 182 212 / 0.18) !important; }
+    /* Teal */
+    [data-theme$="-dark"] .bg-teal-50  { background-color: rgb(15 118 110 / 0.12) !important; }
+    [data-theme$="-dark"] .bg-teal-100 { background-color: rgb(20 184 166 / 0.18) !important; }
+    [data-theme$="-dark"] .bg-teal-200 { background-color: rgb(45 212 191 / 0.25) !important; }
+    /* Green */
+    [data-theme$="-dark"] .bg-green-50  { background-color: rgb(22 163 74 / 0.12) !important; }
+    [data-theme$="-dark"] .bg-green-100 { background-color: rgb(34 197 94 / 0.18) !important; }
+    [data-theme$="-dark"] .bg-green-200 { background-color: rgb(74 222 128 / 0.25) !important; }
+    /* Amber */
+    [data-theme$="-dark"] .bg-amber-50  { background-color: rgb(217 119 6 / 0.12) !important; }
+    [data-theme$="-dark"] .bg-amber-100 { background-color: rgb(245 158 11 / 0.18) !important; }
+    [data-theme$="-dark"] .bg-amber-200 { background-color: rgb(251 191 36 / 0.25) !important; }
+    /* Yellow */
+    [data-theme$="-dark"] .bg-yellow-50  { background-color: rgb(202 138 4 / 0.12) !important; }
+    [data-theme$="-dark"] .bg-yellow-100 { background-color: rgb(234 179 8 / 0.18) !important; }
+    /* Red */
+    [data-theme$="-dark"] .bg-red-50  { background-color: rgb(220 38 38 / 0.12) !important; }
+    [data-theme$="-dark"] .bg-red-100 { background-color: rgb(239 68 68 / 0.18) !important; }
+    [data-theme$="-dark"] .bg-red-200 { background-color: rgb(252 165 165 / 0.25) !important; }
+    /* Orange */
+    [data-theme$="-dark"] .bg-orange-50  { background-color: rgb(234 88 12 / 0.12) !important; }
+    [data-theme$="-dark"] .bg-orange-100 { background-color: rgb(249 115 22 / 0.18) !important; }
+
+    /* Semantic text colours — badges and status text */
+    [data-theme$="-dark"] .text-sky-900,   [data-theme$="-dark"] .text-sky-800   { color: #7dd3fc !important; }
+    [data-theme$="-dark"] .text-sky-700,   [data-theme$="-dark"] .text-sky-600   { color: #38bdf8 !important; }
+    [data-theme$="-dark"] .text-blue-900,  [data-theme$="-dark"] .text-blue-800  { color: #93c5fd !important; }
+    [data-theme$="-dark"] .text-blue-700,  [data-theme$="-dark"] .text-blue-600  { color: #60a5fa !important; }
+    [data-theme$="-dark"] .text-indigo-900,[data-theme$="-dark"] .text-indigo-800 { color: #a5b4fc !important; }
+    [data-theme$="-dark"] .text-indigo-700,[data-theme$="-dark"] .text-indigo-600 { color: #818cf8 !important; }
+    [data-theme$="-dark"] .text-violet-900,[data-theme$="-dark"] .text-violet-800 { color: #c4b5fd !important; }
+    [data-theme$="-dark"] .text-violet-700,[data-theme$="-dark"] .text-violet-600 { color: #a78bfa !important; }
+    [data-theme$="-dark"] .text-teal-900,  [data-theme$="-dark"] .text-teal-800  { color: #5eead4 !important; }
+    [data-theme$="-dark"] .text-teal-700,  [data-theme$="-dark"] .text-teal-600  { color: #2dd4bf !important; }
+    [data-theme$="-dark"] .text-green-900, [data-theme$="-dark"] .text-green-800 { color: #86efac !important; }
+    [data-theme$="-dark"] .text-green-700, [data-theme$="-dark"] .text-green-600 { color: #4ade80 !important; }
+    [data-theme$="-dark"] .text-amber-900, [data-theme$="-dark"] .text-amber-800 { color: #fcd34d !important; }
+    [data-theme$="-dark"] .text-amber-700, [data-theme$="-dark"] .text-amber-600 { color: #fbbf24 !important; }
+    [data-theme$="-dark"] .text-yellow-900,[data-theme$="-dark"] .text-yellow-800 { color: #fde68a !important; }
+    [data-theme$="-dark"] .text-yellow-700,[data-theme$="-dark"] .text-yellow-600 { color: #fcd34d !important; }
+    [data-theme$="-dark"] .text-red-900,   [data-theme$="-dark"] .text-red-800   { color: #fca5a5 !important; }
+    [data-theme$="-dark"] .text-red-700,   [data-theme$="-dark"] .text-red-600   { color: #f87171 !important; }
+    [data-theme$="-dark"] .text-red-500,   [data-theme$="-dark"] .text-red-400   { color: #fb7185 !important; }
+    [data-theme$="-dark"] .text-orange-900,[data-theme$="-dark"] .text-orange-800 { color: #fdba74 !important; }
+    [data-theme$="-dark"] .text-orange-700,[data-theme$="-dark"] .text-orange-600 { color: #fb923c !important; }
+    [data-theme$="-dark"] .text-cyan-900,  [data-theme$="-dark"] .text-cyan-800   { color: #a5f3fc !important; }
+    [data-theme$="-dark"] .text-cyan-700,  [data-theme$="-dark"] .text-cyan-600   { color: #22d3ee !important; }
+    [data-theme$="-dark"] .text-purple-900,[data-theme$="-dark"] .text-purple-800 { color: #d8b4fe !important; }
+    [data-theme$="-dark"] .text-purple-700,[data-theme$="-dark"] .text-purple-600 { color: #c084fc !important; }
+    [data-theme$="-dark"] .text-purple-500,[data-theme$="-dark"] .text-purple-400 { color: #a855f7 !important; }
+
+    /* Semantic borders */
+    [data-theme$="-dark"] .border-teal-100   { border-color: rgb(45 212 191 / 0.20) !important; }
+    [data-theme$="-dark"] .border-teal-200   { border-color: rgb(45 212 191 / 0.30) !important; }
+    [data-theme$="-dark"] .border-green-100  { border-color: rgb(74 222 128 / 0.20) !important; }
+    [data-theme$="-dark"] .border-green-200  { border-color: rgb(74 222 128 / 0.30) !important; }
+    [data-theme$="-dark"] .border-red-100    { border-color: rgb(252 165 165 / 0.20) !important; }
+    [data-theme$="-dark"] .border-red-200    { border-color: rgb(252 165 165 / 0.30) !important; }
+    [data-theme$="-dark"] .border-amber-100  { border-color: rgb(251 191 36 / 0.20) !important; }
+    [data-theme$="-dark"] .border-amber-200  { border-color: rgb(251 191 36 / 0.30) !important; }
+    [data-theme$="-dark"] .border-amber-300  { border-color: rgb(252 211 77 / 0.40) !important; }
+    [data-theme$="-dark"] .border-blue-100   { border-color: rgb(147 197 253 / 0.20) !important; }
+    [data-theme$="-dark"] .border-blue-200   { border-color: rgb(147 197 253 / 0.30) !important; }
+    [data-theme$="-dark"] .border-sky-100    { border-color: rgb(125 211 252 / 0.20) !important; }
+    [data-theme$="-dark"] .border-sky-200    { border-color: rgb(125 211 252 / 0.30) !important; }
+    [data-theme$="-dark"] .border-purple-100 { border-color: rgb(192 132 252 / 0.20) !important; }
+    [data-theme$="-dark"] .border-purple-200 { border-color: rgb(192 132 252 / 0.30) !important; }
+    [data-theme$="-dark"] .border-violet-100 { border-color: rgb(167 139 250 / 0.20) !important; }
+    [data-theme$="-dark"] .border-violet-200 { border-color: rgb(167 139 250 / 0.30) !important; }
+    [data-theme$="-dark"] .border-violet-300 { border-color: rgb(167 139 250 / 0.40) !important; }
+    [data-theme$="-dark"] .border-orange-100 { border-color: rgb(253 186 116 / 0.20) !important; }
+    [data-theme$="-dark"] .border-orange-200 { border-color: rgb(253 186 116 / 0.30) !important; }
+    [data-theme$="-dark"] .border-orange-300 { border-color: rgb(253 186 116 / 0.40) !important; }
+    [data-theme$="-dark"] .border-indigo-100 { border-color: rgb(165 180 252 / 0.20) !important; }
+    [data-theme$="-dark"] .border-indigo-200 { border-color: rgb(165 180 252 / 0.30) !important; }
+    [data-theme$="-dark"] .border-indigo-300 { border-color: rgb(165 180 252 / 0.40) !important; }
+    [data-theme$="-dark"] .border-yellow-100 { border-color: rgb(253 224 71 / 0.20) !important; }
+    [data-theme$="-dark"] .border-yellow-200 { border-color: rgb(253 224 71 / 0.30) !important; }
+    [data-theme$="-dark"] .border-green-300  { border-color: rgb(74 222 128 / 0.40) !important; }
+    [data-theme$="-dark"] .border-red-300    { border-color: rgb(252 165 165 / 0.40) !important; }
+    [data-theme$="-dark"] .border-amber-400  { border-color: rgb(251 191 36 / 0.50) !important; }
+    [data-theme$="-dark"] .border-blue-300   { border-color: rgb(147 197 253 / 0.40) !important; }
+    [data-theme$="-dark"] .border-sky-300    { border-color: rgb(125 211 252 / 0.40) !important; }
+
+    /* Brand backgrounds used in status/info boxes */
+    [data-theme$="-dark"] .bg-brand-50   { background-color: rgb(var(--brand-600) / 0.10) !important; }
+    [data-theme$="-dark"] .bg-brand-100  { background-color: rgb(var(--brand-500) / 0.15) !important; }
+    [data-theme$="-dark"] .border-brand-200 { border-color: rgb(var(--brand-400) / 0.30) !important; }
+
+    /* Input / select / textarea on dark */
+    [data-theme$="-dark"] input:not([type=range]):not([type=checkbox]):not([type=radio]),
+    [data-theme$="-dark"] select,
+    [data-theme$="-dark"] textarea {
+      background-color: #101828 !important;
+      color: #e2e8f0 !important;
+      border-color: rgb(255 255 255 / 0.12) !important;
+    }
+    [data-theme$="-dark"] ::placeholder        { color: #475569 !important; }
+
+    /* Range thumb */
+    input[type="range"]::-webkit-slider-thumb { background: rgb(var(--brand-600)); }
+    input[type="range"]::-webkit-slider-thumb:hover { background: rgb(var(--brand-500)); }
+    input[type="range"]::-moz-range-thumb     { background: rgb(var(--brand-600)); }
+
+    /* Text size scaling — all rem-based Tailwind sizes cascade from the html font-size */
+    [data-textsize="medium"] { font-size: 19px; }
+    [data-textsize="large"]  { font-size: 22px; }
+
+    /* ── Dashboard layout edit mode ──────────────────────────────────────── */
+    .dash-handle {
+      display: none;
+      justify-content: center;
+      align-items: center;
+      height: 18px;
+      cursor: grab;
+      user-select: none;
+      color: #d1d5db;
+      transition: color 0.15s;
+    }
+    .dash-handle:hover { color: #9ca3af; }
+    body.dash-editing .dash-handle { display: flex; }
+    body.dash-editing .dash-section {
+      cursor: grab;
+      outline: 1px dashed #e5e7eb;
+      outline-offset: 2px;
+      border-radius: 0.75rem;
+      transition: opacity 0.15s, box-shadow 0.1s;
+    }
+    body.dash-editing .dash-section:active { cursor: grabbing; }
+    body.dash-editing { padding-top: 4.5rem; }
+    .dash-section.dash-dragging { opacity: 0.35; }
+    .dash-section.dash-drop-above { box-shadow: 0 -3px 0 0 rgb(var(--brand-600)) !important; }
+    .dash-section.dash-drop-below { box-shadow: 0 3px 0 0 rgb(var(--brand-600)) !important; }
+    [data-theme$="-dark"] body.dash-editing .dash-section { outline-color: #22304e; }
+    [data-theme$="-dark"] .dash-handle { color: #334155; }
+    [data-theme$="-dark"] .dash-handle:hover { color: #475569; }
+    [data-theme$="-dark"] #dash-edit-bar {
+      background-color: #2d1f00 !important; border-color: #78350f !important;
+    }
+    [data-theme$="-dark"] #dash-edit-bar p { color: #fbbf24 !important; }
+    [data-theme$="-dark"] #dash-edit-bar p.text-amber-700 { color: #d97706 !important; }
+
+    /* ── Session tolerance "next session action" box ── */
+    .next-session-action-box { background-color: rgba(255,255,255,0.70); }
+    [data-theme$="-dark"] .next-session-action-box {
+      background-color: rgba(255,255,255,0.06) !important;
+    }
+    [data-theme$="-dark"] .next-session-action-box .text-gray-700 { color: #cbd5e1 !important; }
+    [data-theme$="-dark"] .next-session-action-box .text-gray-400 { color: #475569 !important; }
+
+    /* ── Already-logged modal dark mode ────────────────────────────────────── */
+    [data-theme$="-dark"] #already-logged-modal > div:last-child {
+      background-color: #1e293b !important;
+    }
+    [data-theme$="-dark"] #already-logged-modal h3 { color: #f1f5f9 !important; }
+    [data-theme$="-dark"] #already-logged-modal p  { color: #94a3b8 !important; }
+    [data-theme$="-dark"] #already-logged-modal .bg-green-100 { background-color: rgba(34,197,94,0.15) !important; }
+    [data-theme$="-dark"] #schedule-restriction-modal > div:last-child {
+      background-color: #1e293b !important;
+    }
+    [data-theme$="-dark"] #schedule-restriction-modal h3 { color: #f1f5f9 !important; }
+    [data-theme$="-dark"] #schedule-restriction-modal p  { color: #94a3b8 !important; }
+    [data-theme$="-dark"] #schedule-restriction-modal .bg-amber-100 { background-color: rgba(245,158,11,0.15) !important; }
+
+    [data-theme$="-dark"] #notif-alert-modal .notif-card   { background-color: #1e293b !important; }
+    [data-theme$="-dark"] #notif-alert-modal .notif-body-text { color: #94a3b8 !important; }
+    [data-theme$="-dark"] #notif-alert-modal .notif-item   { background-color: #0f172a !important; border-color: #334155 !important; }
+    [data-theme$="-dark"] #notif-alert-modal .notif-item-label { color: #e2e8f0 !important; }
+    [data-theme$="-dark"] #notif-alert-modal .notif-dismiss-btn { border-color: #334155 !important; color: #94a3b8 !important; }
+
+    /* ── Indicator colour suppression (teno-mono mode) ────────────────────────
+       Scoped to the 5 indicator tiles so nothing else on the page is affected.
+       Applied when body.teno-mono (localStorage teno_color_indicators === 'off').
+       Dark-mode overrides follow immediately after; order matters for !important. */
+
+    /* Shorthand: all 5 tile roots */
+    #tile-pain-root, #tile-stiff-root, #tile-visa-root, #tile-fc-root, #tile-lsi-root { --_t: 1; }
+
+    /* ·· Value indicator colours (red/yellow/green) ·· */
+    body.teno-mono #tile-pain-root  .text-red-400,  body.teno-mono #tile-pain-root  .text-red-500,
+    body.teno-mono #tile-pain-root  .text-red-600,  body.teno-mono #tile-pain-root  .text-yellow-600,
+    body.teno-mono #tile-pain-root  .text-green-500, body.teno-mono #tile-pain-root .text-green-600,
+    body.teno-mono #tile-stiff-root .text-red-400,  body.teno-mono #tile-stiff-root .text-red-500,
+    body.teno-mono #tile-stiff-root .text-red-600,  body.teno-mono #tile-stiff-root .text-yellow-600,
+    body.teno-mono #tile-stiff-root .text-green-500, body.teno-mono #tile-stiff-root .text-green-600,
+    body.teno-mono #tile-visa-root  .text-red-500,  body.teno-mono #tile-visa-root  .text-red-600,
+    body.teno-mono #tile-visa-root  .text-yellow-600, body.teno-mono #tile-visa-root .text-green-600,
+    body.teno-mono #tile-lsi-root   .text-red-500,  body.teno-mono #tile-lsi-root   .text-red-600,
+    body.teno-mono #tile-lsi-root   .text-yellow-600, body.teno-mono #tile-lsi-root .text-yellow-700,
+    body.teno-mono #tile-lsi-root   .text-green-600, body.teno-mono #tile-lsi-root  .text-green-700
+    { color: #6b7280 !important; }
+
+    /* ·· Value indicator progress bar fills ·· */
+    body.teno-mono #tile-pain-root  .bg-red-400, body.teno-mono #tile-pain-root  .bg-yellow-400,
+    body.teno-mono #tile-pain-root  .bg-green-400,
+    body.teno-mono #tile-stiff-root .bg-red-400, body.teno-mono #tile-stiff-root .bg-yellow-400,
+    body.teno-mono #tile-stiff-root .bg-green-400,
+    body.teno-mono #tile-visa-root  .bg-red-400, body.teno-mono #tile-visa-root  .bg-yellow-400,
+    body.teno-mono #tile-visa-root  .bg-green-400,
+    body.teno-mono #tile-lsi-root   .bg-red-400, body.teno-mono #tile-lsi-root   .bg-yellow-400,
+    body.teno-mono #tile-lsi-root   .bg-green-400, body.teno-mono #tile-lsi-root .bg-green-500
+    { background-color: #d1d5db !important; }
+
+    /* ·· Card tile backgrounds ·· */
+    body.teno-mono #tile-pain-root  .bg-red-50,    body.teno-mono #tile-pain-root  .bg-orange-50,
+    body.teno-mono #tile-pain-root  .bg-purple-50,
+    body.teno-mono #tile-stiff-root .bg-amber-50,  body.teno-mono #tile-stiff-root .bg-teal-50,
+    body.teno-mono #tile-visa-root  .bg-brand-50,  body.teno-mono #tile-visa-root  .bg-teal-50,
+    body.teno-mono #tile-visa-root  .bg-violet-50,
+    body.teno-mono #tile-fc-root    .bg-sky-50,    body.teno-mono #tile-fc-root    .bg-violet-50,
+    body.teno-mono #tile-fc-root    .bg-orange-50, body.teno-mono #tile-fc-root    .bg-teal-50,
+    body.teno-mono #tile-lsi-root   .bg-sky-50,    body.teno-mono #tile-lsi-root   .bg-violet-50,
+    body.teno-mono #tile-lsi-root   .bg-orange-50, body.teno-mono #tile-lsi-root   .bg-teal-50
+    { background-color: #f9fafb !important; }
+
+    /* ·· Card tile borders ·· */
+    body.teno-mono #tile-pain-root  .border-red-100,    body.teno-mono #tile-pain-root  .border-orange-100,
+    body.teno-mono #tile-pain-root  .border-purple-100,
+    body.teno-mono #tile-stiff-root .border-amber-100,  body.teno-mono #tile-stiff-root .border-teal-100,
+    body.teno-mono #tile-visa-root  .border-brand-100,  body.teno-mono #tile-visa-root  .border-teal-100,
+    body.teno-mono #tile-visa-root  .border-violet-100,
+    body.teno-mono #tile-fc-root    .border-sky-100,    body.teno-mono #tile-fc-root    .border-violet-100,
+    body.teno-mono #tile-fc-root    .border-orange-100, body.teno-mono #tile-fc-root    .border-teal-100,
+    body.teno-mono #tile-lsi-root   .border-sky-100,    body.teno-mono #tile-lsi-root   .border-violet-100,
+    body.teno-mono #tile-lsi-root   .border-orange-100, body.teno-mono #tile-lsi-root   .border-teal-100
+    { border-color: #e5e7eb !important; }
+
+    /* ·· Progress bar tracks (bg-*-100 inside cards) ·· */
+    body.teno-mono #tile-pain-root  .bg-red-100,    body.teno-mono #tile-pain-root  .bg-orange-100,
+    body.teno-mono #tile-pain-root  .bg-purple-100,
+    body.teno-mono #tile-stiff-root .bg-amber-100,
+    body.teno-mono #tile-visa-root  .bg-brand-100,
+    body.teno-mono #tile-lsi-root   .bg-sky-100,    body.teno-mono #tile-lsi-root   .bg-violet-100,
+    body.teno-mono #tile-lsi-root   .bg-orange-100, body.teno-mono #tile-lsi-root   .bg-teal-100
+    { background-color: #e5e7eb !important; }
+
+    /* ·· Accent category labels (tiny uppercase headings inside cards) ·· */
+    body.teno-mono #tile-pain-root  .text-red-400,   body.teno-mono #tile-pain-root  .text-orange-400,
+    body.teno-mono #tile-pain-root  .text-purple-400,
+    body.teno-mono #tile-stiff-root .text-amber-400, body.teno-mono #tile-stiff-root .text-teal-400,
+    body.teno-mono #tile-visa-root  .text-brand-400, body.teno-mono #tile-visa-root  .text-teal-400,
+    body.teno-mono #tile-visa-root  .text-violet-400,
+    body.teno-mono #tile-fc-root    .text-sky-500,   body.teno-mono #tile-fc-root    .text-violet-500,
+    body.teno-mono #tile-fc-root    .text-orange-500, body.teno-mono #tile-fc-root   .text-teal-500,
+    body.teno-mono #tile-lsi-root   .text-sky-500,   body.teno-mono #tile-lsi-root   .text-violet-500,
+    body.teno-mono #tile-lsi-root   .text-orange-500, body.teno-mono #tile-lsi-root  .text-teal-500
+    { color: #9ca3af !important; }
+
+    /* ·· Accent metric values + unit text + "no data" text ·· */
+    body.teno-mono #tile-fc-root  .text-sky-800,    body.teno-mono #tile-fc-root  .text-violet-800,
+    body.teno-mono #tile-fc-root  .text-orange-800, body.teno-mono #tile-fc-root  .text-teal-800,
+    body.teno-mono #tile-visa-root .text-violet-700
+    { color: #374151 !important; }
+
+    body.teno-mono #tile-fc-root  .text-sky-400,    body.teno-mono #tile-fc-root  .text-violet-400,
+    body.teno-mono #tile-fc-root  .text-orange-400, body.teno-mono #tile-fc-root  .text-teal-400,
+    body.teno-mono #tile-lsi-root .text-sky-400,    body.teno-mono #tile-lsi-root .text-violet-400,
+    body.teno-mono #tile-lsi-root .text-orange-400, body.teno-mono #tile-lsi-root .text-teal-400
+    { color: #9ca3af !important; }
+
+    body.teno-mono #tile-fc-root  .text-sky-300,    body.teno-mono #tile-fc-root  .text-violet-300,
+    body.teno-mono #tile-fc-root  .text-orange-300, body.teno-mono #tile-fc-root  .text-teal-300,
+    body.teno-mono #tile-lsi-root .text-sky-300,    body.teno-mono #tile-lsi-root .text-violet-300,
+    body.teno-mono #tile-lsi-root .text-orange-300, body.teno-mono #tile-lsi-root .text-teal-300,
+    body.teno-mono #tile-visa-root .text-violet-400
+    { color: #d1d5db !important; }
+
+    /* ·· Dark theme overrides for teno-mono (neutralise to dark-surface grays) ·· */
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .bg-red-50,
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .bg-orange-50,
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .bg-purple-50,
+    [data-theme$="-dark"] body.teno-mono #tile-stiff-root .bg-amber-50,
+    [data-theme$="-dark"] body.teno-mono #tile-stiff-root .bg-teal-50,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .bg-brand-50,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .bg-teal-50,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .bg-violet-50,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root    .bg-sky-50,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root    .bg-violet-50,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root    .bg-orange-50,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root    .bg-teal-50,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .bg-sky-50,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .bg-violet-50,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .bg-orange-50,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .bg-teal-50
+    { background-color: #1a2540 !important; }
+
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .border-red-100,
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .border-orange-100,
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .border-purple-100,
+    [data-theme$="-dark"] body.teno-mono #tile-stiff-root .border-amber-100,
+    [data-theme$="-dark"] body.teno-mono #tile-stiff-root .border-teal-100,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .border-brand-100,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .border-teal-100,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .border-violet-100,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root    .border-sky-100,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root    .border-violet-100,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root    .border-orange-100,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root    .border-teal-100,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .border-sky-100,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .border-violet-100,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .border-orange-100,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .border-teal-100
+    { border-color: #22304e !important; }
+
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .bg-red-100,
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .bg-orange-100,
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .bg-purple-100,
+    [data-theme$="-dark"] body.teno-mono #tile-stiff-root .bg-amber-100,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .bg-brand-100,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .bg-sky-100,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .bg-violet-100,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .bg-orange-100,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .bg-teal-100
+    { background-color: #22304e !important; }
+
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .bg-red-400,
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .bg-yellow-400,
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .bg-green-400,
+    [data-theme$="-dark"] body.teno-mono #tile-stiff-root .bg-red-400,
+    [data-theme$="-dark"] body.teno-mono #tile-stiff-root .bg-yellow-400,
+    [data-theme$="-dark"] body.teno-mono #tile-stiff-root .bg-green-400,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .bg-red-400,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .bg-yellow-400,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .bg-green-400,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .bg-red-400,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .bg-yellow-400,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .bg-green-400,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .bg-green-500
+    { background-color: #2a3d5e !important; }
+
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .text-red-400,
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .text-red-500,
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .text-red-600,
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .text-yellow-600,
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .text-green-500,
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .text-green-600,
+    [data-theme$="-dark"] body.teno-mono #tile-stiff-root .text-red-400,
+    [data-theme$="-dark"] body.teno-mono #tile-stiff-root .text-red-500,
+    [data-theme$="-dark"] body.teno-mono #tile-stiff-root .text-red-600,
+    [data-theme$="-dark"] body.teno-mono #tile-stiff-root .text-yellow-600,
+    [data-theme$="-dark"] body.teno-mono #tile-stiff-root .text-green-500,
+    [data-theme$="-dark"] body.teno-mono #tile-stiff-root .text-green-600,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .text-red-500,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .text-red-600,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .text-yellow-600,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .text-green-600,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .text-red-500,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .text-red-600,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .text-yellow-600,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .text-yellow-700,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .text-green-600,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .text-green-700
+    { color: #94a3b8 !important; }
+
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .text-red-400,
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .text-orange-400,
+    [data-theme$="-dark"] body.teno-mono #tile-pain-root  .text-purple-400,
+    [data-theme$="-dark"] body.teno-mono #tile-stiff-root .text-amber-400,
+    [data-theme$="-dark"] body.teno-mono #tile-stiff-root .text-teal-400,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .text-brand-400,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .text-teal-400,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root  .text-violet-400,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root    .text-sky-500,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root    .text-violet-500,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root    .text-orange-500,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root    .text-teal-500,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .text-sky-500,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .text-violet-500,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .text-orange-500,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root   .text-teal-500
+    { color: #475569 !important; }
+
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root  .text-sky-800,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root  .text-violet-800,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root  .text-orange-800,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root  .text-teal-800,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root .text-violet-700
+    { color: #e2e8f0 !important; }
+
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root  .text-sky-400,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root  .text-violet-400,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root  .text-orange-400,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root  .text-teal-400,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root .text-sky-400,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root .text-violet-400,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root .text-orange-400,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root .text-teal-400,
+    [data-theme$="-dark"] body.teno-mono #tile-visa-root .text-violet-400
+    { color: #475569 !important; }
+
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root  .text-sky-300,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root  .text-violet-300,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root  .text-orange-300,
+    [data-theme$="-dark"] body.teno-mono #tile-fc-root  .text-teal-300,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root .text-sky-300,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root .text-violet-300,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root .text-orange-300,
+    [data-theme$="-dark"] body.teno-mono #tile-lsi-root .text-teal-300
+    { color: #334155 !important; }
+
+  </style>
+
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -11,22 +672,33 @@
         extend: {
           colors: {
             brand: {
-              50:  '#f0f9ff',
-              100: '#e0f2fe',
-              200: '#bae6fd',
-              300: '#7dd3fc',
-              400: '#38bdf8',
-              500: '#0ea5e9',
-              600: '#0284c7',
-              700: '#0369a1',
-              800: '#075985',
-              900: '#0c4a6e',
+              50:  'rgb(var(--brand-50)  / <alpha-value>)',
+              100: 'rgb(var(--brand-100) / <alpha-value>)',
+              200: 'rgb(var(--brand-200) / <alpha-value>)',
+              300: 'rgb(var(--brand-300) / <alpha-value>)',
+              400: 'rgb(var(--brand-400) / <alpha-value>)',
+              500: 'rgb(var(--brand-500) / <alpha-value>)',
+              600: 'rgb(var(--brand-600) / <alpha-value>)',
+              700: 'rgb(var(--brand-700) / <alpha-value>)',
+              800: 'rgb(var(--brand-800) / <alpha-value>)',
+              900: 'rgb(var(--brand-900) / <alpha-value>)',
             }
           }
         }
       }
     }
   </script>
+
+  <!-- Apply saved theme + text size BEFORE first paint to avoid flash -->
+  <script>
+    (function() {
+      var t = localStorage.getItem('teno_theme');
+      if (t) document.documentElement.setAttribute('data-theme', t);
+      var s = localStorage.getItem('teno_textsize');
+      if (s && s !== 'small') document.documentElement.setAttribute('data-textsize', s);
+    })();
+  </script>
+
   <link rel="stylesheet" href="/static/style.css" />
   {% block head %}{% endblock %}
 </head>
@@ -38,23 +710,196 @@
       <a href="/" class="flex items-center gap-2 font-bold text-xl tracking-tight">
         <span class="text-brand-200">Teno</span><span>Trainer</span>
       </a>
+
       <div class="flex items-center gap-4 text-sm">
-        <a href="/dashboard" class="hover:text-brand-200 transition-colors">Dashboard</a>
-        <a href="/daily-log" class="hover:text-brand-200 transition-colors">Log Session</a>
-        <a href="/visa-a" class="hover:text-brand-200 transition-colors">VISA-A</a>
-        <a href="/onboarding" class="hover:text-brand-200 transition-colors">Assessment</a>
-        <a href="/admin/knowledge" class="hover:text-brand-200 transition-colors">Knowledge Base</a>
-        {% if user %}
-        <span class="ml-2 px-3 py-1 bg-brand-800 rounded-full text-brand-200 text-xs">
-          {{ user.name }}
-        </span>
+        {% if user and user.password_hash %}
+        {% if user.role == 'supervisor' %}
+        <a href="/supervisor/dashboard" class="hover:text-brand-200 transition-colors">Supervisor Panel</a>
+        <a href="/supervisor/cases" class="hover:text-brand-200 transition-colors">Caseload</a>
+        <a href="/supervisor/assessments" class="hover:text-brand-200 transition-colors">Assessments</a>
+        <a href="/admin/knowledge"  class="hover:text-brand-200 transition-colors">Knowledge Base</a>
+        <!-- Supervisor messages icon -->
+        <a href="/supervisor/messages" class="relative p-1 text-brand-200 hover:text-white transition-colors" aria-label="Messages">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z"/>
+          </svg>
+          <span id="nav-msg-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[1rem] h-4 px-0.5 bg-red-500 text-white text-[0.5rem] font-black rounded-full flex items-center justify-center leading-none">0</span>
+        </a>
+        <!-- Supervisor alert count icon -->
+        <a href="/supervisor/alerts" class="relative p-1 text-brand-200 hover:text-white transition-colors" aria-label="Active alerts">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+          </svg>
+          <span id="nav-alert-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[1rem] h-4 px-0.5 bg-amber-400 text-amber-900 text-[0.5rem] font-black rounded-full flex items-center justify-center leading-none">0</span>
+        </a>
+        {% else %}
+        <a href="/dashboard"        class="hover:text-brand-200 transition-colors">Dashboard</a>
+        <a href="/daily-log" onclick="if(typeof checkDailyLogAllowed==='function'){checkDailyLogAllowed(event);}" class="hover:text-brand-200 transition-colors">Track Session</a>
+        <a href="/exercise-log"     class="hover:text-brand-200 transition-colors">Exercise Log</a>
+        <a href="/exercise-library" class="hover:text-brand-200 transition-colors">Exercise Library</a>
+        <a href="/onboarding"       class="hover:text-brand-200 transition-colors">Assessment</a>
+        <a href="/admin/knowledge"  class="hover:text-brand-200 transition-colors">Knowledge Base</a>
+        {% endif %}
+
+        <!-- ── Notification bell ──────────────────────────────────── -->
+        {% if user.role != 'supervisor' %}
+        <!-- Messages icon -->
+        <a href="/messages" class="relative p-1 text-brand-200 hover:text-white transition-colors" aria-label="Messages">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z"/>
+          </svg>
+          <span id="nav-msg-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[1rem] h-4 px-0.5 bg-red-500 text-white text-[0.5rem] font-black rounded-full flex items-center justify-center leading-none">0</span>
+        </a>
+        <div class="relative" id="notif-root">
+          <button id="notif-btn" type="button" onclick="toggleNotifMenu()"
+                  class="relative p-1 text-brand-200 hover:text-white transition-colors focus:outline-none"
+                  aria-label="Check-in notifications">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+            </svg>
+            <span id="notif-badge"
+                  class="hidden absolute -top-0.5 -right-0.5 min-w-[1rem] h-4 px-0.5 bg-red-500 text-white text-[0.5rem] font-black rounded-full flex items-center justify-center leading-none">
+              0
+            </span>
+          </button>
+
+          <!-- Notification dropdown panel -->
+          <div id="notif-panel"
+               class="hidden absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50">
+            <div class="px-4 py-3 bg-gradient-to-r from-brand-700 to-brand-500 flex items-center justify-between">
+              <p class="text-white font-bold text-sm">Check-in Reminders</p>
+              <span id="notif-count-label" class="text-brand-200 text-xs"></span>
+            </div>
+            <div id="notif-list" class="divide-y divide-gray-100 max-h-72 overflow-y-auto">
+              <p class="px-4 py-4 text-xs text-gray-400 text-center">Loading…</p>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- ── User dropdown ───────────────────────────────────────── -->
+        <div class="relative" id="user-menu-root">
+          <button id="user-menu-btn" type="button" onclick="toggleUserMenu()"
+                  class="flex items-center gap-1.5 px-3 py-1 bg-brand-800 rounded-full text-brand-200 text-xs font-semibold hover:bg-brand-900 transition-colors focus:outline-none">
+            <svg class="w-3.5 h-3.5 opacity-70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <circle cx="12" cy="8" r="4"/>
+              <path stroke-linecap="round" d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+            </svg>
+            {{ user.name }}
+            <svg id="user-menu-chevron" class="w-3 h-3 opacity-60 transition-transform duration-150"
+                 fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+
+          <!-- Dropdown panel -->
+          <div id="user-menu-panel"
+               class="hidden absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50">
+
+            <!-- User info header -->
+            <div class="px-4 py-3 bg-gradient-to-r from-brand-700 to-brand-500">
+              <p class="text-white font-bold text-sm leading-tight">{{ user.name }}</p>
+              {% if user.email %}<p class="text-brand-200 text-xs mt-0.5 truncate">{{ user.email }}</p>{% endif %}
+            </div>
+
+            <!-- Account links -->
+            <div class="px-2 py-2 border-b border-gray-100">
+              <p class="text-[0.625rem] font-bold text-gray-400 uppercase tracking-widest px-2 mb-1">Account</p>
+              <a href="/account"
+                 class="flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm text-gray-700 hover:bg-brand-50 hover:text-brand-700 transition-colors">
+                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+                Account Settings
+              </a>
+              <a href="/profile"
+                 class="flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm text-gray-700 hover:bg-brand-50 hover:text-brand-700 transition-colors">
+                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <circle cx="12" cy="8" r="4"/>
+                  <path stroke-linecap="round" d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+                </svg>
+                Profile Information
+              </a>
+              <a href="/logout"
+                 class="flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                </svg>
+                Log out
+              </a>
+            </div>
+
+            <!-- Theme picker -->
+            <div class="px-3 py-3">
+              <p class="text-[0.625rem] font-bold text-gray-400 uppercase tracking-widest mb-2">Appearance</p>
+
+              <!-- Light row -->
+              <p class="text-[0.5625rem] text-gray-400 font-semibold uppercase tracking-wider mb-1.5 pl-0.5">Light</p>
+              <div class="grid grid-cols-5 gap-1.5 mb-3">
+                {% set light_themes = [
+                  ('ocean',  'Ocean',  '#0369a1', '#f0f9ff', '#0284c7', 'sky'),
+                  ('forest', 'Forest', '#15803d', '#f0fdf4', '#16a34a', 'green'),
+                  ('sunset', 'Sunset', '#c2410c', '#fff7ed', '#ea580c', 'orange'),
+                  ('slate',  'Slate',  '#334155', '#f8fafc', '#475569', 'slate'),
+                  ('violet', 'Violet', '#6d28d9', '#f5f3ff', '#7c3aed', 'violet'),
+                ] %}
+                {% for tid, tname, nav_col, bg_col, accent_col, ring in light_themes %}
+                <button type="button" onclick="setTheme('{{ tid }}')" data-theme-btn="{{ tid }}"
+                        title="{{ tname }}"
+                        class="group flex flex-col items-center gap-1 p-1.5 rounded-xl border-2 border-transparent hover:border-{{ ring }}-400 transition-all duration-150 focus:outline-none">
+                  <div class="w-10 h-10 rounded-lg overflow-hidden shadow-sm flex flex-col">
+                    <div class="h-3" style="background:{{ nav_col }}"></div>
+                    <div class="flex-1 flex items-center justify-center" style="background:{{ bg_col }}">
+                      <div class="w-5 h-1.5 rounded" style="background:{{ accent_col }};opacity:.7"></div>
+                    </div>
+                  </div>
+                  <span class="text-[0.5625rem] font-semibold text-gray-500 group-hover:text-{{ ring }}-600">{{ tname }}</span>
+                </button>
+                {% endfor %}
+              </div>
+
+              <!-- Dark row -->
+              <p class="text-[0.5625rem] text-gray-400 font-semibold uppercase tracking-wider mb-1.5 pl-0.5">Dark</p>
+              <div class="grid grid-cols-5 gap-1.5">
+                {% set dark_themes = [
+                  ('ocean-dark',  'Ocean',  '#05192f', '#0c1828', '#38bdf8', 'sky'),
+                  ('forest-dark', 'Forest', '#041c0d', '#0c1f14', '#4ade80', 'green'),
+                  ('sunset-dark', 'Sunset', '#260c03', '#1a1008', '#fb923c', 'orange'),
+                  ('slate-dark',  'Slate',  '#080c16', '#131c2e', '#94a3b8', 'slate'),
+                  ('violet-dark', 'Violet', '#140534', '#120a28', '#a78bfa', 'violet'),
+                ] %}
+                {% for tid, tname, nav_col, bg_col, accent_col, ring in dark_themes %}
+                <button type="button" onclick="setTheme('{{ tid }}')" data-theme-btn="{{ tid }}"
+                        title="{{ tname }} Dark"
+                        class="group flex flex-col items-center gap-1 p-1.5 rounded-xl border-2 border-transparent hover:border-{{ ring }}-400 transition-all duration-150 focus:outline-none">
+                  <div class="w-10 h-10 rounded-lg overflow-hidden shadow-sm flex flex-col">
+                    <div class="h-3" style="background:{{ nav_col }}"></div>
+                    <div class="flex-1 flex items-center justify-center" style="background:{{ bg_col }}">
+                      <div class="w-5 h-1.5 rounded" style="background:{{ accent_col }};opacity:.85"></div>
+                    </div>
+                  </div>
+                  <span class="text-[0.5625rem] font-semibold text-gray-500 group-hover:text-{{ ring }}-400">{{ tname }}</span>
+                </button>
+                {% endfor %}
+              </div>
+            </div>
+
+          </div><!-- /dropdown panel -->
+        </div><!-- /relative -->
+
+        {% else %}
+        <a href="/login" class="hover:text-brand-200 transition-colors">Log in</a>
+        <a href="/register" class="px-3 py-1.5 bg-white text-brand-700 font-semibold rounded-lg hover:bg-brand-50 transition-colors text-xs">
+          Register
+        </a>
         {% endif %}
       </div>
     </div>
   </nav>
 
   <!-- Main content -->
-  <main class="flex-1 max-w-5xl mx-auto w-full px-4 py-8">
+  <main class="flex-1 {% block main_class %}max-w-5xl{% endblock %} mx-auto w-full px-4 py-8">
     {% block content %}{% endblock %}
   </main>
 
@@ -68,6 +913,338 @@
       seek emergency care immediately.
     </p>
   </footer>
+
+  <!-- User-menu + theme JS -->
+  <script>
+    // ── Shared date helper ────────────────────────────────────────────────────
+    function _fmtIsoDate(s) {
+      if (!s) return s || '';
+      var m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      return m ? m[2] + '-' + m[3] + '-' + m[1] : s;
+    }
+
+    // ── Notification bell ─────────────────────────────────────────────────────
+    var _notifOpen = false;
+
+    function toggleNotifMenu() {
+      _notifOpen = !_notifOpen;
+      var panel = document.getElementById('notif-panel');
+      if (!panel) return;
+      panel.classList.toggle('hidden', !_notifOpen);
+      if (_notifOpen) _loadNotifications();
+    }
+
+    document.addEventListener('click', function(e) {
+      if (!_notifOpen) return;
+      var root = document.getElementById('notif-root');
+      if (root && !root.contains(e.target)) {
+        _notifOpen = false;
+        var panel = document.getElementById('notif-panel');
+        if (panel) panel.classList.add('hidden');
+      }
+    });
+
+    async function _loadNotifications() {
+      var list = document.getElementById('notif-list');
+      try {
+        var resp = await fetch('/api/notifications');
+        if (!resp.ok) return;
+        var data = await resp.json();
+        _renderNotifications(data.pending, data.count);
+      } catch(e) {
+        if (list) list.innerHTML = '<p class="px-4 py-4 text-xs text-gray-400 text-center">Could not load notifications.</p>';
+      }
+    }
+
+    function _renderNotifications(pending, dueCount) {
+      var list  = document.getElementById('notif-list');
+      var badge = document.getElementById('notif-badge');
+      var countLbl = document.getElementById('notif-count-label');
+
+      if (badge) {
+        if (dueCount > 0) {
+          badge.textContent = dueCount > 9 ? '9+' : String(dueCount);
+          badge.classList.remove('hidden');
+        } else {
+          badge.classList.add('hidden');
+        }
+      }
+      if (countLbl) {
+        countLbl.textContent = dueCount > 0 ? dueCount + ' due now' : (pending.length > 0 ? pending.length + ' upcoming' : '');
+      }
+
+      if (!list) return;
+
+      if (!pending || pending.length === 0) {
+        list.innerHTML = '<p class="px-4 py-6 text-xs text-gray-400 text-center">No pending check-ins</p>';
+        return;
+      }
+
+      var html = '';
+      var seenLog = {};
+      pending.forEach(function(item) {
+        var isDue = item.is_due;
+        var logKey = 'log-' + item.log_id;
+        var header = '';
+        if (!seenLog[logKey]) {
+          seenLog[logKey] = true;
+          header = '<div class="px-4 pt-3 pb-1"><p class="text-[0.625rem] font-bold text-gray-400 uppercase tracking-widest">Session ' + _fmtIsoDate(item.session_date) + '</p></div>';
+        }
+        html += header;
+        html += '<a href="/daily-log/followup/' + item.log_id + '" class="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors">';
+        html += '<div class="w-2 h-2 rounded-full shrink-0 ' + (isDue ? 'bg-red-400' : 'bg-gray-300') + '"></div>';
+        html += '<div class="flex-1 min-w-0">';
+        html += '<p class="text-xs font-semibold ' + (isDue ? 'text-gray-800' : 'text-gray-500') + ' truncate">' + item.checkpoint_label + '</p>';
+        html += '<p class="text-[0.625rem] ' + (isDue ? 'text-red-500 font-medium' : 'text-gray-400') + '">' + (isDue ? 'Due now' : 'Upcoming') + '</p>';
+        html += '</div>';
+        html += '<svg class="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>';
+        html += '</a>';
+      });
+      list.innerHTML = html;
+    }
+
+    // ── Notification alert modal ──────────────────────────────────────────────
+
+    function _getDismissedNotifs() {
+      try { return JSON.parse(sessionStorage.getItem('teno_dismissed_notifs') || '[]'); }
+      catch(e) { return []; }
+    }
+
+    function _setDismissedNotifs(ids) {
+      sessionStorage.setItem('teno_dismissed_notifs', JSON.stringify(ids));
+    }
+
+    function dismissNotifModal() {
+      // Store all currently-shown IDs so the modal won't reappear this session
+      var modal = document.getElementById('notif-alert-modal');
+      if (!modal) return;
+      var ids = Array.from(modal.querySelectorAll('[data-notif-id]'))
+                     .map(function(el) { return parseInt(el.dataset.notifId); });
+      var dismissed = _getDismissedNotifs();
+      ids.forEach(function(id) { if (dismissed.indexOf(id) === -1) dismissed.push(id); });
+      _setDismissedNotifs(dismissed);
+      modal.classList.add('hidden');
+    }
+
+    function _maybeShowNotifModal(pending) {
+      var dismissed = _getDismissedNotifs();
+      var dueUndismissed = (pending || []).filter(function(p) {
+        return p.is_due && dismissed.indexOf(p.id) === -1;
+      });
+      if (dueUndismissed.length === 0) return;
+
+      // Group by log_id to find the first session to link to
+      var firstLogId = dueUndismissed[0].log_id;
+
+      // Populate items
+      var container = document.getElementById('notif-alert-items');
+      if (container) {
+        var html = '';
+        // Show one row per due check-in (up to 5)
+        dueUndismissed.slice(0, 5).forEach(function(item) {
+          html += '<div class="notif-item flex items-center gap-3 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5"'
+                + ' data-notif-id="' + item.id + '">';
+          html += '<div class="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0"></div>';
+          html += '<div class="flex-1 min-w-0">';
+          html += '<p class="notif-item-label text-xs font-semibold text-gray-800 truncate">'
+                + item.checkpoint_label + '</p>';
+          html += '<p class="text-[0.625rem] text-amber-600">Session ' + _fmtIsoDate(item.session_date) + '</p>';
+          html += '</div></div>';
+        });
+        if (dueUndismissed.length > 5) {
+          html += '<p class="text-[0.625rem] text-gray-400 text-center pt-1">+'
+               + (dueUndismissed.length - 5) + ' more</p>';
+        }
+        container.innerHTML = html;
+      }
+
+      // Set CTA link to first due session
+      var cta = document.getElementById('notif-alert-cta');
+      if (cta) cta.href = '/daily-log/followup/' + firstLogId;
+
+      // Show modal
+      var modal = document.getElementById('notif-alert-modal');
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    // Poll badge count on page load (no dropdown opened); trigger modal if due items exist
+    (async function() {
+      try {
+        var resp = await fetch('/api/notifications');
+        if (!resp.ok) return;
+        var data = await resp.json();
+        var badge = document.getElementById('notif-badge');
+        if (badge && data.count > 0) {
+          badge.textContent = data.count > 9 ? '9+' : String(data.count);
+          badge.classList.remove('hidden');
+        }
+        _maybeShowNotifModal(data.pending);
+      } catch(e) {}
+    })();
+
+    // ── Dropdown toggle ───────────────────────────────────────────────────────
+    var _menuOpen = false;
+
+    function toggleUserMenu() {
+      _menuOpen = !_menuOpen;
+      var panel   = document.getElementById('user-menu-panel');
+      var chevron = document.getElementById('user-menu-chevron');
+      if (!panel) return;
+      panel.classList.toggle('hidden', !_menuOpen);
+      if (chevron) chevron.style.transform = _menuOpen ? 'rotate(180deg)' : '';
+      if (_menuOpen) _highlightActiveTheme();
+    }
+
+    document.addEventListener('click', function(e) {
+      if (!_menuOpen) return;
+      var root = document.getElementById('user-menu-root');
+      if (root && !root.contains(e.target)) {
+        _menuOpen = false;
+        var panel   = document.getElementById('user-menu-panel');
+        var chevron = document.getElementById('user-menu-chevron');
+        if (panel)   panel.classList.add('hidden');
+        if (chevron) chevron.style.transform = '';
+      }
+    });
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && _menuOpen) toggleUserMenu();
+    });
+
+    // ── Theme switching ───────────────────────────────────────────────────────
+    var THEMES = [
+      'ocean', 'forest', 'sunset', 'slate', 'violet',
+      'ocean-dark', 'forest-dark', 'sunset-dark', 'slate-dark', 'violet-dark'
+    ];
+
+    function setTheme(name) {
+      if (!THEMES.includes(name)) return;
+      document.documentElement.setAttribute('data-theme', name);
+      localStorage.setItem('teno_theme', name);
+      _highlightActiveTheme();
+    }
+
+    function _highlightActiveTheme() {
+      var active = document.documentElement.getAttribute('data-theme') || 'ocean';
+      var ringMap = {
+        'ocean':       ['ring-sky-400',    'border-sky-400'],
+        'forest':      ['ring-green-400',  'border-green-400'],
+        'sunset':      ['ring-orange-400', 'border-orange-400'],
+        'slate':       ['ring-slate-400',  'border-slate-400'],
+        'violet':      ['ring-violet-400', 'border-violet-400'],
+        'ocean-dark':  ['ring-sky-400',    'border-sky-400'],
+        'forest-dark': ['ring-green-400',  'border-green-400'],
+        'sunset-dark': ['ring-orange-400', 'border-orange-400'],
+        'slate-dark':  ['ring-slate-400',  'border-slate-400'],
+        'violet-dark': ['ring-violet-400', 'border-violet-400'],
+      };
+      var allRingCls = ['ring-2','ring-sky-400','ring-green-400','ring-orange-400','ring-slate-400','ring-violet-400',
+                        'border-sky-400','border-green-400','border-orange-400','border-slate-400','border-violet-400'];
+      THEMES.forEach(function(t) {
+        var btns = document.querySelectorAll('[data-theme-btn="' + t + '"]');
+        btns.forEach(function(btn) {
+          allRingCls.forEach(function(c) { btn.classList.remove(c); });
+          if (t === active) {
+            btn.classList.add('ring-2');
+            (ringMap[t] || []).forEach(function(c) { btn.classList.add(c); });
+          }
+        });
+      });
+    }
+
+    // ── Text size switching ───────────────────────────────────────────────────
+    function setTextSize(size) {
+      if (!['small', 'medium', 'large'].includes(size)) return;
+      if (size === 'small') {
+        document.documentElement.removeAttribute('data-textsize');
+      } else {
+        document.documentElement.setAttribute('data-textsize', size);
+      }
+      localStorage.setItem('teno_textsize', size);
+      _highlightActiveTextSize();
+    }
+
+    function _highlightActiveTextSize() {
+      var active = document.documentElement.getAttribute('data-textsize') || 'small';
+      ['small', 'medium', 'large'].forEach(function(s) {
+        var btn = document.getElementById('textsize-btn-' + s);
+        if (!btn) return;
+        if (s === active) {
+          btn.classList.add('bg-brand-600', 'text-white', 'border-brand-600');
+          btn.classList.remove('bg-white', 'text-gray-600', 'border-gray-200');
+        } else {
+          btn.classList.remove('bg-brand-600', 'text-white', 'border-brand-600');
+          btn.classList.add('bg-white', 'text-gray-600', 'border-gray-200');
+        }
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      _highlightActiveTheme();
+      _highlightActiveTextSize();
+    });
+
+    // Nav badge counts
+    (function() {
+      function updateNavBadge(id, count) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        if (count > 0) {
+          el.textContent = count > 99 ? '99+' : count;
+          el.classList.remove('hidden');
+        } else {
+          el.classList.add('hidden');
+        }
+      }
+      fetch('/api/nav-counts', {credentials: 'same-origin'})
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          updateNavBadge('nav-msg-badge', d.messages || 0);
+          updateNavBadge('nav-alert-badge', d.alerts || 0);
+        })
+        .catch(function() {});
+    })();
+  </script>
+
+  <!-- ── Check-in alert modal ─────────────────────────────────────────────── -->
+  <div id="notif-alert-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="dismissNotifModal()"></div>
+    <div class="notif-card relative bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden">
+
+      <!-- Header -->
+      <div class="bg-amber-500 px-5 py-4 flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-amber-400/60 flex items-center justify-center shrink-0">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+          </svg>
+        </div>
+        <div>
+          <p class="text-white font-black text-base leading-tight">Check-in Reminder</p>
+          <p class="text-amber-100 text-xs mt-0.5">Time to record your post-session symptoms</p>
+        </div>
+      </div>
+
+      <!-- Body -->
+      <div class="px-5 pt-4 pb-2">
+        <p class="notif-body-text text-xs text-gray-500 mb-3">
+          The following check-ins are ready to record:
+        </p>
+        <div id="notif-alert-items" class="space-y-2"></div>
+      </div>
+
+      <!-- Actions -->
+      <div class="px-5 pb-5 pt-3 flex gap-3">
+        <button type="button" onclick="dismissNotifModal()"
+                class="notif-dismiss-btn flex-1 py-2.5 border border-gray-200 text-gray-600 text-sm font-semibold rounded-xl hover:bg-gray-50 transition-colors">
+          Not now
+        </button>
+        <a id="notif-alert-cta" href="#"
+           class="flex-1 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-black rounded-xl text-center transition-colors">
+          Record Now
+        </a>
+      </div>
+    </div>
+  </div>
 
   {% block scripts %}{% endblock %}
 </body>

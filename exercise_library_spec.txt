@@ -1,0 +1,267 @@
+For TenoTrainer, a solid library should let the rule engine answer:
+
+What exercise fits this person right now?
+What dose should they do?
+When should they progress, regress, or hold?
+
+A strong library for Achilles rehab should organize exercises by loading profile, not just by vague rehab phase.
+
+You are not building:
+
+an exercise list
+
+You are building:
+
+a load progression system with interchangeable movement options
+
+The exercises are just containers for load types
+
+Best structure
+
+Use these buckets as your top-level categories:
+
+Symptom modulation / low-load tolerance
+Slow strength loading
+Eccentric-biased loading
+Heavy dynamic loading
+Fast dynamic loading
+Reactive strength / plyometric loading
+Energy storage and return
+Running / sport re-entry
+Accessory and impairment-targeted work
+
+That matches how tendon rehab actually progresses.
+
+Each exercise should have a standard card
+
+Every exercise entry should include the same fields:
+
+id
+exercise_name
+category
+target_tissue
+region_bias
+insertional Achilles
+midportion Achilles
+calf-soleus bias
+calf-gastroc bias
+loading_profile
+isometric
+isotonic slow
+eccentric-biased
+heavy slow resistance
+ballistic
+plyometric
+return-to-run
+irritability_appropriateness
+high irritability
+moderate irritability
+low irritability
+difficulty_level
+required_equipment
+setup_instructions
+execution_cues
+common_compensations
+dosage_defaults
+sets
+reps or hold time
+tempo
+rest
+weekly frequency
+progression_options
+regression_options
+contraindications_or_cautions
+decision_rules_tags
+patient_facing_explanation
+clinician_notes
+Core exercise groups to include
+
+For Achilles, I would start with this backbone.
+
+1. Symptom modulation / low-load tolerance
+
+These are for irritable tendons and for keeping load on the tendon without overprovoking it.
+
+Double-leg calf isometric hold
+Single-leg calf isometric hold
+Bent-knee calf isometric hold
+Seated isometric plantarflexion
+Supported standing calf raise partial range
+Leg press calf raise short-range
+2. Slow strength loading
+
+These are your workhorse exercises.
+
+Double-leg standing calf raise
+Single-leg standing calf raise
+Bent-knee calf raise
+Seated calf raise
+Leg press calf raise
+Smith machine calf raise
+Tempo calf raise with pause at top
+Tempo calf raise with slow lowering
+3. Eccentric-biased loading
+
+Useful, but should be a subset rather than the whole program philosophy.
+
+Eccentric heel lower off step
+Bent-knee eccentric heel lower
+Assisted up / single-leg down calf raise
+Eccentric leg press calf lowering
+4. Heavy dynamic loading
+
+For building tendon and muscle capacity.
+
+Weighted standing calf raise
+Weighted seated calf raise
+Heavy single-leg calf raise with dumbbell
+Heavy leg press calf raise
+Smith machine heavy calf raise
+5. Fast dynamic loading
+
+Bridge between slow strength and plyometric work.
+
+Fast calf raise
+Snap calf raise
+Quick pogo preparation
+Repeated fast bilateral heel raises
+Alternating ankle rebounds in place
+6. Reactive strength / plyometric loading
+
+For energy storage and return.
+
+Bilateral pogos
+Single-leg pogos
+Line hops
+Forward-back hops
+Lateral hops
+Skipping
+Jump rope
+Low box rebound jumps
+Single-leg hop and stick
+Repeated single-leg hops
+7. Running / sport re-entry
+
+These should also live in the library as “movement progressions.”
+
+Walk-jog intervals
+Continuous easy run
+Stride accelerations
+Hill walk/jog progression
+Tempo run reintroduction
+Cutting prep drills
+Change-of-direction submax drill
+Sport-specific bounding progression
+8. Accessory / impairment-targeted work
+
+Not the main tendon driver, but often useful.
+
+Soleus-biased seated loading
+Tibialis posterior strengthening
+Intrinsic foot control
+Split squat with forward tibial translation
+Step-down control drill
+Hip abductor strengthening
+Hip extension strength work
+Balance and frontal-plane control drills
+Build it around “exercise attributes”
+
+Do not rely only on the exercise name.
+The rule engine should choose exercises based on attributes like:
+
+tendon irritability
+tolerated load level
+compression sensitivity
+insertional vs midportion presentation
+available equipment
+unilateral capacity
+pain during last session
+stiffness next morning
+ability to complete prescribed dose
+athlete vs general population
+current running status
+
+That way the app can swap exercises intelligently.
+
+Example:
+
+If someone has insertional Achilles pain, avoid deep dorsiflexion off-step loading early.
+If someone has high irritability, prioritize isometrics or limited-range isotonic loading.
+If someone has good tolerance and low irritability, choose heavy slow resistance or dynamic loading.
+If someone is preparing for sport, prioritize reactive and energy-storage drills.
+Good starter progression ladder
+
+A simple ladder could be:
+
+Level 1: supported isometrics / short-range isotonic
+Level 2: bodyweight isotonic calf raises
+Level 3: single-leg calf loading
+Level 4: external resistance / heavy slow resistance
+Level 5: fast calf loading
+Level 6: bilateral plyometrics
+Level 7: unilateral plyometrics
+Level 8: running and sport-specific loading
+
+That is much more usable than “early/mid/late rehab” alone.
+
+Minimum viable library
+
+For version 1, do not try to build 150 exercises.
+
+Build about 25–40 excellent entries:
+
+5–6 isometric options
+8–10 slow strength options
+4–6 eccentric/heavy variants
+5–6 fast/reactive drills
+4–6 run/return-to-sport progressions
+4–6 accessory exercises
+
+That is enough for a very strong MVP if the metadata is good.
+
+What will make the library feel smart
+
+The app gets powerful when every exercise has:
+
+a clear why
+a clear best use case
+a clear not yet / not appropriate case
+a clear progression/regression path
+a consistent patient-facing explanation
+
+So instead of only saying “3 x 15 calf raises,” TenoTrainer can say:
+
+why this was chosen
+what symptom response is acceptable
+what next-step progression looks like
+what warning signs mean hold or regress
+
+Every exercise MUST include:
+
+Core selectors
+loading_profile
+irritability_appropriateness
+unilateral_or_bilateral
+requires_full_rom (important for insertional)
+max_load_potential
+impact_level
+CRITICAL tags for Achilles
+insertional_safe (true/false)
+requires_dorsiflexion_depth (none / moderate / high)
+stretch_shortening_cycle (true/false)
+rate_of_loading (slow / moderate / fast / explosive)
+
+Example logic:
+High pain + high irritability →
+→ isometrics only
+Moderate pain but completes dose →
+→ slow strength OR stay
+Low pain + meets volume →
+→ heavy OR fast loading
+Low pain + high capacity →
+→ plyometric or running
+Insertional Achilles →
+→ filter out:
+high dorsiflexion
+off-step eccentrics early
+

@@ -1,0 +1,418 @@
+{% extends "base.html" %}
+{% block title %}Alerts — TenoTrainer{% endblock %}
+{% block main_class %}max-w-4xl{% endblock %}
+
+{% block content %}
+
+{# ── Page Header ── #}
+<div class="rounded-2xl bg-gradient-to-r from-brand-700 to-brand-500 px-6 py-5 mb-6 shadow-md">
+  <div class="flex items-center justify-between gap-4 flex-wrap">
+    <div>
+      <p class="text-[0.65rem] text-brand-200 uppercase tracking-widest font-bold mb-0.5">
+        <a href="/supervisor/dashboard" class="hover:text-white transition-colors">Supervisor Panel</a>
+        <span class="mx-1 opacity-50">/</span>Alerts
+      </p>
+      <h1 class="text-2xl font-black text-white leading-tight">Alert Management</h1>
+      <p class="text-sm text-brand-200 mt-0.5">
+        {{ user.name }} ·
+        {% if show_resolved %}
+          {{ resolved_count }} resolved alert{{ 's' if resolved_count != 1 else '' }}
+        {% else %}
+          {{ unresolved_count }} unresolved alert{{ 's' if unresolved_count != 1 else '' }}
+        {% endif %}
+      </p>
+    </div>
+    {# Resolve-all button (unresolved view only) #}
+    {% if not show_resolved and alerts %}
+    <button id="resolve-all-btn" onclick="resolveAll()"
+            class="flex items-center gap-2 bg-white/15 hover:bg-white/25 text-white border border-white/30 rounded-xl px-4 py-2 text-sm font-bold transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+      </svg>
+      Resolve All
+    </button>
+    {% endif %}
+  </div>
+</div>
+
+{# ── Alert Overview ── #}
+{% set total_alert_count = alert_by_type | sum(attribute='count') %}
+<div class="mb-5">
+
+  <div class="flex items-center gap-2 mb-3">
+    <svg class="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+    </svg>
+    <h2 class="text-xs font-bold text-gray-500 uppercase tracking-widest">Alert Overview</h2>
+    {% if total_alert_count > 0 %}
+    <span class="text-[0.6rem] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
+      {{ total_alert_count }} unresolved
+    </span>
+    {% else %}
+    <span class="text-[0.6rem] font-semibold text-gray-300">All clear</span>
+    {% endif %}
+  </div>
+
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+
+    {% set _cfg = {
+      'pain': (
+        'bg-red-50 border-red-200',
+        'hover:bg-red-100/60',
+        'text-red-700',
+        'text-red-500',
+        'border-red-100 bg-red-50/60',
+        'text-red-600',
+        'Pain',
+        'M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z'
+      ),
+      'compliance': (
+        'bg-yellow-50 border-yellow-200',
+        'hover:bg-yellow-100/60',
+        'text-yellow-700',
+        'text-yellow-500',
+        'border-yellow-100 bg-yellow-50/60',
+        'text-yellow-600',
+        'Compliance',
+        'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z'
+      ),
+      'inactivity': (
+        'bg-blue-50 border-blue-200',
+        'hover:bg-blue-100/60',
+        'text-blue-700',
+        'text-blue-500',
+        'border-blue-100 bg-blue-50/60',
+        'text-blue-600',
+        'Inactivity',
+        'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'
+      ),
+      'comment': (
+        'bg-purple-50 border-purple-200',
+        'hover:bg-purple-100/60',
+        'text-purple-700',
+        'text-purple-500',
+        'border-purple-100 bg-purple-50/60',
+        'text-purple-600',
+        'Comment',
+        'M8 10h.01M12 10h.01M16 10h.01M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z'
+      ),
+    } %}
+
+    {% for item in alert_by_type %}
+    {% set c = _cfg.get(item.type, ('bg-gray-50 border-gray-200','','text-gray-500','text-gray-400','border-gray-100 bg-gray-50','text-gray-500','Unknown','')) %}
+    {% set has_alerts = item.count > 0 %}
+
+    <div class="relative group rounded-xl border transition-colors
+                {{ c[0] ~ ' ' ~ c[1] if has_alerts else 'bg-gray-50 border-gray-200' }}">
+
+      {# Invisible button overlay — filters the list instead of navigating #}
+      {% if has_alerts %}
+      <button onclick="setFilter('type','{{ item.type }}')"
+              class="absolute inset-0 rounded-xl z-10 cursor-pointer"
+              aria-label="Filter by {{ c[6] | lower }} alerts"></button>
+      {% endif %}
+
+      <div class="px-4 py-4">
+
+        <div class="flex items-center gap-1.5 mb-3">
+          <svg class="w-3.5 h-3.5 shrink-0 {{ c[2] if has_alerts else 'text-gray-300' }}"
+               fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="{{ c[7] }}"/>
+          </svg>
+          <p class="text-[0.6rem] font-bold uppercase tracking-widest
+                    {{ c[2] if has_alerts else 'text-gray-400' }}">{{ c[6] }}</p>
+          {% if has_alerts %}
+          <span class="ml-auto text-[0.6rem] font-bold {{ c[2] }} opacity-60">↓</span>
+          {% endif %}
+        </div>
+
+        <p class="text-4xl font-black leading-none mb-1.5
+                  {{ c[2] if has_alerts else 'text-gray-200' }}">{{ item.count }}</p>
+
+        <p class="text-[0.65rem] font-semibold
+                  {{ c[3] if has_alerts else 'text-gray-300' }}">
+          {% if has_alerts %}
+            {{ item.patient_count }} patient{{ 's' if item.patient_count != 1 else '' }} affected
+          {% else %}
+            No active alerts
+          {% endif %}
+        </p>
+
+      </div>
+
+      {% if item.names %}
+      <div class="absolute left-0 top-full mt-2 z-30 w-52 min-w-max
+                  opacity-0 invisible pointer-events-none
+                  group-hover:opacity-100 group-hover:visible group-hover:pointer-events-auto
+                  transition-all duration-150 rounded-xl bg-white border border-gray-200 shadow-2xl overflow-hidden">
+        <div class="px-3 py-2 border-b {{ c[4] }}">
+          <p class="text-[0.6rem] font-bold uppercase tracking-widest {{ c[5] }}">
+            {{ c[6] }} Alerts · {{ item.count }} total
+          </p>
+        </div>
+        <div class="py-1 max-h-40 overflow-y-auto">
+          {% for name in item.names %}
+          <div class="flex items-center gap-2 px-3 py-1.5">
+            <span class="w-1.5 h-1.5 rounded-full {{ c[3] }} shrink-0"></span>
+            <p class="text-xs text-gray-700">{{ name }}</p>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="px-3 py-1.5 border-t border-gray-100 bg-gray-50">
+          <p class="text-[0.55rem] text-gray-400">Click to filter by this type</p>
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+    {% endfor %}
+
+  </div>
+</div>
+
+{# ── Filter bar ── #}
+<div class="bg-gray-50/60 rounded-xl border border-gray-200 px-4 py-3 mb-5 flex flex-wrap gap-3 items-center">
+  {# Type filter #}
+  <div class="flex items-center gap-1 flex-wrap">
+    <span class="text-[0.65rem] text-gray-400 uppercase tracking-widest font-bold mr-1">Type</span>
+    <button onclick="setFilter('type','all')" data-type="all"
+            class="filter-type-btn px-2.5 py-1 rounded-full text-xs font-bold border transition-colors bg-brand-600 text-white border-brand-600">All</button>
+    <button onclick="setFilter('type','pain')" data-type="pain"
+            class="filter-type-btn px-2.5 py-1 rounded-full text-xs font-bold border border-gray-300 text-gray-600 hover:border-brand-400 hover:text-brand-700 transition-colors">Pain</button>
+    <button onclick="setFilter('type','compliance')" data-type="compliance"
+            class="filter-type-btn px-2.5 py-1 rounded-full text-xs font-bold border border-gray-300 text-gray-600 hover:border-brand-400 hover:text-brand-700 transition-colors">Compliance</button>
+    <button onclick="setFilter('type','inactivity')" data-type="inactivity"
+            class="filter-type-btn px-2.5 py-1 rounded-full text-xs font-bold border border-gray-300 text-gray-600 hover:border-brand-400 hover:text-brand-700 transition-colors">Inactivity</button>
+    <button onclick="setFilter('type','comment')" data-type="comment"
+            class="filter-type-btn px-2.5 py-1 rounded-full text-xs font-bold border border-gray-300 text-gray-600 hover:border-brand-400 hover:text-brand-700 transition-colors">Comment</button>
+  </div>
+  <div class="w-px h-5 bg-gray-300 hidden sm:block"></div>
+  {# Priority filter #}
+  <div class="flex items-center gap-1 flex-wrap">
+    <span class="text-[0.65rem] text-gray-400 uppercase tracking-widest font-bold mr-1">Priority</span>
+    <button onclick="setFilter('sev','all')" data-sev="all"
+            class="filter-sev-btn px-2.5 py-1 rounded-full text-xs font-bold border transition-colors bg-brand-600 text-white border-brand-600">All</button>
+    <button onclick="setFilter('sev','high')" data-sev="high"
+            class="filter-sev-btn px-2.5 py-1 rounded-full text-xs font-bold border border-gray-300 text-gray-600 hover:border-red-400 hover:text-red-700 transition-colors">High</button>
+    <button onclick="setFilter('sev','medium')" data-sev="medium"
+            class="filter-sev-btn px-2.5 py-1 rounded-full text-xs font-bold border border-gray-300 text-gray-600 hover:border-yellow-500 hover:text-yellow-700 transition-colors">Medium</button>
+    <button onclick="setFilter('sev','low')" data-sev="low"
+            class="filter-sev-btn px-2.5 py-1 rounded-full text-xs font-bold border border-gray-300 text-gray-600 hover:border-gray-400 hover:text-gray-700 transition-colors">Low</button>
+  </div>
+  {# Resolved toggle #}
+  <a href="/supervisor/alerts{% if not show_resolved %}?show_resolved=1{% endif %}"
+     class="ml-auto flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-brand-700 transition-colors">
+    {% if show_resolved %}
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+    </svg>
+    View unresolved ({{ unresolved_count }})
+    {% else %}
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+    </svg>
+    View resolved ({{ resolved_count }})
+    {% endif %}
+  </a>
+</div>
+
+{# ── Alert list ── #}
+{% if alerts %}
+<div class="bg-white rounded-xl shadow border border-gray-100 overflow-hidden" id="alerts-container">
+  <div class="divide-y divide-gray-50" id="alerts-list">
+    {% for alert in alerts %}
+    {% set sev_map = {
+      'high':   ('bg-red-50 hover:bg-red-100/60', 'border-red-400', 'bg-red-100 text-red-700', 'text-red-700'),
+      'medium': ('bg-yellow-50 hover:bg-yellow-100/60', 'border-yellow-400', 'bg-yellow-100 text-yellow-700', 'text-yellow-700'),
+      'low':    ('bg-gray-50 hover:bg-gray-100/40', 'border-gray-300', 'bg-gray-100 text-gray-600', 'text-gray-600'),
+    } %}
+    {% set type_map = {
+      'pain': ('Pain', 'text-red-600'),
+      'compliance': ('Compliance', 'text-yellow-600'),
+      'inactivity': ('Inactivity', 'text-blue-600'),
+      'comment': ('Comment', 'text-purple-600'),
+    } %}
+    {% set cls = sev_map.get(alert.severity, sev_map['low']) %}
+    {% set tc  = type_map.get(alert.type, (alert.type | capitalize, 'text-gray-600')) %}
+    <div class="alert-row flex items-center gap-3 px-4 py-3 border-l-4 {{ cls[0] }} {{ cls[1] }} transition-colors"
+         data-type="{{ alert.type }}"
+         data-sev="{{ alert.severity }}"
+         data-id="{{ alert.id }}"
+         id="alert-row-{{ alert.id }}">
+      {# Left: severity badge + type + message #}
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 mb-0.5 flex-wrap">
+          <span class="text-[0.6rem] font-black px-1.5 py-0.5 rounded-full uppercase {{ cls[2] }} shrink-0">{{ alert.severity }}</span>
+          <span class="text-[0.7rem] font-bold uppercase tracking-wide {{ tc[1] }} shrink-0">{{ tc[0] }}</span>
+          <a href="/supervisor/patients/{{ alert.patient_id }}"
+             class="text-xs font-semibold text-gray-800 hover:text-brand-700 transition-colors shrink-0 ml-1">
+            {{ alert.patient_name }}
+          </a>
+          <span class="text-[0.65rem] text-gray-400 ml-auto shrink-0">{{ alert.created_at }}</span>
+        </div>
+        <p class="text-sm {{ cls[3] }} leading-snug">{{ alert.message }}</p>
+        {% if alert.resolved and alert.resolved_at %}
+        <p class="text-[0.65rem] text-gray-400 mt-0.5">Resolved {{ alert.resolved_at }}</p>
+        {% endif %}
+      </div>
+      {# Resolve button (unresolved view only) #}
+      {% if not show_resolved %}
+      <button onclick="resolveAlert({{ alert.id }}, this)"
+              class="shrink-0 text-xs px-3 py-1.5 rounded-lg border border-gray-300 text-gray-500 hover:bg-white hover:text-brand-700 hover:border-brand-300 transition-colors font-semibold whitespace-nowrap">
+        Resolve
+      </button>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+<p id="no-results-msg" class="hidden text-center text-sm text-gray-400 py-10">No alerts match the current filter.</p>
+
+{% else %}
+{# Empty state #}
+<div class="bg-white rounded-xl shadow border border-gray-100 px-6 py-16 text-center">
+  <svg class="w-10 h-10 text-green-400 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+  </svg>
+  <p class="text-gray-600 font-semibold text-sm">
+    {% if show_resolved %}No resolved alerts yet.{% else %}No active alerts — all patients are on track.{% endif %}
+  </p>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  'use strict';
+
+  var _typeFilter = 'all';
+  var _sevFilter  = 'all';
+
+  function setFilter(dim, val) {
+    if (dim === 'type') {
+      _typeFilter = val;
+      document.querySelectorAll('.filter-type-btn').forEach(function (b) {
+        var active = b.dataset.type === val;
+        b.className = b.className
+          .replace(/bg-brand-600 text-white border-brand-600/g, '')
+          .replace(/border-gray-300 text-gray-600/g, '')
+          .trim();
+        if (active) {
+          b.className += ' bg-brand-600 text-white border-brand-600';
+        } else {
+          b.className += ' border-gray-300 text-gray-600';
+        }
+      });
+    } else {
+      _sevFilter = val;
+      document.querySelectorAll('.filter-sev-btn').forEach(function (b) {
+        var active = b.dataset.sev === val;
+        b.className = b.className
+          .replace(/bg-brand-600 text-white border-brand-600/g, '')
+          .replace(/border-gray-300 text-gray-600/g, '')
+          .trim();
+        if (active) {
+          b.className += ' bg-brand-600 text-white border-brand-600';
+        } else {
+          b.className += ' border-gray-300 text-gray-600';
+        }
+      });
+    }
+    applyFilters();
+  }
+
+  function applyFilters() {
+    var rows = document.querySelectorAll('.alert-row');
+    var visibleCount = 0;
+    rows.forEach(function (row) {
+      var typeOk = _typeFilter === 'all' || row.dataset.type === _typeFilter;
+      var sevOk  = _sevFilter  === 'all' || row.dataset.sev  === _sevFilter;
+      var show   = typeOk && sevOk;
+      row.style.display = show ? '' : 'none';
+      if (show) visibleCount++;
+    });
+    var noMsg = document.getElementById('no-results-msg');
+    var container = document.getElementById('alerts-container');
+    if (noMsg) noMsg.classList.toggle('hidden', visibleCount > 0);
+    if (container) container.classList.toggle('hidden', visibleCount === 0);
+  }
+
+  function resolveAlert(alertId, btn) {
+    btn.disabled = true;
+    btn.textContent = '…';
+    fetch('/supervisor/api/alerts/' + alertId + '/resolve', {
+      method: 'POST',
+      credentials: 'same-origin',
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.ok) {
+          var row = document.getElementById('alert-row-' + alertId);
+          if (row) {
+            row.style.transition = 'opacity 0.25s';
+            row.style.opacity = '0';
+            setTimeout(function () {
+              row.remove();
+              applyFilters();
+              updateHeaderCount(-1);
+              updateNavBadge('nav-alert-badge', Math.max(0, _navAlertCount - 1));
+              _navAlertCount = Math.max(0, _navAlertCount - 1);
+            }, 260);
+          }
+        } else {
+          btn.disabled = false;
+          btn.textContent = 'Resolve';
+        }
+      })
+      .catch(function () {
+        btn.disabled = false;
+        btn.textContent = 'Resolve';
+      });
+  }
+
+  function resolveAll() {
+    var btn = document.getElementById('resolve-all-btn');
+    if (!btn) return;
+    var rows = document.querySelectorAll('.alert-row');
+    var visibleIds = [];
+    rows.forEach(function (row) {
+      if (row.style.display !== 'none') visibleIds.push(parseInt(row.dataset.id, 10));
+    });
+    if (!visibleIds.length) return;
+    btn.disabled = true;
+    btn.textContent = 'Resolving…';
+    var promises = visibleIds.map(function (id) {
+      return fetch('/supervisor/api/alerts/' + id + '/resolve', {
+        method: 'POST',
+        credentials: 'same-origin',
+      }).then(function (r) { return r.json(); });
+    });
+    Promise.all(promises).then(function () {
+      window.location.reload();
+    });
+  }
+
+  var _navAlertCount = 0;
+
+  // Expose globals used by inline onclick and filter buttons
+  window.setFilter    = setFilter;
+  window.resolveAlert = resolveAlert;
+  window.resolveAll   = resolveAll;
+
+  // Sync nav alert count from badge after DOM ready; auto-apply ?type= filter from URL
+  document.addEventListener('DOMContentLoaded', function () {
+    var badge = document.getElementById('nav-alert-badge');
+    if (badge && !badge.classList.contains('hidden')) {
+      _navAlertCount = parseInt(badge.textContent, 10) || 0;
+    }
+    var params = new URLSearchParams(window.location.search);
+    var t = params.get('type');
+    if (t && ['pain', 'compliance', 'inactivity', 'comment'].indexOf(t) !== -1) {
+      setFilter('type', t);
+    }
+  });
+})();
+</script>
+{% endblock %}

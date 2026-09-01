@@ -12,8 +12,8 @@ Generate and adapt personalized Achilles tendon loading programs based on struct
 ________________________________________
 2. CRITICAL FRAMING
 This system is:
-•	✅ A decision support + guidance tool 
-•	❌ NOT a diagnostic or autonomous medical system 
+•	A decision support + guidance tool 
+•	NOT a diagnostic or autonomous medical system 
 ________________________________________
 3. CORE SYSTEM PHILOSOPHY
 Load-Based Rehabilitation

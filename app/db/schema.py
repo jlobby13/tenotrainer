@@ -7,7 +7,8 @@ CREATE_TABLES_SQL = """
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    email TEXT,
+    email TEXT UNIQUE,
+    password_hash TEXT,
     role TEXT NOT NULL DEFAULT 'patient',
     session_token TEXT UNIQUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -22,11 +23,16 @@ CREATE TABLE IF NOT EXISTS onboarding_assessments (
     pain_after_activity INTEGER NOT NULL,
     next_day_pain INTEGER NOT NULL,
     calf_raise_reps INTEGER NOT NULL,
+    functional_tests TEXT NOT NULL DEFAULT '{}',
+    goals TEXT NOT NULL DEFAULT '{}',
     injury_duration TEXT NOT NULL,
     recent_load_change INTEGER NOT NULL DEFAULT 0,
     risk_factors TEXT NOT NULL DEFAULT '[]',
     stage INTEGER NOT NULL,
     irritability TEXT NOT NULL,
+    comments TEXT,
+    problem_list TEXT NOT NULL DEFAULT '[]',
+    other_problems TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
@@ -57,6 +63,7 @@ CREATE TABLE IF NOT EXISTS daily_logs (
     difficulty INTEGER NOT NULL,
     confidence INTEGER NOT NULL,
     notes TEXT,
+    load_context TEXT NOT NULL DEFAULT '{}',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
@@ -114,5 +121,156 @@ CREATE TABLE IF NOT EXISTS knowledge_entries (
     regression_criteria TEXT,
     contraindications TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS tfa_codes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    code TEXT NOT NULL,
+    purpose TEXT NOT NULL DEFAULT 'login',
+    pending_token TEXT UNIQUE NOT NULL,
+    expires_at TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS session_follow_ups (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    log_id INTEGER NOT NULL,
+    checkpoint TEXT NOT NULL,
+    due_at TEXT NOT NULL,
+    completed INTEGER NOT NULL DEFAULT 0,
+    completed_at TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (log_id) REFERENCES daily_logs(id)
+);
+
+CREATE TABLE IF NOT EXISTS schedule_overrides (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    week_start TEXT NOT NULL,
+    session_days TEXT NOT NULL DEFAULT '[]',
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, week_start),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS supervisor_patients (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    supervisor_id INTEGER NOT NULL,
+    patient_id INTEGER NOT NULL,
+    assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status TEXT NOT NULL DEFAULT 'active',
+    dismissed_at TIMESTAMP,
+    dismissed_reason TEXT,
+    dismissed_by INTEGER,
+    FOREIGN KEY (supervisor_id) REFERENCES users(id),
+    FOREIGN KEY (patient_id) REFERENCES users(id),
+    UNIQUE(supervisor_id, patient_id)
+);
+
+CREATE TABLE IF NOT EXISTS supervisor_alerts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    patient_id INTEGER NOT NULL,
+    log_id INTEGER,
+    type TEXT NOT NULL,
+    severity TEXT NOT NULL,
+    message TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    resolved INTEGER NOT NULL DEFAULT 0,
+    resolved_at TEXT,
+    FOREIGN KEY (patient_id) REFERENCES users(id),
+    FOREIGN KEY (log_id) REFERENCES daily_logs(id)
+);
+
+CREATE TABLE IF NOT EXISTS supervisor_audit_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    action_type TEXT NOT NULL,
+    target_patient_id INTEGER,
+    changes TEXT NOT NULL DEFAULT '{}',
+    note TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS supervisor_session_comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    supervisor_id INTEGER NOT NULL,
+    daily_log_id INTEGER NOT NULL,
+    comment TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(supervisor_id, daily_log_id),
+    FOREIGN KEY (supervisor_id) REFERENCES users(id),
+    FOREIGN KEY (daily_log_id) REFERENCES daily_logs(id)
+);
+
+CREATE TABLE IF NOT EXISTS messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sender_id INTEGER NOT NULL,
+    recipient_id INTEGER NOT NULL,
+    body TEXT NOT NULL,
+    read INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (sender_id) REFERENCES users(id),
+    FOREIGN KEY (recipient_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS exercises (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ex_id TEXT UNIQUE NOT NULL,
+    exercise_name TEXT NOT NULL,
+    category TEXT NOT NULL,
+    difficulty_level INTEGER NOT NULL DEFAULT 1,
+    target_tissue TEXT,
+    region_bias TEXT NOT NULL DEFAULT '[]',
+    loading_profile TEXT NOT NULL,
+    irritability_appropriateness TEXT NOT NULL DEFAULT '[]',
+    insertional_safe INTEGER NOT NULL DEFAULT 1,
+    requires_dorsiflexion_depth TEXT NOT NULL DEFAULT 'none',
+    stretch_shortening_cycle INTEGER NOT NULL DEFAULT 0,
+    rate_of_loading TEXT NOT NULL DEFAULT 'slow',
+    unilateral_or_bilateral TEXT NOT NULL DEFAULT 'bilateral',
+    requires_full_rom INTEGER NOT NULL DEFAULT 0,
+    max_load_potential TEXT,
+    impact_level TEXT NOT NULL DEFAULT 'none',
+    required_equipment TEXT,
+    dosage_defaults TEXT NOT NULL DEFAULT '{}',
+    progression_options TEXT NOT NULL DEFAULT '[]',
+    regression_options TEXT NOT NULL DEFAULT '[]',
+    setup_instructions TEXT,
+    execution_cues TEXT NOT NULL DEFAULT '[]',
+    common_compensations TEXT NOT NULL DEFAULT '[]',
+    contraindications_or_cautions TEXT,
+    decision_rules_tags TEXT NOT NULL DEFAULT '[]',
+    patient_facing_explanation TEXT,
+    clinician_notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS supervisor_assessments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    patient_id INTEGER NOT NULL,
+    supervisor_id INTEGER NOT NULL,
+    calf_raise_reps INTEGER,
+    functional_tests TEXT NOT NULL DEFAULT '{}',
+    risk_factors TEXT NOT NULL DEFAULT '[]',
+    objective_info TEXT,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (patient_id) REFERENCES users(id),
+    FOREIGN KEY (supervisor_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS supervisor_case_notes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    patient_id INTEGER NOT NULL,
+    supervisor_id INTEGER NOT NULL,
+    note TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (patient_id) REFERENCES users(id),
+    FOREIGN KEY (supervisor_id) REFERENCES users(id)
 );
 """

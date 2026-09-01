@@ -1,0 +1,686 @@
+{% extends "base.html" %}
+{% block title %}Caseload — TenoTrainer{% endblock %}
+{% block main_class %}max-w-7xl{% endblock %}
+
+{% block content %}
+
+{# ── Page Header ── #}
+<div class="rounded-2xl bg-gradient-to-r from-brand-700 to-brand-500 px-6 py-5 mb-6 shadow-md">
+  <div class="flex items-center justify-between gap-4 flex-wrap">
+    <div>
+      <p class="text-[0.65rem] text-brand-200 uppercase tracking-widest font-bold mb-0.5">
+        <a href="/supervisor/dashboard" class="hover:text-white transition-colors">Supervisor Panel</a>
+        <span class="mx-1 opacity-50">/</span>Caseload
+      </p>
+      <h1 class="text-2xl font-black text-white leading-tight">Caseload</h1>
+      <p class="text-sm text-brand-200 mt-0.5">{{ user.name }} · {{ total }} active patient{{ 's' if total != 1 else '' }}</p>
+    </div>
+    {# View toggle #}
+    <div class="flex items-center gap-1 bg-brand-800/40 rounded-lg p-0.5">
+      <button id="view-card-btn" onclick="setView('card')"
+              class="px-3 py-1.5 rounded-md text-xs font-bold transition-colors text-white bg-white/20">
+        <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
+        </svg>Cards
+      </button>
+      <button id="view-list-btn" onclick="setView('list')"
+              class="px-3 py-1.5 rounded-md text-xs font-bold transition-colors text-brand-200 hover:text-white">
+        <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+        </svg>List
+      </button>
+    </div>
+  </div>
+</div>
+
+{% if patients %}
+<div class="flex gap-5 items-start">
+
+  {# ── Filter Sidebar ── #}
+  <aside class="w-52 shrink-0 sticky top-4">
+    <div class="bg-white rounded-xl shadow border border-gray-100 p-4 flex flex-col gap-4">
+
+      {# Stage #}
+      <div>
+        <p class="text-[0.6rem] uppercase tracking-widest font-bold text-gray-500 mb-1.5">Stage</p>
+        <div class="flex flex-wrap gap-1">
+          {% for s in stages %}
+          <button class="filter-pill px-2 py-0.5 rounded-full text-[0.6rem] font-semibold border transition-colors border-gray-200 text-gray-500 hover:border-brand-400 hover:text-brand-600"
+                  data-filter="stage:{{ s }}"
+                  onclick="toggleFilter(this)">Stage {{ s }}</button>
+          {% endfor %}
+          <button class="filter-pill px-2 py-0.5 rounded-full text-[0.6rem] font-semibold border transition-colors border-gray-200 text-gray-500 hover:border-brand-400 hover:text-brand-600"
+                  data-filter="stage:none"
+                  onclick="toggleFilter(this)">None</button>
+        </div>
+      </div>
+
+      {# Irritability #}
+      <div>
+        <p class="text-[0.6rem] uppercase tracking-widest font-bold text-gray-500 mb-1.5">Irritability</p>
+        <div class="flex flex-wrap gap-1">
+          {% for irr in ['High', 'Moderate', 'Low', 'Minimal', 'None'] %}
+          <button class="filter-pill px-2 py-0.5 rounded-full text-[0.6rem] font-semibold border transition-colors border-gray-200 text-gray-500 hover:border-brand-400 hover:text-brand-600"
+                  data-filter="irritability:{{ irr|lower }}"
+                  onclick="toggleFilter(this)">{{ irr }}</button>
+          {% endfor %}
+        </div>
+      </div>
+
+      {# Alert Status #}
+      <div>
+        <p class="text-[0.6rem] uppercase tracking-widest font-bold text-gray-500 mb-1.5">Alert Status</p>
+        <div class="flex flex-wrap gap-1">
+          <button class="filter-pill px-2 py-0.5 rounded-full text-[0.6rem] font-semibold border transition-colors border-gray-200 text-gray-500 hover:border-brand-400 hover:text-brand-600"
+                  data-filter="severity:critical"
+                  onclick="toggleFilter(this)">Critical</button>
+          <button class="filter-pill px-2 py-0.5 rounded-full text-[0.6rem] font-semibold border transition-colors border-gray-200 text-gray-500 hover:border-brand-400 hover:text-brand-600"
+                  data-filter="severity:alert"
+                  onclick="toggleFilter(this)">Alert</button>
+          <button class="filter-pill px-2 py-0.5 rounded-full text-[0.6rem] font-semibold border transition-colors border-gray-200 text-gray-500 hover:border-brand-400 hover:text-brand-600"
+                  data-filter="severity:clear"
+                  onclick="toggleFilter(this)">Clear</button>
+        </div>
+      </div>
+
+      {# Engagement #}
+      <div>
+        <p class="text-[0.6rem] uppercase tracking-widest font-bold text-gray-500 mb-1.5">Engagement</p>
+        <div class="flex flex-wrap gap-1">
+          <button class="filter-pill px-2 py-0.5 rounded-full text-[0.6rem] font-semibold border transition-colors border-gray-200 text-gray-500 hover:border-brand-400 hover:text-brand-600"
+                  data-filter="engagement:engaged"
+                  onclick="toggleFilter(this)">Engaged</button>
+          <button class="filter-pill px-2 py-0.5 rounded-full text-[0.6rem] font-semibold border transition-colors border-gray-200 text-gray-500 hover:border-brand-400 hover:text-brand-600"
+                  data-filter="engagement:behind"
+                  onclick="toggleFilter(this)">Behind</button>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+
+  {# ── Content Area ── #}
+  <div class="flex-1 min-w-0">
+
+    {# Toolbar #}
+    <div class="bg-white rounded-xl shadow border border-gray-100 px-5 py-3 flex flex-col gap-2.5 mb-4">
+
+      {# Row 1: Search #}
+      <div class="relative flex items-center">
+        <svg class="absolute left-3 w-3.5 h-3.5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/>
+        </svg>
+        <input id="cl-search"
+               type="text"
+               placeholder="Search patients…"
+               oninput="onCLSearch(this.value)"
+               class="w-full pl-8 pr-8 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent placeholder-gray-400" />
+        <button id="cl-search-clear"
+                onclick="document.getElementById('cl-search').value=''; onCLSearch('');"
+                class="hidden absolute right-2.5 text-gray-400 hover:text-gray-600 transition-colors text-sm leading-none">×</button>
+      </div>
+
+      {# Row 2: Group + Sort #}
+      <div class="flex items-center gap-4 flex-wrap text-xs text-gray-500">
+        <span class="font-semibold">Group:</span>
+        {% for gmode in [('none', 'None'), ('stage', 'Stage'), ('status', 'Status'), ('irritability', 'Irritability')] %}
+        <button class="cl-group-btn font-semibold hover:text-brand-600 transition-colors {% if loop.first %}text-brand-600{% endif %}"
+                data-group-by="{{ gmode[0] }}"
+                onclick="setGroupBy('{{ gmode[0] }}')">{{ gmode[1] }}</button>
+        {% endfor %}
+        <span class="text-gray-300 select-none">|</span>
+        <span class="font-semibold">Sort:</span>
+        {% for smode in [('status', 'Status'), ('name', 'Name'), ('last-session', 'Last Session'), ('adherence', 'Adherence'), ('avg-pain', 'Avg Pain')] %}
+        <button class="cl-sort-btn font-semibold hover:text-brand-600 transition-colors {% if loop.first %}text-brand-600{% endif %}"
+                data-cl-sort="{{ smode[0] }}"
+                onclick="sortCL('{{ smode[0] }}')">{{ smode[1] }}{% if loop.first %} <span class="sort-arrow">↓</span>{% endif %}</button>
+        {% endfor %}
+      </div>
+
+      {# Row 3: Results count #}
+      <span id="cl-count" class="text-xs text-gray-400"></span>
+    </div>
+
+    {# Active Filter Chips #}
+    <div id="cl-chips-row" class="hidden flex flex-wrap gap-1.5 mb-3"></div>
+
+    {# Cases Container #}
+    <div id="cases-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+
+      {% for p in patients %}
+      {# Compute display values #}
+      {% set status_color = {
+        'red': 'red-500',
+        'yellow': 'yellow-400',
+        'green': 'green-500',
+        'inactive': 'gray-400'
+      }.get(p.status, 'gray-400') %}
+
+      {% set irr_lower = (p.irritability or '')|lower %}
+      {% set irr_chip_cls = {
+        'high': 'bg-red-100 text-red-700',
+        'moderate': 'bg-amber-100 text-amber-700',
+        'low': 'bg-green-100 text-green-700',
+        'minimal': 'bg-gray-100 text-gray-600'
+      }.get(irr_lower, 'bg-gray-100 text-gray-500') %}
+
+      {% set adh = p.adherence_pct or 0 %}
+      {% set adh_cls = 'bg-green-100 text-green-700' if adh >= 70 else ('bg-yellow-100 text-yellow-700' if adh >= 40 else 'bg-red-100 text-red-700') %}
+
+      {% set sev_data = 'critical' if p.max_severity == 'high' else ('alert' if p.max_severity else 'clear') %}
+
+      {% set irr_sort = {'high': 0, 'moderate': 1, 'low': 2, 'minimal': 3}.get(irr_lower, 99) %}
+
+      <a href="/supervisor/patients/{{ p.id }}"
+         class="patient-item block bg-white rounded-xl shadow border border-gray-100 hover:shadow-md transition-all duration-150 group overflow-hidden"
+         data-patient-id="{{ p.id }}"
+         data-name="{{ p.name|lower }}"
+         data-email="{{ p.email|lower }}"
+         data-stage="{{ p.stage or 'none' }}"
+         data-irritability="{{ irr_lower or 'none' }}"
+         data-severity="{{ sev_data }}"
+         data-engagement="{{ p.engagement }}"
+         data-status="{{ p.status }}"
+         data-last-session="{{ p.last_session_date or '0000-00-00' }}"
+         data-adherence="{{ p.adherence_pct or 0 }}"
+         data-avg-pain="{{ p.avg_pain_7d or '' }}"
+         data-alert-count="{{ p.alert_count }}"
+         data-stage-num="{{ p.stage or 999 }}"
+         data-irr-sort="{{ irr_sort }}">
+
+        {# Card Body #}
+        <div class="card-body border-l-4 border-l-{{ status_color }} p-4 flex flex-col gap-3">
+
+          {# Top row: name + alert badge #}
+          <div class="flex justify-between items-start gap-2">
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-{{ status_color }} shrink-0"></span>
+                <p class="font-bold text-gray-900 truncate">{{ p.name }}</p>
+              </div>
+              <p class="text-xs text-gray-400 truncate pl-3.5">{{ p.email }}</p>
+            </div>
+            {% if p.alert_count > 0 %}
+            <span class="shrink-0 text-xs font-bold px-2 py-0.5 rounded-full
+                         {{ 'bg-red-100 text-red-700' if p.max_severity == 'high' else 'bg-yellow-100 text-yellow-700' }}">
+              {{ p.alert_count }} alert{{ 's' if p.alert_count != 1 else '' }}
+            </span>
+            {% endif %}
+          </div>
+
+          {# Middle chips #}
+          <div class="flex flex-wrap gap-1.5">
+            {% if p.stage %}
+            <span class="bg-brand-50 text-brand-700 border border-brand-100 text-[0.6rem] font-bold px-2 py-0.5 rounded">
+              Stage {{ p.stage }}
+            </span>
+            {% else %}
+            <span class="bg-gray-100 text-gray-400 text-[0.6rem] font-bold px-2 py-0.5 rounded">No Stage</span>
+            {% endif %}
+            <span class="text-[0.6rem] font-bold px-2 py-0.5 rounded {{ irr_chip_cls }}">
+              {{ (p.irritability or 'Unknown')|capitalize }}
+            </span>
+            <span class="text-[0.6rem] font-bold px-2 py-0.5 rounded {{ adh_cls }}">
+              {{ p.adherence_pct or 0 }}% adherence
+            </span>
+          </div>
+
+          {# Stats grid #}
+          <div class="grid grid-cols-4 gap-2 pt-1 border-t border-gray-50">
+            <div class="text-center">
+              <p class="text-[0.55rem] font-bold uppercase tracking-widest text-gray-400">Avg Pain</p>
+              <p class="text-base font-black
+                        {% if p.avg_pain_7d is not none %}
+                          {% if p.avg_pain_7d >= 7 %}text-red-600
+                          {% elif p.avg_pain_7d >= 4 %}text-amber-600
+                          {% else %}text-green-600{% endif %}
+                        {% else %}text-gray-400{% endif %}">
+                {{ p.avg_pain_7d if p.avg_pain_7d is not none else '—' }}
+              </p>
+            </div>
+            <div class="text-center">
+              <p class="text-[0.55rem] font-bold uppercase tracking-widest text-gray-400">VISA</p>
+              <p class="text-base font-black text-gray-800">{{ p.latest_visa if p.latest_visa is not none else '—' }}</p>
+            </div>
+            <div class="text-center">
+              <p class="text-[0.55rem] font-bold uppercase tracking-widest text-gray-400">/week</p>
+              <p class="text-base font-black text-gray-800">{{ p.sessions_per_week }}</p>
+            </div>
+            <div class="text-center">
+              <p class="text-[0.55rem] font-bold uppercase tracking-widest text-gray-400">Program</p>
+              <p class="text-base font-black text-gray-800">{{ p.days_in_program if p.days_in_program is not none else '—' }}<span class="text-[0.55rem] font-normal text-gray-400 ml-0.5">d</span></p>
+            </div>
+          </div>
+
+          {# Footer #}
+          <div class="flex justify-between items-center text-[0.6rem] text-gray-400 pt-1 border-t border-gray-50">
+            <span>Last: {{ p.last_session_date | fmt_date if p.last_session_date else 'No sessions' }}</span>
+            <svg class="w-3.5 h-3.5 text-brand-500 group-hover:text-brand-700 transition-colors shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+            </svg>
+          </div>
+        </div>{# /card-body #}
+
+        {# List Body (hidden by default) — two-line compact row, same data as card #}
+        <div class="list-body hidden flex-col px-4 py-3 gap-1.5">
+
+          {# Row 1: identity + alert + chevron #}
+          <div class="flex items-center gap-3">
+            <span class="w-2.5 h-2.5 rounded-full bg-{{ status_color }} shrink-0"></span>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-bold text-gray-900 truncate group-hover:text-brand-700 transition-colors">{{ p.name }}</p>
+              <p class="text-[0.6rem] text-gray-400 truncate">{{ p.email }}</p>
+            </div>
+            {% if p.alert_count > 0 %}
+            <span class="shrink-0 text-xs font-bold px-2 py-0.5 rounded-full
+                         {{ 'bg-red-100 text-red-700' if p.max_severity == 'high' else 'bg-yellow-100 text-yellow-700' }}">
+              {{ p.alert_count }} alert{{ 's' if p.alert_count != 1 else '' }}
+            </span>
+            {% endif %}
+            <svg class="w-4 h-4 text-gray-300 group-hover:text-brand-500 transition-colors shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+            </svg>
+          </div>
+
+          {# Row 2: chips + stats, mirroring card body #}
+          <div class="flex items-center gap-2 pl-5 flex-wrap">
+            {# Chips #}
+            {% if p.stage %}
+            <span class="bg-brand-50 text-brand-700 border border-brand-100 text-[0.6rem] font-bold px-2 py-0.5 rounded">
+              Stage {{ p.stage }}
+            </span>
+            {% else %}
+            <span class="bg-gray-100 text-gray-400 text-[0.6rem] font-bold px-2 py-0.5 rounded">No Stage</span>
+            {% endif %}
+            <span class="text-[0.6rem] font-bold px-2 py-0.5 rounded {{ irr_chip_cls }}">
+              {{ (p.irritability or 'Unknown')|capitalize }}
+            </span>
+            <span class="text-[0.6rem] font-bold px-2 py-0.5 rounded {{ adh_cls }}">
+              {{ p.adherence_pct or 0 }}% adh.
+            </span>
+
+            <span class="text-gray-300 text-xs select-none">·</span>
+
+            {# Stats #}
+            <span class="text-[0.6rem] text-gray-500">Pain <span class="font-bold
+              {% if p.avg_pain_7d is not none %}
+                {% if p.avg_pain_7d >= 7 %}text-red-600{% elif p.avg_pain_7d >= 4 %}text-amber-600{% else %}text-green-600{% endif %}
+              {% else %}text-gray-400{% endif %}">{{ p.avg_pain_7d if p.avg_pain_7d is not none else '—' }}</span></span>
+            <span class="text-[0.6rem] text-gray-500">VISA <span class="font-bold text-gray-700">{{ p.latest_visa if p.latest_visa is not none else '—' }}</span></span>
+            <span class="text-[0.6rem] text-gray-500"><span class="font-bold text-gray-700">{{ p.sessions_per_week }}</span>/wk</span>
+            <span class="text-[0.6rem] text-gray-500"><span class="font-bold text-gray-700">{{ p.days_in_program if p.days_in_program is not none else '—' }}</span>d</span>
+            <span class="text-[0.6rem] text-gray-500">Last <span class="font-bold text-gray-600">{{ p.last_session_date | fmt_date if p.last_session_date else 'none' }}</span></span>
+          </div>
+
+        </div>{# /list-body #}
+
+      </a>
+      {% endfor %}
+
+    </div>{# /cases-container #}
+
+    {# Empty State #}
+    <div id="cases-empty" class="hidden flex flex-col items-center justify-center py-20 text-center">
+      <svg class="w-12 h-12 text-gray-300 mb-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/>
+      </svg>
+      <p class="text-sm font-bold text-gray-500 mb-1">No patients match the selected filters</p>
+      <p class="text-xs text-gray-400 mb-4">Try adjusting your search or filter criteria.</p>
+      <button onclick="clearAllFilters()"
+              class="px-4 py-2 text-xs font-bold bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors">
+        Clear filters
+      </button>
+    </div>
+
+  </div>{# /content area #}
+
+</div>{# /flex row #}
+
+{% else %}
+{# No patients at all #}
+<div class="flex flex-col items-center justify-center py-24 text-center">
+  <svg class="w-14 h-14 text-gray-200 mb-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2h5M12 12a5 5 0 100-10 5 5 0 000 10z"/>
+  </svg>
+  <p class="text-base font-bold text-gray-400">No active patients assigned</p>
+  <p class="text-sm text-gray-300 mt-1">Patients will appear here once they are assigned to your caseload.</p>
+  <a href="/supervisor/dashboard" class="mt-5 px-5 py-2 text-sm font-bold bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors">
+    Back to Dashboard
+  </a>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+var _activeFilters = {};
+var _searchQ       = '';
+var _groupBy       = null;
+var _viewMode      = 'card';
+var _clSortMode    = 'status';
+var _clSortDir     = 'desc';
+var _clDefaultDir  = {
+  'status':       'desc',
+  'name':         'asc',
+  'last-session': 'desc',
+  'adherence':    'desc',
+  'avg-pain':     'desc'
+};
+
+// ── Filter helpers ──────────────────────────────────────────────────────────
+function toggleFilter(btn) {
+  var key = btn.dataset.filter;
+  if (_activeFilters[key]) {
+    delete _activeFilters[key];
+    btn.classList.remove('!border-brand-600', '!bg-brand-600', '!text-white');
+  } else {
+    _activeFilters[key] = true;
+    btn.classList.add('!border-brand-600', '!bg-brand-600', '!text-white');
+  }
+  applyAll();
+}
+
+function clearAllFilters() {
+  _activeFilters = {};
+  document.querySelectorAll('.filter-pill').forEach(function(p) {
+    p.classList.remove('!border-brand-600', '!bg-brand-600', '!text-white');
+  });
+  applyAll();
+}
+
+function removeFilter(key) {
+  delete _activeFilters[key];
+  var pill = document.querySelector('.filter-pill[data-filter="' + key + '"]');
+  if (pill) pill.classList.remove('!border-brand-600', '!bg-brand-600', '!text-white');
+  applyAll();
+}
+
+// ── Search ──────────────────────────────────────────────────────────────────
+function onCLSearch(val) {
+  _searchQ = val.toLowerCase().trim();
+  var clearBtn = document.getElementById('cl-search-clear');
+  if (clearBtn) clearBtn.classList.toggle('hidden', _searchQ === '');
+  applyAll();
+}
+
+// ── Group by ────────────────────────────────────────────────────────────────
+function setGroupBy(mode) {
+  // Clicking active button → toggle off (treat 'none' as null)
+  if (mode === 'none' || mode === _groupBy) {
+    _groupBy = null;
+  } else {
+    _groupBy = mode;
+  }
+  document.querySelectorAll('.cl-group-btn').forEach(function(btn) {
+    var bm = btn.dataset.groupBy;
+    var isActive = (bm === (_groupBy || 'none'));
+    btn.classList.toggle('text-brand-600', isActive);
+    btn.classList.toggle('text-gray-500', !isActive);
+  });
+  try { localStorage.setItem('cl-groupby', _groupBy || 'none'); } catch(e) {}
+  applyAll();
+}
+
+// ── Sort ────────────────────────────────────────────────────────────────────
+function sortCL(mode) {
+  if (_clSortMode === mode) {
+    _clSortDir = _clSortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    _clSortMode = mode;
+    _clSortDir  = _clDefaultDir[mode] || 'asc';
+  }
+  document.querySelectorAll('.cl-sort-btn').forEach(function(btn) {
+    var bm = btn.dataset.clSort;
+    var arrow = btn.querySelector('.sort-arrow');
+    if (!arrow) {
+      arrow = document.createElement('span');
+      arrow.className = 'sort-arrow';
+      btn.appendChild(arrow);
+    }
+    if (bm === _clSortMode) {
+      btn.classList.add('text-brand-600');
+      btn.classList.remove('text-gray-500');
+      arrow.textContent = _clSortDir === 'asc' ? ' ↑' : ' ↓';
+    } else {
+      btn.classList.remove('text-brand-600');
+      btn.classList.add('text-gray-500');
+      arrow.textContent = '';
+    }
+  });
+  applyAll();
+}
+
+// ── View mode ───────────────────────────────────────────────────────────────
+function setView(mode) {
+  _viewMode = mode;
+  var cardBtn = document.getElementById('view-card-btn');
+  var listBtn = document.getElementById('view-list-btn');
+  var container = document.getElementById('cases-container');
+
+  if (cardBtn) {
+    cardBtn.classList.toggle('bg-white/20', mode === 'card');
+    cardBtn.classList.toggle('text-white',  mode === 'card');
+    cardBtn.classList.toggle('text-brand-200', mode !== 'card');
+  }
+  if (listBtn) {
+    listBtn.classList.toggle('bg-white/20', mode === 'list');
+    listBtn.classList.toggle('text-white',  mode === 'list');
+    listBtn.classList.toggle('text-brand-200', mode !== 'list');
+  }
+
+  if (container) {
+    if (mode === 'list') {
+      container.className = 'flex flex-col gap-2';
+    } else {
+      container.className = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4';
+    }
+  }
+
+  document.querySelectorAll('.patient-item').forEach(function(el) {
+    var cb = el.querySelector('.card-body');
+    var lb = el.querySelector('.list-body');
+    if (cb) cb.classList.toggle('hidden', mode === 'list');
+    if (lb) {
+      if (mode === 'list') {
+        lb.classList.remove('hidden');
+        lb.classList.add('flex');
+        lb.classList.add('flex-col');
+      } else {
+        lb.classList.add('hidden');
+        lb.classList.remove('flex');
+        lb.classList.remove('flex-col');
+      }
+    }
+  });
+
+  try { localStorage.setItem('cl-view', mode); } catch(e) {}
+}
+
+// ── Filter matching ─────────────────────────────────────────────────────────
+function matchesFilters(el) {
+  // Search
+  if (_searchQ) {
+    var name  = (el.dataset.name  || '').toLowerCase();
+    var email = (el.dataset.email || '').toLowerCase();
+    if (name.indexOf(_searchQ) === -1 && email.indexOf(_searchQ) === -1) return false;
+  }
+
+  // Build groups from active filter keys
+  var groups = {};
+  Object.keys(_activeFilters).forEach(function(key) {
+    var idx = key.indexOf(':');
+    var grp = key.substring(0, idx);
+    var val = key.substring(idx + 1);
+    if (!groups[grp]) groups[grp] = [];
+    groups[grp].push(val);
+  });
+
+  // AND across groups, OR within group
+  return Object.keys(groups).every(function(grp) {
+    var vals = groups[grp];
+    return vals.some(function(val) {
+      var d = el.dataset;
+      if (grp === 'stage')       return d.stage === val;
+      if (grp === 'irritability') return d.irritability === val;
+      if (grp === 'severity')    return d.severity === val;
+      if (grp === 'engagement')  return d.engagement === val;
+      return false;
+    });
+  });
+}
+
+// ── Sort comparator ─────────────────────────────────────────────────────────
+function _sortValue(el) {
+  var d = el.dataset;
+  if (_clSortMode === 'status') {
+    var sord = {red: 0, yellow: 1, inactive: 2, green: 3};
+    return sord[d.status] !== undefined ? sord[d.status] : 99;
+  }
+  if (_clSortMode === 'name') return (d.name || '').toLowerCase();
+  if (_clSortMode === 'last-session') return d.lastSession || '0000-00-00';
+  if (_clSortMode === 'adherence') return parseFloat(d.adherence) || 0;
+  if (_clSortMode === 'avg-pain') {
+    var v = parseFloat(d.avgPain);
+    return isNaN(v) ? (_clSortDir === 'asc' ? Infinity : -Infinity) : v;
+  }
+  return 0;
+}
+
+function _compareItems(a, b) {
+  var va = _sortValue(a), vb = _sortValue(b);
+  var dir = _clSortDir === 'asc' ? 1 : -1;
+  if (va < vb) return -dir;
+  if (va > vb) return  dir;
+  return 0;
+}
+
+// ── Group key helpers ────────────────────────────────────────────────────────
+function _groupKey(el) {
+  var d = el.dataset;
+  if (_groupBy === 'stage') {
+    return d.stage === 'none' ? 'No Stage' : 'Stage ' + d.stage;
+  }
+  if (_groupBy === 'status') {
+    var s = d.status || 'unknown';
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+  if (_groupBy === 'irritability') {
+    var irr = d.irritability || 'none';
+    return irr.charAt(0).toUpperCase() + irr.slice(1);
+  }
+  return '';
+}
+
+function _groupSortOrder(key) {
+  if (_groupBy === 'status') {
+    var ord = {Red: 0, Yellow: 1, Inactive: 2, Green: 3};
+    return ord[key] !== undefined ? ord[key] : 99;
+  }
+  if (_groupBy === 'stage') {
+    if (key === 'No Stage') return 9999;
+    var n = parseInt(key.replace('Stage ', ''), 10);
+    return isNaN(n) ? 9998 : n;
+  }
+  if (_groupBy === 'irritability') {
+    var iord = {High: 0, Moderate: 1, Low: 2, Minimal: 3, None: 4};
+    return iord[key] !== undefined ? iord[key] : 99;
+  }
+  return 0;
+}
+
+// ── Chips builder ────────────────────────────────────────────────────────────
+function _rebuildChips() {
+  var row = document.getElementById('cl-chips-row');
+  if (!row) return;
+  row.innerHTML = '';
+  var keys = Object.keys(_activeFilters);
+  if (keys.length === 0) {
+    row.classList.add('hidden');
+    return;
+  }
+  row.classList.remove('hidden');
+  keys.forEach(function(key) {
+    var label = key.replace(':', ': ');
+    var chip = document.createElement('span');
+    chip.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[0.6rem] font-semibold bg-brand-100 text-brand-700 border border-brand-200';
+    chip.innerHTML = label + ' <button onclick="removeFilter(\'' + key + '\')" class="hover:text-brand-900 font-black leading-none">×</button>';
+    row.appendChild(chip);
+  });
+  var clearAll = document.createElement('button');
+  clearAll.className = 'text-[0.6rem] text-gray-400 hover:text-gray-600 underline transition-colors ml-1';
+  clearAll.textContent = 'Clear all';
+  clearAll.onclick = clearAllFilters;
+  row.appendChild(clearAll);
+}
+
+// ── Master apply ─────────────────────────────────────────────────────────────
+function applyAll() {
+  var container = document.getElementById('cases-container');
+  var emptyState = document.getElementById('cases-empty');
+  if (!container) return;
+
+  // 1. Remove old group headers
+  container.querySelectorAll('[data-group-header]').forEach(function(h) { h.remove(); });
+
+  // 2. Filter
+  var allItems = Array.from(container.querySelectorAll('.patient-item'));
+  var visible = [];
+  allItems.forEach(function(el) {
+    var show = matchesFilters(el);
+    el.classList.toggle('hidden', !show);
+    if (show) visible.push(el);
+  });
+
+  // 3. Sort visible items
+  visible.sort(_compareItems);
+
+  // Re-append in sorted order (without group headers for now)
+  visible.forEach(function(el) { container.appendChild(el); });
+
+  // 4. Group-by: insert group headers
+  if (_groupBy && visible.length > 0) {
+    // Build ordered group list
+    var groupMap = {};
+    visible.forEach(function(el) {
+      var gk = _groupKey(el);
+      if (!groupMap[gk]) groupMap[gk] = [];
+      groupMap[gk].push(el);
+    });
+    var groupKeys = Object.keys(groupMap).sort(function(a, b) {
+      return _groupSortOrder(a) - _groupSortOrder(b);
+    });
+    groupKeys.forEach(function(gk) {
+      var items = groupMap[gk];
+      var header = document.createElement('div');
+      header.className = 'group-header col-span-full px-1 pb-1 pt-3 text-xs font-bold text-gray-500 uppercase tracking-widest border-b border-gray-200 mb-1';
+      header.dataset.groupHeader = 'true';
+      header.textContent = gk + ' (' + items.length + ')';
+      container.insertBefore(header, items[0]);
+    });
+  }
+
+  // 5. Count
+  var countEl = document.getElementById('cl-count');
+  var total = allItems.length;
+  if (countEl) {
+    countEl.textContent = visible.length === total
+      ? total + ' patient' + (total !== 1 ? 's' : '')
+      : visible.length + ' of ' + total + ' patients';
+  }
+
+  // 6. Empty state
+  if (emptyState) emptyState.classList.toggle('hidden', visible.length > 0);
+
+  // 7. Chips
+  _rebuildChips();
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+applyAll();
+
+try { var sv = localStorage.getItem('cl-view');    if (sv) setView(sv);    } catch(e) {}
+try { var sg = localStorage.getItem('cl-groupby'); if (sg) setGroupBy(sg); } catch(e) {}
+</script>
+{% endblock %}

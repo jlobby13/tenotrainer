@@ -1,0 +1,196 @@
+You are an expert full-stack engineer building within an existing Next.js + TypeScript + Supabase application called "TenoTrainer".
+
+This application already has:
+
+A patient-facing system
+A deterministic rule engine that generates rehabilitation programs
+Session tracking (pain, compliance, exercise completion)
+
+Your task is to DESIGN AND IMPLEMENT the Clinician System Layer.
+
+🚨 CORE REQUIREMENTS (DO NOT VIOLATE)
+The rule engine is the PRIMARY source of truth.
+Clinicians DO NOT replace it by default
+All clinician inputs are layered on top
+ALL clinician actions must be NON-DESTRUCTIVE
+Never overwrite rule engine outputs
+Store clinician modifications separately
+FULL AUDITABILITY IS REQUIRED
+Every clinician action must be logged with:
+user ID
+timestamp
+action type
+change payload
+DO NOT implement diagnosis functionality
+This system supports management only
+🏗️ IMPLEMENTATION PHASE: MVP (PHASE 1 ONLY)
+
+You will ONLY build the following:
+
+1. Clinician Authentication System
+2. Patient Panel Dashboard
+3. Patient Profile View
+4. Read-Only Program + Tracking View
+5. Basic Alert System
+
+DO NOT implement:
+
+overrides
+messaging
+analytics
+manual mode
+
+(These will be added later)
+
+🧱 BACKEND — SUPABASE SCHEMA
+
+Create the following tables:
+
+clinicians
+id (uuid, primary key)
+name (text)
+email (text, unique)
+role (text: PT | ATC | MD | Coach)
+license_number (text, optional)
+state (text, optional)
+created_at (timestamp)
+clinician_patients
+id (uuid)
+clinician_id (uuid, foreign key)
+patient_id (uuid, foreign key)
+assigned_at (timestamp)
+alerts
+id (uuid)
+patient_id (uuid)
+type (text: pain | compliance | progression)
+severity (text: low | medium | high)
+message (text)
+created_at (timestamp)
+resolved (boolean)
+audit_logs
+id (uuid)
+user_id (uuid)
+action_type (text)
+target_patient_id (uuid)
+changes (jsonb)
+timestamp (timestamp)
+note (text, optional)
+
+IMPORTANT:
+
+Do NOT delete or modify existing patient tables
+Integrate with existing session + rule engine data
+⚙️ ALERT SYSTEM LOGIC (MVP VERSION)
+
+Implement basic triggers:
+
+Pain Alert
+If pain increases by ≥2 points from baseline → create alert
+Compliance Alert
+If session completion < 60% → create alert
+Inactivity Alert
+If no session in X days (set X = 5) → create alert
+
+Alerts should:
+
+be generated after session submission
+persist in database
+appear on clinician dashboard
+🖥️ FRONTEND — NEXT.JS STRUCTURE
+
+Create the following routes:
+
+/clinician/dashboard
+/clinician/patients/[id]
+
+🧑‍🤝‍🧑 DASHBOARD PAGE
+
+Display a list of assigned patients.
+
+Each patient row must include:
+
+name
+status flag (green / yellow / red / inactive)
+current stage (from rule engine)
+irritability (if available)
+adherence percentage
+last session date
+alert count
+STATUS FLAG LOGIC
+GREEN → no alerts
+YELLOW → 1 medium alert OR mild deviation
+RED → high severity alert
+INACTIVE → no sessions in >5 days
+📊 PATIENT PROFILE PAGE
+
+Sections:
+
+1. Snapshot Header
+stage
+irritability
+basic identifiers
+2. Session Metrics
+pain during
+pain next day
+compliance %
+return signal (if available)
+3. Program Comparison Table
+
+For each exercise:
+
+prescribed (from rule engine)
+completed (from session data)
+pain response
+flag (none / caution / stop)
+
+IMPORTANT:
+
+This must clearly show DELTA between prescribed vs completed
+🔁 DATA FLOW
+
+When a patient submits a session:
+
+Store session data
+Run rule engine (already exists)
+Run alert logic (YOU IMPLEMENT)
+Save alerts
+Update clinician dashboard
+🧩 COMPONENT REQUIREMENTS
+
+Build reusable components:
+
+PatientList
+StatusBadge
+AlertIndicator
+ProgramComparisonTable
+🎯 OUTPUT EXPECTATIONS
+
+You must:
+
+Generate all required database migrations (SQL or Supabase format)
+Create API routes or server actions for:
+fetching clinician patients
+fetching patient detail
+fetching alerts
+Build frontend pages with clean, minimal UI (Tailwind)
+Ensure type safety (TypeScript)
+🚫 DO NOT
+Do NOT add features outside MVP scope
+Do NOT refactor unrelated parts of the app
+Do NOT assume missing data—handle nulls safely
+🧠 FINAL INSTRUCTION
+
+Build this in a way that allows:
+
+future layering of clinician overrides
+future analytics expansion
+strict separation between rule engine output and clinician interaction
+
+Proceed step-by-step:
+
+Schema
+Backend logic
+Frontend pages
+Final integration
+
+After each step, briefly explain what you built before moving on.

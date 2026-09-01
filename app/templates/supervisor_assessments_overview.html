@@ -1,0 +1,916 @@
+{% extends "base.html" %}
+{% block title %}Assessments — TenoTrainer{% endblock %}
+{% block main_class %}max-w-7xl{% endblock %}
+
+{% block content %}
+
+{# ── Page Header ── #}
+<div class="rounded-2xl bg-gradient-to-r from-brand-700 to-brand-500 px-6 py-5 mb-6 shadow-md">
+  <div class="flex items-center justify-between gap-4 flex-wrap">
+    <div>
+      <p class="text-[0.65rem] text-brand-200 uppercase tracking-widest font-bold mb-0.5">
+        <a href="/supervisor/dashboard" class="hover:text-white transition-colors">Supervisor Panel</a>
+        <span class="mx-1 opacity-50">/</span>Assessments
+      </p>
+      <h1 class="text-2xl font-black text-white leading-tight">Assessments</h1>
+      <p class="text-sm text-brand-200 mt-0.5">
+        {{ total }} active patient{{ 's' if total != 1 else '' }}
+        {% set overdue_count = program_reviews | selectattr('status', 'equalto', 'overdue') | list | length %}
+        {% set window_count  = program_reviews | selectattr('status', 'equalto', 'in_window') | list | length %}
+        {% if overdue_count > 0 %}
+        · <span class="text-red-300 font-bold">{{ overdue_count }} overdue review{{ 's' if overdue_count != 1 else '' }}</span>
+        {% elif window_count > 0 %}
+        · <span class="text-green-300 font-bold">{{ window_count }} in review window</span>
+        {% endif %}
+      </p>
+    </div>
+    {% if patients %}
+    <button onclick="openAssessModal()"
+            class="flex items-center gap-2 px-4 py-2.5 bg-white/20 hover:bg-white/30 text-white text-sm font-bold rounded-xl transition-colors border border-white/30">
+      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+      </svg>
+      Start Assessment
+    </button>
+    {% endif %}
+  </div>
+</div>
+
+{% if not patients %}
+<div class="flex flex-col items-center justify-center py-24 text-center">
+  <svg class="w-14 h-14 text-gray-200 mb-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+  </svg>
+  <p class="text-base font-bold text-gray-400">No active patients assigned</p>
+  <a href="/supervisor/dashboard" class="mt-5 px-5 py-2 text-sm font-bold bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors">Back to Dashboard</a>
+</div>
+{% else %}
+
+<div class="flex gap-4 items-start">
+
+  {# ── Filter Sidebar ── #}
+  <aside class="w-48 shrink-0 sticky top-4">
+    <div class="bg-white rounded-xl shadow border border-gray-100 p-4 flex flex-col gap-4">
+
+      <div>
+        <p class="text-[0.6rem] uppercase tracking-widest font-bold text-gray-500 mb-1.5">Stage</p>
+        <div class="flex flex-wrap gap-1">
+          {% for s in stages %}
+          <button class="filter-pill px-2 py-0.5 rounded-full text-[0.6rem] font-semibold border transition-colors border-gray-200 text-gray-500 hover:border-brand-400 hover:text-brand-600"
+                  data-filter="stage:{{ s }}" onclick="toggleFilter(this)">Stage {{ s }}</button>
+          {% endfor %}
+          <button class="filter-pill px-2 py-0.5 rounded-full text-[0.6rem] font-semibold border transition-colors border-gray-200 text-gray-500 hover:border-brand-400 hover:text-brand-600"
+                  data-filter="stage:none" onclick="toggleFilter(this)">None</button>
+        </div>
+      </div>
+
+      <div>
+        <p class="text-[0.6rem] uppercase tracking-widest font-bold text-gray-500 mb-1.5">Irritability</p>
+        <div class="flex flex-wrap gap-1">
+          {% for irr in ['High', 'Moderate', 'Low', 'Minimal', 'None'] %}
+          <button class="filter-pill px-2 py-0.5 rounded-full text-[0.6rem] font-semibold border transition-colors border-gray-200 text-gray-500 hover:border-brand-400 hover:text-brand-600"
+                  data-filter="irritability:{{ irr|lower }}" onclick="toggleFilter(this)">{{ irr }}</button>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div>
+        <p class="text-[0.6rem] uppercase tracking-widest font-bold text-gray-500 mb-1.5">Alert Status</p>
+        <div class="flex flex-wrap gap-1">
+          <button class="filter-pill px-2 py-0.5 rounded-full text-[0.6rem] font-semibold border transition-colors border-gray-200 text-gray-500 hover:border-brand-400 hover:text-brand-600"
+                  data-filter="severity:critical" onclick="toggleFilter(this)">Critical</button>
+          <button class="filter-pill px-2 py-0.5 rounded-full text-[0.6rem] font-semibold border transition-colors border-gray-200 text-gray-500 hover:border-brand-400 hover:text-brand-600"
+                  data-filter="severity:alert" onclick="toggleFilter(this)">Alert</button>
+          <button class="filter-pill px-2 py-0.5 rounded-full text-[0.6rem] font-semibold border transition-colors border-gray-200 text-gray-500 hover:border-brand-400 hover:text-brand-600"
+                  data-filter="severity:clear" onclick="toggleFilter(this)">Clear</button>
+        </div>
+      </div>
+
+      <div>
+        <p class="text-[0.6rem] uppercase tracking-widest font-bold text-gray-500 mb-1.5">Engagement</p>
+        <div class="flex flex-wrap gap-1">
+          <button class="filter-pill px-2 py-0.5 rounded-full text-[0.6rem] font-semibold border transition-colors border-gray-200 text-gray-500 hover:border-brand-400 hover:text-brand-600"
+                  data-filter="engagement:engaged" onclick="toggleFilter(this)">Engaged</button>
+          <button class="filter-pill px-2 py-0.5 rounded-full text-[0.6rem] font-semibold border transition-colors border-gray-200 text-gray-500 hover:border-brand-400 hover:text-brand-600"
+                  data-filter="engagement:behind" onclick="toggleFilter(this)">Behind</button>
+        </div>
+      </div>
+
+      <div>
+        <p class="text-[0.6rem] uppercase tracking-widest font-bold text-gray-500 mb-1.5">Review Status</p>
+        <div class="flex flex-wrap gap-1">
+          <button class="filter-pill px-2 py-0.5 rounded-full text-[0.6rem] font-semibold border transition-colors border-gray-200 text-gray-500 hover:border-brand-400 hover:text-brand-600"
+                  data-filter="review:overdue" onclick="toggleFilter(this)">Overdue</button>
+          <button class="filter-pill px-2 py-0.5 rounded-full text-[0.6rem] font-semibold border transition-colors border-gray-200 text-gray-500 hover:border-brand-400 hover:text-brand-600"
+                  data-filter="review:in_window" onclick="toggleFilter(this)">In Window</button>
+          <button class="filter-pill px-2 py-0.5 rounded-full text-[0.6rem] font-semibold border transition-colors border-gray-200 text-gray-500 hover:border-brand-400 hover:text-brand-600"
+                  data-filter="review:due_soon" onclick="toggleFilter(this)">Due Soon</button>
+          <button class="filter-pill px-2 py-0.5 rounded-full text-[0.6rem] font-semibold border transition-colors border-gray-200 text-gray-500 hover:border-brand-400 hover:text-brand-600"
+                  data-filter="review:none" onclick="toggleFilter(this)">On Schedule</button>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+
+  {# ── Middle: Table ── #}
+  <div class="flex-1 min-w-0">
+
+    {# Toolbar #}
+    <div class="bg-white rounded-xl shadow border border-gray-100 px-5 py-3 mb-4 flex flex-col gap-2.5">
+
+      {# Row 1: Search #}
+      <div class="relative flex items-center">
+        <svg class="absolute left-3 w-3.5 h-3.5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/>
+        </svg>
+        <input id="as-search" type="text" placeholder="Search patients…"
+               oninput="onSearch(this.value)"
+               class="w-full pl-8 pr-8 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder-gray-400" />
+        <button id="as-search-clear"
+                onclick="document.getElementById('as-search').value=''; onSearch('');"
+                class="hidden absolute right-2.5 text-gray-400 hover:text-gray-600 transition-colors text-sm leading-none">×</button>
+      </div>
+
+      {# Row 2: Group + Sort #}
+      <div class="flex items-center gap-4 flex-wrap text-xs text-gray-500">
+        <span class="font-semibold">Group:</span>
+        {% for gmode, glabel in [('none','None'),('stage','Stage'),('status','Status'),('irritability','Irritability')] %}
+        <button class="as-group-btn font-semibold hover:text-brand-600 transition-colors {% if loop.first %}text-brand-600{% endif %}"
+                data-group-by="{{ gmode }}" onclick="setGroupBy('{{ gmode }}')">{{ glabel }}</button>
+        {% endfor %}
+        <span class="text-gray-300 select-none">|</span>
+        <span class="font-semibold">Sort:</span>
+        {% for smode, slabel in [('status','Status'),('name','Name'),('last-session','Last Session'),('last-assessed','Last Assessed'),('adherence','Adherence'),('avg-pain','Avg Pain')] %}
+        <button class="as-sort-btn font-semibold hover:text-brand-600 transition-colors {% if loop.first %}text-brand-600{% endif %}"
+                data-sort="{{ smode }}" onclick="setSort('{{ smode }}')">{{ slabel }}{% if loop.first %} <span class="sort-arrow">↓</span>{% endif %}</button>
+        {% endfor %}
+      </div>
+
+      <span id="as-count" class="text-xs text-gray-400"></span>
+    </div>
+
+    {# Active filter chips #}
+    <div id="as-chips-row" class="hidden flex flex-wrap gap-1.5 mb-3"></div>
+
+    {# Table #}
+    <div class="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
+      <table class="w-full text-sm" id="as-table">
+        <thead>
+          <tr class="border-b border-gray-100 bg-gray-50">
+            <th class="text-left px-4 py-2.5 text-[0.6rem] font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap">Patient</th>
+            <th class="text-center px-2 py-2.5 text-[0.6rem] font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap">Stage</th>
+            <th class="text-center px-2 py-2.5 text-[0.6rem] font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap">Irritability</th>
+            <th class="text-center px-2 py-2.5 text-[0.6rem] font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap">VISA-A</th>
+            <th class="text-center px-2 py-2.5 text-[0.6rem] font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap">Avg Pain</th>
+            <th class="text-center px-2 py-2.5 text-[0.6rem] font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap">Last Session</th>
+            <th class="text-center px-2 py-2.5 text-[0.6rem] font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap">Last Assessed</th>
+            <th class="px-2 py-2.5"></th>
+          </tr>
+        </thead>
+        <tbody id="as-tbody" class="divide-y divide-gray-50">
+
+          {% for p in patients %}
+          {% set irr_lower = (p.irritability or '')|lower %}
+          {% set irr_sort  = {'high': 0, 'moderate': 1, 'low': 2, 'minimal': 3}.get(irr_lower, 99) %}
+          {% set irr_cls = {
+            'high':     'bg-red-100 text-red-700',
+            'moderate': 'bg-amber-100 text-amber-700',
+            'low':      'bg-green-100 text-green-700',
+            'minimal':  'bg-gray-100 text-gray-500',
+          }.get(irr_lower, 'bg-gray-100 text-gray-400') %}
+
+          {% set status_dot = {
+            'red': 'bg-red-500',
+            'yellow': 'bg-yellow-400',
+            'green': 'bg-green-500',
+            'inactive': 'bg-gray-300',
+          }.get(p.status, 'bg-gray-300') %}
+
+          {% set sev_data = 'critical' if p.max_severity == 'high' else ('alert' if p.max_severity else 'clear') %}
+
+          {% set review = program_reviews | selectattr('id', 'equalto', p.id) | list %}
+          {% set review_status = review[0].status if review else 'none' %}
+          {% set row_highlight = 'bg-red-50/40' if review_status == 'overdue' else ('bg-green-50/40' if review_status == 'in_window' else '') %}
+
+          <tr class="as-row hover:bg-gray-50 transition-colors {{ row_highlight }}"
+              data-name="{{ p.name|lower }}"
+              data-email="{{ p.email|lower }}"
+              data-stage="{{ p.stage or 'none' }}"
+              data-stage-num="{{ p.stage or 999 }}"
+              data-irritability="{{ irr_lower or 'none' }}"
+              data-irr-sort="{{ irr_sort }}"
+              data-severity="{{ sev_data }}"
+              data-engagement="{{ p.engagement }}"
+              data-status="{{ p.status }}"
+              data-last-session="{{ p.last_session_date or '0000-00-00' }}"
+              data-last-assessed="{{ p.last_assessed or '0000-00-00' }}"
+              data-adherence="{{ p.adherence_pct or 0 }}"
+              data-avg-pain="{{ p.avg_pain_7d or '' }}"
+              data-review="{{ review_status }}">
+
+            {# Patient identity #}
+            <td class="px-4 py-2.5">
+              <div class="flex items-center gap-2.5">
+                <span class="w-2 h-2 rounded-full {{ status_dot }} shrink-0"></span>
+                <div class="min-w-0">
+                  <a href="/supervisor/patients/{{ p.id }}"
+                     class="font-semibold text-gray-900 hover:text-brand-700 transition-colors truncate block">
+                    {{ p.name }}
+                  </a>
+                  <p class="text-[0.65rem] text-gray-400 truncate">{{ p.email }}</p>
+                  {% set sides = p.injury_sides_list or [] %}
+                  {% if sides %}
+                  {% set side_str = sides | join(', ') %}
+                  {% set side_cls = 'bg-orange-100 text-orange-700' if 'right' in side_str|lower else ('bg-purple-100 text-purple-700' if 'bilateral' in side_str|lower else 'bg-blue-100 text-blue-700') %}
+                  <span class="text-[0.55rem] font-bold px-1.5 py-0.5 rounded {{ side_cls }} mt-0.5 inline-block">{{ side_str }}</span>
+                  {% endif %}
+                </div>
+              </div>
+            </td>
+
+            <td class="px-2 py-2.5 text-center whitespace-nowrap">
+              {% if p.stage %}
+              <span class="bg-brand-50 text-brand-700 border border-brand-100 text-[0.6rem] font-bold px-2 py-0.5 rounded">Stage {{ p.stage }}</span>
+              {% else %}
+              <span class="text-gray-300 text-xs">—</span>
+              {% endif %}
+            </td>
+
+            <td class="px-2 py-2.5 text-center whitespace-nowrap">
+              {% if p.irritability %}
+              <span class="text-[0.6rem] font-bold px-2 py-0.5 rounded {{ irr_cls }}">{{ p.irritability|capitalize }}</span>
+              {% else %}
+              <span class="text-gray-300 text-xs">—</span>
+              {% endif %}
+            </td>
+
+            <td class="px-2 py-2.5 text-center whitespace-nowrap">
+              {% if p.latest_visa is not none %}
+              <span class="font-bold text-gray-800 text-sm">{{ p.latest_visa }}</span>
+              <span class="text-[0.6rem] text-gray-400">/100</span>
+              {% else %}
+              <span class="text-gray-300 text-xs">—</span>
+              {% endif %}
+            </td>
+
+            <td class="px-2 py-2.5 text-center whitespace-nowrap">
+              {% if p.avg_pain_7d is not none %}
+              <span class="font-bold text-sm
+                {% if p.avg_pain_7d >= 7 %}text-red-600
+                {% elif p.avg_pain_7d >= 4 %}text-amber-600
+                {% else %}text-green-600{% endif %}">{{ p.avg_pain_7d }}</span>
+              <span class="text-[0.6rem] text-gray-400">/10</span>
+              {% else %}
+              <span class="text-gray-300 text-xs">—</span>
+              {% endif %}
+            </td>
+
+            <td class="px-2 py-2.5 text-center whitespace-nowrap">
+              {% if p.last_session_date %}
+              <span class="text-xs text-gray-600">{{ p.last_session_date | fmt_date }}</span>
+              {% else %}
+              <span class="text-gray-300 text-xs">None</span>
+              {% endif %}
+            </td>
+
+            <td class="px-2 py-2.5 text-center whitespace-nowrap">
+              {% if p.last_assessed %}
+              <span class="text-xs text-gray-600">{{ p.last_assessed | fmt_date }}</span>
+              {% if p.total_assessments > 1 %}
+              <p class="text-[0.6rem] text-gray-400">{{ p.total_assessments }}×</p>
+              {% endif %}
+              {% else %}
+              <span class="text-[0.6rem] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">Never</span>
+              {% endif %}
+            </td>
+
+            <td class="px-2 py-2.5 text-right">
+              <a href="/supervisor/patients/{{ p.id }}/assessment"
+                 class="inline-flex items-center gap-1 px-3 py-1.5 text-[0.65rem] font-bold rounded-lg transition-colors whitespace-nowrap
+                        {% if review_status == 'overdue' %}bg-red-600 hover:bg-red-700 text-white
+                        {% elif review_status == 'in_window' %}bg-brand-600 hover:bg-brand-700 text-white
+                        {% elif review_status == 'due_soon' %}bg-amber-500 hover:bg-amber-600 text-white
+                        {% else %}bg-gray-100 hover:bg-brand-50 hover:text-brand-700 text-gray-600{% endif %}">
+                <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+                {% if review_status in ('overdue', 'in_window') %}Assess Now
+                {% elif review_status == 'due_soon' %}Assess Soon
+                {% else %}Assess{% endif %}
+              </a>
+            </td>
+
+          </tr>
+          {% endfor %}
+
+        </tbody>
+      </table>
+
+      <div id="as-empty" class="hidden px-6 py-12 text-center">
+        <p class="text-sm font-bold text-gray-500 mb-1">No patients match the selected filters</p>
+        <button onclick="clearAllFilters()"
+                class="mt-3 px-4 py-2 text-xs font-bold bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors">
+          Clear filters
+        </button>
+      </div>
+    </div>
+
+  </div>{# /middle #}
+
+  {# ── Right: Review Queue ── #}
+  <div class="w-64 shrink-0 sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto">
+    <div class="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
+
+      <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+        <h2 class="text-xs font-bold text-gray-700 uppercase tracking-widest">Review Queue</h2>
+        {% if program_reviews %}
+        <span class="text-[0.6rem] font-bold bg-brand-100 text-brand-700 px-1.5 py-0.5 rounded-full">{{ program_reviews | length }}</span>
+        {% endif %}
+      </div>
+
+      {% if not program_reviews %}
+      <div class="px-4 py-8 text-center">
+        <svg class="w-10 h-10 text-gray-200 mx-auto mb-2" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <p class="text-xs text-gray-400">All patients are on schedule</p>
+      </div>
+      {% else %}
+
+      {% set overdue = program_reviews | selectattr('status', 'equalto', 'overdue') | list %}
+      {% if overdue %}
+      <div class="px-4 pt-3 pb-1">
+        <p class="text-[0.6rem] font-bold text-red-600 uppercase tracking-widest mb-2 flex items-center gap-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-red-500 inline-block"></span>Overdue ({{ overdue | length }})
+        </p>
+        <div class="space-y-2">
+          {% for r in overdue %}
+          <div class="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5">
+            <div class="flex items-start justify-between gap-2 mb-1.5">
+              <div class="min-w-0">
+                <a href="/supervisor/patients/{{ r.id }}" class="text-sm font-bold text-gray-900 hover:text-brand-700 transition-colors truncate block">{{ r.name }}</a>
+                <p class="text-[0.6rem] text-red-600 font-semibold mt-0.5">
+                  {% if r.last_assessed %}{{ r.days_since }}d since last assessment{% else %}Never assessed{% endif %}
+                </p>
+              </div>
+              <a href="/supervisor/patients/{{ r.id }}/assessment"
+                 class="shrink-0 mt-0.5 px-2.5 py-1 text-[0.6rem] font-bold bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors whitespace-nowrap">
+                Assess
+              </a>
+            </div>
+            <div class="h-1 rounded-full bg-red-200 overflow-hidden">
+              <div class="h-full bg-red-500 rounded-full w-full"></div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      {% set in_window = program_reviews | selectattr('status', 'equalto', 'in_window') | list %}
+      {% if in_window %}
+      <div class="px-4 pt-3 pb-1">
+        <p class="text-[0.6rem] font-bold text-green-700 uppercase tracking-widest mb-2 flex items-center gap-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span>Window Open ({{ in_window | length }})
+        </p>
+        <div class="space-y-2">
+          {% for r in in_window %}
+          <div class="rounded-xl border border-green-200 bg-green-50 px-3 py-2.5">
+            <div class="flex items-start justify-between gap-2 mb-1.5">
+              <div class="min-w-0">
+                <a href="/supervisor/patients/{{ r.id }}" class="text-sm font-bold text-gray-900 hover:text-brand-700 transition-colors truncate block">{{ r.name }}</a>
+                <p class="text-[0.6rem] text-green-700 font-semibold mt-0.5">{{ r.days_remaining }}d remaining</p>
+              </div>
+              <a href="/supervisor/patients/{{ r.id }}/assessment"
+                 class="shrink-0 mt-0.5 px-2.5 py-1 text-[0.6rem] font-bold bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors whitespace-nowrap">
+                Assess
+              </a>
+            </div>
+            <div class="h-1 rounded-full bg-green-200 overflow-hidden">
+              <div class="h-full bg-green-500 rounded-full" style="width: {{ r.pct }}%"></div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      {% set due_soon = program_reviews | selectattr('status', 'equalto', 'due_soon') | list %}
+      {% if due_soon %}
+      <div class="px-4 pt-3 pb-3">
+        <p class="text-[0.6rem] font-bold text-amber-700 uppercase tracking-widest mb-2 flex items-center gap-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block"></span>Upcoming ({{ due_soon | length }})
+        </p>
+        <div class="space-y-2">
+          {% for r in due_soon %}
+          <div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
+            <div class="flex items-start justify-between gap-2 mb-1.5">
+              <div class="min-w-0">
+                <a href="/supervisor/patients/{{ r.id }}" class="text-sm font-bold text-gray-900 hover:text-brand-700 transition-colors truncate block">{{ r.name }}</a>
+                <p class="text-[0.6rem] text-amber-700 font-semibold mt-0.5">Opens in {{ r.days_remaining }}d</p>
+              </div>
+              <a href="/supervisor/patients/{{ r.id }}/assessment"
+                 class="shrink-0 mt-0.5 px-2.5 py-1 text-[0.6rem] font-bold bg-gray-100 hover:bg-amber-100 hover:text-amber-700 text-gray-600 rounded-lg transition-colors whitespace-nowrap">
+                Early
+              </a>
+            </div>
+            <div class="h-1 rounded-full bg-amber-200 overflow-hidden">
+              <div class="h-full bg-amber-400 rounded-full" style="width: {{ r.pct }}%"></div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      {% endif %}
+
+    </div>
+
+    <div class="mt-3 bg-white rounded-xl shadow border border-gray-100 px-4 py-3">
+      <p class="text-[0.6rem] font-bold text-gray-500 uppercase tracking-widest mb-2">Review Cycle</p>
+      <div class="space-y-1 text-[0.65rem] text-gray-500">
+        <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-amber-400 shrink-0"></span>Upcoming — within 2 weeks of review</div>
+        <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-green-500 shrink-0"></span>Window open — 6–8 weeks since last assessment</div>
+        <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-red-500 shrink-0"></span>Overdue — past 8-week review window</div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+{# ── Start Assessment Modal ── #}
+<div id="assess-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
+
+    {# Modal header #}
+    <div class="bg-gradient-to-r from-brand-700 to-brand-500 px-6 py-4 flex items-center justify-between">
+      <div>
+        <h3 class="text-lg font-black text-white leading-tight">Start Assessment</h3>
+        <p class="text-brand-200 text-xs mt-0.5">Select a patient to begin a new clinical assessment</p>
+      </div>
+      <button onclick="closeAssessModal()" class="text-brand-200 hover:text-white transition-colors p-1">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    {# Patient select #}
+    <div class="px-6 pt-5 pb-3">
+      <label class="block text-xs font-bold text-gray-600 mb-1.5 uppercase tracking-wide">Patient</label>
+      <div class="relative">
+        <select id="assess-patient-select"
+                onchange="onAssessPatientSelect(this.value)"
+                class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400 appearance-none pr-8">
+          <option value="">Choose a patient…</option>
+
+          {# Overdue group #}
+          {% set overdue_pts = [] %}
+          {% set window_pts  = [] %}
+          {% set soon_pts    = [] %}
+          {% set other_pts   = [] %}
+          {% for p in patients %}
+            {% set rv = program_reviews | selectattr('id', 'equalto', p.id) | list %}
+            {% set rs = rv[0].status if rv else 'none' %}
+            {% if rs == 'overdue' %}{% set _ = overdue_pts.append(p) %}
+            {% elif rs == 'in_window' %}{% set _ = window_pts.append(p) %}
+            {% elif rs == 'due_soon' %}{% set _ = soon_pts.append(p) %}
+            {% else %}{% set _ = other_pts.append(p) %}{% endif %}
+          {% endfor %}
+
+          {% if overdue_pts %}
+          <optgroup label="⚠ Overdue Review">
+            {% for p in overdue_pts %}
+            <option value="{{ p.id }}">{{ p.name }}</option>
+            {% endfor %}
+          </optgroup>
+          {% endif %}
+
+          {% if window_pts %}
+          <optgroup label="✓ Review Window Open">
+            {% for p in window_pts %}
+            <option value="{{ p.id }}">{{ p.name }}</option>
+            {% endfor %}
+          </optgroup>
+          {% endif %}
+
+          {% if soon_pts %}
+          <optgroup label="◷ Review Due Soon">
+            {% for p in soon_pts %}
+            <option value="{{ p.id }}">{{ p.name }}</option>
+            {% endfor %}
+          </optgroup>
+          {% endif %}
+
+          {% if other_pts %}
+          <optgroup label="All Patients">
+            {% for p in other_pts %}
+            <option value="{{ p.id }}">{{ p.name }}</option>
+            {% endfor %}
+          </optgroup>
+          {% endif %}
+
+        </select>
+        <svg class="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </div>
+    </div>
+
+    {# Patient preview — shown after selection #}
+    <div id="assess-preview" class="hidden mx-6 mb-4 border border-gray-100 rounded-xl overflow-hidden">
+
+      {# Name row #}
+      <div class="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between gap-3">
+        <div class="min-w-0">
+          <p id="ap-name" class="font-bold text-gray-900 text-sm truncate"></p>
+          <p id="ap-email" class="text-[0.65rem] text-gray-400 truncate"></p>
+        </div>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <span id="ap-side" class="hidden text-[0.55rem] font-bold px-1.5 py-0.5 rounded"></span>
+          <span id="ap-review-badge" class="text-[0.55rem] font-black px-2 py-0.5 rounded-full uppercase tracking-wide"></span>
+        </div>
+      </div>
+
+      {# Stats grid #}
+      <div class="grid grid-cols-4 divide-x divide-gray-100 border-b border-gray-100">
+        <div class="px-3 py-2.5 text-center">
+          <p class="text-[0.55rem] font-bold uppercase tracking-wide text-gray-400 mb-0.5">Stage</p>
+          <p id="ap-stage" class="text-sm font-black text-gray-800"></p>
+        </div>
+        <div class="px-3 py-2.5 text-center">
+          <p class="text-[0.55rem] font-bold uppercase tracking-wide text-gray-400 mb-0.5">Irritability</p>
+          <p id="ap-irr" class="text-sm font-black text-gray-800"></p>
+        </div>
+        <div class="px-3 py-2.5 text-center">
+          <p class="text-[0.55rem] font-bold uppercase tracking-wide text-gray-400 mb-0.5">VISA-A</p>
+          <p id="ap-visa" class="text-sm font-black text-gray-800"></p>
+        </div>
+        <div class="px-3 py-2.5 text-center">
+          <p class="text-[0.55rem] font-bold uppercase tracking-wide text-gray-400 mb-0.5">Avg Pain</p>
+          <p id="ap-pain" class="text-sm font-black text-gray-800"></p>
+        </div>
+      </div>
+
+      {# Dates row #}
+      <div class="grid grid-cols-2 divide-x divide-gray-100 border-b border-gray-100">
+        <div class="px-4 py-2.5">
+          <p class="text-[0.55rem] font-bold uppercase tracking-wide text-gray-400 mb-0.5">Last Session</p>
+          <p id="ap-last-session" class="text-xs font-semibold text-gray-700"></p>
+        </div>
+        <div class="px-4 py-2.5">
+          <p class="text-[0.55rem] font-bold uppercase tracking-wide text-gray-400 mb-0.5">Last Assessed</p>
+          <p id="ap-last-assessed" class="text-xs font-semibold text-gray-700"></p>
+        </div>
+      </div>
+
+      {# Pre-fill note #}
+      <div id="ap-prefill-note" class="hidden px-4 py-2.5 bg-brand-50 border-b border-brand-100">
+        <p class="text-[0.65rem] text-brand-700 flex items-center gap-1.5">
+          <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span id="ap-prefill-text"></span>
+        </p>
+      </div>
+
+    </div>
+
+    {# Actions #}
+    <div class="px-6 pb-5 flex items-center justify-between gap-3">
+      <button onclick="closeAssessModal()"
+              class="px-4 py-2 text-sm font-semibold text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+        Cancel
+      </button>
+      <a id="assess-begin-btn" href="#"
+         class="inline-flex items-center gap-2 px-5 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold rounded-xl transition-colors opacity-50 pointer-events-none">
+        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+        </svg>
+        Begin Assessment
+      </a>
+    </div>
+
+  </div>
+</div>
+
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+var _filters  = {};
+var _searchQ  = '';
+var _groupBy  = null;
+var _sortMode = 'status';
+var _sortDir  = 'desc';
+var _defaultDir = {
+  status: 'desc', name: 'asc', 'last-session': 'desc',
+  'last-assessed': 'desc', adherence: 'desc', 'avg-pain': 'desc'
+};
+
+// ── Filter helpers ──────────────────────────────────────────────────────────
+function toggleFilter(btn) {
+  var key = btn.dataset.filter;
+  if (_filters[key]) {
+    delete _filters[key];
+    btn.classList.remove('!border-brand-600', '!bg-brand-600', '!text-white');
+  } else {
+    _filters[key] = true;
+    btn.classList.add('!border-brand-600', '!bg-brand-600', '!text-white');
+  }
+  applyAll();
+}
+
+function clearAllFilters() {
+  _filters = {};
+  document.querySelectorAll('.filter-pill').forEach(function(p) {
+    p.classList.remove('!border-brand-600', '!bg-brand-600', '!text-white');
+  });
+  applyAll();
+}
+
+function removeFilter(key) {
+  delete _filters[key];
+  var pill = document.querySelector('.filter-pill[data-filter="' + key + '"]');
+  if (pill) pill.classList.remove('!border-brand-600', '!bg-brand-600', '!text-white');
+  applyAll();
+}
+
+// ── Search ──────────────────────────────────────────────────────────────────
+function onSearch(val) {
+  _searchQ = val.toLowerCase().trim();
+  var clr = document.getElementById('as-search-clear');
+  if (clr) clr.classList.toggle('hidden', _searchQ === '');
+  applyAll();
+}
+
+// ── Group ───────────────────────────────────────────────────────────────────
+function setGroupBy(mode) {
+  _groupBy = (mode === 'none' || mode === _groupBy) ? null : mode;
+  document.querySelectorAll('.as-group-btn').forEach(function(btn) {
+    var active = btn.dataset.groupBy === (_groupBy || 'none');
+    btn.classList.toggle('text-brand-600', active);
+    btn.classList.toggle('text-gray-500', !active);
+  });
+  applyAll();
+}
+
+// ── Sort ────────────────────────────────────────────────────────────────────
+function setSort(mode) {
+  if (_sortMode === mode) {
+    _sortDir = _sortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    _sortMode = mode;
+    _sortDir  = _defaultDir[mode] || 'asc';
+  }
+  document.querySelectorAll('.as-sort-btn').forEach(function(btn) {
+    var bm    = btn.dataset.sort;
+    var arrow = btn.querySelector('.sort-arrow');
+    if (!arrow) { arrow = document.createElement('span'); arrow.className = 'sort-arrow'; btn.appendChild(arrow); }
+    btn.classList.toggle('text-brand-600', bm === _sortMode);
+    btn.classList.toggle('text-gray-500',  bm !== _sortMode);
+    arrow.textContent = bm === _sortMode ? (_sortDir === 'asc' ? ' ↑' : ' ↓') : '';
+  });
+  applyAll();
+}
+
+// ── Matching ────────────────────────────────────────────────────────────────
+function matchesFilters(el) {
+  if (_searchQ) {
+    if ((el.dataset.name  || '').indexOf(_searchQ) === -1 &&
+        (el.dataset.email || '').indexOf(_searchQ) === -1) return false;
+  }
+  var groups = {};
+  Object.keys(_filters).forEach(function(key) {
+    var i = key.indexOf(':'), grp = key.slice(0, i), val = key.slice(i + 1);
+    (groups[grp] = groups[grp] || []).push(val);
+  });
+  return Object.keys(groups).every(function(grp) {
+    return groups[grp].some(function(val) {
+      var d = el.dataset;
+      if (grp === 'stage')       return d.stage       === val;
+      if (grp === 'irritability') return d.irritability === val;
+      if (grp === 'severity')    return d.severity     === val;
+      if (grp === 'engagement')  return d.engagement   === val;
+      if (grp === 'review')      return d.review       === val;
+      return false;
+    });
+  });
+}
+
+// ── Sort value ───────────────────────────────────────────────────────────────
+function sortVal(el) {
+  var d = el.dataset;
+  if (_sortMode === 'status') { var o = {red:0,yellow:1,inactive:2,green:3}; return o[d.status] !== undefined ? o[d.status] : 99; }
+  if (_sortMode === 'name')          return (d.name || '').toLowerCase();
+  if (_sortMode === 'last-session')  return d.lastSession  || '0000-00-00';
+  if (_sortMode === 'last-assessed') return d.lastAssessed || '0000-00-00';
+  if (_sortMode === 'adherence')     return parseFloat(d.adherence) || 0;
+  if (_sortMode === 'avg-pain') { var v = parseFloat(d.avgPain); return isNaN(v) ? (_sortDir === 'asc' ? Infinity : -Infinity) : v; }
+  return 0;
+}
+
+function cmpRows(a, b) {
+  var va = sortVal(a), vb = sortVal(b), dir = _sortDir === 'asc' ? 1 : -1;
+  if (va < vb) return -dir;
+  if (va > vb) return  dir;
+  return 0;
+}
+
+// ── Group key ────────────────────────────────────────────────────────────────
+function groupKey(el) {
+  var d = el.dataset;
+  if (_groupBy === 'stage')       return d.stage === 'none' ? 'No Stage' : 'Stage ' + d.stage;
+  if (_groupBy === 'status')      { var s = d.status || 'unknown'; return s.charAt(0).toUpperCase() + s.slice(1); }
+  if (_groupBy === 'irritability') { var irr = d.irritability || 'none'; return irr.charAt(0).toUpperCase() + irr.slice(1); }
+  return '';
+}
+
+function groupOrder(key) {
+  if (_groupBy === 'status') { return ({Red:0,Yellow:1,Inactive:2,Green:3})[key] !== undefined ? ({Red:0,Yellow:1,Inactive:2,Green:3})[key] : 99; }
+  if (_groupBy === 'stage')  { if (key === 'No Stage') return 9999; var n = parseInt(key.replace('Stage ',''), 10); return isNaN(n) ? 9998 : n; }
+  if (_groupBy === 'irritability') { return ({High:0,Moderate:1,Low:2,Minimal:3,None:4})[key] !== undefined ? ({High:0,Moderate:1,Low:2,Minimal:3,None:4})[key] : 99; }
+  return 0;
+}
+
+// ── Chips ────────────────────────────────────────────────────────────────────
+function rebuildChips() {
+  var row = document.getElementById('as-chips-row');
+  if (!row) return;
+  row.innerHTML = '';
+  var keys = Object.keys(_filters);
+  row.classList.toggle('hidden', keys.length === 0);
+  keys.forEach(function(key) {
+    var chip = document.createElement('span');
+    chip.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[0.6rem] font-semibold bg-brand-100 text-brand-700 border border-brand-200';
+    chip.innerHTML = key.replace(':', ': ') + ' <button onclick="removeFilter(\'' + key + '\')" class="hover:text-brand-900 font-black leading-none">×</button>';
+    row.appendChild(chip);
+  });
+  if (keys.length > 0) {
+    var clr = document.createElement('button');
+    clr.className = 'text-[0.6rem] text-gray-400 hover:text-gray-600 underline transition-colors ml-1';
+    clr.textContent = 'Clear all';
+    clr.onclick = clearAllFilters;
+    row.appendChild(clr);
+  }
+}
+
+// ── Master apply ─────────────────────────────────────────────────────────────
+function applyAll() {
+  var tbody   = document.getElementById('as-tbody');
+  var emptyEl = document.getElementById('as-empty');
+  if (!tbody) return;
+
+  // Remove old group header rows
+  tbody.querySelectorAll('[data-group-header]').forEach(function(r) { r.remove(); });
+
+  var allRows = Array.from(tbody.querySelectorAll('.as-row'));
+  var visible = [];
+  allRows.forEach(function(r) {
+    var show = matchesFilters(r);
+    r.classList.toggle('hidden', !show);
+    if (show) visible.push(r);
+  });
+
+  visible.sort(cmpRows);
+  visible.forEach(function(r) { tbody.appendChild(r); });
+
+  // Group headers
+  if (_groupBy && visible.length > 0) {
+    var groups = {};
+    visible.forEach(function(r) { var k = groupKey(r); (groups[k] = groups[k] || []).push(r); });
+    Object.keys(groups).sort(function(a, b) { return groupOrder(a) - groupOrder(b); }).forEach(function(k) {
+      var hdr = document.createElement('tr');
+      hdr.dataset.groupHeader = 'true';
+      hdr.innerHTML = '<td colspan="8" class="px-4 py-2 text-xs font-bold text-gray-500 uppercase tracking-widest bg-gray-50 border-b border-gray-100">' + k + ' (' + groups[k].length + ')</td>';
+      tbody.insertBefore(hdr, groups[k][0]);
+    });
+  }
+
+  var countEl = document.getElementById('as-count');
+  if (countEl) countEl.textContent = visible.length === allRows.length
+    ? allRows.length + ' patient' + (allRows.length !== 1 ? 's' : '')
+    : visible.length + ' of ' + allRows.length + ' patients';
+
+  if (emptyEl) emptyEl.classList.toggle('hidden', visible.length > 0);
+  rebuildChips();
+}
+
+applyAll();
+
+// ── Patient data for modal ────────────────────────────────────────────────────
+var _assessPatients = {};
+(function () {
+  var list = {{ modal_patients_json | safe }};
+  list.forEach(function (p) { _assessPatients[p.id] = p; });
+})();
+
+// ── Modal helpers ─────────────────────────────────────────────────────────────
+function openAssessModal() {
+  var modal = document.getElementById('assess-modal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    document.getElementById('assess-patient-select').value = '';
+    document.getElementById('assess-preview').classList.add('hidden');
+    var btn = document.getElementById('assess-begin-btn');
+    btn.href = '#';
+    btn.classList.add('opacity-50', 'pointer-events-none');
+  }
+}
+
+function closeAssessModal() {
+  var modal = document.getElementById('assess-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function _fmt(dateStr) {
+  if (!dateStr) return '—';
+  try {
+    var parts = dateStr.split('-');
+    return parts[1] + '-' + parts[2] + '-' + parts[0];
+  } catch(e) { return dateStr; }
+}
+
+function onAssessPatientSelect(pid) {
+  var preview = document.getElementById('assess-preview');
+  var btn     = document.getElementById('assess-begin-btn');
+  if (!pid) {
+    preview.classList.add('hidden');
+    btn.href = '#';
+    btn.classList.add('opacity-50', 'pointer-events-none');
+    return;
+  }
+
+  var p = _assessPatients[+pid];
+  if (!p) return;
+
+  // Name / email / side
+  document.getElementById('ap-name').textContent  = p.name;
+  document.getElementById('ap-email').textContent = p.email;
+
+  var sideEl = document.getElementById('ap-side');
+  if (p.sides) {
+    var sl = p.sides.toLowerCase();
+    sideEl.textContent  = p.sides;
+    sideEl.className    = 'text-[0.55rem] font-bold px-1.5 py-0.5 rounded ' +
+      (sl.indexOf('right') !== -1 ? 'bg-orange-100 text-orange-700' :
+       sl.indexOf('bilateral') !== -1 ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700');
+    sideEl.classList.remove('hidden');
+  } else {
+    sideEl.classList.add('hidden');
+  }
+
+  // Review badge
+  var rb = document.getElementById('ap-review-badge');
+  var rbMap = {
+    overdue:   ['Overdue',      'bg-red-100 text-red-700'],
+    in_window: ['Review Due',   'bg-green-100 text-green-700'],
+    due_soon:  ['Due Soon',     'bg-amber-100 text-amber-700'],
+    none:      ['On Schedule',  'bg-gray-100 text-gray-500'],
+  };
+  var rbInfo = rbMap[p.reviewStatus] || rbMap['none'];
+  rb.textContent = rbInfo[0];
+  rb.className   = 'text-[0.55rem] font-black px-2 py-0.5 rounded-full uppercase tracking-wide ' + rbInfo[1];
+
+  // Stats
+  document.getElementById('ap-stage').textContent = p.stage ? 'Stage ' + p.stage : '—';
+  document.getElementById('ap-irr').textContent   = p.irritability ? p.irritability.charAt(0).toUpperCase() + p.irritability.slice(1) : '—';
+  document.getElementById('ap-visa').textContent  = p.visa !== null ? p.visa + '/100' : '—';
+  document.getElementById('ap-pain').textContent  = p.avgPain !== null ? p.avgPain + '/10' : '—';
+
+  // Dates
+  document.getElementById('ap-last-session').textContent  = p.lastSession  ? _fmt(p.lastSession)  : 'No sessions';
+  document.getElementById('ap-last-assessed').textContent = p.lastAssessed ? _fmt(p.lastAssessed) : 'Never assessed';
+
+  // Pre-fill note
+  var noteEl = document.getElementById('ap-prefill-note');
+  var textEl = document.getElementById('ap-prefill-text');
+  if (p.totalAssessments > 0) {
+    textEl.textContent = 'Previous assessment data (' + p.totalAssessments + ' record' + (p.totalAssessments !== 1 ? 's' : '') + ') will be pre-filled into the form.';
+    noteEl.classList.remove('hidden');
+  } else {
+    noteEl.classList.add('hidden');
+  }
+
+  // Enable button
+  btn.href = '/supervisor/patients/' + pid + '/assessment';
+  btn.classList.remove('opacity-50', 'pointer-events-none');
+
+  preview.classList.remove('hidden');
+}
+
+// Keyboard + backdrop close
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeAssessModal();
+});
+document.getElementById('assess-modal') && document.getElementById('assess-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeAssessModal();
+});
+</script>
+{% endblock %}

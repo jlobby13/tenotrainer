@@ -1,0 +1,745 @@
+{% extends "base.html" %}
+{% block title %}Exercise Log — TenoTrainer{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto">
+
+  <!-- Page header -->
+  <div class="rounded-2xl bg-gradient-to-r from-brand-700 to-brand-500 px-6 py-5 mb-6 shadow-md">
+    <div class="flex items-start justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-black text-white leading-tight">Exercise Log</h1>
+        <p class="text-sm text-brand-200 mt-0.5">Session history per exercise — grouped by type. Scroll right inside a card to follow progression.</p>
+      </div>
+      <a href="/daily-log"
+         class="shrink-0 px-4 py-2 bg-white/20 text-white text-sm font-bold rounded-xl hover:bg-white/30 transition-colors border border-white/20 whitespace-nowrap">
+        + Track Session
+      </a>
+    </div>
+  </div>
+
+  {# ── Summary stats ── #}
+  {% if exercise_history %}
+  <div class="grid grid-cols-2 gap-3 mb-6">
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-4">
+      <p class="text-[0.625rem] font-bold text-gray-400 uppercase tracking-widest mb-1">Sessions Logged</p>
+      <p class="text-3xl font-black text-gray-800">{{ total_sessions }}</p>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-4">
+      <p class="text-[0.625rem] font-bold text-gray-400 uppercase tracking-widest mb-1">Exercises Tracked</p>
+      <p class="text-3xl font-black text-gray-800">{{ exercise_history | length }}</p>
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Recent Session Logs tile ── #}
+  {% if recent_logs %}
+  <div class="bg-white rounded-xl shadow border border-gray-100 mb-6 overflow-hidden">
+
+    <button type="button" onclick="toggleTile('el-tile-logs')"
+            class="w-full px-5 py-4 flex items-center justify-between gap-3 hover:bg-gray-50 transition-colors text-left focus:outline-none">
+      <div>
+        <h2 class="font-bold text-gray-900 text-sm">Recent Session Logs</h2>
+        <p class="text-[0.6875rem] text-gray-400 mt-0.5">{{ recent_logs|length }} session{{ 's' if recent_logs|length != 1 else '' }}</p>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <a href="/daily-log"
+           class="px-3 py-1.5 bg-brand-600 text-white text-xs font-semibold rounded-lg hover:bg-brand-700 transition-colors shadow-sm"
+           onclick="event.stopPropagation()">
+          + Log Session
+        </a>
+        <svg id="el-tile-logs-chev" class="w-4 h-4 text-gray-300 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </div>
+    </button>
+
+    <div id="el-tile-logs" class="hidden border-t border-gray-100">
+
+      {# Pagination controls #}
+      <div class="px-5 py-2.5 flex items-center justify-between gap-3 border-b border-gray-100 bg-gray-50">
+        <div class="flex items-center gap-2">
+          <span class="text-[0.6875rem] text-gray-500">Show</span>
+          <div class="flex gap-1">
+            {% for n in [5, 10, 15, 20] %}
+            <button type="button" onclick="elLogsSetPageSize({{ n }})"
+                    data-el-logs-size="{{ n }}"
+                    class="el-logs-size-btn text-[0.6875rem] px-2 py-0.5 rounded border font-semibold transition-colors
+                           {% if n == 10 %}bg-brand-600 text-white border-brand-600{% else %}bg-white text-gray-500 border-gray-200 hover:bg-gray-50 hover:border-brand-300 hover:text-brand-600{% endif %}">
+              {{ n }}
+            </button>
+            {% endfor %}
+          </div>
+          <span class="text-[0.6875rem] text-gray-500">per page</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span id="el-logs-page-label" class="text-[0.6875rem] text-gray-400"></span>
+          <button type="button" id="el-logs-prev" onclick="elLogsChangePage(-1)"
+                  class="p-1 rounded border border-gray-200 text-gray-400 hover:bg-gray-50 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+          </button>
+          <button type="button" id="el-logs-next" onclick="elLogsChangePage(1)"
+                  class="p-1 rounded border border-gray-200 text-gray-400 hover:bg-gray-50 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+      </div>
+
+      {# Columns: stripe | date | during | after | next day | difficulty | confidence | sets done | sets % #}
+      <div class="overflow-x-auto">
+      {% set gcols = "grid-template-columns: 4px 1fr repeat(3,1fr) repeat(2,1fr) repeat(2,1fr)" %}
+
+      {# Section label row #}
+      <div class="grid border-b border-gray-200 bg-gray-50" style="{{ gcols }}; min-width:580px;">
+        <div></div>
+        <div class="px-4 py-1.5"></div>
+        <div class="col-span-3 text-center py-1.5 bg-red-50 border-x border-red-100">
+          <p class="text-[0.5625rem] font-bold text-red-400 uppercase tracking-widest">Pain</p>
+        </div>
+        <div class="col-span-2 text-center py-1.5 bg-sky-50 border-r border-sky-100">
+          <p class="text-[0.5625rem] font-bold text-sky-400 uppercase tracking-widest">Session Feel</p>
+        </div>
+        <div class="col-span-2 text-center py-1.5 bg-brand-50 border-r border-brand-100">
+          <p class="text-[0.5625rem] font-bold text-brand-500 uppercase tracking-widest">Exercise</p>
+        </div>
+      </div>
+
+      {# Column label row #}
+      <div class="grid border-b border-gray-100 bg-gray-50" style="{{ gcols }}; min-width:580px;">
+        <div></div>
+        <div class="px-4 py-1.5">
+          <p class="text-[0.5625rem] font-semibold text-gray-400 uppercase tracking-wide">Date</p>
+        </div>
+        {% for col in ['During','After','Next Day'] %}
+        <div class="px-3 py-1.5 {% if loop.first %}border-l border-red-100{% endif %}{% if loop.last %}border-r border-red-100{% endif %}">
+          <p class="text-[0.5625rem] font-semibold text-gray-400 uppercase tracking-wide">{{ col }}</p>
+        </div>
+        {% endfor %}
+        {% for col in ['Difficulty','Confidence'] %}
+        <div class="px-3 py-1.5 {% if loop.last %}border-r border-sky-100{% endif %}">
+          <p class="text-[0.5625rem] font-semibold text-gray-400 uppercase tracking-wide">{{ col }}</p>
+        </div>
+        {% endfor %}
+        {% for col in ['Sets Done','Sets %'] %}
+        <div class="px-3 py-1.5 {% if loop.last %}border-r border-brand-100{% endif %}">
+          <p class="text-[0.5625rem] font-semibold text-gray-400 uppercase tracking-wide">{{ col }}</p>
+        </div>
+        {% endfor %}
+      </div>
+
+      {# Data rows #}
+      <div class="divide-y divide-gray-50">
+        {% for log in recent_logs %}
+        {% set pd   = log.pain_during %}
+        {% set pa   = log.pain_after %}
+        {% set pnd  = log.next_day_pain %}
+        {% set diff = log.difficulty %}
+        {% set conf = log.confidence %}
+        {% set worst = [pd, pa, pnd] | max %}
+        {% set stripe = 'bg-red-400' if worst >= 6 else ('bg-yellow-400' if worst >= 4 else 'bg-green-400') %}
+
+        {% set ns = namespace(done=0, prescribed=0, comp_sum=0, comp_n=0, has_done=false) %}
+        {% if log.exercises_parsed %}
+          {% for ex in log.exercises_parsed %}
+            {% if ex.sets_done is not none %}
+              {% set ns.done = ns.done + ex.sets_done %}{% set ns.has_done = true %}
+            {% endif %}
+            {% if ex.prescribed_sets %}
+              {% set ns.prescribed = ns.prescribed + (ex.prescribed_sets | int) %}
+            {% endif %}
+            {% if ex.sets_compliance is not none %}
+              {% set ns.comp_sum = ns.comp_sum + ex.sets_compliance %}
+              {% set ns.comp_n   = ns.comp_n + 1 %}
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+        {% set overall_comp = (ns.comp_sum / ns.comp_n) | round(0) | int if ns.comp_n > 0 else none %}
+
+        <div class="grid items-center hover:bg-gray-50/60 transition-colors cursor-pointer" data-el-log-row="{{ loop.index0 }}" onclick="openSessionDetail({{ loop.index0 }})" style="{{ gcols }}; min-width:580px;">
+
+          <div class="self-stretch {{ stripe }}"></div>
+
+          <div class="px-4 py-2.5">
+            <p class="text-xs font-bold text-gray-700 whitespace-nowrap">{{ log.created_at[5:7] }}/{{ log.created_at[8:10] }}/{{ log.created_at[:4] }}</p>
+            <span class="mt-0.5 inline-block text-[0.5625rem] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap
+              {% if worst >= 6 %}bg-red-100 text-red-700{% elif worst >= 4 %}bg-yellow-100 text-yellow-700{% else %}bg-green-100 text-green-700{% endif %}">
+              {% if worst >= 6 %}High{% elif worst >= 4 %}Moderate{% else %}Low{% endif %}
+            </span>
+          </div>
+
+          {% for val in [pd, pa, pnd] %}
+          <div class="px-3 py-2.5 {% if loop.first %}border-l border-red-100 bg-red-50/20{% else %}bg-red-50/20{% endif %}{% if loop.last %} border-r border-red-100{% endif %}">
+            <p class="text-sm font-bold {% if val >= 6 %}text-red-600{% elif val >= 4 %}text-yellow-600{% else %}text-green-600{% endif %}">
+              {{ val }}<span class="text-[0.5625rem] font-normal text-gray-400">/10</span>
+            </p>
+          </div>
+          {% endfor %}
+
+          {% for val in [diff, conf] %}
+          <div class="px-3 py-2.5 bg-sky-50/20{% if loop.last %} border-r border-sky-100{% endif %}">
+            <p class="text-sm font-bold text-gray-700">
+              {{ val }}<span class="text-[0.5625rem] font-normal text-gray-400">/10</span>
+            </p>
+          </div>
+          {% endfor %}
+
+          <div class="px-3 py-2.5 bg-brand-50/20">
+            {% if ns.has_done %}
+              <p class="text-sm font-bold text-gray-700">{{ ns.done }}<span class="text-[0.5625rem] font-normal text-gray-400">/{{ ns.prescribed }}</span></p>
+            {% else %}
+              <p class="text-sm text-gray-300">—</p>
+            {% endif %}
+          </div>
+
+          <div class="px-3 py-2.5 bg-brand-50/20 border-r border-brand-100">
+            {% if overall_comp is not none %}
+              <p class="text-sm font-bold {% if overall_comp >= 90 %}text-green-600{% elif overall_comp >= 70 %}text-yellow-600{% else %}text-red-500{% endif %}">{{ overall_comp }}%</p>
+            {% else %}
+              <p class="text-sm text-gray-300">—</p>
+            {% endif %}
+          </div>
+
+        </div>
+        {% endfor %}
+      </div>
+      </div>{# end overflow-x-auto #}
+
+    </div>{# end el-tile-logs collapsible #}
+  </div>
+
+  {# ── Session Detail Modal ── #}
+  <div id="session-detail-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[88vh] flex flex-col overflow-hidden">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+        <div>
+          <h3 id="sdm-title" class="text-base font-black text-gray-900"></h3>
+          <p id="sdm-subtitle" class="text-xs text-gray-400 mt-0.5"></p>
+        </div>
+        <button type="button" onclick="closeSessionDetail()" class="text-gray-400 hover:text-gray-600 transition-colors p-1">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div id="sdm-body" class="overflow-y-auto flex-1 px-6 py-5 space-y-5 text-sm text-gray-700"></div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if not exercise_history %}
+
+  <!-- Empty state -->
+  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-12 text-center">
+    <div class="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+      <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+      </svg>
+    </div>
+    <h2 class="text-lg font-bold text-gray-700 mb-1">No sessions logged yet</h2>
+    <p class="text-sm text-gray-400 mb-6">Once you track a session with exercise data, it will appear here.</p>
+    <a href="/daily-log"
+       class="inline-block px-5 py-2.5 bg-brand-600 text-white font-semibold rounded-xl hover:bg-brand-700 transition-colors text-sm">
+      Track a Session
+    </a>
+  </div>
+
+  {% else %}
+
+  {# ── Type meta ── #}
+  {% set type_labels = {
+    'isometric':             'Isometric',
+    'slow_isotonic':         'Slow Isotonic',
+    'heavy_slow_resistance': 'Heavy Slow Resistance',
+    'eccentric':             'Eccentric',
+    'plyometric':            'Plyometric',
+    'reactive_strength':     'Reactive Strength',
+  } %}
+  {% set type_colours = {
+    'isometric':             'bg-purple-100 text-purple-700',
+    'slow_isotonic':         'bg-sky-100 text-sky-700',
+    'heavy_slow_resistance': 'bg-orange-100 text-orange-700',
+    'eccentric':             'bg-indigo-100 text-indigo-700',
+    'plyometric':            'bg-green-100 text-green-700',
+    'reactive_strength':     'bg-teal-100 text-teal-700',
+  } %}
+  {% set type_border = {
+    'isometric':             'border-l-purple-400',
+    'slow_isotonic':         'border-l-sky-400',
+    'heavy_slow_resistance': 'border-l-orange-400',
+    'eccentric':             'border-l-indigo-400',
+    'plyometric':            'border-l-green-400',
+    'reactive_strength':     'border-l-teal-400',
+  } %}
+  {% set type_dot = {
+    'isometric':             'bg-purple-400',
+    'slow_isotonic':         'bg-sky-400',
+    'heavy_slow_resistance': 'bg-orange-400',
+    'eccentric':             'bg-indigo-400',
+    'plyometric':            'bg-green-400',
+    'reactive_strength':     'bg-teal-400',
+  } %}
+
+  <!-- Exercises Tracked outer tile -->
+  <div class="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
+
+    {# Tile header #}
+    <div class="px-5 py-4 border-b border-gray-100">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="font-bold text-gray-900 text-sm">Exercises Tracked</h2>
+          <p class="text-[0.6875rem] text-gray-400 mt-0.5">
+            {{ exercise_history | length }} exercise{{ 's' if exercise_history | length != 1 else '' }} across {{ exercise_history | groupby('type') | list | length }} type{{ 's' if exercise_history | groupby('type') | list | length != 1 else '' }}
+          </p>
+        </div>
+        {# Type legend chips #}
+        <div class="hidden sm:flex flex-wrap gap-1.5 justify-end max-w-xs">
+          {% for type_key, _ in exercise_history | groupby('type') %}
+          {% set t_colour = type_colours.get(type_key, 'bg-gray-100 text-gray-600') %}
+          <span class="text-[0.6rem] font-bold px-2 py-0.5 rounded-full {{ t_colour }}">
+            {{ type_labels.get(type_key, type_key | replace('_', ' ') | capitalize) }}
+          </span>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    {# Type-grouped exercise sections #}
+    <div class="divide-y divide-gray-100">
+    {% for type_key, type_exercises in exercise_history | groupby('type') %}
+    {% set type_list = type_exercises | list %}
+    {% set group_id = 'typegroup-' ~ loop.index %}
+    {% set t_colour = type_colours.get(type_key, 'bg-gray-100 text-gray-600') %}
+    {% set t_dot    = type_dot.get(type_key, 'bg-gray-400') %}
+
+    <div class="overflow-hidden">
+
+      <!-- Type group header -->
+      <button type="button"
+              onclick="toggleGroup('{{ group_id }}')"
+              class="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition-colors text-left focus:outline-none">
+        <div class="flex items-center gap-3">
+          <div class="w-2.5 h-2.5 rounded-full {{ t_dot }} shrink-0"></div>
+          <span class="font-bold text-gray-800 text-sm">{{ type_labels.get(type_key, type_key | replace('_', ' ') | capitalize) }}</span>
+          <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{{ type_list | length }} exercise{{ 's' if type_list | length != 1 else '' }}</span>
+        </div>
+        <svg id="{{ group_id }}-chevron"
+             class="w-4 h-4 text-gray-400 transition-transform duration-200"
+             fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+
+      <!-- Collapsible exercise list -->
+      <div id="{{ group_id }}" class="hidden divide-y divide-gray-100 border-t border-gray-100">
+        {% for ex in type_list %}
+        {% set tl = ex.sessions | reverse | list %}
+        {% set latest = tl | last %}
+        {% set ex_id = 'exlog-' ~ loop.index ~ '-' ~ loop.index %}
+        {% set border_colour = type_border.get(ex.type, 'border-l-gray-300') %}
+
+        <div class="border-l-4 {{ border_colour }}">
+
+          <!-- Exercise toggle header -->
+          <button type="button"
+                  onclick="toggleExLog('exlog-{{ loop.index0 }}-{{ loop.index }}')"
+                  class="w-full text-left px-5 py-3 flex items-center justify-between gap-4 hover:bg-gray-50/80 transition-colors focus:outline-none">
+
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="font-semibold text-gray-900 text-sm">{{ ex.name }}</span>
+                <span class="text-[0.625rem] text-gray-400">{{ ex.prescribed_sets }} × {{ ex.prescribed_reps }}</span>
+                <span class="text-[0.625rem] text-gray-300">·</span>
+                <span class="text-[0.625rem] text-gray-400">{{ tl | length }} session{{ 's' if tl | length != 1 else '' }}</span>
+                {% if latest %}
+                {% set lp = latest.pain_during %}
+                <span class="text-[0.625rem] font-semibold {{ 'text-red-500' if lp >= 6 else ('text-yellow-500' if lp >= 4 else 'text-green-500') }}">
+                  Pain {{ lp }}/10
+                </span>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2 shrink-0">
+              {% if latest and latest.sets_compliance is not none %}
+              {% set sc = latest.sets_compliance %}
+              <span class="text-[0.625rem] px-2 py-0.5 rounded-full font-bold
+                {% if sc > 120 %}bg-yellow-100 text-yellow-700
+                {% elif sc >= 90 %}bg-green-100 text-green-700
+                {% elif sc >= 70 %}bg-yellow-100 text-yellow-700
+                {% else %}bg-red-100 text-red-700{% endif %}">
+                {{ sc }}%
+              </span>
+              {% endif %}
+              <svg id="exlog-{{ loop.index0 }}-{{ loop.index }}-chevron"
+                   class="w-3.5 h-3.5 text-gray-300 transition-transform duration-200"
+                   fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+              </svg>
+            </div>
+          </button>
+
+          <!-- Collapsible metrics table -->
+          <div id="exlog-{{ loop.index0 }}-{{ loop.index }}" class="hidden border-t border-gray-100">
+            <div class="overflow-x-auto">
+              <table class="text-sm border-collapse" style="min-width: max-content;">
+
+                <thead>
+                  <tr class="border-b border-gray-100">
+                    <th class="sticky left-0 z-10 bg-gray-50 text-left px-4 py-2 text-[0.625rem] font-bold text-gray-400 uppercase tracking-widest border-r border-gray-100 min-w-[90px]">
+                      Metric
+                    </th>
+                    {% for s in tl %}
+                    <th class="px-4 py-2 text-center min-w-[90px] {{ 'bg-brand-600' if loop.last else 'bg-gray-50' }}">
+                      <div class="text-[0.6875rem] font-bold {{ 'text-white' if loop.last else 'text-gray-500' }} whitespace-nowrap">{{ s.date | fmt_date }}</div>
+                      {% if loop.last %}<div class="text-[0.5625rem] font-bold text-brand-200 uppercase tracking-widest mt-0.5">Latest</div>{% endif %}
+                    </th>
+                    {% endfor %}
+                  </tr>
+                </thead>
+
+                <tbody class="divide-y divide-gray-50">
+
+                  {# Sets #}
+                  <tr class="hover:bg-gray-50/60 transition-colors">
+                    <td class="sticky left-0 z-10 bg-white px-4 py-2 text-[0.6875rem] font-bold text-gray-500 border-r border-gray-100 whitespace-nowrap">Sets</td>
+                    {% for s in tl %}
+                    {% set prev = tl[loop.index0 - 1] if loop.index0 > 0 else none %}
+                    <td class="px-4 py-2 text-center {{ 'bg-brand-50' if loop.last else '' }}">
+                      {% if s.sets_done is not none %}
+                        <span class="font-bold text-gray-800">{{ s.sets_done }}</span><span class="text-gray-400 text-[0.6875rem]">/{{ ex.prescribed_sets }}</span>
+                        {% if prev and prev.sets_done is not none %}
+                          {% if s.sets_done > prev.sets_done %}<span class="ml-0.5 text-green-500 text-xs">↑</span>
+                          {% elif s.sets_done < prev.sets_done %}<span class="ml-0.5 text-red-400 text-xs">↓</span>
+                          {% else %}<span class="ml-0.5 text-gray-300 text-xs">→</span>{% endif %}
+                        {% endif %}
+                      {% else %}<span class="text-gray-300 text-xs">—</span>{% endif %}
+                    </td>
+                    {% endfor %}
+                  </tr>
+
+                  {# Reps #}
+                  <tr class="hover:bg-gray-50/60 transition-colors">
+                    <td class="sticky left-0 z-10 bg-white px-4 py-2 text-[0.6875rem] font-bold text-gray-500 border-r border-gray-100 whitespace-nowrap">Reps</td>
+                    {% for s in tl %}
+                    <td class="px-4 py-2 text-center text-gray-600 text-xs {{ 'bg-brand-50' if loop.last else '' }}">
+                      {{ s.reps_done if s.reps_done else '—' }}
+                    </td>
+                    {% endfor %}
+                  </tr>
+
+                  {# Load #}
+                  {% if tl | selectattr('load_kg') | list | length > 0 %}
+                  <tr class="hover:bg-gray-50/60 transition-colors">
+                    <td class="sticky left-0 z-10 bg-white px-4 py-2 text-[0.6875rem] font-bold text-gray-500 border-r border-gray-100 whitespace-nowrap">Load</td>
+                    {% for s in tl %}
+                    {% set prev = tl[loop.index0 - 1] if loop.index0 > 0 else none %}
+                    <td class="px-4 py-2 text-center text-xs {{ 'bg-brand-50' if loop.last else '' }}">
+                      {% if s.load_kg %}
+                        <span class="text-gray-700 font-medium">{{ s.load_kg }} kg</span>
+                        {% if prev and prev.load_kg %}
+                          {% set cur_load = s.load_kg | float %}{% set prev_load = prev.load_kg | float %}
+                          {% if cur_load > prev_load %}<span class="ml-0.5 text-green-500 font-bold">↑</span>
+                          {% elif cur_load < prev_load %}<span class="ml-0.5 text-red-400 font-bold">↓</span>
+                          {% else %}<span class="ml-0.5 text-gray-300">→</span>{% endif %}
+                        {% endif %}
+                      {% else %}<span class="text-gray-300">—</span>{% endif %}
+                    </td>
+                    {% endfor %}
+                  </tr>
+                  {% endif %}
+
+                  {# Sets % #}
+                  <tr class="hover:bg-gray-50/60 transition-colors">
+                    <td class="sticky left-0 z-10 bg-white px-4 py-2 text-[0.6875rem] font-bold text-gray-500 border-r border-gray-100 whitespace-nowrap">Sets %</td>
+                    {% for s in tl %}
+                    <td class="px-4 py-2 text-center {{ 'bg-brand-50' if loop.last else '' }}">
+                      {% if s.sets_compliance is not none %}
+                      {% set c = s.sets_compliance %}
+                      <span class="px-1.5 py-0.5 rounded-full text-[0.6875rem] font-bold
+                        {% if c > 120 %}bg-yellow-100 text-yellow-700
+                        {% elif c >= 90 %}bg-green-100 text-green-700
+                        {% elif c >= 70 %}bg-yellow-100 text-yellow-700
+                        {% else %}bg-red-100 text-red-700{% endif %}">
+                        {{ c }}%{% if c > 100 %} ↑{% endif %}
+                      </span>
+                      {% else %}<span class="text-gray-300 text-xs">—</span>{% endif %}
+                    </td>
+                    {% endfor %}
+                  </tr>
+
+                  {# Pain During #}
+                  <tr class="hover:bg-gray-50/60 transition-colors">
+                    <td class="sticky left-0 z-10 bg-white px-4 py-2 text-[0.6875rem] font-bold text-gray-500 border-r border-gray-100 whitespace-nowrap">Pain</td>
+                    {% for s in tl %}
+                    {% set prev = tl[loop.index0 - 1] if loop.index0 > 0 else none %}
+                    <td class="px-4 py-2 text-center {{ 'bg-brand-50' if loop.last else '' }}">
+                      {% set pd = s.pain_during %}
+                      <span class="text-xs font-bold {% if pd >= 6 %}text-red-600{% elif pd >= 4 %}text-yellow-600{% else %}text-green-600{% endif %}">{{ pd }}/10</span>
+                      {% if prev %}
+                        {% if pd < prev.pain_during %}<span class="ml-0.5 text-green-500 text-xs">↓</span>
+                        {% elif pd > prev.pain_during %}<span class="ml-0.5 text-red-400 text-xs">↑</span>
+                        {% else %}<span class="ml-0.5 text-gray-300 text-xs">→</span>{% endif %}
+                      {% endif %}
+                    </td>
+                    {% endfor %}
+                  </tr>
+
+                  {# Next-Day Pain #}
+                  <tr class="hover:bg-gray-50/60 transition-colors">
+                    <td class="sticky left-0 z-10 bg-white px-4 py-2 text-[0.6875rem] font-bold text-gray-500 border-r border-gray-100 whitespace-nowrap">Next-Day</td>
+                    {% for s in tl %}
+                    {% set prev = tl[loop.index0 - 1] if loop.index0 > 0 else none %}
+                    <td class="px-4 py-2 text-center {{ 'bg-brand-50' if loop.last else '' }}">
+                      {% set nd = s.next_day_pain %}
+                      <span class="text-xs font-bold {% if nd >= 6 %}text-red-600{% elif nd >= 4 %}text-yellow-600{% else %}text-green-600{% endif %}">{{ nd }}/10</span>
+                      {% if prev %}
+                        {% if nd < prev.next_day_pain %}<span class="ml-0.5 text-green-500 text-xs">↓</span>
+                        {% elif nd > prev.next_day_pain %}<span class="ml-0.5 text-red-400 text-xs">↑</span>
+                        {% else %}<span class="ml-0.5 text-gray-300 text-xs">→</span>{% endif %}
+                      {% endif %}
+                    </td>
+                    {% endfor %}
+                  </tr>
+
+                </tbody>
+              </table>
+            </div>
+
+            {% if tl | length > 4 %}
+            <div class="px-4 py-1.5 border-t border-gray-100 text-right">
+              <p class="text-[0.625rem] text-gray-300 italic">← scroll to view earlier sessions</p>
+            </div>
+            {% endif %}
+
+          </div>{# end exercise metrics #}
+        </div>{# end exercise row #}
+        {% endfor %}
+      </div>{# end group panel #}
+    </div>{# end type group #}
+    {% endfor %}
+    </div>{# end divide-y #}
+  </div>{# end exercises tracked tile #}
+
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleTile(id) {
+  var el   = document.getElementById(id);
+  var chev = document.getElementById(id + '-chev');
+  if (!el) return;
+  var open = !el.classList.contains('hidden');
+  el.classList.toggle('hidden', open);
+  if (chev) chev.style.transform = open ? '' : 'rotate(180deg)';
+}
+
+// Recent Session Logs pagination
+(function () {
+  var _pageSize = 10;
+  var _page     = 0;
+
+  function _rows() {
+    return Array.from(document.querySelectorAll('[data-el-log-row]'));
+  }
+
+  function _render() {
+    var rows  = _rows();
+    var total = rows.length;
+    if (total === 0) return;
+    var totalPages = Math.ceil(total / _pageSize);
+    _page = Math.max(0, Math.min(_page, totalPages - 1));
+    var start = _page * _pageSize;
+    var end   = start + _pageSize;
+    rows.forEach(function (r) {
+      var idx = parseInt(r.dataset.elLogRow, 10);
+      r.style.display = (idx >= start && idx < end) ? '' : 'none';
+    });
+    var lbl = document.getElementById('el-logs-page-label');
+    if (lbl) lbl.textContent = 'Page ' + (_page + 1) + ' of ' + totalPages;
+    var prev = document.getElementById('el-logs-prev');
+    var next = document.getElementById('el-logs-next');
+    if (prev) prev.disabled = (_page === 0);
+    if (next) next.disabled = (_page >= totalPages - 1);
+  }
+
+  window.elLogsSetPageSize = function (n) {
+    _pageSize = n;
+    _page     = 0;
+    document.querySelectorAll('.el-logs-size-btn').forEach(function (btn) {
+      var active = parseInt(btn.dataset.elLogsSize, 10) === n;
+      btn.classList.toggle('bg-brand-600',    active);
+      btn.classList.toggle('text-white',       active);
+      btn.classList.toggle('border-brand-600', active);
+      btn.classList.toggle('bg-white',        !active);
+      btn.classList.toggle('text-gray-500',   !active);
+      btn.classList.toggle('border-gray-200', !active);
+    });
+    _render();
+  };
+
+  window.elLogsChangePage = function (delta) {
+    _page += delta;
+    _render();
+  };
+
+  _render();
+})();
+
+// ── Session Detail Modal ─────────────────────────────────────────────────────
+{% if recent_logs %}
+(function () {
+  var _logs = {{ recent_logs | tojson }};
+
+  var _typeLabels = {
+    isometric: 'Isometric', slow_isotonic: 'Slow Isotonic',
+    heavy_slow_resistance: 'Heavy Slow Resistance', eccentric: 'Eccentric',
+    plyometric: 'Plyometric', reactive_strength: 'Reactive Strength',
+  };
+
+  function _esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function _scoreCell(label, value, isInverted) {
+    var col = isInverted
+      ? (value >= 7 ? '#16a34a' : value >= 4 ? '#d97706' : '#dc2626')
+      : (value >= 6 ? '#dc2626' : value >= 4 ? '#d97706' : '#16a34a');
+    return '<div class="bg-gray-50 rounded-xl px-3 py-3 text-center">'
+      + '<p class="text-[0.55rem] font-bold uppercase tracking-widest text-gray-400 mb-0.5">' + label + '</p>'
+      + '<p class="text-base font-black" style="color:' + col + '">' + value + '<span class="text-xs font-normal text-gray-400">/10</span></p>'
+      + '</div>';
+  }
+
+  window.openSessionDetail = function (idx) {
+    var log = _logs[idx];
+    if (!log) return;
+
+    var d = log.created_at ? log.created_at.slice(0, 10) : '—';
+    var worst = Math.max(log.pain_during || 0, log.pain_after || 0, log.next_day_pain || 0);
+    var badge = worst >= 6 ? '<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700">High Pain</span>'
+              : worst >= 4 ? '<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-yellow-100 text-yellow-700">Moderate Pain</span>'
+              : '<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700">Low Pain</span>';
+
+    document.getElementById('sdm-title').innerHTML = 'Session — ' + d + '&ensp;' + badge;
+    document.getElementById('sdm-subtitle').textContent = 'Tap outside or press Esc to close';
+
+    var html = '';
+
+    html += '<div>';
+    html += '<p class="text-[0.6rem] font-bold uppercase tracking-widest text-gray-400 mb-2">Session Scores</p>';
+    html += '<div class="grid grid-cols-3 gap-2">';
+    if (log.morning_stiffness != null) html += _scoreCell('Morning Stiffness', log.morning_stiffness, false);
+    html += _scoreCell('Pain During', log.pain_during, false);
+    html += _scoreCell('Pain After', log.pain_after, false);
+    html += _scoreCell('Next-Day Pain', log.next_day_pain, false);
+    html += _scoreCell('Difficulty', log.difficulty, true);
+    html += _scoreCell('Confidence', log.confidence, true);
+    html += '</div></div>';
+
+    if (log.notes && log.notes.trim()) {
+      html += '<div class="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">';
+      html += '<p class="text-[0.6rem] font-bold uppercase tracking-widest text-amber-500 mb-1">Notes</p>';
+      html += '<p class="text-xs text-amber-900 leading-relaxed whitespace-pre-wrap">' + _esc(log.notes) + '</p>';
+      html += '</div>';
+    }
+
+    var exs = log.exercises_parsed || [];
+    if (exs.length > 0) {
+      html += '<div>';
+      html += '<p class="text-[0.6rem] font-bold uppercase tracking-widest text-gray-400 mb-2">Exercises</p>';
+      html += '<div class="overflow-x-auto rounded-xl border border-gray-100">';
+      html += '<table class="w-full text-xs border-collapse" style="min-width:360px">';
+      html += '<thead><tr class="bg-gray-50 border-b border-gray-100">'
+        + '<th class="text-left px-3 py-2 text-[0.6rem] font-bold uppercase tracking-widest text-gray-400">Exercise</th>'
+        + '<th class="text-center px-3 py-2 text-[0.6rem] font-bold uppercase tracking-widest text-gray-400">Sets</th>'
+        + '<th class="text-center px-3 py-2 text-[0.6rem] font-bold uppercase tracking-widest text-gray-400">Reps</th>'
+        + '<th class="text-center px-3 py-2 text-[0.6rem] font-bold uppercase tracking-widest text-gray-400">Load</th>'
+        + '<th class="text-center px-3 py-2 text-[0.6rem] font-bold uppercase tracking-widest text-gray-400">Sets %</th>'
+        + '</tr></thead>';
+      html += '<tbody class="divide-y divide-gray-50">';
+      exs.forEach(function (ex) {
+        var sc = ex.sets_compliance;
+        var scColClass = sc == null ? 'text-gray-300'
+          : sc >= 90 ? 'text-green-600' : sc >= 70 ? 'text-yellow-600' : 'text-red-500';
+        var typeLabel = _typeLabels[ex.type] || (ex.type || '').replace(/_/g, ' ');
+
+        var setsCell;
+        if (ex.sets_done != null && ex.prescribed_sets) {
+          setsCell = '<span class="font-bold text-gray-800">' + ex.sets_done + '</span>'
+            + '<span class="text-gray-400">/' + ex.prescribed_sets + '</span>'
+            + '<span class="text-gray-400 text-[0.6rem] ml-0.5">sets</span>';
+        } else if (ex.prescribed_sets) {
+          setsCell = '<span class="text-gray-300">—</span>'
+            + '<span class="text-gray-400">/' + ex.prescribed_sets + '</span>'
+            + '<span class="text-gray-400 text-[0.6rem] ml-0.5">sets</span>';
+        } else {
+          setsCell = '<span class="text-gray-300">—</span>';
+        }
+
+        var repsCell;
+        if (ex.reps_done && ex.prescribed_reps) {
+          repsCell = '<span class="font-bold text-gray-800">' + _esc(ex.reps_done) + '</span>'
+            + '<span class="text-gray-400">/' + _esc(ex.prescribed_reps) + '</span>'
+            + '<span class="text-gray-400 text-[0.6rem] ml-0.5">reps</span>';
+        } else if (ex.prescribed_reps) {
+          repsCell = '<span class="text-gray-400">' + _esc(ex.prescribed_reps) + '</span>'
+            + '<span class="text-gray-400 text-[0.6rem] ml-0.5">reps</span>';
+        } else {
+          repsCell = '<span class="text-gray-300">—</span>';
+        }
+
+        html += '<tr class="hover:bg-gray-50/60">'
+          + '<td class="px-3 py-2.5">'
+          +   '<p class="font-semibold text-gray-800">' + _esc(ex.name || '—') + '</p>'
+          +   (typeLabel ? '<p class="text-[0.6rem] text-gray-400 mt-0.5">' + _esc(typeLabel) + '</p>' : '')
+          + '</td>'
+          + '<td class="px-3 py-2.5 text-center">' + setsCell + '</td>'
+          + '<td class="px-3 py-2.5 text-center">' + repsCell + '</td>'
+          + '<td class="px-3 py-2.5 text-center text-gray-600">' + (ex.load_kg ? _esc(ex.load_kg) + ' kg' : '—') + '</td>'
+          + '<td class="px-3 py-2.5 text-center font-bold ' + scColClass + '">' + (sc != null ? sc + '%' : '—') + '</td>'
+          + '</tr>';
+      });
+      html += '</tbody></table></div></div>';
+    } else {
+      html += '<p class="text-xs text-gray-400 italic">No exercise data recorded for this session.</p>';
+    }
+
+    document.getElementById('sdm-body').innerHTML = html;
+    document.getElementById('session-detail-modal').classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+  };
+
+  window.closeSessionDetail = function () {
+    document.getElementById('session-detail-modal').classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
+  };
+
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeSessionDetail(); });
+  document.getElementById('session-detail-modal').addEventListener('click', function (e) {
+    if (e.target === this) closeSessionDetail();
+  });
+})();
+{% endif %}
+
+function toggleGroup(id) {
+  const panel   = document.getElementById(id);
+  const chevron = document.getElementById(id + '-chevron');
+  if (!panel) return;
+  const open = !panel.classList.contains('hidden');
+  panel.classList.toggle('hidden', open);
+  if (chevron) chevron.style.transform = open ? '' : 'rotate(180deg)';
+}
+
+function toggleExLog(id) {
+  const panel   = document.getElementById(id);
+  const chevron = document.getElementById(id + '-chevron');
+  if (!panel) return;
+  const open = !panel.classList.contains('hidden');
+  panel.classList.toggle('hidden', open);
+  if (chevron) chevron.style.transform = open ? '' : 'rotate(180deg)';
+}
+</script>
+{% endblock %}

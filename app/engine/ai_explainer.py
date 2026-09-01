@@ -80,7 +80,7 @@ async def generate_explanation(plan: dict, kb_entries: list[dict], user_name: st
         user_message = _build_user_message(plan, kb_entries, user_name)
 
         message = await client.messages.create(
-            model="claude-opus-4-5",
+            model="claude-sonnet-4-6",
             max_tokens=1024,
             system=SYSTEM_PROMPT,
             messages=[
@@ -88,7 +88,9 @@ async def generate_explanation(plan: dict, kb_entries: list[dict], user_name: st
             ],
         )
 
-        return message.content[0].text
+        from anthropic.types import TextBlock
+        text_block = next((b for b in message.content if isinstance(b, TextBlock)), None)
+        return text_block.text if text_block else FALLBACK_EXPLANATION
 
     except ImportError:
         logger.warning("anthropic package not installed — returning static placeholder.")
