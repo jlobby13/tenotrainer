@@ -3,6 +3,7 @@ import { getSessionInfo, hasRole } from "@/lib/auth";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { INVITATION_ROLE_MAP } from "@/lib/invitations";
 import { sendInvitationAction, cancelInvitationAction } from "@/app/admin/invitations/actions";
+import { getSuperOverview } from "@/lib/fastapi";
 
 export const metadata = { title: "Admin Overview — TenoTrainer" };
 
@@ -40,33 +41,21 @@ type Props = {
 };
 
 async function fetchClinicianData(members: { user_id: string; role: string; joined_at: string }[]): Promise<OrgMember[]> {
-  const fastApiUrl = process.env.FASTAPI_URL ?? "http://localhost:8000";
-  const bridgeSecret = process.env.BRIDGE_SECRET ?? "";
-
-  // Fetch SQLite patient counts
   let sqliteSupervisors: Record<string, { active_patients: number; total_patients: number }> = {};
   try {
-    const resp = await fetch(`${fastApiUrl}/api/super/overview`, {
-      headers: { Authorization: `Bearer ${bridgeSecret}` },
-      cache: "no-store",
-    });
-    if (resp.ok) {
-      const data = await resp.json();
-      for (const s of data.supervisors ?? []) {
-        if (s.supabase_id) {
-          sqliteSupervisors[s.supabase_id] = {
-            active_patients: s.active_patients ?? 0,
-            total_patients: s.total_patients ?? 0,
-          };
-        }
+    const data = await getSuperOverview();
+    for (const s of data.supervisors ?? []) {
+      if (s.supabase_id) {
+        sqliteSupervisors[s.supabase_id] = {
+          active_patients: s.active_patients ?? 0,
+          total_patients: s.total_patients ?? 0,
+        };
       }
     }
   } catch {
     // FastAPI may be down — patient counts will show 0
   }
 
-  // Fetch Supabase user emails/names via service role
-  const service = createServiceRoleClient();
   return members.map((m) => {
     const counts = sqliteSupervisors[m.user_id] ?? { active_patients: 0, total_patients: 0 };
     return { ...m, ...counts };

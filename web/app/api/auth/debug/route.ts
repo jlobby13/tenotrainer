@@ -2,9 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getSessionInfo } from "@/lib/auth";
 
-// Authenticated-only JSON endpoint. Returns session/profile/org info.
-// Useful for curl-based testing and verifying session state.
 export async function GET(request: NextRequest) {
+  if (process.env.NODE_ENV !== "development") {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const supabase = await createServerSupabaseClient();
   const {
     data: { user },
