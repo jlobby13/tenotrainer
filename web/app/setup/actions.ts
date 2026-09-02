@@ -33,6 +33,16 @@ export async function createOrgAction(formData: FormData) {
 
   if (existing) redirect("/dashboard");
 
+  // Guard: an organization already exists — setup is first-run only.
+  // Prevents any self-registered user from escalating to super_user via this page.
+  const { count } = await service
+    .from("organizations")
+    .select("id", { count: "exact", head: true });
+
+  if (count && count > 0) {
+    redirect("/dashboard?error=Setup+is+only+available+during+first-time+installation");
+  }
+
   const { data: org, error: orgError } = await service
     .from("organizations")
     .insert({ name, slug })
