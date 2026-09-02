@@ -1,3 +1,5 @@
+import "server-only";
+
 const FASTAPI_URL = process.env.FASTAPI_URL ?? "http://localhost:8000";
 const BRIDGE_SECRET = process.env.BRIDGE_SECRET ?? "";
 
@@ -92,4 +94,19 @@ export async function getPatientDetail(patientId: number, supervisorEmail: strin
   return bridgeFetch(
     `/api/clinician/patients/${patientId}?email=${encodeURIComponent(supervisorEmail)}`
   );
+}
+
+// ── Super ─────────────────────────────────────────────────────────────────────
+
+export type SupervisorRow = {
+  supabase_id: string | null;
+  active_patients: number;
+  total_patients: number;
+  [key: string]: unknown;
+};
+
+export type SuperOverview = { supervisors: SupervisorRow[] };
+
+export async function getSuperOverview(): Promise<SuperOverview> {
+  return bridgeFetch("/api/super/overview");
 }

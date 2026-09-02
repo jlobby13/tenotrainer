@@ -172,15 +172,17 @@ export default async function PatientDashboardPage() {
   if (role === "super_user") redirect("/super/dashboard");
   if (role === "clinician" || role === "clinician_admin") redirect("/clinician/dashboard");
 
+  const hasOrgMembership = session.memberships.length > 0;
+
   let summary: PatientSummary | null = null;
   let fetchError: string | null = null;
-  try {
-    summary = await getPatientSummary(authUser.email!);
-  } catch (err) {
-    fetchError = err instanceof Error ? err.message : "Unable to load dashboard data";
+  if (hasOrgMembership) {
+    try {
+      summary = await getPatientSummary(authUser.email!);
+    } catch (err) {
+      fetchError = err instanceof Error ? err.message : "Unable to load dashboard data";
+    }
   }
-
-  const hasOrgMembership = session.memberships.length > 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -264,7 +266,6 @@ export default async function PatientDashboardPage() {
                         <PainBar label="Pain during" value={log.pain_during} />
                         <PainBar label="Pain after" value={log.pain_after} />
                         <PainBar label="Next-day pain" value={log.next_day_pain} />
-                        <PainBar label="Morning stiffness" value={log.morning_stiffness} />
                       </div>
                     </div>
                   ))}
