@@ -5,22 +5,22 @@ import { createBridgeToken, FASTAPI_ROLE } from "@/lib/bridge";
 
 const FASTAPI_URL = process.env.FASTAPI_URL ?? "http://localhost:8000";
 
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
   const supabase = await createServerSupabaseClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.redirect(new URL("/login", _request.url));
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   const session = await getSessionInfo();
   const supabaseRole = session.memberships[0]?.role ?? "member";
 
-  // Super-users stay on :3000 — they have a dedicated Next.js dashboard
+  // Super-users stay on :3000 — dedicated Next.js dashboard
   if (supabaseRole === "super_user") {
-    return NextResponse.redirect(new URL("/super/dashboard", _request.url));
+    return NextResponse.redirect(new URL("/super/dashboard", request.url));
   }
 
   const fastapiRole = FASTAPI_ROLE[supabaseRole] ?? "patient";
@@ -30,6 +30,12 @@ export async function GET(_request: NextRequest) {
 
   const dest = new URL(`${FASTAPI_URL}/auth/supabase`);
   dest.searchParams.set("token", token);
+
+  // Optional deep-link: ?dest=/daily-log gets forwarded as ?next= to FastAPI
+  const destPath = request.nextUrl.searchParams.get("dest");
+  if (destPath && destPath.startsWith("/") && !destPath.startsWith("//")) {
+    dest.searchParams.set("next", destPath);
+  }
 
   return NextResponse.redirect(dest.toString());
 }

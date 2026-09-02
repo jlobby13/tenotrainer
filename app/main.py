@@ -596,10 +596,15 @@ async def supabase_bridge(
     finally:
         await db.close()
 
-    if fastapi_role in ("supervisor", "superuser"):
-        dest = RedirectResponse("/supervisor/dashboard", status_code=302)
+    # Allow deep-linking into specific pages via ?next= (URL-encoded path)
+    next_path = request.query_params.get("next", "")
+    if next_path and next_path.startswith("/") and not next_path.startswith("//"):
+        redirect_to = next_path
+    elif fastapi_role in ("supervisor", "superuser"):
+        redirect_to = "/supervisor/dashboard"
     else:
-        dest = RedirectResponse("/dashboard", status_code=302)
+        redirect_to = "/dashboard"
+    dest = RedirectResponse(redirect_to, status_code=302)
     _set_session_cookie(dest, new_token)
     return dest
 
@@ -1956,6 +1961,235 @@ async def super_overview(request: Request):
         await db.close()
 
     return JSONResponse({"supervisors": supervisors})
+
+
+def _require_bridge(request: Request) -> bool:
+    bridge_secret = os.environ.get("BRIDGE_SECRET", "")
+    auth = request.headers.get("Authorization", "")
+    return bool(bridge_secret) and auth == f"Bearer {bridge_secret}"
+
+
+@app.get("/api/patient/summary")
+async def patient_summary_api(request: Request, email: str = ""):
+    """BRIDGE_SECRET-protected: return patient dashboard data for Next.js."""
+    if not _require_bridge(request):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    if not email:
+        return JSONResponse({"error": "email required"}, status_code=400)
+
+    db = await get_db()
+    try:
+        cursor = await db.execute("SELECT * FROM users WHERE email = ?", (email.lower().strip(),))
+        row = await cursor.fetchone()
+        if not row:
+            return JSONResponse({"error": "User not found"}, status_code=404)
+        user = row_to_dict(row)
+
+        rehab_state = await _get_user_rehab_state(user, db)
+
+        cursor = await db.execute(
+            "SELECT stage, irritability, decision, created_at FROM rehab_plans"
+            " WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
+            (user["id"],),
+        )
+        plan_row = await cursor.fetchone()
+        current_plan = None
+        if plan_row:
+            current_plan = {
+                "stage": plan_row[0],
+                "irritability": plan_row[1],
+                "decision": plan_row[2],
+                "created_at": (plan_row[3] or "")[:10],
+            }
+
+        today_str = datetime.utcnow().date().isoformat()
+        cursor = await db.execute(
+            "SELECT id, created_at, pain_during, pain_after, next_day_pain"
+            " FROM daily_logs WHERE user_id = ? ORDER BY created_at DESC LIMIT 5",
+            (user["id"],),
+        )
+        log_rows = await cursor.fetchall()
+        recent_logs = [
+            {
+                "id": r[0],
+                "date": (r[1] or "")[:10],
+                "pain_during": r[2],
+                "pain_after": r[3],
+                "next_day_pain": r[4],
+                "morning_stiffness": None,
+            }
+            for r in log_rows
+        ]
+        today_logged = bool(recent_logs and recent_logs[0]["date"] == today_str)
+
+        session_plan_out = [
+            {
+                "exercise": {
+                    "ex_id": item["exercise"].get("ex_id"),
+                    "name": item["exercise"].get("name"),
+                    "category": item["exercise"].get("category"),
+                },
+                "reason": item.get("reason", ""),
+                "dosage": item.get("dosage", {}),
+            }
+            for item in rehab_state.get("session_plan", [])
+        ]
+    finally:
+        await db.close()
+
+    return JSONResponse({
+        "user": {"id": user["id"], "name": user.get("name", ""), "email": user.get("email", "")},
+        "has_plan": rehab_state.get("has_plan", False),
+        "has_onboarding": rehab_state.get("has_onboarding", False),
+        "current_plan": current_plan,
+        "current_stage": rehab_state.get("current_stage"),
+        "current_irritability": rehab_state.get("current_irritability"),
+        "session_plan": session_plan_out,
+        "today_logged": today_logged,
+        "recent_logs": recent_logs,
+    })
+
+
+@app.get("/api/clinician/patients")
+async def clinician_patients_api(request: Request, email: str = ""):
+    """BRIDGE_SECRET-protected: return assigned patient list for the Next.js clinician dashboard."""
+    from app.supervisor import _get_patient_summary as _sup_patient_summary
+    if not _require_bridge(request):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    if not email:
+        return JSONResponse({"error": "email required"}, status_code=400)
+
+    db = await get_db()
+    try:
+        cursor = await db.execute(
+            "SELECT id FROM users WHERE email = ? AND role IN ('supervisor', 'superuser')",
+            (email.lower().strip(),),
+        )
+        row = await cursor.fetchone()
+        if not row:
+            return JSONResponse({"error": "Supervisor not found"}, status_code=404)
+        supervisor_id = row[0]
+
+        cursor = await db.execute(
+            "SELECT patient_id FROM supervisor_patients"
+            " WHERE supervisor_id = ? AND (status IS NULL OR status = 'active')",
+            (supervisor_id,),
+        )
+        patient_ids = [r[0] for r in await cursor.fetchall()]
+    finally:
+        await db.close()
+
+    patients = []
+    for pid in patient_ids:
+        summary = await _sup_patient_summary(pid)
+        if summary:
+            # Keep only what the Next.js dashboard needs
+            patients.append({
+                "id": summary["id"],
+                "name": summary.get("name", ""),
+                "email": summary.get("email", ""),
+                "status": summary.get("status", "green"),
+                "stage": summary.get("stage"),
+                "irritability": summary.get("irritability"),
+                "last_session_date": summary.get("last_session_date"),
+                "sessions_28d": summary.get("sessions_28d", 0),
+                "adherence_pct": summary.get("adherence_pct"),
+                "alert_count": summary.get("alert_count", 0),
+                "max_severity": summary.get("max_severity"),
+            })
+
+    _order = {"red": 0, "yellow": 1, "inactive": 2, "green": 3}
+    patients.sort(key=lambda p: _order.get(p.get("status", "green"), 3))
+    return JSONResponse({"patients": patients})
+
+
+@app.get("/api/clinician/patients/{patient_id}")
+async def clinician_patient_detail_api(request: Request, patient_id: int, email: str = ""):
+    """BRIDGE_SECRET-protected: return patient detail for the Next.js clinician view."""
+    from app.supervisor import _get_patient_summary as _sup_patient_summary
+    if not _require_bridge(request):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    if not email:
+        return JSONResponse({"error": "email required"}, status_code=400)
+
+    # Verify the supervisor is actually assigned to this patient
+    db = await get_db()
+    try:
+        cursor = await db.execute(
+            "SELECT id FROM users WHERE email = ? AND role IN ('supervisor', 'superuser')",
+            (email.lower().strip(),),
+        )
+        row = await cursor.fetchone()
+        if not row:
+            return JSONResponse({"error": "Supervisor not found"}, status_code=404)
+        supervisor_id = row[0]
+
+        cursor = await db.execute(
+            "SELECT 1 FROM supervisor_patients WHERE supervisor_id = ? AND patient_id = ?",
+            (supervisor_id, patient_id),
+        )
+        if not await cursor.fetchone():
+            return JSONResponse({"error": "Patient not assigned to this supervisor"}, status_code=403)
+
+        cursor = await db.execute(
+            "SELECT stage, irritability, decision, created_at, exercises FROM rehab_plans"
+            " WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
+            (patient_id,),
+        )
+        plan_row = await cursor.fetchone()
+        current_plan = None
+        if plan_row:
+            try:
+                exercises = json.loads(plan_row[4] or "[]")
+            except Exception:
+                exercises = []
+            current_plan = {
+                "stage": plan_row[0],
+                "irritability": plan_row[1],
+                "decision": plan_row[2],
+                "created_at": (plan_row[3] or "")[:10],
+                "exercises": exercises,
+            }
+
+        cursor = await db.execute(
+            "SELECT id, created_at, pain_during, pain_after, next_day_pain, notes"
+            " FROM daily_logs WHERE user_id = ? ORDER BY created_at DESC LIMIT 10",
+            (patient_id,),
+        )
+        log_rows = await cursor.fetchall()
+        recent_logs = [
+            {
+                "id": r[0],
+                "date": (r[1] or "")[:10],
+                "pain_during": r[2],
+                "pain_after": r[3],
+                "next_day_pain": r[4],
+                "morning_stiffness": None,
+                "note": r[5],
+            }
+            for r in log_rows
+        ]
+    finally:
+        await db.close()
+
+    summary = await _sup_patient_summary(patient_id)
+    return JSONResponse({
+        "patient": {
+            "id": summary.get("id"),
+            "name": summary.get("name", ""),
+            "email": summary.get("email", ""),
+            "status": summary.get("status", "green"),
+            "stage": summary.get("stage"),
+            "irritability": summary.get("irritability"),
+            "last_session_date": summary.get("last_session_date"),
+            "sessions_28d": summary.get("sessions_28d", 0),
+            "adherence_pct": summary.get("adherence_pct"),
+            "alert_count": summary.get("alert_count", 0),
+            "alerts": summary.get("alerts", []),
+        },
+        "current_plan": current_plan,
+        "recent_logs": recent_logs,
+    })
 
 
 @app.post("/api/dashboard-layout")

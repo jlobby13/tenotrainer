@@ -28,10 +28,11 @@ export default async function DashboardPage() {
 
   const session = await getSessionInfo();
 
-  // Super-users have their own dedicated dashboard
-  if (session.memberships.some((m) => m.role === "super_user")) {
-    redirect("/super/dashboard");
-  }
+  // Role-based routing — each role has its own Next.js dashboard
+  const role = session.memberships[0]?.role ?? "member";
+  if (role === "super_user") redirect("/super/dashboard");
+  if (role === "clinician" || role === "clinician_admin") redirect("/clinician/dashboard");
+  if (role === "tester" || role === "member") redirect("/patient/dashboard");
 
   const checks = {
     signedIn: !!session.user,
