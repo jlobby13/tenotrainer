@@ -16,6 +16,7 @@ test.describe("unauthenticated route protection", () => {
   for (const path of [
     "/dashboard",
     "/patient/dashboard",
+    "/patient/session",
     "/clinician/dashboard",
     "/super/dashboard",
   ]) {
