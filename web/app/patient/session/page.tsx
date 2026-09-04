@@ -1,13 +1,16 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getSessionInfo } from "@/lib/auth";
+import { getPatientSummary } from "@/lib/fastapi";
+import { SessionPlayer } from "./components/SessionPlayer";
 
 export const metadata = { title: "Rehab Session — TenoTrainer" };
 
-// Milestone 1 placeholder — intentionally not the Active Rehab experience.
-// No FastAPI call, no rule-engine invocation, no data written. Milestone 2
-// replaces this route's contents with the real guided session flow.
+// Milestone 2 — the real guided Active Rehab Session. Reads today's session_plan
+// and hands it to the client-side SessionPlayer, which owns all set-by-set state
+// locally. This route makes no clinical submission of its own: no daily_logs
+// write, no rule-engine call, no tolerance/safety logic. That begins in
+// Milestone 3, once the guided portion below is complete.
 export default async function PatientSessionPage() {
   const supabase = await createServerSupabaseClient();
   const {
@@ -22,20 +25,28 @@ export default async function PatientSessionPage() {
   if (role === "super_user") redirect("/super/dashboard");
   if (role === "clinician" || role === "clinician_admin") redirect("/clinician/dashboard");
 
+  let summary;
+  try {
+    summary = await getPatientSummary(authUser.email!);
+  } catch {
+    redirect("/patient/dashboard");
+  }
+
+  if (!summary.has_onboarding || !summary.has_plan || summary.session_plan.length === 0) {
+    redirect("/patient/dashboard");
+  }
+  if (summary.today_logged) {
+    redirect("/patient/dashboard");
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <div className="max-w-md w-full bg-white rounded-xl shadow border border-gray-100 p-8 text-center">
-        <h1 className="text-lg font-semibold text-gray-900 mb-2">Active Rehab is coming soon</h1>
-        <p className="text-sm text-gray-500 mb-6">
-          Guided session tracking is the next part of TenoTrainer we&apos;re building.
-        </p>
-        <Link
-          href="/patient/dashboard"
-          className="inline-block px-4 py-2 bg-brand-600 text-white text-sm font-semibold rounded-lg hover:bg-brand-700 transition-colors"
-        >
-          Back to Today&apos;s Rehab
-        </Link>
-      </div>
+    <div className="min-h-screen bg-gray-50">
+      <SessionPlayer
+        initialSessionPlan={summary.session_plan}
+        previousPerformance={summary.previous_performance}
+        patientId={String(summary.user.id)}
+        planId={summary.current_plan ? String(summary.current_plan.id) : null}
+      />
     </div>
   );
 }

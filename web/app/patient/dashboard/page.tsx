@@ -106,6 +106,7 @@ export default async function PatientDashboardPage() {
                 hasOnboarding={summary.has_onboarding}
                 hasNoPlan={!summary.has_plan}
                 todayLogged={summary.today_logged}
+                patientId={String(summary.user.id)}
               />
             )}
           </div>
