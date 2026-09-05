@@ -1969,6 +1969,42 @@ def _require_bridge(request: Request) -> bool:
     return bool(bridge_secret) and auth == f"Bearer {bridge_secret}"
 
 
+async def _get_previous_performance(user_id: int, ex_ids: list, db) -> dict:
+    """Read-only lookup of the most recent factual performance per exercise
+    from daily_logs.exercise_log. No clinical interpretation, no rule-engine
+    involvement, no pain_after dependency — just factual prior sets/reps/load."""
+    result = {ex_id: None for ex_id in ex_ids}
+    remaining = set(ex_ids)
+    if not remaining:
+        return result
+
+    cursor = await db.execute(
+        "SELECT created_at, exercise_log FROM daily_logs"
+        " WHERE user_id = ? ORDER BY created_at DESC LIMIT 30",
+        (user_id,),
+    )
+    rows = await cursor.fetchall()
+
+    for created_at, exercise_log_json in rows:
+        if not remaining:
+            break
+        try:
+            logged = json.loads(exercise_log_json or "{}").get("exercises", [])
+        except (json.JSONDecodeError, TypeError):
+            continue
+        for entry in logged:
+            ex_id = entry.get("exercise_id")
+            if ex_id in remaining:
+                result[ex_id] = {
+                    "sets": entry.get("sets_done"),
+                    "reps": entry.get("reps_done"),
+                    "load": entry.get("load_kg"),
+                    "date": (created_at or "")[:10],
+                }
+                remaining.discard(ex_id)
+    return result
+
+
 @app.get("/api/patient/summary")
 async def patient_summary_api(request: Request, email: str = ""):
     """BRIDGE_SECRET-protected: return patient dashboard data for Next.js."""
@@ -1988,7 +2024,7 @@ async def patient_summary_api(request: Request, email: str = ""):
         rehab_state = await _get_user_rehab_state(user, db)
 
         cursor = await db.execute(
-            "SELECT stage, irritability, decision, created_at FROM rehab_plans"
+            "SELECT id, stage, irritability, decision, created_at FROM rehab_plans"
             " WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
             (user["id"],),
         )
@@ -1996,15 +2032,16 @@ async def patient_summary_api(request: Request, email: str = ""):
         current_plan = None
         if plan_row:
             current_plan = {
-                "stage": plan_row[0],
-                "irritability": plan_row[1],
-                "decision": plan_row[2],
-                "created_at": (plan_row[3] or "")[:10],
+                "id": plan_row[0],
+                "stage": plan_row[1],
+                "irritability": plan_row[2],
+                "decision": plan_row[3],
+                "created_at": (plan_row[4] or "")[:10],
             }
 
         today_str = datetime.utcnow().date().isoformat()
         cursor = await db.execute(
-            "SELECT id, created_at, pain_during, pain_after, next_day_pain"
+            "SELECT id, created_at, pain_during, pain_after, next_day_pain, morning_stiffness"
             " FROM daily_logs WHERE user_id = ? ORDER BY created_at DESC LIMIT 5",
             (user["id"],),
         )
@@ -2016,7 +2053,7 @@ async def patient_summary_api(request: Request, email: str = ""):
                 "pain_during": r[2],
                 "pain_after": r[3],
                 "next_day_pain": r[4],
-                "morning_stiffness": None,
+                "morning_stiffness": r[5],
             }
             for r in log_rows
         ]
@@ -2026,14 +2063,21 @@ async def patient_summary_api(request: Request, email: str = ""):
             {
                 "exercise": {
                     "ex_id": item["exercise"].get("ex_id"),
-                    "name": item["exercise"].get("name"),
+                    "name": item["exercise"].get("exercise_name"),
                     "category": item["exercise"].get("category"),
+                    "loading_profile": item["exercise"].get("loading_profile"),
+                    "setup_instructions": item["exercise"].get("setup_instructions"),
+                    "execution_cues": item["exercise"].get("execution_cues") or [],
+                    "patient_facing_explanation": item["exercise"].get("patient_facing_explanation"),
                 },
                 "reason": item.get("reason", ""),
                 "dosage": item.get("dosage", {}),
             }
             for item in rehab_state.get("session_plan", [])
         ]
+
+        ex_ids = [item["exercise"]["ex_id"] for item in session_plan_out if item["exercise"].get("ex_id")]
+        previous_performance = await _get_previous_performance(user["id"], ex_ids, db)
     finally:
         await db.close()
 
@@ -2047,6 +2091,7 @@ async def patient_summary_api(request: Request, email: str = ""):
         "session_plan": session_plan_out,
         "today_logged": today_logged,
         "recent_logs": recent_logs,
+        "previous_performance": previous_performance,
     })
 
 

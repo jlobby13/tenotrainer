@@ -27,21 +27,37 @@ export type RecentLog = {
 };
 
 export type SessionExercise = {
-  exercise: { ex_id: string; name: string; category: string };
+  exercise: {
+    ex_id: string;
+    name: string;
+    category: string;
+    loading_profile: string | null;
+    setup_instructions: string | null;
+    execution_cues: string[];
+    patient_facing_explanation: string | null;
+  };
   reason: string;
   dosage: Record<string, unknown>;
+};
+
+export type PreviousPerformance = {
+  sets: number | null;
+  reps: string | number | null;
+  load: number | null;
+  date: string;
 };
 
 export type PatientSummary = {
   user: { id: number; name: string; email: string };
   has_plan: boolean;
   has_onboarding: boolean;
-  current_plan: { stage: number; irritability: string; decision: string; created_at: string } | null;
+  current_plan: { id: number; stage: number; irritability: string; decision: string; created_at: string } | null;
   current_stage: number | null;
   current_irritability: string | null;
   session_plan: SessionExercise[];
   today_logged: boolean;
   recent_logs: RecentLog[];
+  previous_performance: Record<string, PreviousPerformance | null>;
 };
 
 export async function getPatientSummary(email: string): Promise<PatientSummary> {

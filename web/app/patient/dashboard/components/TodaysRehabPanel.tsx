@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { PatientSummary } from "@/lib/fastapi";
+import { ResumeSessionBanner } from "./ResumeSessionBanner";
 
 const IRRITABILITY_LABEL: Record<string, string> = {
   low: "Low irritability",
@@ -41,12 +42,14 @@ export function TodaysRehabPanel({
   hasOnboarding,
   hasNoPlan,
   todayLogged,
+  patientId,
 }: {
   currentPlan: PatientSummary["current_plan"];
   sessionPlan: PatientSummary["session_plan"];
   hasOnboarding: boolean;
   hasNoPlan: boolean;
   todayLogged: boolean;
+  patientId: string;
 }) {
   if (!hasOnboarding) {
     return (
@@ -92,38 +95,40 @@ export function TodaysRehabPanel({
   }
 
   return (
-    <div className="bg-white rounded-xl shadow border border-gray-100 p-6">
-      {currentPlan && <LoadingContextBadges currentPlan={currentPlan} />}
+    <ResumeSessionBanner patientId={patientId} planId={currentPlan ? String(currentPlan.id) : null}>
+      <div className="bg-white rounded-xl shadow border border-gray-100 p-6">
+        {currentPlan && <LoadingContextBadges currentPlan={currentPlan} />}
 
-      <h2 className="text-lg font-semibold text-gray-900">Today&apos;s Rehab</h2>
-      <p className="text-sm text-gray-500 mt-0.5 mb-5">
-        {sessionPlan.length} exercise{sessionPlan.length !== 1 ? "s" : ""} prescribed for today
-      </p>
+        <h2 className="text-lg font-semibold text-gray-900">Today&apos;s Rehab</h2>
+        <p className="text-sm text-gray-500 mt-0.5 mb-5">
+          {sessionPlan.length} exercise{sessionPlan.length !== 1 ? "s" : ""} prescribed for today
+        </p>
 
-      {sessionPlan.length > 0 && (
-        <ul className="space-y-4 mb-6">
-          {sessionPlan.map((item) => (
-            <li key={item.exercise.ex_id} className="border-b border-gray-50 last:border-0 pb-3 last:pb-0">
-              <p className="text-sm font-semibold text-gray-900">{item.exercise.name}</p>
-              {item.dosage && Object.keys(item.dosage).length > 0 && (
-                <p className="text-sm text-gray-700 mt-0.5">
-                  {Object.entries(item.dosage)
-                    .map(([k, v]) => `${k.replace(/_/g, " ")}: ${v}`)
-                    .join(" · ")}
-                </p>
-              )}
-              {item.reason && <p className="text-xs text-gray-400 mt-0.5">{item.reason}</p>}
-            </li>
-          ))}
-        </ul>
-      )}
+        {sessionPlan.length > 0 && (
+          <ul className="space-y-4 mb-6">
+            {sessionPlan.map((item) => (
+              <li key={item.exercise.ex_id} className="border-b border-gray-50 last:border-0 pb-3 last:pb-0">
+                <p className="text-sm font-semibold text-gray-900">{item.exercise.name}</p>
+                {item.dosage && Object.keys(item.dosage).length > 0 && (
+                  <p className="text-sm text-gray-700 mt-0.5">
+                    {Object.entries(item.dosage)
+                      .map(([k, v]) => `${k.replace(/_/g, " ")}: ${v}`)
+                      .join(" · ")}
+                  </p>
+                )}
+                {item.reason && <p className="text-xs text-gray-400 mt-0.5">{item.reason}</p>}
+              </li>
+            ))}
+          </ul>
+        )}
 
-      <Link
-        href="/patient/session"
-        className="block w-full text-center px-4 py-3.5 bg-brand-600 text-white text-base font-semibold rounded-lg hover:bg-brand-700 transition-colors"
-      >
-        Start Today&apos;s Rehab
-      </Link>
-    </div>
+        <Link
+          href="/patient/session"
+          className="block w-full text-center px-4 py-3.5 bg-brand-600 text-white text-base font-semibold rounded-lg hover:bg-brand-700 transition-colors"
+        >
+          Start Today&apos;s Rehab
+        </Link>
+      </div>
+    </ResumeSessionBanner>
   );
 }
