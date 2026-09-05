@@ -34,6 +34,7 @@ export type SessionExercise = {
     loading_profile: string | null;
     setup_instructions: string | null;
     execution_cues: string[];
+    patient_facing_explanation: string | null;
   };
   reason: string;
   dosage: Record<string, unknown>;

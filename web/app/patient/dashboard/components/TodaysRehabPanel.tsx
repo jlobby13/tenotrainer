@@ -95,7 +95,7 @@ export function TodaysRehabPanel({
   }
 
   return (
-    <ResumeSessionBanner patientId={patientId}>
+    <ResumeSessionBanner patientId={patientId} planId={currentPlan ? String(currentPlan.id) : null}>
       <div className="bg-white rounded-xl shadow border border-gray-100 p-6">
         {currentPlan && <LoadingContextBadges currentPlan={currentPlan} />}
 

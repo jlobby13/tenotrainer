@@ -10,9 +10,9 @@ import {
   createSession,
   loadSession,
   saveSession,
-  clearSession,
   completeSet,
-  undoSet,
+  skipSet,
+  undoSetOutcome,
   advanceToNextExercise,
   completeAllExercises,
   reportProblem,
@@ -24,7 +24,10 @@ import {
   setReminderDismissed,
   getTotalSets,
   getNextPendingSetIndex,
-  isExerciseFullyCompleted,
+  isExerciseFullyAddressed,
+  isSessionFinished,
+  getSetDotStates,
+  getExerciseDotStates,
 } from "@/lib/activeSession";
 import { previousPerformanceSummary, dosageSummary, restSeconds } from "@/lib/exerciseDisplay";
 import { SessionOpening } from "./SessionOpening";
@@ -37,6 +40,7 @@ import { ExerciseCompleteTransition } from "./ExerciseCompleteTransition";
 import { ReportProblemSheet } from "./ReportProblemSheet";
 import { EndSessionReasonPicker } from "./EndSessionReasonPicker";
 import { SessionHandoff } from "./SessionHandoff";
+import { ProgressDots } from "./ProgressDots";
 
 export function SessionPlayer({
   initialSessionPlan,
@@ -58,13 +62,17 @@ export function SessionPlayer({
   const [showReportSheet, setShowReportSheet] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
 
-  // localStorage only exists client-side — check for a resumable session after mount.
+  // localStorage only exists client-side — check for a resumable/finished
+  // session after mount. A finished session for a DIFFERENT prescription
+  // instance (new day, or the plan itself changed) is discarded as stale by
+  // loadSession itself; one for the SAME instance is returned so we can show
+  // the handoff instead of letting the patient start today's prescription again.
   useEffect(() => {
-    const existing = loadSession(patientId);
+    const existing = loadSession(patientId, planId);
     if (existing) setSession(existing);
     setMounted(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [patientId]);
+  }, [patientId, planId]);
 
   function persist(next: ActiveSessionState) {
     setSession(next);
@@ -83,6 +91,16 @@ export function SessionPlayer({
     setResumeConfirmed(true);
   }
 
+  function advanceIfExerciseDone(next: ActiveSessionState, exerciseIndex: number): ActiveSessionState {
+    const totalSets = getTotalSets(next.prescriptionSnapshot.exercises[exerciseIndex]);
+    const fullyAddressed = isExerciseFullyAddressed(next.exerciseStates[exerciseIndex], totalSets);
+    if (!fullyAddressed) return next;
+    const isLast = exerciseIndex === next.prescriptionSnapshot.exercises.length - 1;
+    if (isLast) return completeAllExercises(next);
+    setAwaitingNextExercise(true);
+    return next;
+  }
+
   function handleCompleteSet(
     exerciseIndex: number,
     setIndex: number,
@@ -92,23 +110,22 @@ export function SessionPlayer({
     if (!session) return;
     let next = completeSet(session, exerciseIndex, setIndex, actual, wasEdited);
     const totalSets = getTotalSets(next.prescriptionSnapshot.exercises[exerciseIndex]);
-    const fullyDone = isExerciseFullyCompleted(next.exerciseStates[exerciseIndex], totalSets);
-    if (fullyDone) {
-      const isLast = exerciseIndex === next.prescriptionSnapshot.exercises.length - 1;
-      if (isLast) {
-        next = completeAllExercises(next);
-      } else {
-        setAwaitingNextExercise(true);
-      }
-    } else {
-      setShowRest(true);
-    }
+    const fullyAddressed = isExerciseFullyAddressed(next.exerciseStates[exerciseIndex], totalSets);
+    next = advanceIfExerciseDone(next, exerciseIndex);
+    if (!fullyAddressed) setShowRest(true);
     persist(next);
   }
 
-  function handleUndo(exerciseIndex: number, setIndex: number) {
+  function handleSkipSet(exerciseIndex: number, setIndex: number) {
     if (!session) return;
-    persist(undoSet(session, exerciseIndex, setIndex));
+    let next = skipSet(session, exerciseIndex, setIndex);
+    next = advanceIfExerciseDone(next, exerciseIndex);
+    persist(next);
+  }
+
+  function handleUndoSetOutcome(exerciseIndex: number, setIndex: number) {
+    if (!session) return;
+    persist(undoSetOutcome(session, exerciseIndex, setIndex));
   }
 
   function handleNextExercise() {
@@ -146,7 +163,9 @@ export function SessionPlayer({
   }
 
   function handleDoneFromHandoff() {
-    if (session) clearSession(session.patientId);
+    // Deliberately does NOT clear the session — a finished session for today's
+    // prescription instance must persist so the dashboard keeps recognizing
+    // that today's prescribed session has already been executed.
     router.push("/patient/dashboard");
   }
 
@@ -162,7 +181,7 @@ export function SessionPlayer({
     );
   }
 
-  if (session.status === "completed_exercises" || session.status === "ended_early") {
+  if (isSessionFinished(session)) {
     return <SessionHandoff session={session} onDone={handleDoneFromHandoff} />;
   }
 
@@ -207,6 +226,7 @@ export function SessionPlayer({
         <button type="button" onClick={handlePauseAndLeave} className="text-sm text-gray-400">
           ← Leave
         </button>
+        <ProgressDots states={getExerciseDotStates(session)} label="Session progress" />
         <button type="button" onClick={() => setShowEndPicker(true)} className="text-sm text-gray-400">
           End Session
         </button>
@@ -219,6 +239,7 @@ export function SessionPlayer({
         currentSetNumber={(nextPending ?? Math.max(totalSets - 1, 0)) + 1}
         totalSets={totalSets}
         problemReportCount={exerciseState.problemReports.length}
+        setDotStates={getSetDotStates(exerciseState, totalSets)}
       />
 
       {prevPerf && (
@@ -241,15 +262,12 @@ export function SessionPlayer({
           onCompleteSet={(setIndex, actual, wasEdited) =>
             handleCompleteSet(exerciseIndex, setIndex, actual, wasEdited)
           }
-          onUndoSet={(setIndex) => handleUndo(exerciseIndex, setIndex)}
+          onSkipSet={(setIndex) => handleSkipSet(exerciseIndex, setIndex)}
+          onUndoSetOutcome={(setIndex) => handleUndoSetOutcome(exerciseIndex, setIndex)}
         />
       )}
 
-      <button
-        type="button"
-        onClick={() => setShowReportSheet(true)}
-        className="text-xs text-gray-400 underline"
-      >
+      <button type="button" onClick={() => setShowReportSheet(true)} className="text-xs text-gray-400 underline">
         Report a Problem
       </button>
 

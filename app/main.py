@@ -2041,7 +2041,7 @@ async def patient_summary_api(request: Request, email: str = ""):
 
         today_str = datetime.utcnow().date().isoformat()
         cursor = await db.execute(
-            "SELECT id, created_at, pain_during, pain_after, next_day_pain"
+            "SELECT id, created_at, pain_during, pain_after, next_day_pain, morning_stiffness"
             " FROM daily_logs WHERE user_id = ? ORDER BY created_at DESC LIMIT 5",
             (user["id"],),
         )
@@ -2053,7 +2053,7 @@ async def patient_summary_api(request: Request, email: str = ""):
                 "pain_during": r[2],
                 "pain_after": r[3],
                 "next_day_pain": r[4],
-                "morning_stiffness": None,
+                "morning_stiffness": r[5],
             }
             for r in log_rows
         ]
@@ -2068,6 +2068,7 @@ async def patient_summary_api(request: Request, email: str = ""):
                     "loading_profile": item["exercise"].get("loading_profile"),
                     "setup_instructions": item["exercise"].get("setup_instructions"),
                     "execution_cues": item["exercise"].get("execution_cues") or [],
+                    "patient_facing_explanation": item["exercise"].get("patient_facing_explanation"),
                 },
                 "reason": item.get("reason", ""),
                 "dosage": item.get("dosage", {}),

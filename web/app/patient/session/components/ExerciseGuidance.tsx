@@ -28,14 +28,19 @@ export function ExerciseGuidance({
   finishPositionImageUrl?: string | null;
   videoUrl?: string | null;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  // Defaults to expanded for the founder-acceptance pass so guidance is
+  // immediately visible rather than requiring discovery. Whether experienced
+  // users should get a persistent "start collapsed" preference is a later
+  // decision, not made here.
+  const [expanded, setExpanded] = useState(true);
+  const explanation = exercise.exercise.patient_facing_explanation?.trim();
   const setup = exercise.exercise.setup_instructions?.trim();
   const cues = exercise.exercise.execution_cues ?? [];
   const keyCue = cues[0];
   const performCues = cues;
   const hasMedia = Boolean(startPositionImageUrl || finishPositionImageUrl || videoUrl);
 
-  if (!setup && cues.length === 0 && !hasMedia) return null;
+  if (!setup && cues.length === 0 && !hasMedia && !explanation) return null;
 
   return (
     <div className="border border-gray-100 rounded-xl bg-gray-50">
@@ -77,10 +82,10 @@ export function ExerciseGuidance({
             </a>
           )}
 
-          {keyCue && (
+          {explanation && (
             <div>
-              <p className="text-xs font-semibold text-gray-500 mb-1">Key Cue</p>
-              <p className="text-sm font-medium text-gray-900">{keyCue}</p>
+              <p className="text-xs font-semibold text-gray-500 mb-1">Why This Exercise</p>
+              <p className="text-sm text-gray-700">{explanation}</p>
             </div>
           )}
 
@@ -99,6 +104,13 @@ export function ExerciseGuidance({
                   <li key={i}>{cue}</li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {keyCue && (
+            <div>
+              <p className="text-xs font-semibold text-gray-500 mb-1">Key Cue</p>
+              <p className="text-sm font-medium text-gray-900">{keyCue}</p>
             </div>
           )}
         </div>

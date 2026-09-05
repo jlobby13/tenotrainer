@@ -13,7 +13,12 @@
 
 import type { SessionExercise } from "./fastapi";
 
-export const SESSION_SCHEMA_VERSION = 1 as const;
+// Bumped for the founder-acceptance correction pass: exerciseStates now store a
+// unified per-set outcome (completed | skipped) instead of a completed-only
+// actualSets array, and the session now carries a prescriptionInstanceKey.
+// Per the existing "discard, don't migrate" policy, an old-shape (v1) session
+// found in storage is simply discarded, never partially read.
+export const SESSION_SCHEMA_VERSION = 2 as const;
 
 export type ExerciseExecutionStatus = "not_started" | "in_progress" | "completed" | "skipped";
 
@@ -31,13 +36,36 @@ export type EarlyEndReason =
 // follow-up, and final submission before a session is truly complete.
 export type SessionStatus = "active" | "paused" | "completed_exercises" | "ended_early";
 
-export type ActualSet = {
+// ---------------------------------------------------------------------------
+// Set-level outcome — a discriminated union, not two parallel arrays.
+//
+// Why this shape over a parallel `skippedSets[]` array: both cost roughly the
+// same amount of code, but this one gives "completed and skipped are mutually
+// exclusive" BY CONSTRUCTION — a given setIndex has at most one entry in
+// `setOutcomes`, of exactly one kind. A parallel-array design only gives that
+// guarantee by convention in the transition functions, which is weaker and
+// requires extra invariant-checking to prevent the same index appearing in
+// both arrays. It also lets completing a previously-skipped set (or vice
+// versa) be one uniform "replace the outcome at this index" operation instead
+// of two different code paths. Pending is never stored — it's the absence of
+// an outcome for that index, derived against the prescription snapshot.
+// ---------------------------------------------------------------------------
+
+export type CompletedSetOutcome = {
   setIndex: number;
-  reps: number;
-  load?: number;
+  kind: "completed";
+  actual: { reps: number; load?: number };
   wasEdited: boolean;
   completedAt: string;
 };
+
+export type SkippedSetOutcome = {
+  setIndex: number;
+  kind: "skipped";
+  skippedAt: string;
+};
+
+export type SetOutcome = CompletedSetOutcome | SkippedSetOutcome;
 
 export type ProblemReport = {
   id: string;
@@ -53,7 +81,7 @@ export type ExerciseExecutionState = {
   status: ExerciseExecutionStatus;
   startedAt: string | null;
   completedAt: string | null;
-  actualSets: ActualSet[]; // only completed/edited sets appear; prescribed values are derived, never stored here
+  setOutcomes: SetOutcome[]; // sparse — only addressed (completed or skipped) sets appear
   problemReports: ProblemReport[];
 };
 
@@ -67,6 +95,10 @@ export type ActiveSessionState = {
   sessionInstanceId: string;
   patientId: string;
   planId: string | null;
+  // Smallest-safe v1 stand-in for a real prescription-instance identifier —
+  // see computePrescriptionInstanceKey's doc comment for what Milestone 3 must
+  // replace this with once real server-side prescriptions/sessions exist.
+  prescriptionInstanceKey: string;
   startedAt: string;
   lastUpdatedAt: string;
   pausedAt: string | null;
@@ -76,7 +108,7 @@ export type ActiveSessionState = {
   prescriptionSnapshot: PrescriptionSnapshot;
   exerciseStates: ExerciseExecutionState[]; // parallel to prescriptionSnapshot.exercises
   // Current SET position is deliberately not persisted here — it's fully and
-  // reliably derivable from exerciseStates[currentExerciseIndex].actualSets via
+  // reliably derivable from exerciseStates[currentExerciseIndex].setOutcomes via
   // getNextPendingSetIndex(), so storing it separately would be a redundant,
   // easy-to-desync source of truth.
   currentExerciseIndex: number;
@@ -106,17 +138,21 @@ export function getPrescribedSet(exercise: SessionExercise): { reps: number; loa
   return { reps, load };
 }
 
-export function isExerciseFullyCompleted(state: ExerciseExecutionState, totalSets: number): boolean {
+export function getSetOutcome(state: ExerciseExecutionState, setIndex: number): SetOutcome | null {
+  return state.setOutcomes.find((o) => o.setIndex === setIndex) ?? null;
+}
+
+export function isExerciseFullyAddressed(state: ExerciseExecutionState, totalSets: number): boolean {
   if (totalSets <= 0) return false;
-  const done = new Set(state.actualSets.map((s) => s.setIndex));
-  for (let i = 0; i < totalSets; i++) if (!done.has(i)) return false;
+  const addressed = new Set(state.setOutcomes.map((o) => o.setIndex));
+  for (let i = 0; i < totalSets; i++) if (!addressed.has(i)) return false;
   return true;
 }
 
 export function getNextPendingSetIndex(state: ExerciseExecutionState, totalSets: number): number | null {
-  const done = new Set(state.actualSets.map((s) => s.setIndex));
-  for (let i = 0; i < totalSets; i++) if (!done.has(i)) return i;
-  return null; // all sets completed
+  const addressed = new Set(state.setOutcomes.map((o) => o.setIndex));
+  for (let i = 0; i < totalSets; i++) if (!addressed.has(i)) return i;
+  return null; // every set addressed (completed and/or skipped)
 }
 
 export function hasPainLimitingReport(state: ActiveSessionState): boolean {
@@ -129,6 +165,47 @@ export function isSessionFinished(state: ActiveSessionState): boolean {
 
 export function isStale(state: ActiveSessionState, maxAgeMs = 24 * 60 * 60 * 1000): boolean {
   return Date.now() - new Date(state.lastUpdatedAt).getTime() > maxAgeMs;
+}
+
+// ---------------------------------------------------------------------------
+// Progress-dot derivation — glanceable, non-color-only progress indicators.
+// ---------------------------------------------------------------------------
+
+export type DotState = "pending" | "completed" | "skipped";
+
+export function getSetDotStates(state: ExerciseExecutionState, totalSets: number): DotState[] {
+  return Array.from({ length: totalSets }, (_, i) => {
+    const outcome = getSetOutcome(state, i);
+    if (!outcome) return "pending";
+    return outcome.kind;
+  });
+}
+
+export function getExerciseDotStates(session: ActiveSessionState): DotState[] {
+  return session.exerciseStates.map((ex) => {
+    if (ex.status === "completed") return "completed";
+    if (ex.status === "skipped") return "skipped";
+    return "pending";
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Prescription-instance identity
+//
+// The v1 architecture has no durable, unique identifier for "today's specific
+// prescribed session" distinct from the ongoing rehab_plans row, which spans
+// many days at the same stage/irritability. This key is the smallest safe
+// stand-in: (planId, local calendar day). It correctly resets on a new day OR
+// when the underlying plan itself changes (e.g. stage progression), and does
+// NOT hardcode "one workout per calendar day" as a universal rule — it keys
+// off the prescription, not the date alone. Milestone 3 must replace this with
+// a real server-side prescription/session-instance id once one exists; this
+// key is not designed to distinguish multiple same-day sessions under a
+// future clinician-authored multi-session-per-day program.
+// ---------------------------------------------------------------------------
+
+export function computePrescriptionInstanceKey(planId: string | null): string {
+  return `${planId ?? "no-plan"}:${new Date().toDateString()}`;
 }
 
 function genId(): string {
@@ -155,6 +232,7 @@ export function createSession(params: {
     sessionInstanceId: genId(),
     patientId: params.patientId,
     planId: params.planId,
+    prescriptionInstanceKey: computePrescriptionInstanceKey(params.planId),
     startedAt: now,
     lastUpdatedAt: now,
     pausedAt: null,
@@ -166,7 +244,7 @@ export function createSession(params: {
       status: "not_started",
       startedAt: null,
       completedAt: null,
-      actualSets: [],
+      setOutcomes: [],
       problemReports: [],
     })),
     currentExerciseIndex: 0,
@@ -177,6 +255,33 @@ export function createSession(params: {
 // Set-level transitions
 // ---------------------------------------------------------------------------
 
+function applySetOutcome(
+  state: ActiveSessionState,
+  exerciseIndex: number,
+  outcome: SetOutcome,
+  now: string
+): ActiveSessionState {
+  const exerciseStates = state.exerciseStates.map((ex, i) => {
+    if (i !== exerciseIndex) return ex;
+    const setOutcomes = [...ex.setOutcomes.filter((o) => o.setIndex !== outcome.setIndex), outcome].sort(
+      (a, b) => a.setIndex - b.setIndex
+    );
+    const totalSets = getTotalSets(state.prescriptionSnapshot.exercises[i]);
+    const fullyAddressed = isExerciseFullyAddressed({ ...ex, setOutcomes }, totalSets);
+    return {
+      ...ex,
+      status: (fullyAddressed ? "completed" : "in_progress") as ExerciseExecutionStatus,
+      startedAt: ex.startedAt ?? now,
+      completedAt: fullyAddressed ? now : null,
+      setOutcomes,
+    };
+  });
+  return touch({ ...state, exerciseStates });
+}
+
+// One tap: prescribed values become the actual performance. Also used (with
+// edited values) when the patient completes a previously-skipped set — this
+// uniformly replaces whatever outcome (if any) was at that index.
 export function completeSet(
   state: ActiveSessionState,
   exerciseIndex: number,
@@ -185,34 +290,36 @@ export function completeSet(
   wasEdited: boolean
 ): ActiveSessionState {
   const now = new Date().toISOString();
-  const exerciseStates = state.exerciseStates.map((ex, i) => {
-    if (i !== exerciseIndex) return ex;
-    const withoutThisSet = ex.actualSets.filter((s) => s.setIndex !== setIndex);
-    const actualSets = [
-      ...withoutThisSet,
-      { setIndex, reps: actual.reps, load: actual.load, wasEdited, completedAt: now },
-    ].sort((a, b) => a.setIndex - b.setIndex);
-    const totalSets = getTotalSets(state.prescriptionSnapshot.exercises[i]);
-    const fullyDone = isExerciseFullyCompleted({ ...ex, actualSets }, totalSets);
-    return {
-      ...ex,
-      status: (fullyDone ? "completed" : "in_progress") as ExerciseExecutionStatus,
-      startedAt: ex.startedAt ?? now,
-      completedAt: fullyDone ? now : null,
-      actualSets,
-    };
-  });
-  return touch({ ...state, exerciseStates });
+  return applySetOutcome(
+    state,
+    exerciseIndex,
+    { setIndex, kind: "completed", actual, wasEdited, completedAt: now },
+    now
+  );
 }
 
-export function undoSet(state: ActiveSessionState, exerciseIndex: number, setIndex: number): ActiveSessionState {
+// Records that a set was intentionally not performed — never populates actual
+// reps/load, never zero-fills. No reason is required or attached in Milestone 2.
+// Also used to convert an already-completed set into skipped, replacing that
+// outcome the same way completeSet replaces a skip.
+export function skipSet(state: ActiveSessionState, exerciseIndex: number, setIndex: number): ActiveSessionState {
+  const now = new Date().toISOString();
+  return applySetOutcome(state, exerciseIndex, { setIndex, kind: "skipped", skippedAt: now }, now);
+}
+
+// Reverts a set to pending, whichever outcome (completed or skipped) it had.
+export function undoSetOutcome(
+  state: ActiveSessionState,
+  exerciseIndex: number,
+  setIndex: number
+): ActiveSessionState {
   const exerciseStates = state.exerciseStates.map((ex, i) => {
     if (i !== exerciseIndex) return ex;
-    const actualSets = ex.actualSets.filter((s) => s.setIndex !== setIndex);
+    const setOutcomes = ex.setOutcomes.filter((o) => o.setIndex !== setIndex);
     return {
       ...ex,
-      actualSets,
-      status: (actualSets.length > 0 ? "in_progress" : "not_started") as ExerciseExecutionStatus,
+      setOutcomes,
+      status: (setOutcomes.length > 0 ? "in_progress" : "not_started") as ExerciseExecutionStatus,
       completedAt: null,
     };
   });
@@ -223,11 +330,23 @@ export function undoSet(state: ActiveSessionState, exerciseIndex: number, setInd
 // Exercise-level transitions
 // ---------------------------------------------------------------------------
 
+// Whole-exercise skip (via Report a Problem) — a coarser, separate concept
+// from an individual set skip. Also fills in a skipped outcome for every
+// not-yet-addressed set, so the per-set clinician-visible record stays
+// complete rather than having a gap for exercises skipped outright.
 export function skipExercise(state: ActiveSessionState, exerciseIndex: number): ActiveSessionState {
   const now = new Date().toISOString();
-  const exerciseStates = state.exerciseStates.map((ex, i) =>
-    i === exerciseIndex ? { ...ex, status: "skipped" as ExerciseExecutionStatus, completedAt: now } : ex
-  );
+  const totalSets = getTotalSets(state.prescriptionSnapshot.exercises[exerciseIndex]);
+  const exerciseStates = state.exerciseStates.map((ex, i) => {
+    if (i !== exerciseIndex) return ex;
+    const addressed = new Set(ex.setOutcomes.map((o) => o.setIndex));
+    const fillIns: SetOutcome[] = [];
+    for (let s = 0; s < totalSets; s++) {
+      if (!addressed.has(s)) fillIns.push({ setIndex: s, kind: "skipped", skippedAt: now });
+    }
+    const setOutcomes = [...ex.setOutcomes, ...fillIns].sort((a, b) => a.setIndex - b.setIndex);
+    return { ...ex, status: "skipped" as ExerciseExecutionStatus, completedAt: now, setOutcomes };
+  });
   return touch({ ...state, exerciseStates });
 }
 
@@ -295,15 +414,23 @@ function storageKey(patientId: string): string {
   return `tenotrainer.activeSession.v${SESSION_SCHEMA_VERSION}.${patientId}`;
 }
 
-export function loadSession(patientId: string): ActiveSessionState | null {
+// currentPlanId is required so a finished session can be judged against
+// "is this still the same prescription instance" — see
+// computePrescriptionInstanceKey. A finished session for a DIFFERENT
+// prescription instance (new day, or the plan itself changed) is discarded
+// as stale; a finished session for the SAME instance is returned as-is so the
+// caller can block re-starting today's already-executed prescription.
+export function loadSession(patientId: string, currentPlanId: string | null): ActiveSessionState | null {
   try {
     const raw = window.localStorage.getItem(storageKey(patientId));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as ActiveSessionState;
     if (parsed.schemaVersion !== SESSION_SCHEMA_VERSION) return null;
     if (parsed.patientId !== patientId) return null;
+    if (isSessionFinished(parsed)) {
+      return parsed.prescriptionInstanceKey === computePrescriptionInstanceKey(currentPlanId) ? parsed : null;
+    }
     if (isStale(parsed)) return null;
-    if (isSessionFinished(parsed)) return null;
     return parsed;
   } catch {
     return null;

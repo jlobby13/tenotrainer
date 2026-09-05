@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { SessionExercise } from "@/lib/fastapi";
 import type { ExerciseExecutionState } from "@/lib/activeSession";
-import { getPrescribedSet, getTotalSets, getNextPendingSetIndex } from "@/lib/activeSession";
+import { getPrescribedSet, getTotalSets, getNextPendingSetIndex, getSetOutcome } from "@/lib/activeSession";
 import { prescribedSetLabel } from "@/lib/exerciseDisplay";
 
 function EditForm({
@@ -57,11 +57,7 @@ function EditForm({
         >
           Complete Set
         </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="px-3 py-2 text-sm font-medium text-gray-500"
-        >
+        <button type="button" onClick={onCancel} className="px-3 py-2 text-sm font-medium text-gray-500">
           Cancel
         </button>
       </div>
@@ -73,12 +69,14 @@ export function SetTracker({
   exercise,
   exerciseState,
   onCompleteSet,
-  onUndoSet,
+  onSkipSet,
+  onUndoSetOutcome,
 }: {
   exercise: SessionExercise;
   exerciseState: ExerciseExecutionState;
   onCompleteSet: (setIndex: number, actual: { reps: number; load?: number }, wasEdited: boolean) => void;
-  onUndoSet: (setIndex: number) => void;
+  onSkipSet: (setIndex: number) => void;
+  onUndoSetOutcome: (setIndex: number) => void;
 }) {
   const totalSets = getTotalSets(exercise);
   const prescribed = getPrescribedSet(exercise);
@@ -90,34 +88,37 @@ export function SetTracker({
   return (
     <div className="space-y-2">
       {rows.map((setIndex) => {
-        const actual = exerciseState.actualSets.find((s) => s.setIndex === setIndex) ?? null;
+        const outcome = getSetOutcome(exerciseState, setIndex);
         const isCurrent = setIndex === nextPending;
         const isEditing = editingSetIndex === setIndex;
 
-        if (actual) {
+        if (outcome?.kind === "completed") {
           return (
             <div key={setIndex} className="bg-white border border-gray-100 rounded-lg p-3">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-900">
-                    Set {setIndex + 1}: {actual.reps} reps
-                    {actual.load != null ? ` · ${actual.load} kg` : ""}
+                    Set {setIndex + 1}: {outcome.actual.reps} reps
+                    {outcome.actual.load != null ? ` · ${outcome.actual.load} kg` : ""}
                   </p>
-                  {actual.wasEdited && <p className="text-xs text-gray-400">Edited from prescription</p>}
+                  {outcome.wasEdited && <p className="text-xs text-gray-400">Edited from prescription</p>}
                 </div>
                 <div className="flex items-center gap-3 text-xs font-semibold">
                   <button type="button" onClick={() => setEditingSetIndex(setIndex)} className="text-gray-500">
                     Edit
                   </button>
-                  <button type="button" onClick={() => onUndoSet(setIndex)} className="text-gray-500">
+                  <button type="button" onClick={() => onUndoSetOutcome(setIndex)} className="text-gray-500">
                     Undo
+                  </button>
+                  <button type="button" onClick={() => onSkipSet(setIndex)} className="text-gray-400">
+                    Skip
                   </button>
                 </div>
               </div>
               {isEditing && (
                 <EditForm
-                  initialReps={actual.reps}
-                  initialLoad={actual.load}
+                  initialReps={outcome.actual.reps}
+                  initialLoad={outcome.actual.load}
                   onCancel={() => setEditingSetIndex(null)}
                   onSubmit={(edited) => {
                     onCompleteSet(setIndex, edited, true);
@@ -125,6 +126,28 @@ export function SetTracker({
                   }}
                 />
               )}
+            </div>
+          );
+        }
+
+        if (outcome?.kind === "skipped") {
+          return (
+            <div key={setIndex} className="bg-amber-50 border border-amber-100 rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-amber-900">Set {setIndex + 1}: Skipped</p>
+                <div className="flex items-center gap-3 text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => onCompleteSet(setIndex, prescribed, false)}
+                    className="text-brand-600"
+                  >
+                    Complete Set
+                  </button>
+                  <button type="button" onClick={() => onUndoSetOutcome(setIndex)} className="text-amber-700">
+                    Undo
+                  </button>
+                </div>
+              </div>
             </div>
           );
         }
@@ -148,22 +171,34 @@ export function SetTracker({
                   }}
                 />
               ) : (
-                <div className="flex gap-2 mt-3">
+                <>
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      type="button"
+                      onClick={() => onCompleteSet(setIndex, prescribed, false)}
+                      className="flex-1 px-4 py-3 bg-brand-600 text-white text-base font-semibold rounded-lg"
+                    >
+                      Complete Set
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingSetIndex(setIndex)}
+                      className="px-3 py-3 text-sm font-medium text-gray-500 border border-gray-200 rounded-lg"
+                    >
+                      Edit Reps / Load
+                    </button>
+                  </div>
+                  {/* Deliberately a plain, low-emphasis text link so it never
+                      competes visually with Complete Set. No confirmation, no
+                      reason prompt — the workout stays low-friction. */}
                   <button
                     type="button"
-                    onClick={() => onCompleteSet(setIndex, prescribed, false)}
-                    className="flex-1 px-4 py-3 bg-brand-600 text-white text-base font-semibold rounded-lg"
+                    onClick={() => onSkipSet(setIndex)}
+                    className="mt-2 text-xs text-gray-400 underline"
                   >
-                    Complete Set
+                    Skip Set
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditingSetIndex(setIndex)}
-                    className="px-3 py-3 text-sm font-medium text-gray-500 border border-gray-200 rounded-lg"
-                  >
-                    Edit Reps / Load
-                  </button>
-                </div>
+                </>
               )}
             </div>
           );
