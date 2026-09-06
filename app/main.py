@@ -1919,6 +1919,10 @@ async def dashboard(
             "today_logged": today_logged,
             "today_log_time": today_log_time,
             "dismissal_notice": dismissal_notice,
+            # M4 Stage 3: canonical patient session experience now lives in
+            # Next.js — "Log Today's Session"/"Track Session" CTAs point
+            # here directly rather than through the retired /daily-log route.
+            "nextjs_session_url": f"{os.environ.get('NEXTJS_URL', 'http://localhost:3000')}/patient/session",
             # Unified rehab state — same data as Track Session and Exercise Library
             **rehab_state,
         },
@@ -2716,6 +2720,17 @@ async def daily_log_get(
     if not user:
         return RedirectResponse("/login", status_code=302)
 
+    # M4 Stage 3: retired. The canonical patient loading workflow is now
+    # Next.js /patient/session -> durable rehab_sessions -> M3 Session
+    # Response -> M4 Morning Response, with the session-start clinical
+    # sequence gate enforced there. This route must no longer provide a
+    # normal patient-accessible path that creates a parallel, ungated log —
+    # every authenticated visitor (bookmark, stale link, direct URL) is
+    # redirected to the canonical experience before any guard/DB logic runs.
+    # Historical daily_logs data is untouched; nothing here reads or writes it.
+    nextjs_url = os.environ.get("NEXTJS_URL", "http://localhost:3000")
+    return RedirectResponse(f"{nextjs_url}/patient/dashboard", status_code=302)
+
     # Guard: if the user has manually moved today's session to another day, block logging
     # Use UTC date since SQLite CURRENT_TIMESTAMP is UTC
     _today_utc = datetime.utcnow().date()
@@ -2801,6 +2816,12 @@ async def daily_log_post(
     user = await get_authenticated_user(teno_session)
     if not user:
         return RedirectResponse("/login", status_code=302)
+
+    # M4 Stage 3: retired — see daily_log_get's comment. Redirects before any
+    # DB write, so a stale bookmarked form resubmission cannot create a
+    # daily_logs row either.
+    nextjs_url = os.environ.get("NEXTJS_URL", "http://localhost:3000")
+    return RedirectResponse(f"{nextjs_url}/patient/dashboard", status_code=302)
 
     # Guard: block duplicate logs for the same UTC date
     _post_today_utc_dt = datetime.utcnow().date()
@@ -3192,6 +3213,13 @@ async def followup_get(
     if not user:
         return RedirectResponse("/login", status_code=302)
 
+    # M4 Stage 3: retired — see daily_log_get's comment. Completing a legacy
+    # follow-up is still a normal-patient-accessible path to write into the
+    # retired system, so it's redirected the same way. Historical
+    # daily_logs/session_follow_ups data is untouched.
+    nextjs_url = os.environ.get("NEXTJS_URL", "http://localhost:3000")
+    return RedirectResponse(f"{nextjs_url}/patient/dashboard", status_code=302)
+
     db = await get_db()
     try:
         log_cur = await db.execute(
@@ -3244,6 +3272,12 @@ async def followup_post(
     user = await get_authenticated_user(teno_session)
     if not user:
         return RedirectResponse("/login", status_code=302)
+
+    # M4 Stage 3: retired — see daily_log_get's comment. Redirects before any
+    # DB write, so a stale bookmarked follow-up form resubmission cannot
+    # write into daily_logs either.
+    nextjs_url = os.environ.get("NEXTJS_URL", "http://localhost:3000")
+    return RedirectResponse(f"{nextjs_url}/patient/dashboard", status_code=302)
 
     db = await get_db()
     try:

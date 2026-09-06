@@ -15,6 +15,14 @@ import type {
 } from "./rehabSessionTypes";
 import type { MorningResponseRecord } from "./morningResponseTypes";
 
+export type ApiError = Error & {
+  missing?: string[];
+  status?: number;
+  code?: string;
+  redirectTo?: string;
+  morningResponseId?: string | null;
+};
+
 async function postJson<T>(url: string, body: unknown): Promise<T> {
   const res = await fetch(url, {
     method: "POST",
@@ -23,12 +31,15 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
   });
   const json = await res.json();
   if (!res.ok) {
-    const err = new Error(json.error || `Request to ${url} failed (${res.status})`) as Error & {
-      missing?: string[];
-      status?: number;
-    };
+    // Callers must branch on `code` (a stable machine-readable value), never
+    // on the human-readable message — see the M4 Stage 3 API contract for
+    // MORNING_RESPONSE_REQUIRED.
+    const err = new Error(json.error || `Request to ${url} failed (${res.status})`) as ApiError;
     err.missing = json.missing;
     err.status = res.status;
+    err.code = json.code;
+    err.redirectTo = json.redirectTo;
+    err.morningResponseId = json.morningResponseId;
     throw err;
   }
   return json as T;

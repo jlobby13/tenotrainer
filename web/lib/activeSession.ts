@@ -216,6 +216,15 @@ export function computePrescriptionInstanceKey(planId: string | null): string {
   return `${planId ?? "no-plan"}:${new Date().toDateString()}`;
 }
 
+// Shared "today, in the browser's local calendar" date string ("YYYY-MM-DD")
+// — used wherever a patient_local_date needs computing client-side (session
+// creation, M3 finalize). Kept in one place rather than duplicated per call
+// site.
+export function todayLocalDateString(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
 function genId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
   return `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;

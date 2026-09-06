@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ActiveSessionState } from "@/lib/activeSession";
-import { hasPopReport } from "@/lib/activeSession";
+import { hasPopReport, todayLocalDateString } from "@/lib/activeSession";
 import type { RehabSessionRecord } from "@/lib/rehabSessionTypes";
 import { deriveStep, type ResumeStep } from "@/lib/sessionResponseResume";
 import {
@@ -18,11 +18,6 @@ import { DifficultyScreen } from "./response/DifficultyScreen";
 import { ContributorScreen } from "./response/ContributorScreen";
 import { AcuteQuestionsScreen } from "./response/AcuteQuestionsScreen";
 import { OutcomeScreen } from "./response/OutcomeScreen";
-
-function todayLocalDate(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-}
 
 type Step = { kind: "loading" } | { kind: "error"; message: string } | ResumeStep;
 
@@ -52,7 +47,7 @@ export function SessionResponseFlow({
         sessionInstanceId: localSession.sessionInstanceId,
         planId: localSession.planId,
         prescriptionInstanceId: localSession.prescriptionInstanceKey,
-        patientLocalDate: todayLocalDate(),
+        patientLocalDate: todayLocalDateString(),
         startedAt: localSession.startedAt,
         prescriptionSnapshot: localSession.prescriptionSnapshot.exercises.map((ex, i) => ({
           ex_id: ex.exercise.ex_id,

@@ -28,9 +28,12 @@ import {
   isSessionFinished,
   getSetDotStates,
   getExerciseDotStates,
+  todayLocalDateString,
 } from "@/lib/activeSession";
 import { previousPerformanceSummary, dosageSummary, restSeconds } from "@/lib/exerciseDisplay";
+import { createRehabSession, type ApiError } from "@/lib/rehabSessionClient";
 import { SessionOpening } from "./SessionOpening";
+import { MorningCheckInRequired } from "./MorningCheckInRequired";
 import { ResumePrompt } from "./ResumePrompt";
 import { ExerciseHeader } from "./ExerciseHeader";
 import { ExerciseGuidance } from "./ExerciseGuidance";
@@ -61,6 +64,12 @@ export function SessionPlayer({
   const [showRest, setShowRest] = useState(false);
   const [showReportSheet, setShowReportSheet] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
+  // M4 Stage 3: durable session creation is now the authoritative
+  // clinical-sequence boundary, not fire-and-forget. "idle" covers both the
+  // not-yet-attempted state and a fresh retry.
+  const [beginStatus, setBeginStatus] = useState<"idle" | "pending" | "required" | "error">("idle");
+  const [beginError, setBeginError] = useState<string | null>(null);
+  const [requiredRedirectTo, setRequiredRedirectTo] = useState("/patient/morning-response");
 
   // localStorage only exists client-side — check for a resumable/finished
   // session after mount. A finished session for a DIFFERENT prescription
@@ -79,10 +88,51 @@ export function SessionPlayer({
     saveSession(next);
   }
 
-  function handleBegin(dismissReminder: boolean) {
+  // M4 Stage 3: durable session creation now happens HERE, at the moment the
+  // patient actually chooses to begin — not retroactively at the M2->M3
+  // handoff (see createRehabSession's route/RPC for why that mattered). This
+  // is no longer fire-and-forget: Active Rehab must not start client-side
+  // until the server has authoritatively allowed it. A server rejection
+  // (an outstanding prior morning response, or any other failure) must
+  // never be silently bypassed by proceeding into a local-only session.
+  async function handleBegin(dismissReminder: boolean) {
     if (dismissReminder) setReminderDismissed(patientId);
-    persist(createSession({ patientId, planId, sessionPlan: initialSessionPlan }));
-    setResumeConfirmed(true);
+    setBeginStatus("pending");
+    setBeginError(null);
+
+    const candidate = createSession({ patientId, planId, sessionPlan: initialSessionPlan });
+
+    try {
+      await createRehabSession({
+        sessionInstanceId: candidate.sessionInstanceId,
+        planId: candidate.planId,
+        prescriptionInstanceId: candidate.prescriptionInstanceKey,
+        patientLocalDate: todayLocalDateString(),
+        startedAt: candidate.startedAt,
+        prescriptionSnapshot: candidate.prescriptionSnapshot.exercises.map((ex, i) => ({
+          ex_id: ex.exercise.ex_id,
+          name: ex.exercise.name,
+          category: ex.exercise.category,
+          loading_profile: ex.exercise.loading_profile,
+          order_index: i,
+          dosage: ex.dosage,
+        })),
+      });
+      // Only now, with server confirmation in hand, does the local session
+      // become real and Active Rehab begin.
+      persist(candidate);
+      setResumeConfirmed(true);
+      setBeginStatus("idle");
+    } catch (e) {
+      const err = e as ApiError;
+      if (err.code === "MORNING_RESPONSE_REQUIRED") {
+        setRequiredRedirectTo(err.redirectTo ?? "/patient/morning-response");
+        setBeginStatus("required");
+      } else {
+        setBeginError(err.message || "Something went wrong. Please try again.");
+        setBeginStatus("error");
+      }
+    }
   }
 
   function handleResume() {
@@ -193,12 +243,23 @@ export function SessionPlayer({
   if (!mounted) return null;
 
   if (!session) {
+    if (beginStatus === "required") {
+      return <MorningCheckInRequired redirectTo={requiredRedirectTo} />;
+    }
     return (
-      <SessionOpening
-        sessionPlan={initialSessionPlan}
-        reminderAlreadyDismissed={isReminderDismissed(patientId)}
-        onBegin={handleBegin}
-      />
+      <div>
+        <SessionOpening
+          sessionPlan={initialSessionPlan}
+          reminderAlreadyDismissed={isReminderDismissed(patientId)}
+          onBegin={handleBegin}
+          beginPending={beginStatus === "pending"}
+        />
+        {beginStatus === "error" && (
+          <div className="max-w-md mx-auto px-4 -mt-4">
+            <p className="text-sm text-red-600 text-center">{beginError}</p>
+          </div>
+        )}
+      </div>
     );
   }
 
