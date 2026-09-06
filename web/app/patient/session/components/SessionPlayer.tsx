@@ -39,7 +39,7 @@ import { RestTimer } from "./RestTimer";
 import { ExerciseCompleteTransition } from "./ExerciseCompleteTransition";
 import { ReportProblemSheet } from "./ReportProblemSheet";
 import { EndSessionReasonPicker } from "./EndSessionReasonPicker";
-import { SessionHandoff } from "./SessionHandoff";
+import { SessionResponseFlow } from "./SessionResponseFlow";
 import { ProgressDots } from "./ProgressDots";
 
 export function SessionPlayer({
@@ -151,6 +151,24 @@ export function SessionPlayer({
     setShowRest(false);
   }
 
+  function handlePopReported(exerciseIndex: number) {
+    // A pop is safety-critical: immediately stop normal exercise progression
+    // regardless of remaining sets/exercises, preserving everything completed/
+    // skipped/modified so far. Recording the report and completing the
+    // session must happen as ONE transformation of the same session snapshot
+    // — doing them as two separate persist() calls (report, then complete)
+    // raced against the stale `session` closure and silently dropped the pop
+    // report, since the second call's completeAllExercises(session) still
+    // read the pre-report state.
+    if (!session) return;
+    const reported = reportProblem(session, exerciseIndex, { type: "pop_reported" });
+    persist(completeAllExercises(reported));
+    setAwaitingNextExercise(false);
+    setShowReportSheet(false);
+    setShowRest(false);
+    setShowEndPicker(false);
+  }
+
   function handleEndSessionEarly(reason: EarlyEndReason) {
     if (!session) return;
     persist(endSessionEarly(session, reason));
@@ -163,9 +181,12 @@ export function SessionPlayer({
   }
 
   function handleDoneFromHandoff() {
-    // Deliberately does NOT clear the session — a finished session for today's
-    // prescription instance must persist so the dashboard keeps recognizing
-    // that today's prescribed session has already been executed.
+    // Deliberately does NOT clear the local session — a finished session for
+    // today's prescription instance must persist so the dashboard keeps
+    // recognizing that today's prescribed session has already been executed.
+    // The durable record of record is now the rehab_sessions row on the
+    // server; this local copy is only used for the same-day-already-done
+    // check in loadSession().
     router.push("/patient/dashboard");
   }
 
@@ -182,7 +203,7 @@ export function SessionPlayer({
   }
 
   if (isSessionFinished(session)) {
-    return <SessionHandoff session={session} onDone={handleDoneFromHandoff} />;
+    return <SessionResponseFlow localSession={session} onDone={handleDoneFromHandoff} />;
   }
 
   if (!resumeConfirmed) {
@@ -251,7 +272,7 @@ export function SessionPlayer({
         </div>
       )}
 
-      <ExerciseGuidance exercise={exercise} />
+      <ExerciseGuidance key={exerciseIndex} exercise={exercise} />
 
       {showRest ? (
         <RestTimer prescribedRestSeconds={restSeconds(exercise.dosage)} onDone={() => setShowRest(false)} />
@@ -276,6 +297,7 @@ export function SessionPlayer({
           onSubmit={(report) => handleReport(exerciseIndex, report)}
           onClose={() => setShowReportSheet(false)}
           onSkipExercise={() => handleSkipExercise(exerciseIndex)}
+          onPopReported={() => handlePopReported(exerciseIndex)}
         />
       )}
 

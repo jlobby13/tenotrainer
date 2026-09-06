@@ -22,7 +22,7 @@ export const SESSION_SCHEMA_VERSION = 2 as const;
 
 export type ExerciseExecutionStatus = "not_started" | "in_progress" | "completed" | "skipped";
 
-export type ProblemType = "equipment" | "too_difficult" | "pain_limiting" | "other";
+export type ProblemType = "equipment" | "too_difficult" | "pain_limiting" | "other" | "pop_reported";
 
 export type EarlyEndReason =
   | "finished_what_i_could"
@@ -157,6 +157,14 @@ export function getNextPendingSetIndex(state: ExerciseExecutionState, totalSets:
 
 export function hasPainLimitingReport(state: ActiveSessionState): boolean {
   return state.exerciseStates.some((ex) => ex.problemReports.some((r) => r.type === "pain_limiting"));
+}
+
+// A reported pop is an immediate Level-5 trigger (Milestone 3). Detected the
+// same way as hasPainLimitingReport — no new session-level status is needed;
+// SessionPlayer checks this to short-circuit straight to the M3 hand-off
+// with the Level-5 safety screen shown first.
+export function hasPopReport(state: ActiveSessionState): boolean {
+  return state.exerciseStates.some((ex) => ex.problemReports.some((r) => r.type === "pop_reported"));
 }
 
 export function isSessionFinished(state: ActiveSessionState): boolean {

@@ -4,6 +4,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getSessionInfo } from "@/lib/auth";
 import { getPatientSummary, type PatientSummary } from "@/lib/fastapi";
 import { TodaysRehabPanel } from "./components/TodaysRehabPanel";
+import { MorningResponsePendingNotice } from "./components/MorningResponsePendingNotice";
 import { PreviousSessionSummary } from "./components/PreviousSessionSummary";
 import { SecondaryLinks } from "./components/SecondaryLinks";
 
@@ -100,14 +101,20 @@ export default async function PatientDashboardPage() {
             )}
 
             {summary && (
-              <TodaysRehabPanel
-                currentPlan={summary.current_plan}
-                sessionPlan={summary.session_plan}
-                hasOnboarding={summary.has_onboarding}
-                hasNoPlan={!summary.has_plan}
-                todayLogged={summary.today_logged}
-                patientId={String(summary.user.id)}
-              />
+              <>
+                {/* Date-independent: checked regardless of today's own
+                    agenda/prescription state, so a prior unresolved session
+                    is never hidden by today's rehab moving forward. */}
+                <MorningResponsePendingNotice />
+                <TodaysRehabPanel
+                  currentPlan={summary.current_plan}
+                  sessionPlan={summary.session_plan}
+                  hasOnboarding={summary.has_onboarding}
+                  hasNoPlan={!summary.has_plan}
+                  todayLogged={summary.today_logged}
+                  patientId={String(summary.user.id)}
+                />
+              </>
             )}
           </div>
 

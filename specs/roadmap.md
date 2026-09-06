@@ -32,6 +32,35 @@ not perform.
   identifier that must replace Milestone 2's `prescriptionInstanceKey`
   stand-in (see `web/lib/activeSession.ts`) belongs here
 
+## Blocking Before Milestone 4
+
+- **Legacy zero-default rule-engine cleanup — DONE**, with one open decision
+  below. Fixed: `daily_logs.pain_after`/`next_day_pain`/`morning_stiffness`
+  are now nullable (were `NOT NULL`, structurally forcing 0 for unanswered
+  delayed responses) with existing rows conservatively backfilled to NULL
+  wherever their follow-up was provably never completed; `daily_log_post`'s
+  INSERT and Form defaults no longer fabricate 0; `classify_irritability` /
+  `update_irritability_from_log` / `run_decision_engine` / `_check_pain_trend`
+  / `evaluate_session_tolerance` / `evaluate_exercise_progression` all treat
+  missing delayed-response data as genuinely unknown (never 0), and a new
+  `insufficient_data` signal prevents a favorable GO/PROGRESS result from
+  being fabricated out of incomplete data. `daily_log.html` updated to
+  render that state honestly instead of crashing or mislabeling it.
+
+  **Open product decision (not made here):** `run_decision_engine`'s stage-
+  progression assessment is only ever invoked from `daily_log_post`, at the
+  moment a session is first logged — the exact moment pain_after/next_day_pain
+  are, by construction, never yet known. With the zero-fabrication bug fixed,
+  that call now correctly always defers (STAY, "awaiting next-morning
+  follow-up") rather than progressing on fake data — but nothing currently
+  re-runs it once the follow-up actually completes (`followup_post` already
+  re-evaluates `irritability` alone post-completion; it does not re-invoke
+  `run_decision_engine`). Net effect: stage progression via this path is now
+  dormant rather than unsafe. Deciding whether/how to re-trigger it (e.g.
+  extending `followup_post`'s existing post-completion re-evaluation to also
+  call `run_decision_engine`) is a workflow decision for Milestone 4, not
+  something invented here.
+
 ## Milestone 4 — Delayed Response
 
 - Next-morning Achilles pain

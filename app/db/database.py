@@ -87,10 +87,91 @@ async def init_db() -> None:
             except Exception:
                 pass  # Column already exists
 
+        await _migrate_daily_logs_nullable_delayed_fields(db)
+
     # Seed knowledge base entries if empty
     await seed_knowledge_base()
     # Seed exercise library if empty
     await seed_exercise_library()
+
+
+async def _migrate_daily_logs_nullable_delayed_fields(db: aiosqlite.Connection) -> None:
+    """
+    UNKNOWN != ZERO cleanup (pre-Milestone-4): daily_logs.pain_after,
+    next_day_pain, and morning_stiffness were originally declared NOT NULL
+    (morning_stiffness with DEFAULT 0), which made it structurally
+    impossible to store "not yet collected" for these delayed-response
+    fields — every unanswered value was physically forced to 0, identical
+    to an explicit "no pain" answer. SQLite has no ALTER COLUMN to drop
+    NOT NULL, so this rebuilds the table.
+
+    Idempotent: checks pain_after's current NOT NULL flag and does nothing
+    if this has already run. Backfills existing rows conservatively — a
+    row's delayed field is only overwritten to NULL when a matching
+    session_follow_ups row explicitly proves it was never answered
+    (completed = 0); rows with no such record (e.g. predating the
+    follow-up system) are left exactly as they were, never guessed at.
+    """
+    cur = await db.execute("PRAGMA table_info(daily_logs)")
+    columns = await cur.fetchall()
+    pain_after_col = next((c for c in columns if c[1] == "pain_after"), None)
+    if pain_after_col is None or pain_after_col[3] == 0:
+        return  # column missing (shouldn't happen) or already nullable — nothing to do
+
+    await db.execute("PRAGMA foreign_keys=OFF")
+    try:
+        await db.execute(
+            """
+            CREATE TABLE daily_logs_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                session_id INTEGER,
+                pain_during INTEGER NOT NULL,
+                pain_after INTEGER,
+                next_day_pain INTEGER,
+                difficulty INTEGER NOT NULL,
+                confidence INTEGER NOT NULL,
+                notes TEXT,
+                load_context TEXT NOT NULL DEFAULT '{}',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                exercise_log TEXT NOT NULL DEFAULT '{}',
+                morning_stiffness INTEGER,
+                pain_later_same_day INTEGER,
+                is_complete INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            )
+            """
+        )
+        await db.execute(
+            """
+            INSERT INTO daily_logs_new
+                (id, user_id, session_id, pain_during, pain_after, next_day_pain,
+                 difficulty, confidence, notes, load_context, created_at, exercise_log,
+                 morning_stiffness, pain_later_same_day, is_complete)
+            SELECT
+                d.id, d.user_id, d.session_id, d.pain_during,
+                CASE WHEN EXISTS (
+                    SELECT 1 FROM session_follow_ups f
+                    WHERE f.log_id = d.id AND f.checkpoint = '1hr' AND f.completed = 0
+                ) THEN NULL ELSE d.pain_after END,
+                CASE WHEN EXISTS (
+                    SELECT 1 FROM session_follow_ups f
+                    WHERE f.log_id = d.id AND f.checkpoint = 'next_morning' AND f.completed = 0
+                ) THEN NULL ELSE d.next_day_pain END,
+                d.difficulty, d.confidence, d.notes, d.load_context, d.created_at, d.exercise_log,
+                CASE WHEN EXISTS (
+                    SELECT 1 FROM session_follow_ups f
+                    WHERE f.log_id = d.id AND f.checkpoint = 'next_morning' AND f.completed = 0
+                ) THEN NULL ELSE d.morning_stiffness END,
+                d.pain_later_same_day, d.is_complete
+            FROM daily_logs d
+            """
+        )
+        await db.execute("DROP TABLE daily_logs")
+        await db.execute("ALTER TABLE daily_logs_new RENAME TO daily_logs")
+        await db.commit()
+    finally:
+        await db.execute("PRAGMA foreign_keys=ON")
 
 
 async def seed_knowledge_base() -> None:

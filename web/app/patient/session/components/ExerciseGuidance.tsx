@@ -28,11 +28,13 @@ export function ExerciseGuidance({
   finishPositionImageUrl?: string | null;
   videoUrl?: string | null;
 }) {
-  // Defaults to expanded for the founder-acceptance pass so guidance is
-  // immediately visible rather than requiring discovery. Whether experienced
-  // users should get a persistent "start collapsed" preference is a later
-  // decision, not made here.
-  const [expanded, setExpanded] = useState(true);
+  // Founder UX preference: guidance always starts collapsed for a newly
+  // presented exercise, expanded only on explicit request. The caller MUST
+  // pass a key tied to the exercise identity (see SessionPlayer.tsx) so this
+  // component instance — and its local `expanded` state — actually resets
+  // between exercises, rather than one instance being reused across
+  // different exercises and carrying its expanded state along with it.
+  const [expanded, setExpanded] = useState(false);
   const explanation = exercise.exercise.patient_facing_explanation?.trim();
   const setup = exercise.exercise.setup_instructions?.trim();
   const cues = exercise.exercise.execution_cues ?? [];
