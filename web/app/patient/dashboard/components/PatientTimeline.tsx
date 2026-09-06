@@ -1,10 +1,9 @@
 // Locked lifecycle visualization: Rehab -> Session Response -> Morning
 // Response -> Results. Server-truth driven only — every prop here maps
-// directly to a real persisted fact, never a guess. resultsAvailable
-// defaults to false everywhere this is used today because no
-// tolerance_evaluations row can exist yet (Stage 2 deliberately never
-// creates one) — this component itself has no opinion on when that
-// changes, it just renders whatever it's told.
+// directly to a real persisted fact, never a guess. resultsAvailable is true
+// only once a real tolerance_evaluations row exists (Stage 4) — this
+// component itself has no opinion on when that changes, it just renders
+// whatever it's told.
 export type PatientTimelineStep = "done" | "current" | "pending";
 
 export function PatientTimeline({

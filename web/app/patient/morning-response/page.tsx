@@ -48,6 +48,7 @@ export default async function MorningResponsePage() {
           skippedSets,
           peakSessionPain: session.peakSessionPain,
           difficulty: session.difficulty,
+          escalationLevel: session.currentEscalationLevel,
         }}
       />
     </div>

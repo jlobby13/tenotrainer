@@ -6,11 +6,22 @@
 // unchanged" for finalize, and checkpoint fields are a plain upsert of the
 // caller's own row (ownership enforced by RLS, not by this client).
 
-import type { MorningResponseRecord } from "./morningResponseTypes";
+import type {
+  ExternalLoadCategory,
+  ExternalLoadTiming,
+  MorningPainTolerability,
+  MorningResponseRecord,
+  StiffnessDuration,
+  ToleranceEvaluationRecord,
+} from "./morningResponseTypes";
 
 export type MorningResponseCheckpoint = Partial<{
   nextMorningPain: number;
   nextMorningStiffness: number;
+  stiffnessDuration: StiffnessDuration;
+  morningPainTolerability: MorningPainTolerability;
+  externalLoadCategories: ExternalLoadCategory[];
+  externalLoadTiming: ExternalLoadTiming[];
   patientNote: string | null;
   finalize: boolean;
 }>;
@@ -37,6 +48,6 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
 export async function submitMorningResponseCheckpoint(
   morningResponseId: string,
   checkpoint: MorningResponseCheckpoint
-): Promise<{ morningResponse: MorningResponseRecord }> {
+): Promise<{ morningResponse: MorningResponseRecord; toleranceEvaluation: ToleranceEvaluationRecord | null }> {
   return postJson(`/api/patient/morning-response/${morningResponseId}`, checkpoint);
 }
