@@ -6,6 +6,29 @@ and placed here rather than folded into the milestone that raised it.
 
 ---
 
+## Milestone 4 — Morning Response
+
+**Stage 1 (data + timing foundation) — DONE.** `morning_responses` and
+`tolerance_evaluations` tables, `profiles.timezone`/`morning_reminder_time`,
+the timezone-aware `getScheduledMorningEligibility` utility (via
+`date-fns-tz`), `ensureMorningResponseExists` (shared eager-creation +
+lazy-backfill lifecycle, freezing `scheduled_eligible_at` once a real
+timezone is known — never fabricated as UTC), and `getOldestOutstandingMorningResponse`.
+No questionnaire, no session-start gating, no tolerance engine, no
+clinician UI — those remain Stage 2+.
+
+Known limitation, by design: pre-M4 `awaiting_morning_response` sessions
+recovered via the lazy-backfill path never had a frozen historical
+reminder/timezone snapshot — their `scheduled_eligible_at` reflects the
+patient's timing preference at whatever moment they were first recovered,
+not a true historical value (none was ever recorded, and none is fabricated).
+
+Deferred to Stage 3 (session-start gating): retiring the legacy FastAPI
+`/daily-log` patient workflow (`app/templates/dashboard.html`'s "Log Today's
+Session" CTAs and the `/daily-log` GET+POST routes in `app/main.py`) — this
+is the point where a real gate is enforced, so it's also the natural point
+to close the parallel ungated path.
+
 ## Milestone 3 — Session Response & Completion
 
 Durable, server-side ownership of what Milestone 2 currently only tracks

@@ -3,14 +3,18 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { mapRehabSessionRow } from "@/lib/rehabSessionTypes";
+import { getOldestOutstandingMorningResponse } from "@/lib/morningResponseServer";
 
-// Date-independent by design. /current returns the single most recent
-// non-complete session, which can be SUPERSEDED by a newer same-day session
-// once one exists — so it cannot reliably answer "is there a prior,
-// unresolved awaiting_morning_response session" once today's own session
-// has started. This route asks that question directly: the most recent row
-// in that exact status, regardless of which day it was started, so it never
-// disappears just because the calendar date changed.
+// Date-independent by design, and — as of M4 Stage 1 — oldest-outstanding-
+// first: querying "most recent awaiting_morning_response session" alone
+// (the original M3 implementation) could hide an older unresolved session
+// once a newer one exists. getOldestOutstandingMorningResponse ensures every
+// awaiting session has a morning_responses row (covering pre-M4 sessions
+// too) and returns the oldest one still unsubmitted.
+//
+// The response contract is unchanged from M3 ({ session: ... | null }) so
+// existing callers (MorningResponsePendingNotice) need no changes — this is
+// a correctness fix to this route's underlying query, not new API surface.
 export async function GET() {
   const supabase = await createServerSupabaseClient();
   const {
@@ -18,14 +22,15 @@ export async function GET() {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data, error } = await supabase
+  const oldest = await getOldestOutstandingMorningResponse(user.id);
+  if (!oldest) return NextResponse.json({ session: null });
+
+  const { data: session, error } = await supabase
     .from("rehab_sessions")
     .select()
-    .eq("status", "awaiting_morning_response")
-    .order("started_at", { ascending: false })
-    .limit(1)
+    .eq("id", oldest.rehabSessionId)
     .maybeSingle();
-
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ session: data ? mapRehabSessionRow(data) : null });
+
+  return NextResponse.json({ session: session ? mapRehabSessionRow(session) : null });
 }

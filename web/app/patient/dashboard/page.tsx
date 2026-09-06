@@ -5,6 +5,7 @@ import { getSessionInfo } from "@/lib/auth";
 import { getPatientSummary, type PatientSummary } from "@/lib/fastapi";
 import { TodaysRehabPanel } from "./components/TodaysRehabPanel";
 import { MorningResponsePendingNotice } from "./components/MorningResponsePendingNotice";
+import { TimezoneInitializer } from "./components/TimezoneInitializer";
 import { PreviousSessionSummary } from "./components/PreviousSessionSummary";
 import { SecondaryLinks } from "./components/SecondaryLinks";
 
@@ -66,6 +67,7 @@ export default async function PatientDashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <TimezoneInitializer />
       <Nav email={authUser.email ?? ""} hasOrgMembership={hasOrgMembership} />
 
       <main className="max-w-6xl mx-auto px-4 py-8 lg:py-10">

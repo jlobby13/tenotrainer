@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { evaluateEscalation } from "@/lib/escalation";
 import { acuteAssessmentRequired, mapRehabSessionRow } from "@/lib/rehabSessionTypes";
+import { ensureMorningResponseExists } from "@/lib/morningResponseServer";
 
 // Raw fields the patient may progressively submit. Deliberately excludes
 // escalation_level/escalation_reason/rule_version — those are never accepted
@@ -132,6 +133,19 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     .select()
     .maybeSingle();
   if (finalizeError) return NextResponse.json({ error: finalizeError.message }, { status: 500 });
+
+  // M4 Stage 1: the morning-response OBLIGATION is created as part of this
+  // exact lifecycle transition, not lazily discovered later — this is what
+  // lets scheduled_eligible_at be frozen using the reminder preference in
+  // effect right now. A failure here must not silently lose the M3 result
+  // the patient just successfully submitted; log and continue rather than
+  // erroring the whole finalize response, since getOldestOutstandingMorningResponse's
+  // lazy backfill will recover this session's obligation on next access anyway.
+  try {
+    await ensureMorningResponseExists(id);
+  } catch (e) {
+    console.error(`Failed to create morning_responses row for session ${id} during finalize:`, e);
+  }
 
   return NextResponse.json({ session: mapRehabSessionRow(finalSession), escalation });
 }
