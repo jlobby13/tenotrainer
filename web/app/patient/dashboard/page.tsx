@@ -5,6 +5,7 @@ import { getSessionInfo } from "@/lib/auth";
 import { getPatientSummary, type PatientSummary } from "@/lib/fastapi";
 import { TodaysRehabPanel } from "./components/TodaysRehabPanel";
 import { MorningResponsePendingNotice } from "./components/MorningResponsePendingNotice";
+import { DashboardTimeline } from "./components/DashboardTimeline";
 import { TimezoneInitializer } from "./components/TimezoneInitializer";
 import { PreviousSessionSummary } from "./components/PreviousSessionSummary";
 import { SecondaryLinks } from "./components/SecondaryLinks";
@@ -108,6 +109,7 @@ export default async function PatientDashboardPage() {
                     agenda/prescription state, so a prior unresolved session
                     is never hidden by today's rehab moving forward. */}
                 <MorningResponsePendingNotice />
+                <DashboardTimeline />
                 <TodaysRehabPanel
                   currentPlan={summary.current_plan}
                   sessionPlan={summary.session_plan}

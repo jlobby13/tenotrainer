@@ -13,6 +13,7 @@ import type {
   RehabSessionRecord,
   SessionEventType,
 } from "./rehabSessionTypes";
+import type { MorningResponseRecord } from "./morningResponseTypes";
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {
   const res = await fetch(url, {
@@ -101,7 +102,10 @@ export async function getCurrentRehabSession(): Promise<{ session: RehabSessionR
 // Date-independent — see the route's comment. Unlike getCurrentRehabSession,
 // this specifically finds a lingering awaiting_morning_response session even
 // if a newer, different-status session now exists.
-export async function getPendingMorningResponseSession(): Promise<{ session: RehabSessionRecord | null }> {
+export async function getPendingMorningResponseSession(): Promise<{
+  session: RehabSessionRecord | null;
+  morningResponse: MorningResponseRecord | null;
+}> {
   const res = await fetch("/api/patient/rehab-session/pending-morning-response");
   if (!res.ok) throw new Error(`Failed to fetch pending morning-response session (${res.status})`);
   return res.json();

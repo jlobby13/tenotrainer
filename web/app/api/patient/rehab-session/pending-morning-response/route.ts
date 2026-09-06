@@ -12,9 +12,10 @@ import { getOldestOutstandingMorningResponse } from "@/lib/morningResponseServer
 // awaiting session has a morning_responses row (covering pre-M4 sessions
 // too) and returns the oldest one still unsubmitted.
 //
-// The response contract is unchanged from M3 ({ session: ... | null }) so
-// existing callers (MorningResponsePendingNotice) need no changes — this is
-// a correctness fix to this route's underlying query, not new API surface.
+// M4 Stage 2 adds `morningResponse` to the response (additive — the
+// pre-existing `session` field is unchanged) so the dashboard notice can
+// derive the pending/scheduled_ready state from scheduled_eligible_at
+// without a second round-trip.
 export async function GET() {
   const supabase = await createServerSupabaseClient();
   const {
@@ -23,7 +24,7 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const oldest = await getOldestOutstandingMorningResponse(user.id);
-  if (!oldest) return NextResponse.json({ session: null });
+  if (!oldest) return NextResponse.json({ session: null, morningResponse: null });
 
   const { data: session, error } = await supabase
     .from("rehab_sessions")
@@ -32,5 +33,8 @@ export async function GET() {
     .maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ session: session ? mapRehabSessionRow(session) : null });
+  return NextResponse.json({
+    session: session ? mapRehabSessionRow(session) : null,
+    morningResponse: oldest,
+  });
 }
