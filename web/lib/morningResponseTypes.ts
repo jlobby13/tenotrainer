@@ -5,32 +5,6 @@
 export type StiffnessDuration = "not_applicable" | "lt_5_min" | "min_5_15" | "min_15_30" | "gt_30_min";
 export type MorningPainTolerability = "manageable" | "difficult_to_tolerate";
 
-export type ExternalLoadCategory =
-  | "running"
-  | "sport"
-  | "prolonged_walking_standing"
-  | "other_lower_body_training"
-  | "unusually_high_activity"
-  | "other"
-  | "none";
-
-export type ExternalLoadTiming = "previous_day" | "same_day_before_rehab" | "same_day_after_rehab";
-
-export const EXTERNAL_LOAD_CATEGORIES: ExternalLoadCategory[] = [
-  "running",
-  "sport",
-  "prolonged_walking_standing",
-  "other_lower_body_training",
-  "unusually_high_activity",
-  "other",
-];
-
-export const EXTERNAL_LOAD_TIMINGS: ExternalLoadTiming[] = [
-  "previous_day",
-  "same_day_before_rehab",
-  "same_day_after_rehab",
-];
-
 export type MorningResponseRecord = {
   id: string;
   rehabSessionId: string;
@@ -48,11 +22,10 @@ export type MorningResponseRecord = {
   // Only ever asked/required when nextMorningPain === 5 (see section 8 of
   // the Stage 4 brief) — null otherwise, never fabricated.
   morningPainTolerability: MorningPainTolerability | null;
-  // null = not asked/answered yet (UNKNOWN). An explicit ["none"] means the
-  // patient was asked and confirmed nothing relevant happened — these are
-  // deliberately distinct states, never conflated.
-  externalLoadCategories: ExternalLoadCategory[] | null;
-  externalLoadTiming: ExternalLoadTiming[] | null;
+  // External-load observations moved to session_load_observations (M4 Stage
+  // 4 founder-acceptance patch) — see lib/sessionLoadObservations.ts. The
+  // underlying morning_responses.external_load_categories/external_load_timing
+  // columns are deprecated in place, not read here.
   patientNote: string | null;
   submittedAt: string | null;
   createdAt: string;
@@ -98,8 +71,6 @@ export function mapMorningResponseRow(row: Record<string, unknown>): MorningResp
     nextMorningStiffness: (row.next_morning_stiffness as number | null) ?? null,
     stiffnessDuration: (row.stiffness_duration as StiffnessDuration | null) ?? null,
     morningPainTolerability: (row.morning_pain_tolerability as MorningPainTolerability | null) ?? null,
-    externalLoadCategories: (row.external_load_categories as ExternalLoadCategory[] | null) ?? null,
-    externalLoadTiming: (row.external_load_timing as ExternalLoadTiming[] | null) ?? null,
     patientNote: (row.patient_note as string | null) ?? null,
     submittedAt: (row.submitted_at as string | null) ?? null,
     createdAt: row.created_at as string,

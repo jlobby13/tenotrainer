@@ -2,37 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
-import type {
-  ExternalLoadCategory,
-  ExternalLoadTiming,
-  MorningPainTolerability,
-  MorningResponseRecord,
-  StiffnessDuration,
-  ToleranceEvaluationRecord,
-} from "@/lib/morningResponseTypes";
-import { EXTERNAL_LOAD_CATEGORIES, EXTERNAL_LOAD_TIMINGS } from "@/lib/morningResponseTypes";
+import type { MorningPainTolerability, MorningResponseRecord, StiffnessDuration, ToleranceEvaluationRecord } from "@/lib/morningResponseTypes";
+import { EXTERNAL_LOAD_CATEGORIES, EXTERNAL_LOAD_CATEGORY_LABELS, type ExternalLoadCategory } from "@/lib/sessionLoadObservations";
 import { submitMorningResponseCheckpoint } from "@/lib/morningResponseClient";
 import { PatientTimeline } from "@/app/patient/dashboard/components/PatientTimeline";
 import { HandoffSnapshot } from "./HandoffSnapshot";
 import { ToleranceResultsCard } from "./ToleranceResultsCard";
 
 const NOTE_MAX_LENGTH = 500;
-
-const CATEGORY_LABELS: Record<ExternalLoadCategory, string> = {
-  running: "Running",
-  sport: "Sport",
-  prolonged_walking_standing: "Prolonged walking or standing",
-  other_lower_body_training: "Other lower-body training",
-  unusually_high_activity: "Unusually high activity",
-  other: "Other",
-  none: "None",
-};
-
-const TIMING_LABELS: Record<ExternalLoadTiming, string> = {
-  previous_day: "The day before",
-  same_day_before_rehab: "Same day, before your rehab session",
-  same_day_after_rehab: "Same day, after your rehab session",
-};
 
 const STIFFNESS_DURATION_LABELS: Record<Exclude<StiffnessDuration, "not_applicable">, string> = {
   lt_5_min: "Less than 5 minutes",
@@ -95,10 +72,11 @@ export function MorningCheckInScreen({
   const [tolerability, setTolerability] = useState<MorningPainTolerability | null>(
     morningResponse.morningPainTolerability
   );
-  const [loadCategories, setLoadCategories] = useState<ExternalLoadCategory[]>(
-    morningResponse.externalLoadCategories ?? []
-  );
-  const [loadTiming, setLoadTiming] = useState<ExternalLoadTiming[]>(morningResponse.externalLoadTiming ?? []);
+  // Always starts empty: M4 external load is sent once, at finalize (never
+  // progressively checkpointed — see handleSubmit), so there is nothing to
+  // resume from morningResponse itself, matching the field's original
+  // Stage 4 behavior.
+  const [loadCategories, setLoadCategories] = useState<ExternalLoadCategory[]>([]);
   const [note, setNote] = useState(morningResponse.patientNote ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -169,12 +147,13 @@ export function MorningCheckInScreen({
 
   function toggleCategory(category: ExternalLoadCategory) {
     // "None" is a fast, exclusive answer — selecting it clears any other
-    // category (and its timing, which no longer applies); selecting any
-    // real category clears "None" if it was previously chosen. These stay
-    // deliberately distinct from "not yet answered" (empty array).
+    // category; selecting any real category clears "None" if it was
+    // previously chosen. These stay deliberately distinct from "not yet
+    // answered" (empty array). No timing question here at all: M4 asks
+    // about exactly one window (after the rehab session, before this
+    // morning response), so the server assigns that fixed timing itself.
     if (category === "none") {
       setLoadCategories((prev) => (prev.includes("none") ? [] : ["none"]));
-      setLoadTiming([]);
       return;
     }
     setLoadCategories((prev) => {
@@ -183,10 +162,6 @@ export function MorningCheckInScreen({
         ? withoutNone.filter((c) => c !== category)
         : [...withoutNone, category];
     });
-  }
-
-  function toggleTiming(timing: ExternalLoadTiming) {
-    setLoadTiming((prev) => (prev.includes(timing) ? prev.filter((t) => t !== timing) : [...prev, timing]));
   }
 
   async function handleSubmit() {
@@ -199,8 +174,7 @@ export function MorningCheckInScreen({
         nextMorningStiffness: stiffness,
         stiffnessDuration: stiffnessDuration ?? undefined,
         morningPainTolerability: tolerability ?? undefined,
-        externalLoadCategories: loadCategories.length > 0 ? loadCategories : undefined,
-        externalLoadTiming: loadTiming.length > 0 ? loadTiming : undefined,
+        externalLoad: loadCategories.length > 0 ? { categories: loadCategories } : undefined,
         patientNote: note.trim() || null,
         finalize: true,
       });
@@ -330,23 +304,9 @@ export function MorningCheckInScreen({
 
       <div className="mt-6">
         <p className="text-sm font-semibold text-gray-900">
-          Any extra activity? <span className="text-gray-400 font-normal">(optional)</span>
+          Any significant physical activity since your rehab session? <span className="text-gray-400 font-normal">(optional)</span>
         </p>
-        <p className="text-xs text-gray-400 mt-0.5">Running, sport, or other lower-body activity since your last session.</p>
         <div className="mt-2 flex flex-wrap gap-2">
-          {EXTERNAL_LOAD_CATEGORIES.map((c) => (
-            <button
-              key={c}
-              type="button"
-              disabled={submitting}
-              onClick={() => toggleCategory(c)}
-              className={`px-3 py-2 rounded-full text-sm font-medium border-2 disabled:opacity-60 ${
-                loadCategories.includes(c) ? "border-brand-600 bg-brand-600 text-white" : "border-gray-200 text-gray-700"
-              }`}
-            >
-              {CATEGORY_LABELS[c]}
-            </button>
-          ))}
           <button
             type="button"
             disabled={submitting}
@@ -357,28 +317,20 @@ export function MorningCheckInScreen({
           >
             None
           </button>
+          {EXTERNAL_LOAD_CATEGORIES.map((c) => (
+            <button
+              key={c}
+              type="button"
+              disabled={submitting}
+              onClick={() => toggleCategory(c)}
+              className={`px-3 py-2 rounded-full text-sm font-medium border-2 disabled:opacity-60 ${
+                loadCategories.includes(c) ? "border-brand-600 bg-brand-600 text-white" : "border-gray-200 text-gray-700"
+              }`}
+            >
+              {EXTERNAL_LOAD_CATEGORY_LABELS[c]}
+            </button>
+          ))}
         </div>
-
-        {loadCategories.length > 0 && !loadCategories.includes("none") && (
-          <div className="mt-3">
-            <p className="text-xs font-semibold text-gray-500">When?</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {EXTERNAL_LOAD_TIMINGS.map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  disabled={submitting}
-                  onClick={() => toggleTiming(t)}
-                  className={`px-3 py-2 rounded-full text-sm font-medium border-2 disabled:opacity-60 ${
-                    loadTiming.includes(t) ? "border-brand-600 bg-brand-600 text-white" : "border-gray-200 text-gray-700"
-                  }`}
-                >
-                  {TIMING_LABELS[t]}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       <div className="mt-6">

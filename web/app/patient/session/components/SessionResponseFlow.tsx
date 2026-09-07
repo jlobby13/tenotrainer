@@ -15,6 +15,7 @@ import { SessionHandoff } from "./SessionHandoff";
 import { Level5Screen } from "./response/Level5Screen";
 import { PeakPainScreen } from "./response/PeakPainScreen";
 import { DifficultyScreen } from "./response/DifficultyScreen";
+import { ExternalLoadScreen } from "./response/ExternalLoadScreen";
 import { ContributorScreen } from "./response/ContributorScreen";
 import { AcuteQuestionsScreen } from "./response/AcuteQuestionsScreen";
 import { OutcomeScreen } from "./response/OutcomeScreen";
@@ -31,6 +32,7 @@ export function SessionResponseFlow({
   const [server, setServer] = useState<RehabSessionRecord | null>(null);
   const [step, setStep] = useState<Step>({ kind: "loading" });
   const [level5Acknowledged, setLevel5Acknowledged] = useState(false);
+  const [externalLoadAnswered, setExternalLoadAnswered] = useState(false);
   const [showSummary, setShowSummary] = useState(true);
   // React Strict Mode double-invokes effects in dev, and createRehabSession/
   // submitExercisesComplete are safely idempotent under that — but the
@@ -93,7 +95,7 @@ export function SessionResponseFlow({
       });
 
       setServer(afterComplete);
-      setStep(deriveStep(afterComplete, localSession, level5Acknowledged));
+      setStep(deriveStep(afterComplete, localSession, level5Acknowledged, externalLoadAnswered));
     } catch (e) {
       setStep({ kind: "error", message: e instanceof Error ? e.message : "Something went wrong." });
     }
@@ -116,7 +118,13 @@ export function SessionResponseFlow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
-  async function checkpoint(fields: ResponseCheckpoint) {
+  // overrideExternalLoadAnswered exists only to avoid a stale-closure read
+  // of the externalLoadAnswered state variable: React state updates are
+  // batched, so a `setExternalLoadAnswered(true)` called immediately before
+  // `checkpoint(...)` would not yet be visible inside this same checkpoint()
+  // invocation's closure. Same pattern Level5Screen's onContinue already
+  // uses by calling deriveStep with a literal `true` directly.
+  async function checkpoint(fields: ResponseCheckpoint, overrideExternalLoadAnswered?: boolean) {
     if (!server) return;
     try {
       const { session: updated, escalation } = await submitResponseCheckpoint(server.id, fields);
@@ -124,7 +132,7 @@ export function SessionResponseFlow({
       if (fields.finalize && escalation) {
         setStep({ kind: "outcome", escalationLevel: escalation.level });
       } else {
-        setStep(deriveStep(updated, localSession, level5Acknowledged));
+        setStep(deriveStep(updated, localSession, level5Acknowledged, overrideExternalLoadAnswered ?? externalLoadAnswered));
       }
     } catch (e) {
       setStep({ kind: "error", message: e instanceof Error ? e.message : "Something went wrong." });
@@ -155,7 +163,7 @@ export function SessionResponseFlow({
       <Level5Screen
         onContinue={() => {
           setLevel5Acknowledged(true);
-          if (server) setStep(deriveStep(server, localSession, true));
+          if (server) setStep(deriveStep(server, localSession, true, externalLoadAnswered));
         }}
       />
     );
@@ -167,7 +175,7 @@ export function SessionResponseFlow({
         session={localSession}
         onDone={() => {
           setShowSummary(false);
-          setStep(deriveStep(server, localSession, level5Acknowledged));
+          setStep(deriveStep(server, localSession, level5Acknowledged, externalLoadAnswered));
         }}
       />
     );
@@ -179,6 +187,17 @@ export function SessionResponseFlow({
 
   if (step.kind === "difficulty") {
     return <DifficultyScreen onSubmit={(value) => checkpoint({ difficulty: value })} />;
+  }
+
+  if (step.kind === "external_load") {
+    return (
+      <ExternalLoadScreen
+        onSubmit={(selection) => {
+          setExternalLoadAnswered(true);
+          checkpoint({ externalLoad: selection }, true);
+        }}
+      />
+    );
   }
 
   if (step.kind === "contributor") {

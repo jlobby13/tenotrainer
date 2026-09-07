@@ -14,20 +14,31 @@
 // (the exact intensity cutoff within the 5-15min and 15-30min stiffness
 // duration bands, and the precise split between "elevated_session_pain" and
 // "elevated_session_pain_with_mild_response" for peak==5). Those are marked
-// "author's conservative choice, not given by an anchor case" — flagged
-// explicitly here and in the Stage 4 completion report, per the brief's own
-// instruction to prefer the most conservative behavior and disclose rather
-// than silently invent when a case is ambiguous. None of them independently
-// widen what counts as "reduce/modify" beyond what an anchor case requires;
-// they only fill in the small number of unspecified gaps between anchors.
+// **TenoTrainer v1 clinician-designed conservative thresholds** — a
+// disclosed, deliberate implementation choice for the v1 cold-start model,
+// NOT a literature-validated physiological boundary. They were chosen to
+// fill the small number of unspecified gaps between anchors without
+// independently widening what counts as "reduce/modify" beyond what an
+// anchor case already requires, and without inventing a universal reduction
+// rule the brief explicitly warned against. They are approved to stand as
+// implemented for v1 review; a future rule version may replace them with a
+// clinically re-derived matrix without rewriting past evaluations (see
+// TOLERANCE_RULE_VERSION).
+//
+// Founder-acceptance patch (post-Stage-4 review): the v1 evaluator
+// previously escalated the tolerance LABEL to "poorly_tolerated" whenever
+// 2+ independent reduce-tier candidates fired simultaneously. That rule was
+// an unapproved author invention, not a locked or anchor-derived behavior,
+// and has been REMOVED. "poorly_tolerated" remains in the schema/type
+// vocabulary for a future, explicitly clinically-defined rule, but the v1
+// evaluator never emits it — every candidate-driven outcome that used to
+// reach reduce_modify still does; only the classification label is now
+// always "caution" rather than sometimes "poorly_tolerated". Guidance
+// (maintain/maintain_cautiously/reduce_modify/clinical_review) is unchanged
+// and remains a separate concept from tolerance classification.
 
-import type {
-  ExternalLoadCategory,
-  ImmediateGuidance,
-  MorningPainTolerability,
-  StiffnessDuration,
-  ToleranceClassification,
-} from "./morningResponseTypes";
+import type { ImmediateGuidance, MorningPainTolerability, StiffnessDuration, ToleranceClassification } from "./morningResponseTypes";
+import type { ExternalLoadCategory } from "./sessionLoadObservations";
 
 export const TOLERANCE_RULE_VERSION = "v1";
 
@@ -58,7 +69,11 @@ export type ToleranceEvaluationResult = {
   ruleVersion: string;
 };
 
-type Candidate = { classification: "caution" | "poorly_tolerated"; guidance: ImmediateGuidance; reasonCode: string };
+// Every rule-driven candidate is "caution" — v1 never emits "poorly_tolerated"
+// from a candidate rule (see the founder-acceptance patch note above). The
+// field is kept (rather than dropped) only so a future clinically-approved
+// rule can introduce it without reshaping this type again.
+type Candidate = { classification: "caution"; guidance: ImmediateGuidance; reasonCode: string };
 
 const GUIDANCE_RANK: Record<ImmediateGuidance, number> = {
   maintain: 0,
@@ -103,8 +118,20 @@ export function evaluateTolerance(inputs: ToleranceEvaluationInputs): ToleranceE
   // UNKNOWN != ZERO: an unanswered stiffness duration (when stiffness > 0)
   // or an unanswered borderline-pain tolerability clarification (when
   // morning pain === 5) must never be interpreted as favorable.
-  if (inputs.nextMorningStiffness > 0 && inputs.stiffnessDuration === null) {
-    return insufficientDataResult("incomplete_required_response_data");
+  //
+  // Founder-acceptance patch: this evaluator must independently reject an
+  // inconsistent stiffness-duration combination rather than relying only on
+  // UI/API validation to prevent it from ever arriving here. Two states are
+  // invalid whenever stiffness > 0: `null` (never answered) and
+  // `"not_applicable"` (a value that is only ever a legitimate answer when
+  // stiffness === 0 — see the canonical storage representation in
+  // morningResponseTypes.ts). Both must produce insufficient_data, never a
+  // silently-skipped stiffness rule (see Step 5's switch, which would
+  // otherwise treat an inconsistent "not_applicable" as a no-op).
+  if (inputs.nextMorningStiffness > 0) {
+    if (inputs.stiffnessDuration === null || inputs.stiffnessDuration === "not_applicable") {
+      return insufficientDataResult("incomplete_required_response_data");
+    }
   }
   if (inputs.nextMorningPain === 5 && inputs.morningPainTolerability === null) {
     return insufficientDataResult("incomplete_required_response_data");
@@ -217,6 +244,10 @@ export function evaluateTolerance(inputs: ToleranceEvaluationInputs): ToleranceE
         });
         break;
       case "not_applicable":
+        // Unreachable here: Step 2 above already redirects stiffness > 0
+        // paired with "not_applicable" to insufficient_data before any
+        // candidate is ever considered. This case only exists so the
+        // switch remains exhaustive over the full StiffnessDuration type.
         break;
     }
   }
@@ -231,15 +262,15 @@ export function evaluateTolerance(inputs: ToleranceEvaluationInputs): ToleranceE
     contextualReasonCodes.push("external_loading_reported");
   }
 
-  // --- Aggregate: take the worst (classification, guidance) among all fired
-  // candidates. If nothing fired, the response is well_tolerated. If 2+
-  // INDEPENDENT reduce_modify-tier candidates fired simultaneously, the
-  // combined severity is labeled poorly_tolerated (guidance is already at
-  // its worst tier either way) — author's conservative labeling choice: no
-  // single anchor case stacks two independent reduce-tier factors, so no
-  // anchor pins this exact tolerance label, but escalating the label when
-  // multiple independent concerning factors coincide is the more
-  // conservative reading, not a new guidance behavior. ---
+  // --- Aggregate: take the worst guidance among all fired candidates. If
+  // nothing fired, the response is well_tolerated. Founder-acceptance patch:
+  // the classification for any fired candidate is always "caution" — v1 does
+  // NOT escalate to "poorly_tolerated" merely because 2+ independent
+  // reduce_modify-tier candidates fired simultaneously (that rule was an
+  // unapproved author invention and has been removed; see the header
+  // comment). Guidance can still reach reduce_modify from a single factor,
+  // and stays reduce_modify when multiple factors independently reach it —
+  // only the tolerance LABEL is capped at "caution" in v1. ---
   if (candidates.length === 0) {
     return {
       classification: "well_tolerated",
@@ -252,8 +283,7 @@ export function evaluateTolerance(inputs: ToleranceEvaluationInputs): ToleranceE
   }
 
   const worstGuidanceRank = Math.max(...candidates.map((c) => GUIDANCE_RANK[c.guidance]));
-  const reduceTierCount = candidates.filter((c) => GUIDANCE_RANK[c.guidance] === GUIDANCE_RANK.reduce_modify).length;
-  const classification: ToleranceClassification = reduceTierCount >= 2 ? "poorly_tolerated" : "caution";
+  const classification: ToleranceClassification = "caution";
   const guidance = (Object.keys(GUIDANCE_RANK) as ImmediateGuidance[]).find((g) => GUIDANCE_RANK[g] === worstGuidanceRank)!;
 
   const reasonCodes = [...candidates.map((c) => c.reasonCode), ...contextualReasonCodes];

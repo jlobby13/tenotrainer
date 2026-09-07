@@ -68,6 +68,14 @@ const TONE_CLASSES: Record<string, string> = {
   gray: "bg-gray-50 border-gray-200 text-gray-900",
 };
 
+// Section 7 of the founder-acceptance patch: external loading is an
+// observation, never a cause. This note may state that reported activity
+// "may have contributed to the overall loading context" — it must never
+// state that the activity caused the response, and it never changes the
+// title/tone/classification/guidance above it.
+const EXTERNAL_LOAD_NOTE =
+  "You reported some additional activity around this session — that may have contributed to your overall loading context.";
+
 export function ToleranceResultsCard({
   evaluation,
   escalationLevel,
@@ -76,11 +84,13 @@ export function ToleranceResultsCard({
   escalationLevel: number | null;
 }) {
   const { title, body, tone } = guidanceCopy(evaluation, escalationLevel);
+  const hasExternalLoad = evaluation.reasonCodes.includes("external_loading_reported");
 
   return (
     <div className={`rounded-xl border-2 p-4 text-left ${TONE_CLASSES[tone]}`}>
       <p className="text-sm font-bold">{title}</p>
       <p className="text-sm mt-1">{body}</p>
+      {hasExternalLoad && <p className="text-sm mt-2 opacity-80">{EXTERNAL_LOAD_NOTE}</p>}
     </div>
   );
 }

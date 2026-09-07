@@ -4,6 +4,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { mapMorningResponseRow, mapToleranceEvaluationRow } from "@/lib/morningResponseTypes";
 import { evaluateTolerance, TOLERANCE_RULE_VERSION, type ToleranceEvaluationInputs } from "@/lib/toleranceEvaluation";
+import {
+  EXTERNAL_LOAD_CATEGORIES,
+  M4_FIXED_TIMING,
+  type ExternalLoadCategory,
+} from "@/lib/sessionLoadObservations";
 
 const NOTE_MAX_LENGTH = 500;
 
@@ -28,8 +33,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     updates.patient_note = body.patientNote === null ? null : String(body.patientNote).slice(0, NOTE_MAX_LENGTH);
   }
   if (body.morningPainTolerability !== undefined) updates.morning_pain_tolerability = body.morningPainTolerability;
-  if (body.externalLoadCategories !== undefined) updates.external_load_categories = body.externalLoadCategories;
-  if (body.externalLoadTiming !== undefined) updates.external_load_timing = body.externalLoadTiming;
+  // externalLoad is handled separately below (session_load_observations,
+  // not a morning_responses column — see the founder-acceptance patch note
+  // at the top of sessionLoadObservations.ts). morning_responses.external_load_*
+  // are deprecated and no longer written here.
 
   // Stage 4 / UNKNOWN != ZERO: stiffness=0 means duration is genuinely not
   // applicable (never asked, never left unanswered-looking); a stiffness
@@ -112,6 +119,48 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .eq("id", finalRow.rehab_session_id)
       .neq("status", "response_complete");
     if (statusError) return NextResponse.json({ error: statusError.message }, { status: 500 });
+
+    // --- Founder-acceptance patch: M4-provenance external-load capture ---
+    // Optional, exposure-only, non-blocking (never in `missing`) — matches
+    // the original Stage 4 behavior of being sent once, at finalize, rather
+    // than progressively checkpointed. M4 asks about exactly one temporal
+    // window (after the rehab session, before this morning response), so
+    // timing is never accepted from the client — it is always M4_FIXED_TIMING
+    // for every real category, and NULL for the explicit "none" answer.
+    // Scoped strictly to captured_during='m4_morning_response': this never
+    // reads or deletes M3-provenance rows, satisfying "M4 does not overwrite
+    // M3 context." A retried finalize call safely replaces only its own
+    // prior M4 rows (delete-then-insert), never duplicating them.
+    if (body.externalLoad && Array.isArray(body.externalLoad.categories) && body.externalLoad.categories.length > 0) {
+      const categories = body.externalLoad.categories as ExternalLoadCategory[];
+      const validCategories = categories.filter(
+        (c): c is ExternalLoadCategory => c === "none" || EXTERNAL_LOAD_CATEGORIES.includes(c)
+      );
+      if (validCategories.length > 0) {
+        const { error: deleteError } = await serviceClient
+          .from("session_load_observations")
+          .delete()
+          .eq("rehab_session_id", finalRow.rehab_session_id)
+          .eq("captured_during", "m4_morning_response");
+        if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 500 });
+
+        const isExplicitNone = validCategories.length === 1 && validCategories[0] === "none";
+        const rows = isExplicitNone
+          ? [{ category: "none" as const, timing: null }]
+          : validCategories.filter((c) => c !== "none").map((category) => ({ category, timing: M4_FIXED_TIMING }));
+
+        const { error: insertError } = await serviceClient.from("session_load_observations").insert(
+          rows.map((r) => ({
+            rehab_session_id: finalRow.rehab_session_id,
+            user_id: user.id,
+            category: r.category,
+            timing: r.timing,
+            captured_during: "m4_morning_response",
+          }))
+        );
+        if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
+      }
+    }
   }
 
   // --- Stage 4: single-session tolerance evaluation ---
@@ -129,6 +178,19 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: "Associated rehab session not found" }, { status: 500 });
   }
 
+  // Combines M3- and M4-provenance observations into one list for the
+  // evaluator — "M3 and M4 observations should combine into the session's
+  // external-loading context while retaining their provenance/timing"
+  // (provenance/timing are retained in session_load_observations itself;
+  // the evaluator only needs "was anything reported" per its existing,
+  // never-classification-affecting contextual check).
+  const { data: loadObservations } = await serviceClient
+    .from("session_load_observations")
+    .select("category")
+    .eq("rehab_session_id", finalRow.rehab_session_id);
+  const externalLoadCategories: ExternalLoadCategory[] | null =
+    loadObservations && loadObservations.length > 0 ? (loadObservations.map((r) => r.category) as ExternalLoadCategory[]) : null;
+
   const evaluationInputs: ToleranceEvaluationInputs = {
     peakSessionPain: session.peak_session_pain,
     nextMorningPain: finalRow.next_morning_pain,
@@ -136,7 +198,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     stiffnessDuration: finalRow.stiffness_duration,
     morningPainTolerability: finalRow.morning_pain_tolerability,
     escalationLevel: session.current_escalation_level,
-    externalLoadCategories: finalRow.external_load_categories,
+    externalLoadCategories,
     hasExerciseSpecificSymptomResponse: session.contributor_reason === "specific_exercise",
     hasPainLimitedTermination: session.exercise_outcome === "ended_early" && session.early_end_reason === "pain_symptoms",
   };

@@ -94,5 +94,17 @@ test("insufficient_data renders 'More Data Needed' and never a tolerance verdict
   assert(!html.includes(">Well Tolerated<") && !html.includes(">Caution<"), "insufficient_data must not imply any tolerance verdict");
 });
 
+test("external_loading_reported adds a contributed-context note without changing title/tone, and never says 'caused'", () => {
+  const withLoad = render(
+    evaluation({ toleranceClassification: "caution", immediateGuidance: "maintain_cautiously", reasonCodes: ["external_loading_reported"] }),
+    0
+  );
+  const without = render(evaluation({ toleranceClassification: "caution", immediateGuidance: "maintain_cautiously", reasonCodes: [] }), 0);
+  assert(/may have contributed/i.test(withLoad), "must mention contributed-to-context framing when reported");
+  assert(!/may have contributed/i.test(without), "must not appear when not reported");
+  assert(!/\bcaused\b/i.test(withLoad), "must never state the activity caused the response");
+  assert(withLoad.includes("Caution"), "title must still be Caution, unaffected by external load");
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail > 0 ? 1 : 0);

@@ -191,6 +191,22 @@ test("stiffness > 0 with duration NULL -> insufficient_data, never interpreted a
   assertEqual(r.classification, "insufficient_data", "missing duration classification");
 });
 
+// Founder-acceptance patch: the evaluator must independently reject this
+// inconsistent combination rather than relying on the UI/API to prevent it.
+// "not_applicable" is only ever a legitimate value when stiffness === 0.
+test("stiffness > 0 with duration 'not_applicable' -> insufficient_data, not silently skipped", () => {
+  const r = evaluateTolerance(base({ peakSessionPain: 2, nextMorningPain: 1, nextMorningStiffness: 5, stiffnessDuration: "not_applicable" }));
+  assertEqual(r.classification, "insufficient_data", "inconsistent not_applicable classification");
+  assert(r.reasonCodes.includes("incomplete_required_response_data"), "reason code must flag incomplete data");
+});
+
+test("stiffness > 0 with duration 'not_applicable' is invalid at every intensity, not just high intensity", () => {
+  for (const intensity of [1, 2, 3, 9, 10]) {
+    const r = evaluateTolerance(base({ peakSessionPain: 0, nextMorningPain: 0, nextMorningStiffness: intensity, stiffnessDuration: "not_applicable" }));
+    assertEqual(r.classification, "insufficient_data", `intensity ${intensity} must still be insufficient_data`);
+  }
+});
+
 test("morning pain === 5 with tolerability NULL -> insufficient_data", () => {
   const r = evaluateTolerance(base({ peakSessionPain: 2, nextMorningPain: 5, nextMorningStiffness: 1, stiffnessDuration: "min_5_15", morningPainTolerability: null }));
   assertEqual(r.classification, "insufficient_data", "missing tolerability classification");
@@ -212,6 +228,44 @@ test("acute override level 5 also overrides", () => {
 test("escalation level below 3 does not trigger override", () => {
   const r = evaluateTolerance(base({ peakSessionPain: 1, nextMorningPain: 0, nextMorningStiffness: 0, escalationLevel: 1 }));
   assert(r.classification !== "acute_override", "level 1 should not override");
+});
+
+// --- Founder-acceptance patch: "poorly_tolerated" removed from v1 ---
+
+test("simultaneous morning-pain reduce factor (>=6) AND prolonged-stiffness reduce factor (>30min) stay caution + reduce_modify, never poorly_tolerated", () => {
+  const r = evaluateTolerance(
+    base({ peakSessionPain: 3, nextMorningPain: 7, nextMorningStiffness: 5, stiffnessDuration: "gt_30_min" })
+  );
+  assertEqual(r.classification, "caution", "must remain caution, not escalate to poorly_tolerated");
+  assertEqual(r.guidance, "reduce_modify", "guidance must still be reduce_modify from either factor alone");
+  assert(r.reasonCodes.includes("elevated_morning_pain"), "morning-pain reduce factor reason code must still be present");
+  assert(
+    r.reasonCodes.includes("prolonged_morning_stiffness") || r.reasonCodes.includes("elevated_and_prolonged_morning_stiffness"),
+    "stiffness reduce factor reason code must still be present"
+  );
+});
+
+test("simultaneous borderline-pain-difficult AND 15-30min-high-intensity reduce factors stay caution + reduce_modify", () => {
+  const r = evaluateTolerance(
+    base({
+      peakSessionPain: 2,
+      nextMorningPain: 5,
+      morningPainTolerability: "difficult_to_tolerate",
+      nextMorningStiffness: 8,
+      stiffnessDuration: "min_15_30",
+    })
+  );
+  assertEqual(r.classification, "caution", "must remain caution even with two independent reduce-tier factors");
+  assertEqual(r.guidance, "reduce_modify", "guidance still reduce_modify");
+});
+
+test("a single severe factor on one axis alone never reaches poorly_tolerated (it is unreachable in v1)", () => {
+  const severeMorningPainOnly = evaluateTolerance(base({ peakSessionPain: 0, nextMorningPain: 10, nextMorningStiffness: 0 }));
+  const severeStiffnessOnly = evaluateTolerance(
+    base({ peakSessionPain: 0, nextMorningPain: 0, nextMorningStiffness: 10, stiffnessDuration: "gt_30_min" })
+  );
+  assertEqual(severeMorningPainOnly.classification, "caution", "severe morning pain alone stays caution");
+  assertEqual(severeStiffnessOnly.classification, "caution", "severe prolonged stiffness alone stays caution");
 });
 
 // --- External loading is observation only, never modifies classification ---

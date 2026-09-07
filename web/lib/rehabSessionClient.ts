@@ -14,6 +14,7 @@ import type {
   SessionEventType,
 } from "./rehabSessionTypes";
 import type { MorningResponseRecord } from "./morningResponseTypes";
+import type { ExternalLoadSelection } from "./sessionLoadObservations";
 
 export type ApiError = Error & {
   missing?: string[];
@@ -88,6 +89,11 @@ export async function submitExercisesComplete(
 export type ResponseCheckpoint = Partial<{
   peakSessionPain: number;
   difficulty: Difficulty;
+  // M3-provenance external-load exposure observation (founder-acceptance
+  // patch) — written to session_load_observations, not a rehab_sessions
+  // column. Kept separate from contributorReason, which is the patient's
+  // own causal attribution, a different concept entirely.
+  externalLoad: ExternalLoadSelection;
   contributorReason: ContributorReason;
   contributorExerciseId: string;
   contributorOtherText: string;

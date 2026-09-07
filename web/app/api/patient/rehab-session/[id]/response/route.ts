@@ -5,6 +5,7 @@ import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supab
 import { evaluateEscalation } from "@/lib/escalation";
 import { acuteAssessmentRequired, mapRehabSessionRow } from "@/lib/rehabSessionTypes";
 import { ensureMorningResponseExists } from "@/lib/morningResponseServer";
+import { EXTERNAL_LOAD_CATEGORIES, M3_TIMING_OPTIONS, type ExternalLoadCategory } from "@/lib/sessionLoadObservations";
 
 // Raw fields the patient may progressively submit. Deliberately excludes
 // escalation_level/escalation_reason/rule_version — those are never accepted
@@ -55,6 +56,49 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const { error: updateError } = await supabase.from("rehab_sessions").update(updates).eq("id", id);
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+  }
+
+  // M3-provenance external-load exposure observation (founder-acceptance
+  // patch) — a dedicated step in the response flow (ExternalLoadScreen),
+  // checkpointed like any other step field, but written to
+  // session_load_observations rather than a rehab_sessions column, via the
+  // service-role client so captured_during can never be spoofed from this
+  // request body. Optional/non-blocking: never added to `missing` below.
+  // Scoped strictly to captured_during='m3_session_response' so a retried
+  // checkpoint only ever replaces its own prior M3 rows, never M4's.
+  if (body.externalLoad && Array.isArray(body.externalLoad.categories) && body.externalLoad.categories.length > 0) {
+    const categories = body.externalLoad.categories as ExternalLoadCategory[];
+    const validCategories = categories.filter(
+      (c): c is ExternalLoadCategory => c === "none" || EXTERNAL_LOAD_CATEGORIES.includes(c)
+    );
+    const isExplicitNone = validCategories.length === 1 && validCategories[0] === "none";
+    const timing = body.externalLoad.timing;
+    const validTiming = !isExplicitNone && M3_TIMING_OPTIONS.includes(timing) ? timing : null;
+
+    if (validCategories.length > 0 && (isExplicitNone || validTiming)) {
+      const serviceClient = createServiceRoleClient();
+      const { error: deleteError } = await serviceClient
+        .from("session_load_observations")
+        .delete()
+        .eq("rehab_session_id", id)
+        .eq("captured_during", "m3_session_response");
+      if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 500 });
+
+      const rows = isExplicitNone
+        ? [{ category: "none" as const, timing: null }]
+        : validCategories.filter((c) => c !== "none").map((category) => ({ category, timing: validTiming }));
+
+      const { error: insertError } = await serviceClient.from("session_load_observations").insert(
+        rows.map((r) => ({
+          rehab_session_id: id,
+          user_id: user.id,
+          category: r.category,
+          timing: r.timing,
+          captured_during: "m3_session_response",
+        }))
+      );
+      if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
+    }
   }
 
   if (!body.finalize) {
