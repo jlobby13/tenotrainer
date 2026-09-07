@@ -1,8 +1,15 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-// Public paths that don't require authentication
-const PUBLIC_PATHS = ["/login", "/register", "/auth", "/invite", "/api/auth/validate-bridge"];
+// Public paths that don't require authentication. "/api/internal" is the
+// server-to-server namespace (FastAPI -> Next.js, matching the existing
+// /api/auth/validate-bridge pattern) — every route under it authenticates
+// via its own BRIDGE_SECRET check instead of a Supabase session cookie, so
+// it must be exempted here or this middleware rejects it before that check
+// ever runs. See web/app/api/internal/prescription-versions/route.ts
+// (found via M5 Stage 1 founder-acceptance live verification: the route's
+// own auth check was correct but unreachable without this exemption).
+const PUBLIC_PATHS = ["/login", "/register", "/auth", "/invite", "/api/auth/validate-bridge", "/api/internal"];
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });

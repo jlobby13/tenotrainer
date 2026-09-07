@@ -19,6 +19,7 @@ from typing import Optional
 
 import aiosqlite
 import bcrypt as _bcrypt
+import httpx
 from fastapi import Cookie, FastAPI, Form, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -1641,6 +1642,14 @@ async def onboarding_post(
     finally:
         await db.close()
 
+    # M5 Stage 1: the explicit prescription-creation event for this
+    # onboarding — fired only after the legacy rehab_plans row above is
+    # durably committed. See _sync_onboarding_prescription_version's
+    # docstring for the non-blocking/best-effort contract.
+    await _sync_onboarding_prescription_version(
+        user, classification.stage, classification.irritability, _is_insertional_onb, plan_id
+    )
+
     return templates.TemplateResponse(
         request, "plan.html",
         context={
@@ -1973,6 +1982,58 @@ def _require_bridge(request: Request) -> bool:
     return bool(bridge_secret) and auth == f"Bearer {bridge_secret}"
 
 
+async def _sync_onboarding_prescription_version(
+    user: dict, stage: int, irritability: str, is_insertional: bool, legacy_plan_id: Optional[int]
+) -> None:
+    """Milestone 5, Stage 1: fire the explicit prescription-creation event
+    for the immutable Postgres prescription_versions table, right after the
+    legacy rehab_plans row this call mirrors has been durably committed.
+
+    Best-effort, non-blocking: onboarding must never fail because of this
+    system's own outage (see the M5 Stage 1 report's cross-system-risk
+    note). A failure here is NOT silently lost — a patient who reaches
+    session creation with no prescription_versions row gets an explicit
+    PRESCRIPTION_VERSION_REQUIRED error there (never a fabricated one), and
+    the legacy-bootstrap script (web/scripts/bootstrapPrescriptionVersions.ts)
+    is a safe, idempotent catch-up path for exactly this failure mode — it
+    only creates a row for a patient who doesn't already have one.
+
+    Prefers the FastAPI-side users.supabase_id (already cached from a prior
+    SSO-bridge login — see the bridge-login handler that sets it) over
+    email, so the receiving endpoint doesn't need to fall back to a
+    listUsers scan when it's already known.
+    """
+    bridge_secret = os.environ.get("BRIDGE_SECRET", "")
+    email = user.get("email")
+    if not bridge_secret or not email or legacy_plan_id is None:
+        logger.info("Skipping onboarding prescription-version sync: no email on this account (guest user).")
+        return
+
+    nextjs_url = os.environ.get("NEXTJS_URL", "http://localhost:3000")
+    payload = {
+        "supabaseId": user.get("supabase_id") or None,
+        "email": email,
+        "stage": stage,
+        "irritability": irritability,
+        "isInsertional": is_insertional,
+        "legacyPlanId": legacy_plan_id,
+        "source": "onboarding",
+    }
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.post(
+                f"{nextjs_url}/api/internal/prescription-versions",
+                json=payload,
+                headers={"Authorization": f"Bearer {bridge_secret}"},
+            )
+            if resp.status_code >= 400:
+                logger.error(
+                    "Onboarding prescription-version sync failed (%s): %s", resp.status_code, resp.text
+                )
+    except Exception as exc:  # noqa: BLE001 — deliberately broad: never let this block onboarding
+        logger.error("Onboarding prescription-version sync raised: %s", exc)
+
+
 async def _get_previous_performance(user_id: int, ex_ids: list, db) -> dict:
     """Read-only lookup of the most recent factual performance per exercise
     from daily_logs.exercise_log. No clinical interpretation, no rule-engine
@@ -2096,6 +2157,64 @@ async def patient_summary_api(request: Request, email: str = ""):
         "today_logged": today_logged,
         "recent_logs": recent_logs,
         "previous_performance": previous_performance,
+    })
+
+
+# ---------------------------------------------------------------------------
+# GET /api/internal/prescription-state
+# ---------------------------------------------------------------------------
+
+@app.get("/api/internal/prescription-state")
+async def prescription_state_api(request: Request, email: str = ""):
+    """BRIDGE_SECRET-protected: legacy clinical plan-state for ONE patient,
+    consumed by Milestone 5 Stage 1's legacy-bootstrap script
+    (web/scripts/bootstrapPrescriptionVersions.ts) to create that patient's
+    immutable Postgres prescription_versions row.
+
+    Returns only facts that can actually be known today: stage/irritability
+    (rehab_plans, most recent row) and is_insertional (derived from
+    onboarding_assessments.risk_factors, same derivation
+    _get_user_rehab_state already uses for the live dashboard/session-plan
+    path — never re-invented here). Does NOT return exercises/rationale/
+    citations/ai_explanation — those are display/provenance fields the M5
+    Stage 1 architecture inspection found are never consumed outside the
+    legacy FastAPI HTML pages, and are out of scope for prescription
+    identity. See specs/roadmap.md.
+    """
+    if not _require_bridge(request):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    if not email:
+        return JSONResponse({"error": "email required"}, status_code=400)
+
+    db = await get_db()
+    try:
+        cursor = await db.execute("SELECT * FROM users WHERE email = ?", (email.lower().strip(),))
+        row = await cursor.fetchone()
+        if not row:
+            return JSONResponse({"error": "User not found"}, status_code=404)
+        user = row_to_dict(row)
+
+        rehab_state = await _get_user_rehab_state(user, db)
+
+        cursor = await db.execute(
+            "SELECT id, created_at FROM rehab_plans WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
+            (user["id"],),
+        )
+        plan_row = await cursor.fetchone()
+    finally:
+        await db.close()
+
+    if not plan_row:
+        return JSONResponse({"has_plan": False})
+
+    return JSONResponse({
+        "has_plan": True,
+        "supabase_id": user.get("supabase_id") or None,
+        "plan_id": plan_row[0],
+        "plan_created_at": plan_row[1],
+        "stage": rehab_state.get("current_stage"),
+        "irritability": rehab_state.get("current_irritability"),
+        "is_insertional": rehab_state.get("is_insertional", False),
     })
 
 

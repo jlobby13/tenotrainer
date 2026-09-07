@@ -52,6 +52,20 @@ export async function POST(request: NextRequest) {
         { status: 409 }
       );
     }
+    if (error.message === "PRESCRIPTION_VERSION_REQUIRED") {
+      // M5 Stage 1 LOCKED invariant: the RPC never creates a prescription
+      // version opportunistically. A patient reaching session creation with
+      // no version on file at all is a data-integrity/configuration
+      // failure (missed onboarding sync, missed legacy bootstrap) — surface
+      // it explicitly rather than silently inventing clinical state.
+      return NextResponse.json(
+        {
+          error: "No prescription version on file for this patient",
+          code: "PRESCRIPTION_VERSION_REQUIRED",
+        },
+        { status: 409 }
+      );
+    }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 

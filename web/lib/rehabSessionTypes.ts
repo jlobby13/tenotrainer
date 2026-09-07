@@ -46,6 +46,12 @@ export type RehabSessionRecord = {
   id: string;
   userId: string;
   planId: string | null;
+  // Immutable prescription-version identity (M5 Stage 1). NULL means
+  // legacy/unresolved (a session created before Stage 1) — never treat NULL
+  // as "same as the current version." See
+  // supabase/migrations/20260909000002_m5_stage1_session_prescription_version_link.sql
+  // and web/lib/guidance.ts.
+  prescriptionVersionId: string | null;
   prescriptionInstanceId: string;
   patientLocalDate: string; // YYYY-MM-DD
   status: SessionStatus;
@@ -137,6 +143,7 @@ export function mapRehabSessionRow(row: Record<string, unknown>): RehabSessionRe
     id: row.id as string,
     userId: row.user_id as string,
     planId: (row.plan_id as string | null) ?? null,
+    prescriptionVersionId: (row.prescription_version_id as string | null) ?? null,
     prescriptionInstanceId: row.prescription_instance_id as string,
     patientLocalDate: row.patient_local_date as string,
     status: row.status as SessionStatus,
