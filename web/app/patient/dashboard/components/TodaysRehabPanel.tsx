@@ -43,6 +43,7 @@ export function TodaysRehabPanel({
   hasNoPlan,
   todayLogged,
   patientId,
+  ctaLabel,
 }: {
   currentPlan: PatientSummary["current_plan"];
   sessionPlan: PatientSummary["session_plan"];
@@ -50,6 +51,12 @@ export function TodaysRehabPanel({
   hasNoPlan: boolean;
   todayLogged: boolean;
   patientId: string;
+  // Milestone 5, Stage 2 — overrides the default "Start Today's Rehab" CTA
+  // text. Set by the caller from computeTodaysRehabFeedback()'s
+  // ctaLabelOverride (e.g. "Continue to Today's Rehab" for an active,
+  // non-demoted reduce_modify state) — see the Stage 2 brief's Section 3D.
+  // Never changes what the button does, only its wording.
+  ctaLabel?: string | null;
 }) {
   if (!hasOnboarding) {
     return (
@@ -126,7 +133,7 @@ export function TodaysRehabPanel({
           href="/patient/session"
           className="block w-full text-center px-4 py-3.5 bg-brand-600 text-white text-base font-semibold rounded-lg hover:bg-brand-700 transition-colors"
         >
-          Start Today&apos;s Rehab
+          {ctaLabel || "Start Today's Rehab"}
         </Link>
       </div>
     </ResumeSessionBanner>

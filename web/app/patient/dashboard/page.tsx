@@ -3,8 +3,10 @@ import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getSessionInfo } from "@/lib/auth";
 import { getPatientSummary, type PatientSummary } from "@/lib/fastapi";
+import { getTodaysRehabFeedback } from "@/lib/todaysRehabFeedbackServer";
 import { TodaysRehabPanel } from "./components/TodaysRehabPanel";
 import { MorningResponsePendingNotice } from "./components/MorningResponsePendingNotice";
+import { RecentResponseFeedback } from "./components/RecentResponseFeedback";
 import { DashboardTimeline } from "./components/DashboardTimeline";
 import { TimezoneInitializer } from "./components/TimezoneInitializer";
 import { PreviousSessionSummary } from "./components/PreviousSessionSummary";
@@ -66,6 +68,13 @@ export default async function PatientDashboardPage() {
     }
   }
 
+  // Milestone 5, Stage 2 — derived from immutable Stage 1 facts only; see
+  // web/lib/todaysRehabFeedbackServer.ts. Fetched once here so both the
+  // feedback card and TodaysRehabPanel's CTA label share a single source of
+  // truth rather than each re-deriving it.
+  const feedback = summary ? await getTodaysRehabFeedback(authUser.id) : { kind: "none" as const };
+  const ctaLabel = feedback.kind === "response" ? feedback.ctaLabelOverride : null;
+
   return (
     <div className="min-h-screen bg-gray-50">
       <TimezoneInitializer />
@@ -110,6 +119,7 @@ export default async function PatientDashboardPage() {
                     is never hidden by today's rehab moving forward. */}
                 <MorningResponsePendingNotice />
                 <DashboardTimeline />
+                <RecentResponseFeedback feedback={feedback} />
                 <TodaysRehabPanel
                   currentPlan={summary.current_plan}
                   sessionPlan={summary.session_plan}
@@ -117,6 +127,7 @@ export default async function PatientDashboardPage() {
                   hasNoPlan={!summary.has_plan}
                   todayLogged={summary.today_logged}
                   patientId={String(summary.user.id)}
+                  ctaLabel={ctaLabel}
                 />
               </>
             )}
