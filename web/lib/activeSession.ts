@@ -22,7 +22,7 @@ export const SESSION_SCHEMA_VERSION = 2 as const;
 
 export type ExerciseExecutionStatus = "not_started" | "in_progress" | "completed" | "skipped";
 
-export type ProblemType = "equipment" | "too_difficult" | "pain_limiting" | "other";
+export type ProblemType = "equipment" | "too_difficult" | "pain_limiting" | "other" | "pop_reported";
 
 export type EarlyEndReason =
   | "finished_what_i_could"
@@ -159,6 +159,14 @@ export function hasPainLimitingReport(state: ActiveSessionState): boolean {
   return state.exerciseStates.some((ex) => ex.problemReports.some((r) => r.type === "pain_limiting"));
 }
 
+// A reported pop is an immediate Level-5 trigger (Milestone 3). Detected the
+// same way as hasPainLimitingReport — no new session-level status is needed;
+// SessionPlayer checks this to short-circuit straight to the M3 hand-off
+// with the Level-5 safety screen shown first.
+export function hasPopReport(state: ActiveSessionState): boolean {
+  return state.exerciseStates.some((ex) => ex.problemReports.some((r) => r.type === "pop_reported"));
+}
+
 export function isSessionFinished(state: ActiveSessionState): boolean {
   return state.status === "completed_exercises" || state.status === "ended_early";
 }
@@ -206,6 +214,15 @@ export function getExerciseDotStates(session: ActiveSessionState): DotState[] {
 
 export function computePrescriptionInstanceKey(planId: string | null): string {
   return `${planId ?? "no-plan"}:${new Date().toDateString()}`;
+}
+
+// Shared "today, in the browser's local calendar" date string ("YYYY-MM-DD")
+// — used wherever a patient_local_date needs computing client-side (session
+// creation, M3 finalize). Kept in one place rather than duplicated per call
+// site.
+export function todayLocalDateString(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
 function genId(): string {

@@ -29,6 +29,7 @@
   'stay':    {'label': 'STAY',    'icon': '→', 'hdr': 'bg-blue-600',   'bg': 'bg-blue-50',   'border': 'border-blue-300',   'title': 'text-blue-800',   'sub': 'text-blue-700'},
   'caution': {'label': 'CAUTION', 'icon': '⚠', 'hdr': 'bg-yellow-500', 'bg': 'bg-yellow-50', 'border': 'border-yellow-400', 'title': 'text-yellow-800', 'sub': 'text-yellow-700'},
   'stop':    {'label': 'STOP',    'icon': '✕', 'hdr': 'bg-red-600',    'bg': 'bg-red-50',    'border': 'border-red-400',    'title': 'text-red-800',    'sub': 'text-red-700'},
+  'insufficient_data': {'label': 'PENDING', 'icon': '…', 'hdr': 'bg-gray-500', 'bg': 'bg-gray-50', 'border': 'border-gray-300', 'title': 'text-gray-700', 'sub': 'text-gray-600'},
 } %}
 {% set sc = sig_cfg[session_tolerance.signal] %}
 
@@ -40,8 +41,13 @@
 {% set bar_color = 'bg-yellow-400' if dose_pct > 120 else ('bg-red-400' if dose_pct < 80 else 'bg-green-400') %}
 
 {# ── Symptom delta values ── #}
-{% set pain_change  = session_report.symptoms.nextMorningPain - session_report.baseline.usualMorningPain %}
-{% set stiff_change = session_report.symptoms.nextMorningStiffness - session_report.baseline.usualMorningStiffness %}
+{# nextMorningPain/nextMorningStiffness are not collected on this form — they
+   are None until the next-morning follow-up completes. UNKNOWN != ZERO: the
+   delta stays undefined (none), never computed against a fabricated 0. #}
+{% set pain_change  = (session_report.symptoms.nextMorningPain - session_report.baseline.usualMorningPain)
+     if (session_report.symptoms.nextMorningPain is not none and session_report.baseline.usualMorningPain is not none) else none %}
+{% set stiff_change = (session_report.symptoms.nextMorningStiffness - session_report.baseline.usualMorningStiffness)
+     if (session_report.symptoms.nextMorningStiffness is not none and session_report.baseline.usualMorningStiffness is not none) else none %}
 
 <div class="space-y-4 mb-6">
 
@@ -76,6 +82,7 @@
           {% if session_tolerance.signal == 'go' %}Well Tolerated
           {% elif session_tolerance.signal == 'stay' %}Acceptable Response
           {% elif session_tolerance.signal == 'caution' %}Caution — Modify Next Session
+          {% elif session_tolerance.signal == 'insufficient_data' %}Recorded — Awaiting Next-Morning Check-In
           {% else %}Stop — Safety Threshold Breached{% endif %}
         </h2>
       </div>
@@ -104,18 +111,32 @@
       {# Symptom pills #}
       <div class="flex flex-wrap gap-2 items-center">
         {% macro pain_pill(label, val) %}
+          {% if val is not none %}
           {% set c = 'bg-red-100 text-red-700' if val >= 6 else ('bg-yellow-100 text-yellow-700' if val >= 4 else 'bg-green-100 text-green-700') %}
           <div class="flex items-center gap-1 px-2 py-1 rounded-lg text-xs {{ c }}">
             <span class="text-gray-500 font-normal">{{ label }}</span>
             <span class="font-bold">{{ val }}/10</span>
           </div>
+          {% else %}
+          <div class="flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-gray-100 text-gray-500">
+            <span class="text-gray-500 font-normal">{{ label }}</span>
+            <span class="font-bold">Not yet available</span>
+          </div>
+          {% endif %}
         {% endmacro %}
         {% macro delta_pill(label, val) %}
+          {% if val is not none %}
           {% set c = 'bg-red-100 text-red-700' if val >= 2 else ('bg-yellow-100 text-yellow-700' if val >= 1 else 'bg-green-100 text-green-700') %}
           <div class="flex items-center gap-1 px-2 py-1 rounded-lg text-xs {{ c }}">
             <span class="text-gray-500 font-normal">{{ label }}</span>
             <span class="font-bold">{{ '+' if val > 0 else '' }}{{ val }}</span>
           </div>
+          {% else %}
+          <div class="flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-gray-100 text-gray-500">
+            <span class="text-gray-500 font-normal">{{ label }}</span>
+            <span class="font-bold">Not yet available</span>
+          </div>
+          {% endif %}
         {% endmacro %}
         {{ pain_pill('During', session_report.symptoms.painDuring) }}
         {{ pain_pill('After', session_report.symptoms.painAfter) }}

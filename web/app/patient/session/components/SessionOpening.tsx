@@ -8,10 +8,12 @@ export function SessionOpening({
   sessionPlan,
   reminderAlreadyDismissed,
   onBegin,
+  beginPending = false,
 }: {
   sessionPlan: SessionExercise[];
   reminderAlreadyDismissed: boolean;
   onBegin: (dismissReminder: boolean) => void;
+  beginPending?: boolean;
 }) {
   // Ephemeral — only committed to a preference when the patient proceeds.
   const [dismissChecked, setDismissChecked] = useState(false);
@@ -55,10 +57,11 @@ export function SessionOpening({
 
       <button
         type="button"
+        disabled={beginPending}
         onClick={() => onBegin(dismissChecked)}
-        className="mt-6 w-full px-4 py-3.5 bg-brand-600 text-white text-base font-semibold rounded-lg"
+        className="mt-6 w-full px-4 py-3.5 bg-brand-600 text-white text-base font-semibold rounded-lg disabled:opacity-60"
       >
-        Begin Session
+        {beginPending ? "Starting…" : "Begin Session"}
       </button>
     </div>
   );

@@ -15,7 +15,7 @@
       <h1 class="text-2xl font-black text-white leading-tight">Dashboard</h1>
       <p class="text-sm text-brand-200 mt-0.5">Your rehab overview — track progress, pain trends, and your next session plan.</p>
     </div>
-    <a id="btn-track-hero" href="/daily-log" onclick="checkDailyLogAllowed(event)"
+    <a id="btn-track-hero" href="{{ nextjs_session_url }}"
        class="shrink-0 px-4 py-2 bg-white/20 text-white text-sm font-bold rounded-xl hover:bg-white/30 transition-colors border border-white/20 whitespace-nowrap">
       + Track Session
     </a>
@@ -1071,7 +1071,7 @@
     {# Footer CTA #}
     <div class="px-5 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
       <p class="text-xs text-gray-500">Log today's session to update your plan based on your response.</p>
-      <a id="btn-track-plan" href="/daily-log" onclick="checkDailyLogAllowed(event)"
+      <a id="btn-track-plan" href="{{ nextjs_session_url }}"
          class="text-xs px-4 py-2 bg-brand-600 text-white font-semibold rounded-lg hover:bg-brand-700 transition-colors shadow-sm">
         Track Session →
       </a>
@@ -1321,7 +1321,7 @@
       <p class="text-[0.6875rem] text-gray-400 mt-0.5" id="logs-subtitle">{{ recent_logs|length }} session{{ 's' if recent_logs|length != 1 else '' }}</p>
     </div>
     <div class="flex items-center gap-2 shrink-0">
-      <a id="btn-log-recent" href="/daily-log" onclick="checkDailyLogAllowed(event); event.stopPropagation();"
+      <a id="btn-log-recent" href="{{ nextjs_session_url }}" onclick="event.stopPropagation();"
          class="px-3 py-1.5 bg-brand-600 text-white text-xs font-semibold rounded-lg hover:bg-brand-700 transition-colors shadow-sm">
         + Log Session
       </a>
@@ -1559,7 +1559,7 @@
 
 <!-- Quick actions -->
 <div class="flex flex-wrap gap-3">
-  <a href="/daily-log" onclick="checkDailyLogAllowed(event)" class="px-5 py-2 bg-brand-600 text-white rounded-lg text-sm font-semibold hover:bg-brand-700 transition-colors">
+  <a href="{{ nextjs_session_url }}" class="px-5 py-2 bg-brand-600 text-white rounded-lg text-sm font-semibold hover:bg-brand-700 transition-colors">
     Log Today's Session
   </a>
   <a href="/onboarding" class="px-5 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 transition-colors">
@@ -2221,9 +2221,11 @@ function _updateLogButtons(allowed) {
     var btn = document.getElementById(id);
     if (!btn) return;
     if (allowed) {
-      // Restore normal state (preserve already-logged check)
-      btn.href = '/daily-log';
-      btn.onclick = TODAY_LOGGED ? checkDailyLogAllowed : null;
+      // Restore normal state — canonical Next.js session experience.
+      // (M4 Stage 3: no longer /daily-log, and no legacy already-logged
+      // check — the Next.js session route enforces its own, current gating.)
+      btn.href = '{{ nextjs_session_url }}';
+      btn.onclick = null;
       btn.removeAttribute('title');
       btn.style.opacity = '';
       btn.style.cursor = '';

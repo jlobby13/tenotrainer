@@ -153,17 +153,31 @@ def check_red_flags(red_flags: list[str], notes: str = "") -> tuple[bool, list[s
 # ---------------------------------------------------------------------------
 
 def classify_irritability(
-    pain_with_activity: int,
-    pain_after_activity: int,
-    next_day_pain: int,
+    pain_with_activity: Optional[int],
+    pain_after_activity: Optional[int],
+    next_day_pain: Optional[int],
 ) -> str:
     """
-    Classify irritability from the worst pain score across contexts.
+    Classify irritability from the worst KNOWN pain score across contexts.
     High  : worst pain ≥ 6
     Moderate: worst pain 3–5
     Low   : worst pain ≤ 2
+
+    Any argument may be None (not yet collected — e.g. next_day_pain before
+    its follow-up check-in completes). UNKNOWN != ZERO: a missing value is
+    excluded from the max(), never treated as 0/no-pain. This makes the
+    result a "worst-so-far, from what's known" classification rather than a
+    final one — callers that later obtain the missing value(s) should
+    re-classify (see followup_post's post-completion re-evaluation).
     """
-    worst = max(pain_with_activity, pain_after_activity, next_day_pain)
+    known = [v for v in (pain_with_activity, pain_after_activity, next_day_pain) if v is not None]
+    if not known:
+        # Both call sites always supply pain_with_activity/pain_during — this
+        # is a programming error, not a legitimate "all unknown" clinical
+        # state, so it fails loudly rather than fabricating a favorable
+        # (LOW) classification from zero real information.
+        raise ValueError("classify_irritability requires at least one known pain value")
+    worst = max(known)
     if worst >= 6:
         return Irritability.HIGH
     elif worst >= 3:
@@ -401,13 +415,18 @@ def run_decision_engine(
             can_progress_stage=False,
         )
 
-    # Compute max pain from most recent log
+    # Compute max pain from most recent log, from KNOWN values only.
+    # pain_after/next_day_pain are commonly still None here (not yet
+    # collected via follow-up) — excluding them (never treating missing as
+    # 0) keeps the STOP/CAUTION safety checks below correctly conservative:
+    # they still fire eagerly on whatever pain IS already known, same as
+    # before, without silently masking a real value behind a fabricated 0.
     latest = recent_logs[-1]
-    worst_recent_pain = max(
-        latest.get("pain_during", 0),
-        latest.get("pain_after", 0),
-        latest.get("next_day_pain", 0),
-    )
+    _latest_known_pain = [
+        v for v in (latest.get("pain_during"), latest.get("pain_after"), latest.get("next_day_pain"))
+        if v is not None
+    ]
+    worst_recent_pain = max(_latest_known_pain) if _latest_known_pain else 0
 
     # Check for STOP condition first
     if worst_recent_pain >= 6:
@@ -467,6 +486,26 @@ def run_decision_engine(
                 "Maintain current stage and dosing for at least 2 further sessions to confirm tolerance."
             ),
             override_applied="loading_context_change",
+            can_progress_stage=False,
+        )
+
+    # Below caution on KNOWN data — but stage progression (GO) must not be
+    # granted while the most recent session's delayed response (pain_after /
+    # next_day_pain) is still unknown: a real, not-yet-collected value could
+    # still turn out to warrant CAUTION/STOP once it arrives. This defers
+    # only the progression assessment (same STAY outcome the "no logs yet"
+    # branch above already uses for insufficient data) — it does not change
+    # the STOP/CAUTION safety checks above, which already fired eagerly on
+    # whatever pain was known.
+    if latest.get("pain_after") is None or latest.get("next_day_pain") is None:
+        return ProgressionAssessment(
+            decision=Decision.STAY,
+            current_stage=current_stage,
+            proposed_stage=current_stage,
+            rationale=(
+                "The most recent session's next-morning response has not been collected yet. "
+                "Progression cannot be assessed until that follow-up is complete."
+            ),
             can_progress_stage=False,
         )
 
@@ -575,12 +614,24 @@ def _check_pain_trend(logs: list[dict]) -> bool:
     """
     Returns True if pain is trending downward over the last N logs.
     Uses simple comparison: average of first half vs second half.
+
+    A log whose delayed response (pain_after/next_day_pain) was never
+    collected is excluded entirely rather than scored with a fabricated 0 —
+    a missing value would otherwise artificially lower that log's "worst
+    pain" and could make the trend look more favorable than the data
+    actually supports.
     """
-    if len(logs) < 2:
+    complete_logs = [
+        log for log in logs
+        if log.get("pain_during") is not None
+        and log.get("pain_after") is not None
+        and log.get("next_day_pain") is not None
+    ]
+    if len(complete_logs) < 2:
         return False
     scores = [
-        max(log.get("pain_during", 0), log.get("pain_after", 0), log.get("next_day_pain", 0))
-        for log in logs
+        max(log["pain_during"], log["pain_after"], log["next_day_pain"])
+        for log in complete_logs
     ]
     mid = len(scores) // 2
     first_half_avg = sum(scores[:mid]) / max(1, mid)
@@ -594,10 +645,17 @@ def _check_pain_trend(logs: list[dict]) -> bool:
 
 def update_irritability_from_log(
     pain_during: int,
-    pain_after: int,
-    next_day_pain: int,
+    pain_after: Optional[int],
+    next_day_pain: Optional[int],
 ) -> str:
-    """Re-classify irritability from a single daily log entry."""
+    """
+    Re-classify irritability from a single daily log entry.
+
+    pain_after/next_day_pain are commonly still None at initial log
+    submission (they're collected later via follow-up check-ins) — this
+    yields a worst-known-so-far classification, not a final one. See
+    classify_irritability's docstring.
+    """
     return classify_irritability(pain_during, pain_after, next_day_pain)
 
 
@@ -692,8 +750,27 @@ def evaluate_session_tolerance(report: dict) -> dict:
     # Derived variables — computed once, used directly in all rule conditions
     prescribed_sets = prescribed.get("sets", 1) or 1
     dose_match = completed.get("sets", 0) / prescribed_sets
-    next_morning_pain_change = symptoms.get("nextMorningPain", 0) - baseline.get("usualMorningPain", 0)
-    next_morning_stiffness_change = symptoms.get("nextMorningStiffness", 0) - baseline.get("usualMorningStiffness", 0)
+
+    # nextMorningPain/nextMorningStiffness are commonly still unanswered at
+    # the moment a session is first logged (they're collected via a
+    # next-morning follow-up, not on this same form) — None, not 0.
+    # UNKNOWN != ZERO: the "change from baseline" is itself unknown (not
+    # zero-change) whenever either side of the subtraction is unknown, so it
+    # stays None rather than silently computing against a fabricated 0.
+    _next_morning_pain = symptoms.get("nextMorningPain")
+    _usual_morning_pain = baseline.get("usualMorningPain")
+    next_morning_pain_change = (
+        _next_morning_pain - _usual_morning_pain
+        if _next_morning_pain is not None and _usual_morning_pain is not None
+        else None
+    )
+    _next_morning_stiffness = symptoms.get("nextMorningStiffness")
+    _usual_morning_stiffness = baseline.get("usualMorningStiffness")
+    next_morning_stiffness_change = (
+        _next_morning_stiffness - _usual_morning_stiffness
+        if _next_morning_stiffness is not None and _usual_morning_stiffness is not None
+        else None
+    )
     overdosed  = dose_match > 1.2
     underdosed = dose_match < 0.8
 
@@ -729,7 +806,7 @@ def evaluate_session_tolerance(report: dict) -> dict:
             "action": "Rest and apply ice. Do not load until swelling has resolved. Seek review if swelling persists.",
         }
 
-    if next_morning_pain_change >= 4:
+    if next_morning_pain_change is not None and next_morning_pain_change >= 4:
         return {
             "signal": "stop",
             "reason": (
@@ -752,7 +829,7 @@ def evaluate_session_tolerance(report: dict) -> dict:
             "action": "Reduce load by 20% next session. Do not increase volume or intensity until pain during exercise is consistently within the allowed limit.",
         }
 
-    if next_morning_pain_change >= 2:
+    if next_morning_pain_change is not None and next_morning_pain_change >= 2:
         return {
             "signal": "caution",
             "reason": (
@@ -762,7 +839,7 @@ def evaluate_session_tolerance(report: dict) -> dict:
             "action": "Repeat session at current or reduced load. Monitor next-morning response before progressing.",
         }
 
-    if next_morning_stiffness_change >= 2:
+    if next_morning_stiffness_change is not None and next_morning_stiffness_change >= 2:
         return {
             "signal": "caution",
             "reason": (
@@ -792,12 +869,16 @@ def evaluate_session_tolerance(report: dict) -> dict:
             "action": "Return to the prescribed dose next session. Do not exceed the prescription — tendon adaptation requires consistent, controlled loading.",
         }
 
-    # --- GO — all five conditions must be true ---
+    # --- GO — all five conditions must be true, and next-morning response
+    # must actually be KNOWN. A missing next-morning value must never let
+    # this fall through to the most favorable ("well-tolerated") signal. ---
 
     if (
         dose_match >= 0.9
         and symptoms.get("painDuring", 0) <= allowed_pain
+        and next_morning_pain_change is not None
         and next_morning_pain_change <= 1
+        and next_morning_stiffness_change is not None
         and next_morning_stiffness_change <= 1
         and not symptoms.get("swellingIncrease")
     ):
@@ -809,6 +890,23 @@ def evaluate_session_tolerance(report: dict) -> dict:
                 "Next morning pain and stiffness were within 1 point of baseline."
             ),
             "action": "Proceed with next session as prescribed. Progress load according to plan if all sessions remain consistent.",
+        }
+
+    # --- INSUFFICIENT DATA — no same-day red flag fired above, but the
+    # next-morning response needed to finish this assessment (or rule out
+    # GO/CAUTION/STOP thresholds that depend on it) hasn't been collected
+    # yet. Distinct from STAY: STAY below means the response IS fully known
+    # and simply isn't optimal; this means it isn't known at all yet. Never
+    # collapses into a favorable or unfavorable verdict from missing data. ---
+
+    if next_morning_pain_change is None or next_morning_stiffness_change is None:
+        return {
+            "signal": "insufficient_data",
+            "reason": (
+                "Same-day response reviewed with no safety concerns, but next-morning pain and stiffness "
+                "have not been collected yet — the full tolerance assessment is not yet possible."
+            ),
+            "action": "Complete the next-morning check-in to finish this session's tolerance assessment.",
         }
 
     # --- STAY (default) ---
@@ -1039,7 +1137,7 @@ def filter_exercises_by_state(
 
 def evaluate_exercise_progression(
     current_exercise: dict,
-    session_signal: str,        # "go" | "stay" | "caution" | "stop"
+    session_signal: str,        # "go" | "stay" | "caution" | "stop" | "insufficient_data"
     irritability: str,
     insertional: bool,
     sessions_at_current: int,
@@ -1087,6 +1185,21 @@ def evaluate_exercise_progression(
                 f"{ex_name} requires {'moderate' if requires_df == 'moderate' else 'deep'} dorsiflexion, "
                 "which compresses the insertion of the Achilles tendon and is contraindicated for insertional "
                 "presentations. Regressing to a safer alternative."
+            ),
+        }
+
+    # ── INSUFFICIENT DATA → STAY, never fall through to GO/progress ──
+    # Without this explicit branch, an unrecognized session_signal value
+    # would silently fall through every check below straight into the GO
+    # path (nothing here defaults closed) — exactly the false-favorable-
+    # result this signal exists to prevent.
+    if session_signal == "insufficient_data":
+        return {
+            "decision":     ExerciseDecision.STAY,
+            "target_ex_id": ex_id,
+            "rationale": (
+                "Next-morning response for the most recent session has not been collected yet. "
+                "Deferring any progression decision until that data is available."
             ),
         }
 

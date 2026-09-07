@@ -4,6 +4,9 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getSessionInfo } from "@/lib/auth";
 import { getPatientSummary, type PatientSummary } from "@/lib/fastapi";
 import { TodaysRehabPanel } from "./components/TodaysRehabPanel";
+import { MorningResponsePendingNotice } from "./components/MorningResponsePendingNotice";
+import { DashboardTimeline } from "./components/DashboardTimeline";
+import { TimezoneInitializer } from "./components/TimezoneInitializer";
 import { PreviousSessionSummary } from "./components/PreviousSessionSummary";
 import { SecondaryLinks } from "./components/SecondaryLinks";
 
@@ -65,6 +68,7 @@ export default async function PatientDashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <TimezoneInitializer />
       <Nav email={authUser.email ?? ""} hasOrgMembership={hasOrgMembership} />
 
       <main className="max-w-6xl mx-auto px-4 py-8 lg:py-10">
@@ -100,14 +104,21 @@ export default async function PatientDashboardPage() {
             )}
 
             {summary && (
-              <TodaysRehabPanel
-                currentPlan={summary.current_plan}
-                sessionPlan={summary.session_plan}
-                hasOnboarding={summary.has_onboarding}
-                hasNoPlan={!summary.has_plan}
-                todayLogged={summary.today_logged}
-                patientId={String(summary.user.id)}
-              />
+              <>
+                {/* Date-independent: checked regardless of today's own
+                    agenda/prescription state, so a prior unresolved session
+                    is never hidden by today's rehab moving forward. */}
+                <MorningResponsePendingNotice />
+                <DashboardTimeline />
+                <TodaysRehabPanel
+                  currentPlan={summary.current_plan}
+                  sessionPlan={summary.session_plan}
+                  hasOnboarding={summary.has_onboarding}
+                  hasNoPlan={!summary.has_plan}
+                  todayLogged={summary.today_logged}
+                  patientId={String(summary.user.id)}
+                />
+              </>
             )}
           </div>
 

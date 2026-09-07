@@ -28,9 +28,12 @@ import {
   isSessionFinished,
   getSetDotStates,
   getExerciseDotStates,
+  todayLocalDateString,
 } from "@/lib/activeSession";
 import { previousPerformanceSummary, dosageSummary, restSeconds } from "@/lib/exerciseDisplay";
+import { createRehabSession, type ApiError } from "@/lib/rehabSessionClient";
 import { SessionOpening } from "./SessionOpening";
+import { MorningCheckInRequired } from "./MorningCheckInRequired";
 import { ResumePrompt } from "./ResumePrompt";
 import { ExerciseHeader } from "./ExerciseHeader";
 import { ExerciseGuidance } from "./ExerciseGuidance";
@@ -39,7 +42,7 @@ import { RestTimer } from "./RestTimer";
 import { ExerciseCompleteTransition } from "./ExerciseCompleteTransition";
 import { ReportProblemSheet } from "./ReportProblemSheet";
 import { EndSessionReasonPicker } from "./EndSessionReasonPicker";
-import { SessionHandoff } from "./SessionHandoff";
+import { SessionResponseFlow } from "./SessionResponseFlow";
 import { ProgressDots } from "./ProgressDots";
 
 export function SessionPlayer({
@@ -61,6 +64,12 @@ export function SessionPlayer({
   const [showRest, setShowRest] = useState(false);
   const [showReportSheet, setShowReportSheet] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
+  // M4 Stage 3: durable session creation is now the authoritative
+  // clinical-sequence boundary, not fire-and-forget. "idle" covers both the
+  // not-yet-attempted state and a fresh retry.
+  const [beginStatus, setBeginStatus] = useState<"idle" | "pending" | "required" | "error">("idle");
+  const [beginError, setBeginError] = useState<string | null>(null);
+  const [requiredRedirectTo, setRequiredRedirectTo] = useState("/patient/morning-response");
 
   // localStorage only exists client-side — check for a resumable/finished
   // session after mount. A finished session for a DIFFERENT prescription
@@ -79,10 +88,51 @@ export function SessionPlayer({
     saveSession(next);
   }
 
-  function handleBegin(dismissReminder: boolean) {
+  // M4 Stage 3: durable session creation now happens HERE, at the moment the
+  // patient actually chooses to begin — not retroactively at the M2->M3
+  // handoff (see createRehabSession's route/RPC for why that mattered). This
+  // is no longer fire-and-forget: Active Rehab must not start client-side
+  // until the server has authoritatively allowed it. A server rejection
+  // (an outstanding prior morning response, or any other failure) must
+  // never be silently bypassed by proceeding into a local-only session.
+  async function handleBegin(dismissReminder: boolean) {
     if (dismissReminder) setReminderDismissed(patientId);
-    persist(createSession({ patientId, planId, sessionPlan: initialSessionPlan }));
-    setResumeConfirmed(true);
+    setBeginStatus("pending");
+    setBeginError(null);
+
+    const candidate = createSession({ patientId, planId, sessionPlan: initialSessionPlan });
+
+    try {
+      await createRehabSession({
+        sessionInstanceId: candidate.sessionInstanceId,
+        planId: candidate.planId,
+        prescriptionInstanceId: candidate.prescriptionInstanceKey,
+        patientLocalDate: todayLocalDateString(),
+        startedAt: candidate.startedAt,
+        prescriptionSnapshot: candidate.prescriptionSnapshot.exercises.map((ex, i) => ({
+          ex_id: ex.exercise.ex_id,
+          name: ex.exercise.name,
+          category: ex.exercise.category,
+          loading_profile: ex.exercise.loading_profile,
+          order_index: i,
+          dosage: ex.dosage,
+        })),
+      });
+      // Only now, with server confirmation in hand, does the local session
+      // become real and Active Rehab begin.
+      persist(candidate);
+      setResumeConfirmed(true);
+      setBeginStatus("idle");
+    } catch (e) {
+      const err = e as ApiError;
+      if (err.code === "MORNING_RESPONSE_REQUIRED") {
+        setRequiredRedirectTo(err.redirectTo ?? "/patient/morning-response");
+        setBeginStatus("required");
+      } else {
+        setBeginError(err.message || "Something went wrong. Please try again.");
+        setBeginStatus("error");
+      }
+    }
   }
 
   function handleResume() {
@@ -151,6 +201,24 @@ export function SessionPlayer({
     setShowRest(false);
   }
 
+  function handlePopReported(exerciseIndex: number) {
+    // A pop is safety-critical: immediately stop normal exercise progression
+    // regardless of remaining sets/exercises, preserving everything completed/
+    // skipped/modified so far. Recording the report and completing the
+    // session must happen as ONE transformation of the same session snapshot
+    // — doing them as two separate persist() calls (report, then complete)
+    // raced against the stale `session` closure and silently dropped the pop
+    // report, since the second call's completeAllExercises(session) still
+    // read the pre-report state.
+    if (!session) return;
+    const reported = reportProblem(session, exerciseIndex, { type: "pop_reported" });
+    persist(completeAllExercises(reported));
+    setAwaitingNextExercise(false);
+    setShowReportSheet(false);
+    setShowRest(false);
+    setShowEndPicker(false);
+  }
+
   function handleEndSessionEarly(reason: EarlyEndReason) {
     if (!session) return;
     persist(endSessionEarly(session, reason));
@@ -163,26 +231,40 @@ export function SessionPlayer({
   }
 
   function handleDoneFromHandoff() {
-    // Deliberately does NOT clear the session — a finished session for today's
-    // prescription instance must persist so the dashboard keeps recognizing
-    // that today's prescribed session has already been executed.
+    // Deliberately does NOT clear the local session — a finished session for
+    // today's prescription instance must persist so the dashboard keeps
+    // recognizing that today's prescribed session has already been executed.
+    // The durable record of record is now the rehab_sessions row on the
+    // server; this local copy is only used for the same-day-already-done
+    // check in loadSession().
     router.push("/patient/dashboard");
   }
 
   if (!mounted) return null;
 
   if (!session) {
+    if (beginStatus === "required") {
+      return <MorningCheckInRequired redirectTo={requiredRedirectTo} />;
+    }
     return (
-      <SessionOpening
-        sessionPlan={initialSessionPlan}
-        reminderAlreadyDismissed={isReminderDismissed(patientId)}
-        onBegin={handleBegin}
-      />
+      <div>
+        <SessionOpening
+          sessionPlan={initialSessionPlan}
+          reminderAlreadyDismissed={isReminderDismissed(patientId)}
+          onBegin={handleBegin}
+          beginPending={beginStatus === "pending"}
+        />
+        {beginStatus === "error" && (
+          <div className="max-w-md mx-auto px-4 -mt-4">
+            <p className="text-sm text-red-600 text-center">{beginError}</p>
+          </div>
+        )}
+      </div>
     );
   }
 
   if (isSessionFinished(session)) {
-    return <SessionHandoff session={session} onDone={handleDoneFromHandoff} />;
+    return <SessionResponseFlow localSession={session} onDone={handleDoneFromHandoff} />;
   }
 
   if (!resumeConfirmed) {
@@ -251,7 +333,7 @@ export function SessionPlayer({
         </div>
       )}
 
-      <ExerciseGuidance exercise={exercise} />
+      <ExerciseGuidance key={exerciseIndex} exercise={exercise} />
 
       {showRest ? (
         <RestTimer prescribedRestSeconds={restSeconds(exercise.dosage)} onDone={() => setShowRest(false)} />
@@ -276,6 +358,7 @@ export function SessionPlayer({
           onSubmit={(report) => handleReport(exerciseIndex, report)}
           onClose={() => setShowReportSheet(false)}
           onSkipExercise={() => handleSkipExercise(exerciseIndex)}
+          onPopReported={() => handlePopReported(exerciseIndex)}
         />
       )}
 

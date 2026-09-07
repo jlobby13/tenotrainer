@@ -32,13 +32,43 @@ not perform.
   identifier that must replace Milestone 2's `prescriptionInstanceKey`
   stand-in (see `web/lib/activeSession.ts`) belongs here
 
-## Milestone 4 — Delayed Response
+## Blocking Before Milestone 4
 
-- Next-morning Achilles pain
-- Next-morning stiffness
-- Morning check-in / reminder
-- Missing-response handling
-- Delayed response completion workflow
+- **Legacy zero-default rule-engine cleanup — DONE**, with one open decision
+  below. Fixed: `daily_logs.pain_after`/`next_day_pain`/`morning_stiffness`
+  are now nullable (were `NOT NULL`, structurally forcing 0 for unanswered
+  delayed responses) with existing rows conservatively backfilled to NULL
+  wherever their follow-up was provably never completed; `daily_log_post`'s
+  INSERT and Form defaults no longer fabricate 0; `classify_irritability` /
+  `update_irritability_from_log` / `run_decision_engine` / `_check_pain_trend`
+  / `evaluate_session_tolerance` / `evaluate_exercise_progression` all treat
+  missing delayed-response data as genuinely unknown (never 0), and a new
+  `insufficient_data` signal prevents a favorable GO/PROGRESS result from
+  being fabricated out of incomplete data. `daily_log.html` updated to
+  render that state honestly instead of crashing or mislabeling it.
+
+  **Open product decision (not made here):** `run_decision_engine`'s stage-
+  progression assessment is only ever invoked from `daily_log_post`, at the
+  moment a session is first logged — the exact moment pain_after/next_day_pain
+  are, by construction, never yet known. With the zero-fabrication bug fixed,
+  that call now correctly always defers (STAY, "awaiting next-morning
+  follow-up") rather than progressing on fake data — but nothing currently
+  re-runs it once the follow-up actually completes (`followup_post` already
+  re-evaluates `irritability` alone post-completion; it does not re-invoke
+  `run_decision_engine`). Net effect: stage progression via this path is now
+  dormant rather than unsafe. Deciding whether/how to re-trigger it (e.g.
+  extending `followup_post`'s existing post-completion re-evaluation to also
+  call `run_decision_engine`) is a workflow decision for Milestone 4, not
+  something invented here.
+
+  **Resolved by retirement, not by decision.** Milestone 4 Stage 3 retired
+  the entire legacy `/daily-log` + `/daily-log/followup` FastAPI workflow
+  (both routes now redirect to the canonical Next.js experience before any
+  DB write). `followup_post` and `daily_log_post` are dead code paths as of
+  Stage 3, so this decision no longer needs making — the delayed-response
+  loop it was about now lives entirely in the Milestone 4 tolerance
+  evaluator (`web/lib/toleranceEvaluation.ts`), which re-evaluates on every
+  finalized morning response by construction.
 
 ## Later Phases — Uncommitted to a Milestone Yet
 
@@ -72,3 +102,40 @@ not perform.
 - **Milestone 1 — Today's Rehab Foundation**: merged `v9.3.5.5` (PR #6).
 - **Milestone 2 — Active Rehab Session**: merged `v9.3.5.6` (PR #7),
   including the founder-acceptance correction pass. Approved and closed.
+- **Milestone 4 — Morning Response**: `milestone-4-morning-response`.
+  Founder-approved and closed. All four stages complete:
+  - **Stage 1** — data + timing foundation: `morning_responses` and
+    `tolerance_evaluations` tables, `profiles.timezone`/
+    `morning_reminder_time`, the timezone-aware
+    `getScheduledMorningEligibility` utility (via `date-fns-tz`),
+    `ensureMorningResponseExists` (eager-creation + lazy-backfill,
+    freezing `scheduled_eligible_at` once a real timezone is known —
+    never fabricated as UTC), and `getOldestOutstandingMorningResponse`.
+  - **Stage 2** — morning check-in patient workflow: single-screen
+    `/patient/morning-response`, idempotent server-side finalize, a
+    "Previous Rehab Session" handoff snapshot, server-truth patient
+    timeline, and the native morning-reminder-time settings page.
+  - **Stage 3** — clinical sequence gate + legacy retirement: atomic
+    `create_rehab_session_if_allowed()` gate enforced at session start,
+    and full retirement of the legacy FastAPI `/daily-log` +
+    `/daily-log/followup` patient workflow (both now redirect to the
+    canonical Next.js experience before any DB write).
+  - **Stage 4** — morning response interpretation & contextual loading:
+    deterministic, versioned tolerance evaluator (`toleranceEvaluation.ts`,
+    rule version v1) closing the Rehab Session → Session Response →
+    Morning Response → interpretation → immediate loading-guidance loop,
+    plus the session-level `session_load_observations` external-loading
+    model.
+  - **Stage 4 founder-acceptance patch** — addressed all three
+    discretionary items flagged in founder clinical review (removed the
+    unapproved `poorly_tolerated` aggregation rule, documented the
+    unlocked stiffness-duration thresholds as TenoTrainer-designed rather
+    than literature-validated, hardened the evaluator against
+    stiffness/duration mismatch) and refactored external-loading capture
+    into the provenance-tagged `session_load_observations` model per
+    founder direction.
+  - Verified before close-out: 37/37 tolerance-evaluator tests, 9/9
+    results-card tests, 16/16 morning-eligibility (Stage 1) regression
+    tests, 16/16 pre-M4 UNKNOWN-!=-ZERO rule-engine regression tests
+    (`app/tests/test_unknown_not_zero.py`), clean TypeScript check, and a
+    clean production build.

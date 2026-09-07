@@ -10,14 +10,24 @@ const OPTIONS: { type: ProblemType; label: string }[] = [
   { type: "other", label: "Other" },
 ];
 
+// Kept visually and structurally separate from the four ordinary options —
+// selecting it triggers an immediate safety transition (Milestone 3), not
+// the normal "reported, continue or skip" confirmation.
+const POP_OPTION: { type: ProblemType; label: string } = {
+  type: "pop_reported",
+  label: "I felt or heard a pop",
+};
+
 export function ReportProblemSheet({
   onSubmit,
   onClose,
   onSkipExercise,
+  onPopReported,
 }: {
   onSubmit: (report: { type: ProblemType; note?: string }) => void;
   onClose: () => void;
   onSkipExercise?: () => void;
+  onPopReported: () => void;
 }) {
   // Ephemeral — this component's local state never touches ActiveSessionState
   // until the patient explicitly submits.
@@ -71,6 +81,16 @@ export function ReportProblemSheet({
               {opt.label}
             </button>
           ))}
+        </div>
+
+        <div className="mt-3 pt-3 border-t border-gray-100">
+          <button
+            type="button"
+            onClick={onPopReported}
+            className="w-full text-left px-3 py-2.5 rounded-lg border-2 border-red-300 bg-red-50 text-red-800 text-sm font-semibold"
+          >
+            {POP_OPTION.label}
+          </button>
         </div>
         <textarea
           value={note}
