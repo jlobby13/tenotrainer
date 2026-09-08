@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getSessionInfo } from "@/lib/auth";
 import { getPatientSummary } from "@/lib/fastapi";
 import { getOldestOutstandingMorningResponse } from "@/lib/morningResponseServer";
+import { getActiveBrakeStatus } from "@/lib/acuteSafetyServer";
 import { SessionPlayer } from "./components/SessionPlayer";
 import { MorningCheckInRequired } from "./components/MorningCheckInRequired";
 
@@ -60,7 +61,15 @@ export default async function PatientSessionPage() {
 
   if (!nonTerminalSession) {
     // No legitimate in-progress or in-M3-response session exists — this
-    // page load would be a genuinely NEW session attempt. Check the gate.
+    // page load would be a genuinely NEW session attempt. Check the gates,
+    // in the SAME precedence order as create_rehab_session_if_allowed()
+    // itself (acute brake, then M4 morning-response) — this is the UX-layer
+    // guard only; the RPC remains the actual, unbypassable enforcement.
+    const brake = await getActiveBrakeStatus(authUser.id);
+    if (brake) {
+      redirect("/patient/acute-safety");
+    }
+
     const outstanding = await getOldestOutstandingMorningResponse(authUser.id);
     if (outstanding) {
       return (

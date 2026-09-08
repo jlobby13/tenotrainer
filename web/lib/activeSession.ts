@@ -22,7 +22,13 @@ export const SESSION_SCHEMA_VERSION = 2 as const;
 
 export type ExerciseExecutionStatus = "not_started" | "in_progress" | "completed" | "skipped";
 
-export type ProblemType = "equipment" | "too_difficult" | "pain_limiting" | "other" | "pop_reported";
+// sudden_sharp_pain (Acute Safety Gate milestone): the ONLY exercise-report
+// reason that defers a required acute assessment to End Session — see
+// hasSuddenSharpPainReport() below and acuteAssessmentRequired() in
+// rehabSessionTypes.ts. The other ordinary reasons (equipment,
+// too_difficult, other) and pain_limiting (which already has its own,
+// separate early-termination-triggered path) never do this on their own.
+export type ProblemType = "equipment" | "too_difficult" | "pain_limiting" | "other" | "pop_reported" | "sudden_sharp_pain";
 
 export type EarlyEndReason =
   | "finished_what_i_could"
@@ -165,6 +171,16 @@ export function hasPainLimitingReport(state: ActiveSessionState): boolean {
 // with the Level-5 safety screen shown first.
 export function hasPopReport(state: ActiveSessionState): boolean {
   return state.exerciseStates.some((ex) => ex.problemReports.some((r) => r.type === "pop_reported"));
+}
+
+// A sudden/sharp/pulling pain report during an exercise (Acute Safety Gate
+// milestone, Section 3 Path B) — unlike a pop, this does NOT interrupt the
+// workout; the patient may skip/continue/finish normally. It only defers a
+// required acute questionnaire to End Session (see acuteAssessmentRequired()
+// in rehabSessionTypes.ts). Detected the same way as hasPopReport/
+// hasPainLimitingReport.
+export function hasSuddenSharpPainReport(state: ActiveSessionState): boolean {
+  return state.exerciseStates.some((ex) => ex.problemReports.some((r) => r.type === "sudden_sharp_pain"));
 }
 
 export function isSessionFinished(state: ActiveSessionState): boolean {

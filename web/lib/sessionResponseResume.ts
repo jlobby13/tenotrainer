@@ -3,7 +3,7 @@
 // rather than via a hand-duplicated copy of the same decision logic.
 
 import type { ActiveSessionState } from "./activeSession";
-import { hasPainLimitingReport, hasPopReport } from "./activeSession";
+import { hasPainLimitingReport, hasPopReport, hasSuddenSharpPainReport } from "./activeSession";
 import { acuteAssessmentRequired, type RehabSessionRecord } from "./rehabSessionTypes";
 
 export type ResumeStep =
@@ -51,6 +51,7 @@ export function deriveStep(
     earlyEndReason: server.earlyEndReason,
     hasPopEvent: hasPop,
     hasPainLimitingEvent: hasPainLimiting,
+    hasSuddenSharpPainEvent: hasSuddenSharpPainReport(local),
   });
   if (
     acuteRequired &&

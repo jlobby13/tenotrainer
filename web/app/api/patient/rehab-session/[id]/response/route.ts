@@ -5,6 +5,7 @@ import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supab
 import { evaluateEscalation } from "@/lib/escalation";
 import { acuteAssessmentRequired, mapRehabSessionRow } from "@/lib/rehabSessionTypes";
 import { ensureMorningResponseExists } from "@/lib/morningResponseServer";
+import { confirmAcuteSafetyEpisode } from "@/lib/acuteSafetyServer";
 import { EXTERNAL_LOAD_CATEGORIES, M3_TIMING_OPTIONS, type ExternalLoadCategory } from "@/lib/sessionLoadObservations";
 
 // Raw fields the patient may progressively submit. Deliberately excludes
@@ -113,6 +114,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { data: events } = await supabase.from("session_events").select("type").eq("rehab_session_id", id);
   const hasPainLimitingEvent = (events ?? []).some((e) => e.type === "pain_limiting");
   const hasPopEvent = (events ?? []).some((e) => e.type === "pop_reported");
+  // Acute Safety Gate milestone, Section 3 Path B / 19: a sudden/sharp pain
+  // exercise report, regardless of how the session otherwise ended, makes
+  // the acute questionnaire required before finalize can complete.
+  const hasSuddenSharpPainEvent = (events ?? []).some((e) => e.type === "sudden_sharp_pain");
 
   const missing: string[] = [];
   if (session.peak_session_pain == null) missing.push("peakSessionPain");
@@ -123,6 +128,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     earlyEndReason: session.early_end_reason,
     hasPopEvent,
     hasPainLimitingEvent,
+    hasSuddenSharpPainEvent,
   });
   if (acuteRequired) {
     if (session.sudden_or_sharp_pain == null) missing.push("suddenOrSharpPain");
@@ -150,21 +156,25 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   // grants that block `authenticated` from writing escalation data at all.
   const serviceClient = createServiceRoleClient();
 
-  const { error: evalInsertError } = await serviceClient.from("escalation_evaluations").insert({
-    rehab_session_id: id,
-    escalation_level: escalation.level,
-    escalation_reason: escalation.reason,
-    rule_version: escalation.ruleVersion,
-    inputs_snapshot: {
-      peakSessionPain: session.peak_session_pain,
-      suddenOrSharpPain: session.sudden_or_sharp_pain,
-      popFeltOrHeard: session.pop_felt_or_heard,
-      newFunctionalDifficulty: session.new_functional_difficulty,
-      hasPainLimitingEvent,
-      endedEarlyForSymptoms: session.exercise_outcome === "ended_early" && session.early_end_reason === "pain_symptoms",
-    },
-  });
-  if (evalInsertError) return NextResponse.json({ error: evalInsertError.message }, { status: 500 });
+  const { data: evalRow, error: evalInsertError } = await serviceClient
+    .from("escalation_evaluations")
+    .insert({
+      rehab_session_id: id,
+      escalation_level: escalation.level,
+      escalation_reason: escalation.reason,
+      rule_version: escalation.ruleVersion,
+      inputs_snapshot: {
+        peakSessionPain: session.peak_session_pain,
+        suddenOrSharpPain: session.sudden_or_sharp_pain,
+        popFeltOrHeard: session.pop_felt_or_heard,
+        newFunctionalDifficulty: session.new_functional_difficulty,
+        hasPainLimitingEvent,
+        endedEarlyForSymptoms: session.exercise_outcome === "ended_early" && session.early_end_reason === "pain_symptoms",
+      },
+    })
+    .select()
+    .maybeSingle();
+  if (evalInsertError || !evalRow) return NextResponse.json({ error: evalInsertError?.message ?? "escalation insert failed" }, { status: 500 });
 
   const { data: finalSession, error: finalizeError } = await serviceClient
     .from("rehab_sessions")
@@ -177,6 +187,29 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     .select()
     .maybeSingle();
   if (finalizeError) return NextResponse.json({ error: finalizeError.message }, { status: 500 });
+
+  // Acute Safety Gate milestone: a confirmed Level 3 or 5 finding opens a
+  // new acute safety episode — the durable brake lifecycle this session's
+  // escalation result feeds into. Never invoked for Level 0-2 (those have
+  // no episode/brake concept at all). Failure here must not silently lose
+  // the M3 result the patient just submitted, matching the existing
+  // ensureMorningResponseExists error-handling precedent immediately below.
+  if (escalation.level === 3 || escalation.level === 5) {
+    try {
+      await confirmAcuteSafetyEpisode({
+        userId: user.id,
+        sourceRehabSessionId: id,
+        sourceEscalationEvaluationId: evalRow.id,
+        initialLevel: escalation.level,
+        initialSuddenOrSharpPain: session.sudden_or_sharp_pain === true,
+        initialNewFunctionalDifficulty: session.new_functional_difficulty === true,
+        initialPopFeltOrHeard: session.pop_felt_or_heard === true,
+        confirmedAt: finalSession.response_recorded_at ?? new Date().toISOString(),
+      });
+    } catch (e) {
+      console.error(`Failed to confirm acute safety episode for session ${id}:`, e);
+    }
+  }
 
   // M4 Stage 1: the morning-response OBLIGATION is created as part of this
   // exact lifecycle transition, not lazily discovered later — this is what

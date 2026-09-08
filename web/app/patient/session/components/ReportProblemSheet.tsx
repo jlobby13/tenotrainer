@@ -7,6 +7,11 @@ const OPTIONS: { type: ProblemType; label: string }[] = [
   { type: "equipment", label: "Equipment unavailable" },
   { type: "too_difficult", label: "Too difficult" },
   { type: "pain_limiting", label: "Pain limiting me" },
+  // Acute Safety Gate milestone (Section 3 Path B / 19): the ONLY option
+  // here that requires the acute questionnaire before the session can
+  // finalize — deferred to End Session if the patient continues, never
+  // interrupting the workout immediately the way pop_reported does.
+  { type: "sudden_sharp_pain", label: "Sudden or sharp pain" },
   { type: "other", label: "Other" },
 ];
 

@@ -4,6 +4,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getSessionInfo } from "@/lib/auth";
 import { getPatientSummary, type PatientSummary } from "@/lib/fastapi";
 import { getTodaysRehabFeedback } from "@/lib/todaysRehabFeedbackServer";
+import type { DashboardFeedback } from "@/lib/dashboardFeedback";
 import { TodaysRehabPanel } from "./components/TodaysRehabPanel";
 import { MorningResponsePendingNotice } from "./components/MorningResponsePendingNotice";
 import { RecentResponseFeedback } from "./components/RecentResponseFeedback";
@@ -68,12 +69,18 @@ export default async function PatientDashboardPage() {
     }
   }
 
-  // Milestone 5, Stage 2 — derived from immutable Stage 1 facts only; see
-  // web/lib/todaysRehabFeedbackServer.ts. Fetched once here so both the
-  // feedback card and TodaysRehabPanel's CTA label share a single source of
-  // truth rather than each re-deriving it.
-  const feedback = summary ? await getTodaysRehabFeedback(authUser.id) : { kind: "none" as const };
-  const ctaLabel = feedback.kind === "response" ? feedback.ctaLabelOverride : null;
+  // Milestone 5, Stage 2 (+ Acute Safety Gate) — derived from immutable
+  // Stage 1 facts, and now the acute brake, first. Fetched once here so the
+  // feedback card, the acute-brake CTA/lockout, and TodaysRehabPanel's CTA
+  // label all share a single source of truth.
+  const feedback: DashboardFeedback = summary
+    ? await getTodaysRehabFeedback(authUser.id)
+    : { kind: "stage2", feedback: { kind: "none" } };
+  const ctaLabel = feedback.kind === "stage2" && feedback.feedback.kind === "response" ? feedback.feedback.ctaLabelOverride : null;
+  // Acute Safety Gate, Section 31: brake states must never expose the
+  // normal Start Rehab prescription/CTA — the RPC would reject it anyway,
+  // but it must not be visually offered either.
+  const showTodaysRehabPanel = feedback.kind !== "acute_brake";
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -120,15 +127,17 @@ export default async function PatientDashboardPage() {
                 <MorningResponsePendingNotice />
                 <DashboardTimeline />
                 <RecentResponseFeedback feedback={feedback} />
-                <TodaysRehabPanel
-                  currentPlan={summary.current_plan}
-                  sessionPlan={summary.session_plan}
-                  hasOnboarding={summary.has_onboarding}
-                  hasNoPlan={!summary.has_plan}
-                  todayLogged={summary.today_logged}
-                  patientId={String(summary.user.id)}
-                  ctaLabel={ctaLabel}
-                />
+                {showTodaysRehabPanel && (
+                  <TodaysRehabPanel
+                    currentPlan={summary.current_plan}
+                    sessionPlan={summary.session_plan}
+                    hasOnboarding={summary.has_onboarding}
+                    hasNoPlan={!summary.has_plan}
+                    todayLogged={summary.today_logged}
+                    patientId={String(summary.user.id)}
+                    ctaLabel={ctaLabel}
+                  />
+                )}
               </>
             )}
           </div>

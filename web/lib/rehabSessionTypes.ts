@@ -25,7 +25,9 @@ export type ContributorReason =
 // Note: "pop_reported" is the M2 Report-a-Problem event type (the patient's
 // explicit action). The raw persisted fact on the session row is
 // pop_felt_or_heard — see the naming distinction in the escalation evaluator.
-export type SessionEventType = "equipment" | "too_difficult" | "pain_limiting" | "other" | "pop_reported";
+// sudden_sharp_pain added for the Acute Safety Gate milestone — see
+// acuteAssessmentRequired()'s hasSuddenSharpPainEvent parameter below.
+export type SessionEventType = "equipment" | "too_difficult" | "pain_limiting" | "other" | "pop_reported" | "sudden_sharp_pain";
 
 export type PrescriptionSnapshotExercise = {
   ex_id: string;
@@ -175,8 +177,17 @@ export function acuteAssessmentRequired(params: {
   earlyEndReason: string | null;
   hasPopEvent: boolean;
   hasPainLimitingEvent: boolean;
+  // Acute Safety Gate milestone, Section 3 Path B: a sudden/sharp/pulling
+  // pain report during ANY exercise requires the acute questionnaire
+  // regardless of how (or whether) the session ends — unlike
+  // hasPainLimitingEvent above, which only matters when paired with an
+  // early "pain_symptoms" end. Early termination determines WHEN the
+  // questionnaire appears (immediately vs. deferred to End Session), never
+  // WHETHER it's required — a reported sudden/sharp pain flag never
+  // disappears just because the patient completed the full workout.
+  hasSuddenSharpPainEvent: boolean;
 }): boolean {
-  if (params.hasPopEvent || params.exerciseOutcome === "acute_terminated") return true;
+  if (params.hasPopEvent || params.exerciseOutcome === "acute_terminated" || params.hasSuddenSharpPainEvent) return true;
   if (params.exerciseOutcome === "ended_early" && params.earlyEndReason === "pain_symptoms" && params.hasPainLimitingEvent) {
     return true;
   }
