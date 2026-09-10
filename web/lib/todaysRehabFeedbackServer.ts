@@ -68,6 +68,20 @@ export async function getTodaysRehabFeedback(userId: string): Promise<DashboardF
     };
   }
 
+  // 1.5. Outstanding M4 morning-response obligation — Stage 4 founder-
+  // acceptance fix. Ranked above cautious-return and ordinary Stage 2
+  // feedback (Section 12/29 precedence): a patient with any unresolved
+  // morning-response obligation cannot start a new session regardless of
+  // what else is true, so the dashboard must not offer a normal Start
+  // Rehab CTA (or a cautious-return "welcome back" card) that the server
+  // would immediately reject with MORNING_RESPONSE_REQUIRED. Computed once
+  // here and reused below so Stage 2's own suppression logic never
+  // re-fetches it.
+  const outstanding = await getOldestOutstandingMorningResponse(userId);
+  if (outstanding) {
+    return { kind: "morning_response_pending" };
+  }
+
   // 2. Cautious return — the most recent rehab session has a
   // cautious_return_contexts row AND has no evaluation of its own yet
   // (once it does, that newer evidence takes precedence — Section 7 — and
@@ -96,8 +110,10 @@ export async function getTodaysRehabFeedback(userId: string): Promise<DashboardF
     }
   }
 
-  // 3. Ordinary Stage 2 feedback — completely unchanged.
-  const outstanding = await getOldestOutstandingMorningResponse(userId);
+  // 3. Ordinary Stage 2 feedback — completely unchanged. `outstanding` is
+  // guaranteed null here (the early return above already handled the
+  // non-null case), so this is passed through unchanged only to keep
+  // computeTodaysRehabFeedback's own contract/signature untouched.
   const guidance = await getRelevantGuidanceForPatient(userId);
 
   let escalationLevel: number | null = null;

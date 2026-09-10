@@ -4,8 +4,10 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getSessionInfo } from "@/lib/auth";
 import { getPatientSummary, type PatientSummary } from "@/lib/fastapi";
 import { getTodaysRehabFeedback } from "@/lib/todaysRehabFeedbackServer";
+import { getTodaysRehabDayEligibility } from "@/lib/rehabScheduleServer";
 import type { DashboardFeedback } from "@/lib/dashboardFeedback";
 import { TodaysRehabPanel } from "./components/TodaysRehabPanel";
+import { NoRehabScheduledNotice } from "./components/NoRehabScheduledNotice";
 import { MorningResponsePendingNotice } from "./components/MorningResponsePendingNotice";
 import { RecentResponseFeedback } from "./components/RecentResponseFeedback";
 import { DashboardTimeline } from "./components/DashboardTimeline";
@@ -77,10 +79,25 @@ export default async function PatientDashboardPage() {
     ? await getTodaysRehabFeedback(authUser.id)
     : { kind: "stage2", feedback: { kind: "none" } };
   const ctaLabel = feedback.kind === "stage2" && feedback.feedback.kind === "response" ? feedback.feedback.ctaLabelOverride : null;
+  // Stage 4 closure patch — orthogonal to `feedback`: schedule eligibility
+  // controls ONLY whether a loading opportunity exists today, independent
+  // of which response-context card (if any) is showing. Computed once here
+  // so the panel-suppression logic and the "No rehab scheduled" notice
+  // share one source of truth. "unknown" (every prescription today — see
+  // the migration's header note) behaves identically to "scheduled": it
+  // never suppresses the CTA. Only an explicit "not_scheduled" does.
+  const scheduleEligibility = summary ? await getTodaysRehabDayEligibility(authUser.id) : "unknown";
+  const isRehabDayNotScheduled = scheduleEligibility === "not_scheduled";
   // Acute Safety Gate, Section 31: brake states must never expose the
   // normal Start Rehab prescription/CTA — the RPC would reject it anyway,
-  // but it must not be visually offered either.
-  const showTodaysRehabPanel = feedback.kind !== "acute_brake";
+  // but it must not be visually offered either. Stage 4 founder-acceptance
+  // fix: an outstanding M4 morning-response obligation is the same kind of
+  // hard, authoritative gate (MORNING_RESPONSE_REQUIRED) — the CTA must not
+  // be offered then either, matching the precedence already established
+  // for acute brakes. Stage 4 closure patch: an explicitly non-rehab day is
+  // the same kind of hard gate (REHAB_NOT_SCHEDULED_TODAY).
+  const showTodaysRehabPanel =
+    feedback.kind !== "acute_brake" && feedback.kind !== "morning_response_pending" && !isRehabDayNotScheduled;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -138,6 +155,17 @@ export default async function PatientDashboardPage() {
                     ctaLabel={ctaLabel}
                   />
                 )}
+                {/* Stage 4 closure patch: only in place of the normal
+                    prescribed-rehab CTA — never instead of the onboarding/
+                    no-plan states above, and never alongside the acute-brake
+                    or morning-response-pending notices (those already
+                    explain what to do next; see showTodaysRehabPanel). */}
+                {!showTodaysRehabPanel &&
+                  isRehabDayNotScheduled &&
+                  feedback.kind !== "acute_brake" &&
+                  feedback.kind !== "morning_response_pending" &&
+                  summary.has_onboarding &&
+                  summary.has_plan && <NoRehabScheduledNotice />}
               </>
             )}
           </div>

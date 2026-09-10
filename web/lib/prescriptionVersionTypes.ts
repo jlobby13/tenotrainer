@@ -25,6 +25,12 @@ export type PrescriptionVersionRecord = {
   source: PrescriptionVersionSource;
   legacyPlanId: string | null;
   createdAt: string;
+  // Milestone 5, Stage 4 closure patch — see
+  // supabase/migrations/20260909000003_m5_stage4_rehab_schedule_eligibility.sql
+  // and web/lib/rehabSchedule.ts. NULL = unknown (no schedule identity on
+  // file — never treated as daily or any other guessed cadence). Elements
+  // are 0=Sunday..6=Saturday. Nothing currently writes a non-NULL value.
+  rehabDaysOfWeek: number[] | null;
 };
 
 // Postgres/PostgREST returns raw snake_case column names — see
@@ -39,5 +45,6 @@ export function mapPrescriptionVersionRow(row: Record<string, unknown>): Prescri
     source: row.source as PrescriptionVersionSource,
     legacyPlanId: (row.legacy_plan_id as string | null) ?? null,
     createdAt: row.created_at as string,
+    rehabDaysOfWeek: (row.rehab_days_of_week as number[] | null) ?? null,
   };
 }

@@ -111,6 +111,32 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { data: session, error: fetchError } = await supabase.from("rehab_sessions").select().eq("id", id).maybeSingle();
   if (fetchError || !session) return NextResponse.json({ error: "Session not found" }, { status: 404 });
 
+  // Stage 4 idempotency hardening: a repeat finalize call (double-submit,
+  // a page refresh that re-mounts SessionResponseFlow mid-request, a raw
+  // client/network retry) must be a safe no-op. escalation_evaluations is
+  // an append-only INSERT with no per-session uniqueness constraint, so
+  // without this guard a repeat call would insert a SECOND row — and for a
+  // Level 3/5 result, a SECOND acute_safety_episode (its own uniqueness is
+  // keyed on source_escalation_evaluation_id, which would differ for the
+  // duplicate row, so it can't catch this), silently inflating the Level 4
+  // "≥4 distinct episodes" recurrence count. Mirrors the M4 finalize
+  // route's submitted_at-guard pattern (see morning-response/[id]/route.ts).
+  if (session.status === "awaiting_morning_response" || session.status === "response_complete") {
+    const { data: existingEval } = await supabase
+      .from("escalation_evaluations")
+      .select("escalation_level, escalation_reason, rule_version")
+      .eq("rehab_session_id", id)
+      .order("evaluated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return NextResponse.json({
+      session: mapRehabSessionRow(session),
+      escalation: existingEval
+        ? { level: existingEval.escalation_level, reason: existingEval.escalation_reason, ruleVersion: existingEval.rule_version }
+        : null,
+    });
+  }
+
   const { data: events } = await supabase.from("session_events").select("type").eq("rehab_session_id", id);
   const hasPainLimitingEvent = (events ?? []).some((e) => e.type === "pain_limiting");
   const hasPopEvent = (events ?? []).some((e) => e.type === "pop_reported");
@@ -156,6 +182,47 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   // grants that block `authenticated` from writing escalation data at all.
   const serviceClient = createServiceRoleClient();
 
+  // Atomic race guard: the status transition (not the escalation insert)
+  // is what decides who "wins" finalize for this session. Conditioning the
+  // UPDATE on the session still being in a pre-finalize status makes this
+  // safe under two genuinely concurrent finalize requests — only one can
+  // affect a row here; the other gets finalSession === null below and
+  // falls back to the idempotent-return path instead of also inserting an
+  // escalation_evaluations row. Mirrors create_rehab_session_if_allowed's
+  // existing-row-wins pattern.
+  const { data: finalSession, error: finalizeError } = await serviceClient
+    .from("rehab_sessions")
+    .update({
+      current_escalation_level: escalation.level,
+      status: "awaiting_morning_response",
+      response_recorded_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .in("status", ["exercises_complete", "response_in_progress"])
+    .select()
+    .maybeSingle();
+  if (finalizeError) return NextResponse.json({ error: finalizeError.message }, { status: 500 });
+
+  if (!finalSession) {
+    // Lost the race — a concurrent request already finalized this session
+    // between our initial read and here. Return its result rather than
+    // duplicating the escalation evaluation.
+    const { data: raced } = await serviceClient.from("rehab_sessions").select().eq("id", id).maybeSingle();
+    const { data: existingEval } = await serviceClient
+      .from("escalation_evaluations")
+      .select("escalation_level, escalation_reason, rule_version")
+      .eq("rehab_session_id", id)
+      .order("evaluated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return NextResponse.json({
+      session: mapRehabSessionRow(raced ?? session),
+      escalation: existingEval
+        ? { level: existingEval.escalation_level, reason: existingEval.escalation_reason, ruleVersion: existingEval.rule_version }
+        : null,
+    });
+  }
+
   const { data: evalRow, error: evalInsertError } = await serviceClient
     .from("escalation_evaluations")
     .insert({
@@ -175,18 +242,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     .select()
     .maybeSingle();
   if (evalInsertError || !evalRow) return NextResponse.json({ error: evalInsertError?.message ?? "escalation insert failed" }, { status: 500 });
-
-  const { data: finalSession, error: finalizeError } = await serviceClient
-    .from("rehab_sessions")
-    .update({
-      current_escalation_level: escalation.level,
-      status: "awaiting_morning_response",
-      response_recorded_at: new Date().toISOString(),
-    })
-    .eq("id", id)
-    .select()
-    .maybeSingle();
-  if (finalizeError) return NextResponse.json({ error: finalizeError.message }, { status: 500 });
 
   // Acute Safety Gate milestone: a confirmed Level 3 or 5 finding opens a
   // new acute safety episode — the durable brake lifecycle this session's

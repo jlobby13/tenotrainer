@@ -113,6 +113,21 @@ export async function POST(request: NextRequest) {
         { status: 409 }
       );
     }
+    if (error.message === "REHAB_NOT_SCHEDULED_TODAY") {
+      // Stage 4 closure patch — Section 8: the server is the sole authority
+      // here, not the dashboard's CTA suppression. Never creates a
+      // rehab_sessions row. redirectTo the dashboard rather than a
+      // dedicated route — there is no separate "not scheduled" screen to
+      // build for this patch (Section 4: no calendar UI).
+      return NextResponse.json(
+        {
+          error: "No prescribed rehab session is scheduled today",
+          code: "REHAB_NOT_SCHEDULED_TODAY",
+          redirectTo: "/patient/dashboard",
+        },
+        { status: 409 }
+      );
+    }
     if (error.message === "PRESCRIPTION_VERSION_REQUIRED") {
       // M5 Stage 1 LOCKED invariant: the RPC never creates a prescription
       // version opportunistically. A patient reaching session creation with

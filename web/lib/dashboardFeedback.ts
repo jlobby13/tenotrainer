@@ -13,5 +13,14 @@ import type { TodaysRehabFeedback } from "./todaysRehabFeedback";
 
 export type DashboardFeedback =
   | { kind: "acute_brake"; display: BrakeDisplayState }
+  // Stage 4 founder-acceptance fix: an outstanding M4 morning-response
+  // obligation blocks new session creation just as authoritatively as an
+  // acute brake does (Section 12/29 precedence: acute > unresolved morning
+  // response > ordinary feedback > normal session start) — the dashboard
+  // must not show a normal Start Rehab CTA the server would immediately
+  // reject with MORNING_RESPONSE_REQUIRED. MorningResponsePendingNotice
+  // already tells the patient what to do next; this kind only suppresses
+  // the contradictory CTA underneath it.
+  | { kind: "morning_response_pending" }
   | { kind: "cautious_return"; title: string; body: string }
   | { kind: "stage2"; feedback: TodaysRehabFeedback };

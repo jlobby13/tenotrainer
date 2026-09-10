@@ -46,6 +46,12 @@ export function RecentResponseFeedback({ feedback }: { feedback: DashboardFeedba
     );
   }
 
+  // Stage 4 founder-acceptance fix: nothing to render here —
+  // MorningResponsePendingNotice already tells the patient what to do
+  // next. This kind exists only so page.tsx can also suppress the
+  // contradictory Start Rehab CTA (see showTodaysRehabPanel there).
+  if (feedback.kind === "morning_response_pending") return null;
+
   if (feedback.kind === "cautious_return") {
     return (
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
