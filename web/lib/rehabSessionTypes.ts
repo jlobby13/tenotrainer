@@ -81,8 +81,16 @@ export type SetOutcomeRecord = {
   exerciseOrderIndex: number;
   setIndex: number;
   outcome: "completed" | "skipped";
+  // Numeric ONLY when this session's own prescription_snapshot dosage was
+  // already a plain number (never parsed from a hold-time/range string) —
+  // see lib/exerciseDisplay.ts's safePrescribedReps/safePrescribedLoad.
   prescribedReps: number | null;
   prescribedLoad: number | null;
+  // TECH DEBT (M6 Stage 2 founder-acceptance patch, accepted as-is): this is
+  // patient-entered reps for a rep-based exercise, or patient-entered hold
+  // SECONDS for an isometric/stretching exercise — same column, unit
+  // determined only by that exercise's loading_profile in this session's own
+  // prescription_snapshot. Never assume "reps" universally without checking it.
   actualReps: number | null; // always null when outcome === "skipped"
   actualLoad: number | null;
   wasEdited: boolean;

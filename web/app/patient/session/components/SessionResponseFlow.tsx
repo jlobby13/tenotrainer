@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ActiveSessionState } from "@/lib/activeSession";
 import { hasPopReport, todayLocalDateString } from "@/lib/activeSession";
+import { safePrescribedReps, safePrescribedLoad } from "@/lib/exerciseDisplay";
 import type { RehabSessionRecord } from "@/lib/rehabSessionTypes";
 import { deriveStep, type ResumeStep } from "@/lib/sessionResponseResume";
 import {
@@ -61,20 +62,29 @@ export function SessionResponseFlow({
         })),
       });
 
-      const setOutcomes = localSession.exerciseStates.flatMap((exState, exIndex) =>
-        exState.setOutcomes.map((o) => ({
+      const setOutcomes = localSession.exerciseStates.flatMap((exState, exIndex) => {
+        // M6 Stage 2 forward-write fix: mirror the prescribed value into
+        // set_outcomes only when it is already unambiguously numeric in this
+        // session's own snapshot — never parsed/guessed from a hold-time or
+        // range string. See lib/exerciseDisplay.ts's safePrescribedReps/
+        // safePrescribedLoad for why. Historical rows (written before this
+        // change, always NULL here) are untouched.
+        const dosage = localSession.prescriptionSnapshot.exercises[exIndex]?.dosage ?? {};
+        const prescribedReps = safePrescribedReps(dosage);
+        const prescribedLoad = safePrescribedLoad(dosage);
+        return exState.setOutcomes.map((o) => ({
           exerciseId: exState.exerciseId,
           exerciseOrderIndex: exIndex,
           setIndex: o.setIndex,
           outcome: o.kind,
-          prescribedReps: null,
-          prescribedLoad: null,
+          prescribedReps,
+          prescribedLoad,
           actualReps: o.kind === "completed" ? o.actual.reps : null,
           actualLoad: o.kind === "completed" ? (o.actual.load ?? null) : null,
           wasEdited: o.kind === "completed" ? o.wasEdited : false,
           occurredAt: o.kind === "completed" ? o.completedAt : o.skippedAt,
-        }))
-      );
+        }));
+      });
       const sessionEvents = localSession.exerciseStates.flatMap((exState) =>
         exState.problemReports.map((r) => ({
           exerciseId: exState.exerciseId,

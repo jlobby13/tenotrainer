@@ -27,6 +27,9 @@ function Nav({ email, hasOrgMembership }: { email: string; hasOrgMembership: boo
             <Link href="/patient/session" className="text-sm text-gray-600 hover:text-brand-600 font-medium">
               Track Session
             </Link>
+            <Link href="/patient/progress" className="text-sm text-gray-600 hover:text-brand-600 font-medium">
+              Progress
+            </Link>
             <a
               href="/api/auth/launch-dashboard?dest=/exercise-library"
               className="text-sm text-gray-600 hover:text-brand-600 font-medium"

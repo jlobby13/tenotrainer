@@ -12,6 +12,7 @@
 // separately by the caller, never merged into ActiveSessionState.
 
 import type { SessionExercise } from "./fastapi";
+import { safePrescribedReps, safePrescribedLoad } from "./exerciseDisplay";
 
 // Bumped for the founder-acceptance correction pass: exerciseStates now store a
 // unified per-set outcome (completed | skipped) instead of a completed-only
@@ -57,6 +58,17 @@ export type SessionStatus = "active" | "paused" | "completed_exercises" | "ended
 // an outcome for that index, derived against the prescription snapshot.
 // ---------------------------------------------------------------------------
 
+// TECH DEBT (M6 Stage 2 founder-acceptance patch, accepted as-is — do not
+// redesign without a dedicated decision): `actual.reps` is a single numeric
+// field used for both true rep counts AND patient-entered hold seconds for
+// isometric/stretching exercises. This is safe today only because every
+// consumer re-derives the correct unit from that same set's own frozen
+// prescription context (loadingProfile/dosage) at read time — see
+// SetTracker.tsx's actualUnitLabel-style logic and
+// app/patient/progress/components/LoadingHistorySection.tsx's
+// HOLD_BASED_PROFILES check. Do not assume `actual.reps` (or
+// set_outcomes.actual_reps in Postgres) universally means "repetitions"
+// anywhere new without first checking the exercise's loading profile.
 export type CompletedSetOutcome = {
   setIndex: number;
   kind: "completed";
@@ -133,15 +145,29 @@ export function getTotalSets(exercise: SessionExercise): number {
   return toNumber(exercise.dosage?.sets, 1);
 }
 
-export function getPrescribedSet(exercise: SessionExercise): { reps: number; load?: number } {
-  // Canonical field is "reps_or_hold_time" (not "reps") and may be a descriptive
-  // string ("45s hold") — this extracts its numeric magnitude for recording an
-  // actual value; display code should use exerciseDisplay's repsOrHoldLabel
-  // instead, which preserves the original wording.
-  const reps = toNumber(exercise.dosage?.reps_or_hold_time, 0);
-  const loadRaw = exercise.dosage?.load_kg ?? exercise.dosage?.load;
-  const load = loadRaw === undefined || loadRaw === null ? undefined : toNumber(loadRaw, 0);
-  return { reps, load };
+// M6 Stage 2 founder-acceptance patch: reps is now `number | null`, not a
+// coerced/parsed number. "reps_or_hold_time" spans plain rep counts (12),
+// rep RANGES ("8-12"), hold durations ("45s hold", "30-45s hold"), and
+// free-form cardio durations ("20 min total (1 min jog : 2 min walk)") —
+// this previously ran the string forms through parseFloat(), which silently
+// turned a hold duration or the LOWER BOUND of a range into a fabricated
+// "prescribed reps" value (e.g. "45s hold" -> 45, "8-12" -> 8). That value
+// was then used as the one-tap "Complete Set" default, meaning it could be
+// recorded as real actual performance without the patient ever seeing a
+// number was invented.
+//
+// `reps` is non-null ONLY when the dosage's own reps_or_hold_time is
+// already a plain JS number — reused verbatim from
+// lib/exerciseDisplay.ts's safePrescribedReps/safePrescribedLoad (the exact
+// same rule set_outcomes' forward-write path uses), never re-parsed here.
+// null means "this dosage cannot be safely reduced to a single prescribed
+// number" — callers (SetTracker) must not auto-fill or one-tap-complete in
+// that case; see prescribedSetLabel/repsOrHoldLabel for the accurate
+// original text to show instead.
+export function getPrescribedSet(exercise: SessionExercise): { reps: number | null; load?: number } {
+  const reps = safePrescribedReps(exercise.dosage ?? {});
+  const load = safePrescribedLoad(exercise.dosage ?? {});
+  return { reps, load: load ?? undefined };
 }
 
 export function getSetOutcome(state: ExerciseExecutionState, setIndex: number): SetOutcome | null {
