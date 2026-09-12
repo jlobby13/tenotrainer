@@ -37,8 +37,10 @@ export function numericComparisonDelta(c: NumericComparison): number | null {
 // number of minutes. "not_applicable" (stiffness=0, i.e. no stiffness at
 // all) ranks lowest; "gt_30_min" ranks highest. This ordering is a fact
 // about the fixed vocabulary (supabase/migrations/...m4_stage4_tolerance_
-// interpretation.sql), not an invented clinical scale.
-const STIFFNESS_DURATION_ORDER: StiffnessDuration[] = ["not_applicable", "lt_5_min", "min_5_15", "min_15_30", "gt_30_min"];
+// interpretation.sql), not an invented clinical scale. Exported so Stage 3B's
+// symptomClassifier.ts (MSD ordinal comparison) reuses this exact ordering
+// rather than redefining a second copy that could drift out of sync.
+export const STIFFNESS_DURATION_ORDER: StiffnessDuration[] = ["not_applicable", "lt_5_min", "min_5_15", "min_15_30", "gt_30_min"];
 
 export function buildStiffnessDurationComparison(params: {
   previous: StiffnessDuration | null;
