@@ -21,7 +21,7 @@ import { createServiceRoleClient } from "./supabase/server";
 import type { StiffnessDuration } from "./morningResponseTypes";
 import { LONGITUDINAL_RULESET_VERSION, type InterpretationReasonCode } from "./longitudinalInterpretationTypes";
 import { buildResponseEpisodes, selectShortWindows, type RawResponseEpisodeInput } from "./responseEpisode";
-import type { ExternalLoadObservation, ResponseEpisode } from "./responseEpisodeTypes";
+import type { ExternalLoadObservation } from "./responseEpisodeTypes";
 import { classifyCoreDomain, classifyMsd, classifyOverallSymptoms, type CoreDomainResult, type MsdResult, type OverallSymptomsState } from "./symptomClassifier";
 import { buildCoverageContext, type CoverageContext } from "./symptomCoverage";
 import { comparePrescriptionVersions } from "./progressCompare";
@@ -162,6 +162,12 @@ export type GenerateShortWindowSymptomInterpretationResult =
       msd: MsdResult;
       coverageContext: CoverageContext;
       reasonCodes: InterpretationReasonCode[];
+      // Exact window membership — exposed so Stage 3C's Training Response
+      // engine can analyze loading over the EXACT SAME 10 episodes (brief
+      // section 12's window-alignment requirement), never a conveniently
+      // different window.
+      previousWindowRehabSessionIds: string[];
+      recentWindowRehabSessionIds: string[];
     };
 
 export async function generateShortWindowSymptomInterpretation(userId: string): Promise<GenerateShortWindowSymptomInterpretationResult> {
@@ -179,12 +185,16 @@ export async function generateShortWindowSymptomInterpretation(userId: string): 
   if (!windows) {
     const interpretationId = await persistInterpretation(supabase, {
       userId,
+      domain: SYMPTOMS_SHORT_WINDOW_DOMAIN,
       resultState: "more_data_needed",
       windowDefinition: { kind: "rolling_5_plus_5", unit: "sessions", sufficient: false },
       windowStartDate: null,
       windowEndDate: null,
       resultDetail: { eligibleEpisodeCount: eligibleNewestFirst.length },
-      episodes: eligibleNewestFirst,
+      rehabSessionIds: [...new Set(eligibleNewestFirst.map((e) => e.rehabSessionId))],
+      morningResponseIds: [...new Set(eligibleNewestFirst.map((e) => e.morningResponseId))],
+      toleranceEvaluationIds: [...new Set(eligibleNewestFirst.map((e) => e.toleranceEvaluationId).filter((id): id is string => id != null))],
+      prescriptionVersionIds: [...new Set(eligibleNewestFirst.map((e) => e.prescriptionVersionId).filter((id): id is string => id != null))],
       reasonCodes: [],
       heuristicKeys: [ROLLING_5_PLUS_5_WINDOW_HEURISTIC_KEY],
     });
@@ -256,15 +266,19 @@ export async function generateShortWindowSymptomInterpretation(userId: string): 
   const hasExternalLoadContext = recent.some((e) => e.externalLoadObservations.some((o) => o.category !== "none"));
   if (hasExternalLoadContext) reasonCodes.push("external_loading_context_present");
 
+  const previousWindowRehabSessionIds = previous.map((e) => e.rehabSessionId);
+  const recentWindowRehabSessionIds = recent.map((e) => e.rehabSessionId);
+
   const interpretationId = await persistInterpretation(supabase, {
     userId,
+    domain: SYMPTOMS_SHORT_WINDOW_DOMAIN,
     resultState: overallState,
     windowDefinition: {
       kind: "rolling_5_plus_5",
       unit: "sessions",
       sufficient: true,
-      previousWindowRehabSessionIds: previous.map((e) => e.rehabSessionId),
-      recentWindowRehabSessionIds: recent.map((e) => e.rehabSessionId),
+      previousWindowRehabSessionIds,
+      recentWindowRehabSessionIds,
     },
     windowStartDate,
     windowEndDate,
@@ -278,7 +292,10 @@ export async function generateShortWindowSymptomInterpretation(userId: string): 
       coverageContext,
       distinctPrescriptionVersionIds,
     },
-    episodes: allWindowEpisodes,
+    rehabSessionIds: [...new Set(allWindowEpisodes.map((e) => e.rehabSessionId))],
+    morningResponseIds: [...new Set(allWindowEpisodes.map((e) => e.morningResponseId))],
+    toleranceEvaluationIds: [...new Set(allWindowEpisodes.map((e) => e.toleranceEvaluationId).filter((id): id is string => id != null))],
+    prescriptionVersionIds: distinctPrescriptionVersionIds,
     reasonCodes,
     heuristicKeys: [
       ROLLING_5_PLUS_5_WINDOW_HEURISTIC_KEY,
@@ -290,7 +307,17 @@ export async function generateShortWindowSymptomInterpretation(userId: string): 
     ],
   });
 
-  return { status: "generated", interpretationId, overallState, core: { P, MP, MS }, msd, coverageContext, reasonCodes };
+  return {
+    status: "generated",
+    interpretationId,
+    overallState,
+    core: { P, MP, MS },
+    msd,
+    coverageContext,
+    reasonCodes,
+    previousWindowRehabSessionIds,
+    recentWindowRehabSessionIds,
+  };
 }
 
 // Pure serialization of a CoreDomainResult into resultDetail's JSONB shape.
@@ -309,16 +336,27 @@ function serializeCoreDomainResult(r: CoreDomainResult) {
   };
 }
 
-async function persistInterpretation(
+// Generalized (Stage 3C follow-up): originally hardcoded to the Symptoms
+// domain and to ResponseEpisode[]. Now takes `domain` and plain provenance
+// ID arrays directly so Stage 3C's Capacity and Training Response engines
+// (which don't necessarily have ResponseEpisode objects — Capacity's unit
+// is a per-exercise CapacityExposure, not a per-session episode) can reuse
+// this exact same persistence/provenance-writing logic rather than
+// duplicating it. Exported for that reuse.
+export async function persistInterpretation(
   supabase: ReturnType<typeof createServiceRoleClient>,
   params: {
     userId: string;
+    domain: string;
     resultState: string;
     windowDefinition: Record<string, unknown>;
     windowStartDate: string | null;
     windowEndDate: string | null;
     resultDetail: Record<string, unknown>;
-    episodes: ResponseEpisode[];
+    rehabSessionIds: string[];
+    morningResponseIds: string[];
+    toleranceEvaluationIds: string[];
+    prescriptionVersionIds: string[];
     reasonCodes: InterpretationReasonCode[];
     heuristicKeys: string[];
   }
@@ -327,7 +365,7 @@ async function persistInterpretation(
     .from("m6_longitudinal_interpretations")
     .insert({
       user_id: params.userId,
-      domain: SYMPTOMS_SHORT_WINDOW_DOMAIN,
+      domain: params.domain,
       ruleset_version: LONGITUDINAL_RULESET_VERSION,
       window_definition: params.windowDefinition,
       window_start_date: params.windowStartDate,
@@ -338,7 +376,7 @@ async function persistInterpretation(
     .select("id")
     .single();
   if (interpretationError || !interpretation) {
-    throw new Error(`generateShortWindowSymptomInterpretation: failed to insert interpretation: ${interpretationError?.message}`);
+    throw new Error(`persistInterpretation: failed to insert interpretation: ${interpretationError?.message}`);
   }
   const interpretationId = interpretation.id as string;
 
@@ -346,44 +384,41 @@ async function persistInterpretation(
     const { error } = await supabase
       .from("m6_interpretation_reason_codes")
       .insert(params.reasonCodes.map((reason_code) => ({ interpretation_id: interpretationId, reason_code })));
-    if (error) throw new Error(`generateShortWindowSymptomInterpretation: failed to insert reason codes: ${error.message}`);
+    if (error) throw new Error(`persistInterpretation: failed to insert reason codes: ${error.message}`);
   }
-
-  const rehabSessionIds = [...new Set(params.episodes.map((e) => e.rehabSessionId))];
-  const morningResponseIds = [...new Set(params.episodes.map((e) => e.morningResponseId))];
-  const toleranceEvaluationIds = [...new Set(params.episodes.map((e) => e.toleranceEvaluationId).filter((id): id is string => id != null))];
-  const prescriptionVersionIds = [...new Set(params.episodes.map((e) => e.prescriptionVersionId).filter((id): id is string => id != null))];
 
   const provenanceInserts: PromiseLike<{ error: { message: string } | null }>[] = [];
-  if (rehabSessionIds.length > 0) {
+  if (params.rehabSessionIds.length > 0) {
     provenanceInserts.push(
-      supabase.from("m6_interpretation_rehab_sessions").insert(rehabSessionIds.map((rehab_session_id) => ({ interpretation_id: interpretationId, rehab_session_id })))
+      supabase
+        .from("m6_interpretation_rehab_sessions")
+        .insert(params.rehabSessionIds.map((rehab_session_id) => ({ interpretation_id: interpretationId, rehab_session_id })))
     );
   }
-  if (morningResponseIds.length > 0) {
+  if (params.morningResponseIds.length > 0) {
     provenanceInserts.push(
       supabase
         .from("m6_interpretation_morning_responses")
-        .insert(morningResponseIds.map((morning_response_id) => ({ interpretation_id: interpretationId, morning_response_id })))
+        .insert(params.morningResponseIds.map((morning_response_id) => ({ interpretation_id: interpretationId, morning_response_id })))
     );
   }
-  if (toleranceEvaluationIds.length > 0) {
+  if (params.toleranceEvaluationIds.length > 0) {
     provenanceInserts.push(
       supabase
         .from("m6_interpretation_tolerance_evaluations")
-        .insert(toleranceEvaluationIds.map((tolerance_evaluation_id) => ({ interpretation_id: interpretationId, tolerance_evaluation_id })))
+        .insert(params.toleranceEvaluationIds.map((tolerance_evaluation_id) => ({ interpretation_id: interpretationId, tolerance_evaluation_id })))
     );
   }
-  if (prescriptionVersionIds.length > 0) {
+  if (params.prescriptionVersionIds.length > 0) {
     provenanceInserts.push(
       supabase
         .from("m6_interpretation_prescription_versions")
-        .insert(prescriptionVersionIds.map((prescription_version_id) => ({ interpretation_id: interpretationId, prescription_version_id })))
+        .insert(params.prescriptionVersionIds.map((prescription_version_id) => ({ interpretation_id: interpretationId, prescription_version_id })))
     );
   }
   const provenanceResults = await Promise.all(provenanceInserts);
   for (const r of provenanceResults) {
-    if (r.error) throw new Error(`generateShortWindowSymptomInterpretation: failed to insert provenance: ${r.error.message}`);
+    if (r.error) throw new Error(`persistInterpretation: failed to insert provenance: ${r.error.message}`);
   }
 
   if (params.heuristicKeys.length > 0) {
@@ -391,14 +426,14 @@ async function persistInterpretation(
     const heuristicIds = heuristics.filter((h): h is NonNullable<typeof h> => h != null).map((h) => h.id);
     if (heuristicIds.length !== params.heuristicKeys.length) {
       throw new Error(
-        `generateShortWindowSymptomInterpretation: expected heuristic catalog rows for [${params.heuristicKeys.join(", ")}] but found [${heuristicIds.join(", ")}] — has the Stage 3B heuristic seed migration been applied?`
+        `persistInterpretation: expected heuristic catalog rows for [${params.heuristicKeys.join(", ")}] but found [${heuristicIds.join(", ")}] — has the relevant heuristic seed migration been applied?`
       );
     }
     if (heuristicIds.length > 0) {
       const { error } = await supabase
         .from("m6_interpretation_heuristics")
         .insert(heuristicIds.map((heuristic_id) => ({ interpretation_id: interpretationId, heuristic_id })));
-      if (error) throw new Error(`generateShortWindowSymptomInterpretation: failed to insert heuristic links: ${error.message}`);
+      if (error) throw new Error(`persistInterpretation: failed to insert heuristic links: ${error.message}`);
     }
   }
 
