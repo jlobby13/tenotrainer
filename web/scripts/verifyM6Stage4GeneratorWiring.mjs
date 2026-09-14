@@ -19,6 +19,17 @@
 //      app/api/patient/morning-response/[id]/route.ts prevents duplicate
 //      generation on a retry).
 //
+// Core Patient Experience v1 blocker fix (scheduled-eligibility
+// enforcement) — a second scenario below drives a SEPARATE throwaway user
+// through: page access before eligibility (expect redirect to dashboard's
+// existing "Morning Response Pending" state) -> finalize attempt before
+// eligibility (expect 409, zero mutation, zero tolerance, zero M6 rows) ->
+// scheduled_eligible_at flipped to the past via a real persisted timestamp
+// update (never browser-clock manipulation) -> page access at eligibility
+// (expect the real Morning Check-In form) -> finalize succeeds -> retry
+// remains idempotent. See app/api/patient/morning-response/[id]/route.ts
+// and app/patient/morning-response/page.tsx for the actual gate.
+//
 // Requires: `next dev` running on localhost:3000, web/.env.local
 // populated, Playwright Chromium installed. Point at a dev/staging
 // Supabase project only.
@@ -122,9 +133,68 @@ async function seedUnfinalizedEpisode(userId, prescriptionVersionId) {
   );
   if (setOutcomeError) throw setOutcomeError;
 
+  // scheduled_eligible_at set to an already-past instant: this scenario
+  // exists to test generator wiring/idempotency (a DIFFERENT concern from
+  // the eligibility-gate scenario below) and must represent a normal,
+  // legitimately-eligible finalize — the eligibility gate added for the
+  // Core Patient Experience v1 blocker fix now correctly rejects a null
+  // scheduled_eligible_at (matching the existing dashboard convention:
+  // "unknown eligibility" is never treated as eligible), so this seed must
+  // set a real, already-past timestamp rather than leaving it null.
   const { data: morning, error: morningError } = await admin
     .from("morning_responses")
-    .insert({ rehab_session_id: sessionId, user_id: userId, submitted_at: null })
+    .insert({ rehab_session_id: sessionId, user_id: userId, submitted_at: null, scheduled_eligible_at: new Date(Date.now() - 60 * 60 * 1000).toISOString() })
+    .select()
+    .single();
+  if (morningError) throw morningError;
+
+  return { sessionId, morningResponseId: morning.id };
+}
+
+// Seeds an outstanding morning-response obligation with an EXPLICIT,
+// caller-supplied scheduled_eligible_at — the real persisted-timestamp
+// mechanism the eligibility gate reads, never faked via the browser clock.
+// status='awaiting_morning_response' (not 'response_in_progress') because
+// this scenario also exercises the PAGE-level gate, which discovers the
+// obligation via getOldestOutstandingMorningResponse -> that function only
+// considers sessions in this exact status.
+async function seedAwaitingMorningResponseEpisode(userId, prescriptionVersionId, scheduledEligibleAt) {
+  const sessionId = genUuid();
+  const date = "2026-06-01";
+  const { error: sessionError } = await admin.from("rehab_sessions").insert({
+    id: sessionId,
+    user_id: userId,
+    prescription_instance_id: `${sessionId}:i`,
+    patient_local_date: date,
+    started_at: `${date}T14:00:00Z`,
+    status: "awaiting_morning_response",
+    exercise_outcome: "completed",
+    prescription_snapshot: [EXERCISE],
+    peak_session_pain: 3,
+    prescription_version_id: prescriptionVersionId,
+    current_escalation_level: 0,
+  });
+  if (sessionError) throw sessionError;
+
+  const { error: setOutcomeError } = await admin.from("set_outcomes").insert(
+    [0, 1, 2].map((setIndex) => ({
+      rehab_session_id: sessionId,
+      exercise_id: EXERCISE.ex_id,
+      exercise_order_index: 0,
+      set_index: setIndex,
+      outcome: "completed",
+      prescribed_reps: 10,
+      prescribed_load: null,
+      actual_reps: 10,
+      actual_load: null,
+      occurred_at: `${date}T14:05:00Z`,
+    }))
+  );
+  if (setOutcomeError) throw setOutcomeError;
+
+  const { data: morning, error: morningError } = await admin
+    .from("morning_responses")
+    .insert({ rehab_session_id: sessionId, user_id: userId, submitted_at: null, scheduled_eligible_at: scheduledEligibleAt })
     .select()
     .single();
   if (morningError) throw morningError;
@@ -192,6 +262,102 @@ async function main() {
     check("after retry: total row count UNCHANGED", afterRetry.total === 3, JSON.stringify(afterRetry));
 
     await context.close();
+
+    // ---------------------------------------------------------------------
+    // Core Patient Experience v1 blocker fix: scheduled-eligibility gate.
+    // Separate throwaway user so this scenario's row counts are independent
+    // of the one above.
+    // ---------------------------------------------------------------------
+    const userB = await makeUser("b");
+    userIds.push(userB.userId);
+    const prescriptionVersionIdB = await makePrescriptionVersion(userB.userId);
+    const futureEligibleAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // +1h
+    const { sessionId: sessionIdB, morningResponseId: morningResponseIdB } = await seedAwaitingMorningResponseEpisode(
+      userB.userId,
+      prescriptionVersionIdB,
+      futureEligibleAt
+    );
+    sessionIds.push(sessionIdB);
+
+    const contextB = await loginContext(browser, userB.email);
+    const pageB = await contextB.newPage();
+
+    // 1. Page access BEFORE eligibility -> redirected to the dashboard's
+    // existing "Morning Response Pending" state, not a bare form.
+    await pageB.goto(`${BASE_URL}/patient/morning-response`);
+    await pageB.waitForLoadState("networkidle");
+    check(
+      "page access before eligibility: redirected to dashboard",
+      pageB.url() === `${BASE_URL}/patient/dashboard`,
+      pageB.url()
+    );
+    // Only asserts the check-in FORM is absent — the dashboard's own
+    // "Morning Response Pending" copy additionally depends on
+    // getPatientSummary() (lib/fastapi.ts), a pre-existing, separately
+    // scoped legacy dependency (see the Core Patient Experience v1 audit)
+    // that may not be reachable in every dev environment this script runs
+    // in. That dependency is explicitly out of scope for this fix — this
+    // assertion only verifies what THIS fix is responsible for: the bare
+    // check-in form is never shown before eligibility.
+    const bodyBeforeEligible = await pageB.locator("body").innerText();
+    check(
+      "page access before eligibility: redirected away from the check-in form (never shows it before eligibility)",
+      !bodyBeforeEligible.includes("Morning Check-In"),
+      bodyBeforeEligible.slice(0, 300)
+    );
+
+    // 3. Finalize attempt BEFORE eligibility -> rejected, no mutation.
+    const finalizeBodyB = { nextMorningPain: 2, nextMorningStiffness: 0, finalize: true };
+    const earlyRes = await contextB.request.post(`${BASE_URL}/api/patient/morning-response/${morningResponseIdB}`, { data: finalizeBodyB });
+    check("finalize before eligibility: rejected with 409", earlyRes.status() === 409, `status ${earlyRes.status()}`);
+    const earlyBody = await earlyRes.json().catch(() => ({}));
+    check("finalize before eligibility: machine-readable code present", earlyBody.code === "MORNING_RESPONSE_NOT_YET_ELIGIBLE", JSON.stringify(earlyBody));
+
+    const { data: rowAfterEarly } = await admin.from("morning_responses").select("submitted_at").eq("id", morningResponseIdB).maybeSingle();
+    check("finalize before eligibility: submitted_at still null (not mutated into completed state)", rowAfterEarly?.submitted_at === null, JSON.stringify(rowAfterEarly));
+
+    const { data: toleranceAfterEarly } = await admin.from("tolerance_evaluations").select("id").eq("rehab_session_id", sessionIdB);
+    check("finalize before eligibility: zero tolerance evaluations persisted", (toleranceAfterEarly ?? []).length === 0, JSON.stringify(toleranceAfterEarly));
+
+    const countsAfterEarly = await interpretationCounts(userB.userId);
+    check("finalize before eligibility: zero M6 interpretation rows persisted", countsAfterEarly.total === 0, JSON.stringify(countsAfterEarly));
+
+    // Flip eligibility using a REAL persisted timestamp (never the browser
+    // clock) — simulates time having genuinely passed.
+    const pastEligibleAt = new Date(Date.now() - 60 * 60 * 1000).toISOString(); // -1h
+    const { error: flipError } = await admin.from("morning_responses").update({ scheduled_eligible_at: pastEligibleAt }).eq("id", morningResponseIdB);
+    if (flipError) throw flipError;
+
+    // 2. Page access AT/AFTER eligibility -> the real check-in form.
+    await pageB.goto(`${BASE_URL}/patient/morning-response`);
+    await pageB.waitForLoadState("networkidle");
+    check("page access at eligibility: stays on morning-response (no redirect)", pageB.url() === `${BASE_URL}/patient/morning-response`, pageB.url());
+    const bodyAtEligible = await pageB.locator("body").innerText();
+    check("page access at eligibility: shows the real Morning Check-In form", bodyAtEligible.includes("Morning Check-In"), bodyAtEligible.slice(0, 300));
+
+    // 4. Finalize AT/AFTER eligibility -> succeeds; legitimate downstream
+    // processing runs exactly as the unrelated scenario above already
+    // proved (tolerance + exactly one M6 row per domain).
+    const legitRes = await contextB.request.post(`${BASE_URL}/api/patient/morning-response/${morningResponseIdB}`, { data: finalizeBodyB });
+    check("finalize at eligibility: succeeds (200)", legitRes.ok(), `status ${legitRes.status()}: ${await legitRes.text().catch(() => "")}`);
+
+    const { data: toleranceAfterLegit } = await admin.from("tolerance_evaluations").select("id").eq("rehab_session_id", sessionIdB);
+    check("finalize at eligibility: tolerance evaluation now persisted", (toleranceAfterLegit ?? []).length === 1, JSON.stringify(toleranceAfterLegit));
+
+    const countsAfterLegit = await interpretationCounts(userB.userId);
+    check("finalize at eligibility: exactly 1 M6 row per domain now persisted (3 total)", countsAfterLegit.total === 3, JSON.stringify(countsAfterLegit));
+
+    // 8. Retry after the legitimate finalize remains idempotent — early
+    // rejection did not consume or disturb the normal CAS-gated protection
+    // already verified in the scenario above.
+    const retryLegitRes = await contextB.request.post(`${BASE_URL}/api/patient/morning-response/${morningResponseIdB}`, { data: finalizeBodyB });
+    check("retry after legitimate finalize: still succeeds (200)", retryLegitRes.ok(), `status ${retryLegitRes.status()}`);
+    const countsAfterRetryLegit = await interpretationCounts(userB.userId);
+    check("retry after legitimate finalize: M6 row counts UNCHANGED (no duplicate)", countsAfterRetryLegit.total === 3, JSON.stringify(countsAfterRetryLegit));
+    const { data: toleranceAfterRetryLegit } = await admin.from("tolerance_evaluations").select("id").eq("rehab_session_id", sessionIdB);
+    check("retry after legitimate finalize: tolerance row count UNCHANGED (no duplicate)", (toleranceAfterRetryLegit ?? []).length === 1, JSON.stringify(toleranceAfterRetryLegit));
+
+    await contextB.close();
   } catch (e) {
     fail++;
     console.log(`FAIL  unexpected error: ${e instanceof Error ? e.stack : e}`);

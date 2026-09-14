@@ -11,6 +11,7 @@ import {
 } from "@/lib/sessionLoadObservations";
 import { generateCapacityInterpretations } from "@/lib/capacityInterpretationEngine";
 import { generateTrainingResponseInterpretation } from "@/lib/trainingResponseInterpretationEngine";
+import { isScheduledEligible } from "@/lib/morningEligibility";
 
 const NOTE_MAX_LENGTH = 500;
 
@@ -97,6 +98,35 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   // call site for why.
   let didFinalizeThisRequest = false;
   if (current.submitted_at === null) {
+    // Core Patient Experience v1 blocker fix — authoritative write-boundary
+    // enforcement of the ALREADY-PERSISTED scheduled_eligible_at (computed
+    // once, at row-creation/reconciliation time, in morningResponseServer.ts
+    // — never recomputed or re-derived here). Reuses the exact same pure
+    // function the dashboard already uses to decide whether to show the
+    // "Complete Check-In" CTA (lib/morningEligibility.ts's
+    // isScheduledEligible), so there is exactly one eligibility calculation
+    // in the whole app, not a second independent one. Direct navigation to
+    // this route bypassing the dashboard's own (UI-only) gating previously
+    // had nothing stopping it from finalizing same-day — this closes that
+    // gap at the actual write boundary. Checked BEFORE the missing-fields
+    // validation (a too-early attempt is rejected on its own terms, not
+    // reported as if the patient merely forgot to answer something) and
+    // before ANY mutation below — nothing is written, no tolerance is
+    // evaluated, and no M6 interpretation is generated for a rejected
+    // attempt. Scoped to the finalize transition only — the progressive
+    // save path above (plain field updates, no `finalize: true`) is
+    // untouched, since a draft value is never "finalized truth."
+    if (!isScheduledEligible(current.scheduled_eligible_at as string | null, new Date())) {
+      return NextResponse.json(
+        {
+          error: "This morning response is not eligible for check-in yet.",
+          code: "MORNING_RESPONSE_NOT_YET_ELIGIBLE",
+          scheduledEligibleAt: current.scheduled_eligible_at,
+        },
+        { status: 409 }
+      );
+    }
+
     const missing: string[] = [];
     if (current.next_morning_pain == null) missing.push("nextMorningPain");
     if (current.next_morning_stiffness == null) missing.push("nextMorningStiffness");

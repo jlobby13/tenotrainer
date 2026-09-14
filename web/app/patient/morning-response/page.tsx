@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getOldestOutstandingMorningResponse } from "@/lib/morningResponseServer";
+import { isScheduledEligible } from "@/lib/morningEligibility";
 import { mapRehabSessionRow } from "@/lib/rehabSessionTypes";
 import { MorningCheckInScreen } from "./components/MorningCheckInScreen";
 
@@ -19,6 +20,18 @@ export default async function MorningResponsePage() {
 
   const outstanding = await getOldestOutstandingMorningResponse(user.id);
   if (!outstanding) redirect("/patient/dashboard");
+
+  // Core Patient Experience v1 blocker fix — same authoritative,
+  // already-persisted scheduledEligibleAt the API-level gate checks (and
+  // the exact same pure function the dashboard's own
+  // MorningResponsePendingNotice already uses to decide whether to show a
+  // CTA) — never a second, independently-derived eligibility calculation.
+  // Direct/early navigation here (bookmark, back button, typed URL) before
+  // the scheduled time now lands on the same "Morning Response Pending"
+  // dashboard state a patient would see if they'd simply opened the
+  // dashboard instead, rather than a confusing bare form or a silent bounce
+  // with no explanation.
+  if (!isScheduledEligible(outstanding.scheduledEligibleAt, new Date())) redirect("/patient/dashboard");
 
   const { data: sessionRow } = await supabase
     .from("rehab_sessions")

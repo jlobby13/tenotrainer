@@ -121,7 +121,17 @@ async function main() {
     await admin
       .from("set_outcomes")
       .insert([0, 1, 2].map((setIndex) => ({ rehab_session_id: finalSid, exercise_id: EXERCISE.ex_id, exercise_order_index: 0, set_index: setIndex, outcome: "completed", prescribed_reps: 10, actual_reps: 10, occurred_at: "2026-06-01T14:05:00Z" })));
-    const { data: morningFinal } = await admin.from("morning_responses").insert({ rehab_session_id: finalSid, user_id: userId, submitted_at: null }).select().single();
+    // scheduled_eligible_at set to an already-past instant — this script
+    // drives a real finalize call and needs a legitimately-eligible row;
+    // the Core Patient Experience v1 blocker fix now enforces eligibility
+    // server-side (a null value is never treated as eligible, matching the
+    // existing dashboard convention), so this seed must set a real
+    // timestamp rather than leaving it null.
+    const { data: morningFinal } = await admin
+      .from("morning_responses")
+      .insert({ rehab_session_id: finalSid, user_id: userId, submitted_at: null, scheduled_eligible_at: new Date(Date.now() - 60 * 60 * 1000).toISOString() })
+      .select()
+      .single();
 
     const context = await browser.newContext();
     const page = await context.newPage();
