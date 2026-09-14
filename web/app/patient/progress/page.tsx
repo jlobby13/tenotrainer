@@ -3,19 +3,30 @@ import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getSessionInfo } from "@/lib/auth";
 import { getProgressData } from "@/lib/progressServer";
+import { getProgressInterpretationData } from "@/lib/progressInterpretationServer";
 import { RecentResponseSection } from "./components/RecentResponseSection";
 import { SymptomsOverTimeSection } from "./components/SymptomsOverTimeSection";
 import { LoadingHistorySection } from "./components/LoadingHistorySection";
 import { ToleranceHistorySection } from "./components/ToleranceHistorySection";
+import { ProgressSummarySection } from "./components/ProgressSummarySection";
+import { SymptomsInterpretationCard } from "./components/SymptomsInterpretationCard";
+import { CapacityConstructSection } from "./components/CapacityConstructSection";
+import { TrainingResponseCard } from "./components/TrainingResponseCard";
 
 export const metadata = { title: "Progress — TenoTrainer" };
 
 // Milestone 6, Stage 2 — read-only against existing Postgres clinical
 // history (see lib/progressServer.ts). Deliberately does NOT call
 // getPatientSummary()/the FastAPI bridge — this page has no dependency on
-// the legacy backend at all. Layer 1 (factual recorded data) only; Layer 2
-// (improving/stable/reduced interpretation) is explicitly deferred to a
-// future, separately founder-approved M6 Stage.
+// the legacy backend at all. Layer 1 (factual recorded data).
+//
+// Milestone 6, Stage 4 — adds Layer 2 (Symptoms/Capacity/Training Response
+// interpretation, read-only via lib/progressInterpretationServer.ts) above
+// the existing factual sections, per the founder-approved hierarchy:
+// Summary -> Symptoms interpretation -> Symptoms evidence -> Capacity ->
+// Training Response -> detailed factual history (Recent Response, Loading
+// History, Tolerance History). The Stage 2 sections/queries themselves are
+// unchanged; only their position in this file moved.
 export default async function PatientProgressPage() {
   const supabase = await createServerSupabaseClient();
   const {
@@ -29,7 +40,9 @@ export default async function PatientProgressPage() {
   if (role === "clinician" || role === "clinician_admin") redirect("/clinician/dashboard");
 
   const hasOrgMembership = session.memberships.length > 0;
-  const data = hasOrgMembership ? await getProgressData(authUser.id) : null;
+  const [data, interpretationData] = hasOrgMembership
+    ? await Promise.all([getProgressData(authUser.id), getProgressInterpretationData(authUser.id)])
+    : [null, null];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -40,9 +53,9 @@ export default async function PatientProgressPage() {
         </Link>
       </nav>
 
-      <main className="max-w-3xl mx-auto px-4 py-8 lg:py-10">
+      <main className="max-w-3xl lg:max-w-4xl mx-auto px-4 py-8 lg:py-10">
         <h1 className="text-2xl font-bold text-gray-900 mb-1">Progress</h1>
-        <p className="text-sm text-gray-500 mb-6">Your recorded rehab history — factual values only, no scores.</p>
+        <p className="text-sm text-gray-500 mb-6">Am I improving? Interpretation first, evidence and full history below.</p>
 
         {!hasOrgMembership && (
           <div className="bg-white rounded-xl shadow border border-gray-100 p-6 text-sm text-gray-600">
@@ -56,10 +69,14 @@ export default async function PatientProgressPage() {
           </div>
         )}
 
-        {data && data.hasAnyHistory && (
+        {data && data.hasAnyHistory && interpretationData && (
           <div className="space-y-6">
-            <RecentResponseSection recentResponse={data.recentResponse} />
+            <ProgressSummarySection interpretationData={interpretationData} />
+            <SymptomsInterpretationCard symptoms={interpretationData.symptoms} />
             <SymptomsOverTimeSection symptomsOverTime={data.symptomsOverTime} acuteEventDates={data.acuteEventDates} />
+            <CapacityConstructSection capacityConstructs={interpretationData.capacityConstructs} />
+            <TrainingResponseCard trainingResponse={interpretationData.trainingResponse} />
+            <RecentResponseSection recentResponse={data.recentResponse} />
             <LoadingHistorySection loadingHistory={data.loadingHistory} />
             <ToleranceHistorySection toleranceHistory={data.toleranceHistory} />
           </div>

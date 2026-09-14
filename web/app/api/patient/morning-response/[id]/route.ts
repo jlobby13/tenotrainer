@@ -9,6 +9,8 @@ import {
   M4_FIXED_TIMING,
   type ExternalLoadCategory,
 } from "@/lib/sessionLoadObservations";
+import { generateCapacityInterpretations } from "@/lib/capacityInterpretationEngine";
+import { generateTrainingResponseInterpretation } from "@/lib/trainingResponseInterpretationEngine";
 
 const NOTE_MAX_LENGTH = 500;
 
@@ -86,6 +88,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   // below still runs so an already-submitted response reliably returns its
   // (already-computed, or defensively-recovered) evaluation too.
   let finalRow = current;
+  // M6 Stage 4: true only for the request that actually wins the
+  // compare-and-swap below (the real null->submitted transition) — never
+  // for a retry/double-click/refresh that finds submitted_at already set
+  // (which skips this whole block, leaving this false). Longitudinal
+  // interpretation generation is gated on this exact flag further down, so
+  // a repeat finalize call never re-triggers it — see the note at that
+  // call site for why.
+  let didFinalizeThisRequest = false;
   if (current.submitted_at === null) {
     const missing: string[] = [];
     if (current.next_morning_pain == null) missing.push("nextMorningPain");
@@ -107,6 +117,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .select()
       .maybeSingle();
     if (finalizeError) return NextResponse.json({ error: finalizeError.message }, { status: 500 });
+    didFinalizeThisRequest = finalized != null;
 
     // finalized is null only if a concurrent request won the race above —
     // re-fetch and use that result rather than erroring.
@@ -250,6 +261,50 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       } else {
         evaluationRow = inserted;
       }
+    }
+  }
+
+  // --- M6 Stage 4: longitudinal interpretation generation ---
+  // Triggered exactly once per session, only on the request that actually
+  // performed the real finalize transition (didFinalizeThisRequest) and
+  // only once a real tolerance evaluation is confirmed persisted for this
+  // session (evaluationRow) — Capacity's own "base episode" gate requires
+  // one (capacityInterpretationEngine.ts). A retry/double-click/refresh of
+  // this route never re-enters this block: didFinalizeThisRequest stays
+  // false whenever submitted_at was already set on entry, exactly
+  // mirroring the compare-and-swap idempotency this route already uses for
+  // the morning_responses -> rehab_sessions status transition above.
+  //
+  // Order matters: generateTrainingResponseInterpretation() ALREADY calls
+  // generateShortWindowSymptomInterpretation() as its own first step
+  // (regenerating and re-persisting that exact Symptoms interpretation —
+  // see trainingResponseInterpretationEngine.ts's header note). Calling
+  // generateShortWindowSymptomInterpretation() again here directly would
+  // therefore persist a second, duplicate Symptoms row every time — so it
+  // is deliberately NOT called a second time; Training Response's own call
+  // is this route's only Symptoms-generation trigger.
+  //
+  // Failure isolation (patient-critical write vs. derived data): each call
+  // is independently try/caught and logged, never allowed to turn an
+  // already-successful morning-response finalize into an apparent failure
+  // — mirrors the existing ensureMorningResponseExists/
+  // confirmAcuteSafetyEpisode precedent in
+  // app/api/patient/rehab-session/[id]/response/route.ts. Unlike that
+  // precedent, there is no lazy-backfill-on-read recovery for a failed
+  // attempt here — see the M6 Stage 4 report's "failure isolation"
+  // section for this known limitation. Clinical logic itself
+  // (generateCapacityInterpretations/generateTrainingResponseInterpretation)
+  // is untouched by this change.
+  if (didFinalizeThisRequest && evaluationRow) {
+    try {
+      await generateCapacityInterpretations(user.id, finalRow.rehab_session_id);
+    } catch (e) {
+      console.error(`M6 Stage 4: Capacity interpretation generation failed for session ${finalRow.rehab_session_id}:`, e);
+    }
+    try {
+      await generateTrainingResponseInterpretation(user.id);
+    } catch (e) {
+      console.error(`M6 Stage 4: Training Response interpretation generation failed for session ${finalRow.rehab_session_id}:`, e);
     }
   }
 
