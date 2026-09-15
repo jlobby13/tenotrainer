@@ -17,17 +17,22 @@ Rule engine outputs are never modified.
 from __future__ import annotations
 
 import json
+import logging
+import os
 import secrets
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
+import httpx
 from fastapi import APIRouter, Cookie, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from app.db.database import get_db, parse_json_fields, row_to_dict
 from app.notifier import send_dismissal_email
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Setup
@@ -1618,6 +1623,73 @@ async def supervisor_patient_profile(
     )
 
 
+async def _sync_supervisor_patient_relationship(
+    supervisor_row: dict,
+    patient_email: Optional[str],
+    patient_supabase_id: Optional[str],
+    status: str,
+    dismissed_at: Optional[str] = None,
+    dismissed_reason: Optional[str] = None,
+    dismissed_by_row: Optional[dict] = None,
+) -> None:
+    """C1A — best-effort mirror of a legacy dismiss/reinstate lifecycle
+    change into the canonical Postgres `supervisor_patients` table, exactly
+    matching _sync_onboarding_prescription_version's own shape (same
+    BRIDGE_SECRET-protected internal Next.js endpoint pattern, same broad
+    try/except, same "never let this block the caller's real action").
+
+    Legacy SQLite remains the WRITE AUTHORITY for this lifecycle during the
+    transitional period — this call happens strictly AFTER the legacy
+    UPDATE has already committed. A failure here must never roll back or
+    otherwise contradict the already-successful legacy action; it is
+    logged, never silently reported as success, and recoverable later via
+    `web/scripts/backfillSupervisorPatients.mjs --write` (manual
+    reconciliation is the recovery path — no scheduled/queued retry exists
+    by design for this transition).
+    """
+    bridge_secret = os.environ.get("BRIDGE_SECRET", "")
+    supervisor_email = supervisor_row.get("email")
+    if not bridge_secret or not supervisor_email or not patient_email:
+        logger.info(
+            "Skipping supervisor-patient relationship sync: missing bridge secret or an email on one side "
+            "(guest patient, or a supervisor account with no email)."
+        )
+        return
+
+    nextjs_url = os.environ.get("NEXTJS_URL", "http://localhost:3000")
+    payload = {
+        "supervisor": {"email": supervisor_email, "supabaseId": supervisor_row.get("supabase_id") or None},
+        "patient": {"email": patient_email, "supabaseId": patient_supabase_id or None},
+        "status": status,
+        "dismissedAt": dismissed_at,
+        "dismissedReason": dismissed_reason,
+        "dismissedBy": (
+            {"email": dismissed_by_row.get("email"), "supabaseId": dismissed_by_row.get("supabase_id") or None}
+            if dismissed_by_row and dismissed_by_row.get("email")
+            else None
+        ),
+    }
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.post(
+                f"{nextjs_url}/api/internal/supervisor-patients-sync",
+                json=payload,
+                headers={"Authorization": f"Bearer {bridge_secret}"},
+            )
+            if resp.status_code >= 400:
+                logger.error(
+                    "Supervisor-patient relationship sync failed (%s): %s — legacy state was NOT rolled back; "
+                    "rerun scripts/backfillSupervisorPatients.mjs --write to reconcile.",
+                    resp.status_code, resp.text,
+                )
+    except Exception as exc:  # noqa: BLE001 — deliberately broad: never let this block the legacy action
+        logger.error(
+            "Supervisor-patient relationship sync raised: %s — legacy state was NOT rolled back; "
+            "rerun scripts/backfillSupervisorPatients.mjs --write to reconcile.",
+            exc,
+        )
+
+
 _DISMISS_REASONS = {
     "completed_program":   "User completed program",
     "goals_achieved":      "User goals achieved",
@@ -1656,11 +1728,12 @@ async def dismiss_patient(
         if row["status"] == "dismissed":
             return JSONResponse({"error": "already_dismissed"}, status_code=409)
 
-        # Fetch patient info for email
-        cur = await db.execute("SELECT name, email FROM users WHERE id = ?", (patient_id,))
+        # Fetch patient info for email (+ supabase_id for the C1A relationship sync below)
+        cur = await db.execute("SELECT name, email, supabase_id FROM users WHERE id = ?", (patient_id,))
         patient_row = await cur.fetchone()
         patient_name  = patient_row["name"]  if patient_row else "Patient"
         patient_email = patient_row["email"] if patient_row else None
+        patient_supabase_id = patient_row["supabase_id"] if patient_row else None
 
         now = datetime.utcnow()
         expires_at = (now + timedelta(days=_ACCESS_WINDOW_DAYS)).date().isoformat()
@@ -1682,6 +1755,18 @@ async def dismiss_patient(
     await _audit(supervisor["id"], "dismiss_patient", target_patient_id=patient_id,
                  changes={"reason": reason, "reason_label": _DISMISS_REASONS[reason],
                           "access_expires_at": expires_at})
+
+    # C1A — best-effort mirror into the canonical Postgres relationship.
+    # Strictly after the legacy commit above; never rolls it back on failure.
+    await _sync_supervisor_patient_relationship(
+        supervisor_row=supervisor,
+        patient_email=patient_email,
+        patient_supabase_id=patient_supabase_id,
+        status="dismissed",
+        dismissed_at=now_iso,
+        dismissed_reason=reason,
+        dismissed_by_row=supervisor,
+    )
 
     if patient_email:
         import asyncio
@@ -1718,6 +1803,12 @@ async def reinstate_patient(
         if row["status"] != "dismissed":
             return JSONResponse({"error": "not_dismissed"}, status_code=409)
 
+        # Fetch patient info for the C1A relationship sync below.
+        cur = await db.execute("SELECT email, supabase_id FROM users WHERE id = ?", (patient_id,))
+        patient_row = await cur.fetchone()
+        patient_email = patient_row["email"] if patient_row else None
+        patient_supabase_id = patient_row["supabase_id"] if patient_row else None
+
         await db.execute(
             "UPDATE supervisor_patients SET status='active', dismissed_at=NULL, dismissed_reason=NULL, dismissed_by=NULL "
             "WHERE supervisor_id=? AND patient_id=?",
@@ -1732,6 +1823,16 @@ async def reinstate_patient(
         await db.close()
 
     await _audit(supervisor["id"], "reinstate_patient", target_patient_id=patient_id)
+
+    # C1A — best-effort mirror into the canonical Postgres relationship.
+    # Strictly after the legacy commit above; never rolls it back on failure.
+    await _sync_supervisor_patient_relationship(
+        supervisor_row=supervisor,
+        patient_email=patient_email,
+        patient_supabase_id=patient_supabase_id,
+        status="active",
+    )
+
     return JSONResponse({"ok": True})
 
 
