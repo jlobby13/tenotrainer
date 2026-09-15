@@ -1,11 +1,12 @@
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getSessionInfo } from "@/lib/auth";
-import { getPatientSummary } from "@/lib/fastapi";
+import { getPatientSummary, BackendUnavailableError } from "@/lib/fastapi";
 import { getOldestOutstandingMorningResponse } from "@/lib/morningResponseServer";
 import { getActiveBrakeStatus } from "@/lib/acuteSafetyServer";
 import { SessionPlayer } from "./components/SessionPlayer";
 import { MorningCheckInRequired } from "./components/MorningCheckInRequired";
+import { SessionUnavailable } from "./components/SessionUnavailable";
 
 // A non-terminal rehab_sessions row means the patient already legitimately
 // started (or is mid-M3-response on) something real — that must never be
@@ -40,7 +41,23 @@ export default async function PatientSessionPage() {
   let summary;
   try {
     summary = await getPatientSummary(authUser.email!);
-  } catch {
+  } catch (err) {
+    // Transport-level backend outage: render a patient-safe unavailable
+    // state right here, in place of Active Rehab — never silently redirect
+    // back to the dashboard (that read as "the button did nothing"), never
+    // fabricate/reuse a session plan just to keep the flow moving. Any
+    // other failure (a real application/data condition — e.g. the
+    // authenticated patient has no matching backend record) still defers
+    // to the dashboard, which renders its own distinct, correctly-labeled
+    // safe state for that same error type — never mislabeled here as
+    // transient downtime.
+    if (err instanceof BackendUnavailableError) {
+      return (
+        <div className="min-h-screen bg-gray-50">
+          <SessionUnavailable />
+        </div>
+      );
+    }
     redirect("/patient/dashboard");
   }
 

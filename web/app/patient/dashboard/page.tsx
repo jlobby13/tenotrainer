@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getSessionInfo } from "@/lib/auth";
-import { getPatientSummary, type PatientSummary } from "@/lib/fastapi";
+import { getPatientSummary, BackendUnavailableError, type PatientSummary } from "@/lib/fastapi";
 import { getTodaysRehabFeedback } from "@/lib/todaysRehabFeedbackServer";
 import { getTodaysRehabDayEligibility } from "@/lib/rehabScheduleServer";
 import type { DashboardFeedback } from "@/lib/dashboardFeedback";
@@ -65,12 +65,18 @@ export default async function PatientDashboardPage() {
   const hasOrgMembership = session.memberships.length > 0;
 
   let summary: PatientSummary | null = null;
-  let fetchError: string | null = null;
+  // Distinguishes a temporary backend outage (patient-safe "try again"
+  // framing) from a real application/data condition on the backend's own
+  // response (never mislabeled as transient downtime) — see
+  // lib/fastapi.ts's BackendUnavailableError/BackendApplicationError.
+  // Neither branch ever carries the underlying error's own message: no
+  // URLs, ports, or FastAPI terminology reach the patient.
+  let dashboardError: "unavailable" | "application" | null = null;
   if (hasOrgMembership) {
     try {
       summary = await getPatientSummary(authUser.email!);
     } catch (err) {
-      fetchError = err instanceof Error ? err.message : "Unable to load dashboard data";
+      dashboardError = err instanceof BackendUnavailableError ? "unavailable" : "application";
     }
   }
 
@@ -120,10 +126,25 @@ export default async function PatientDashboardPage() {
               </p>
             </div>
 
-            {fetchError && (
+            {dashboardError === "unavailable" && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-xl px-5 py-4 text-sm text-yellow-800">
-                <strong>Dashboard data unavailable:</strong> {fetchError}
-                <br />
+                <p className="font-semibold">Your rehab plan is temporarily unavailable.</p>
+                <p className="mt-1">Please try again shortly. Your recorded rehab progress is still available.</p>
+                <div className="mt-3 flex gap-4">
+                  <a href="/patient/dashboard" className="text-brand-600 font-medium underline">
+                    Try again
+                  </a>
+                  <Link href="/patient/progress" className="text-brand-600 font-medium underline">
+                    View Progress
+                  </Link>
+                </div>
+              </div>
+            )}
+
+            {dashboardError === "application" && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-xl px-5 py-4 text-sm text-yellow-800">
+                <p className="font-semibold">We couldn&apos;t load your rehab plan.</p>
+                <p className="mt-1">Please contact your clinician if this continues. Your recorded rehab progress is still available.</p>
                 <a
                   href="/api/auth/launch-dashboard"
                   className="mt-2 inline-block text-brand-600 font-medium underline"

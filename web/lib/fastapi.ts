@@ -3,14 +3,53 @@ import "server-only";
 const FASTAPI_URL = process.env.FASTAPI_URL ?? "http://localhost:8000";
 const BRIDGE_SECRET = process.env.BRIDGE_SECRET ?? "";
 
+// Two distinct failure shapes a caller needs to tell apart — never surfaced
+// with infrastructure detail (URL/port/status/body) to a patient; that
+// detail is logged server-side only (see bridgeFetch) and never carried in
+// these errors' own messages.
+//
+// Transport-level: the backend service itself could not be reached at all
+// (connection refused, DNS failure, timeout) — nothing about the patient's
+// own data or identity. This is the only case that is genuinely "temporary
+// service unavailability" from the patient's point of view.
+export class BackendUnavailableError extends Error {
+  constructor() {
+    super("Patient backend service is temporarily unavailable");
+    this.name = "BackendUnavailableError";
+  }
+}
+
+// The backend WAS reached and responded, but with a non-2xx status — a
+// real application/data condition (unknown patient identity, malformed
+// request, etc.), never a transient outage. Must never be presented to the
+// patient as "try again shortly".
+export class BackendApplicationError extends Error {
+  readonly status: number;
+  constructor(status: number) {
+    super("Patient backend returned an application error");
+    this.name = "BackendApplicationError";
+    this.status = status;
+  }
+}
+
 async function bridgeFetch<T>(path: string): Promise<T> {
-  const res = await fetch(`${FASTAPI_URL}${path}`, {
-    headers: { Authorization: `Bearer ${BRIDGE_SECRET}` },
-    cache: "no-store",
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${FASTAPI_URL}${path}`, {
+      headers: { Authorization: `Bearer ${BRIDGE_SECRET}` },
+      cache: "no-store",
+    });
+  } catch (err) {
+    // fetch() itself threw — a transport failure, never a data/identity
+    // problem. Full detail (including the underlying URL) is logged here,
+    // server-side only; the thrown error carries none of it.
+    console.error(`Patient backend unreachable for ${path}:`, err);
+    throw new BackendUnavailableError();
+  }
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(`FastAPI ${path} → ${res.status}: ${body}`);
+    console.error(`Patient backend returned ${res.status} for ${path}: ${body}`);
+    throw new BackendApplicationError(res.status);
   }
   return res.json() as Promise<T>;
 }
