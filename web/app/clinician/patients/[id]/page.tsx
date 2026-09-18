@@ -5,6 +5,7 @@ import { getClinicianPatientOverview, type AcuteEpisodeHistoryEntry } from "@/li
 import { formatInsertionalLabel, formatIrritabilityLabel, formatReleasePathLabel } from "@/lib/clinicianPatientOverview";
 import { formatLastSessionLabel } from "@/lib/clinicianRoster";
 import { RecentSessionCard } from "./components/RecentSessionCard";
+import { PatientNav } from "./components/PatientNav";
 
 export const metadata = { title: "Patient — TenoTrainer" };
 
@@ -46,7 +47,8 @@ export default async function ClinicianPatientPage({ params }: { params: Promise
       <main className="max-w-3xl mx-auto px-4 py-8 lg:py-10 space-y-6">
         {/* Patient Header */}
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">{overview.displayName}</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-3">{overview.displayName}</h1>
+          <PatientNav patientId={overview.patientId} active="overview" />
           {(overview.acuteReviewActive || overview.morningResponseStatus !== null) && (
             <div className="flex flex-wrap gap-1.5 mt-2">
               {overview.acuteReviewActive && <Badge color="red">Clinical review active</Badge>}
