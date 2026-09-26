@@ -71,3 +71,22 @@ export async function assertSupervises(clinicianId: string, patientId: string): 
   if (error) return false;
   return data != null;
 }
+
+export type ClinicianAuthResult =
+  | { ok: true; clinicianId: string; role: ClinicianRole }
+  | { ok: false; reason: "UNAUTHENTICATED" | "CLINICIAN_ROLE_REQUIRED" };
+
+// C5.3 — API-route variant of requireClinicianAuth(). redirect() is only
+// appropriate for page/server-component rendering; a Route Handler must
+// return a structured JSON error instead. Same session lookup, same
+// allowlist, never a second independently-authored check — just a
+// different failure shape for a different caller kind.
+export async function requireClinicianAuthForRoute(): Promise<ClinicianAuthResult> {
+  const session = await getSessionInfo();
+  if (!session.user) return { ok: false, reason: "UNAUTHENTICATED" };
+
+  const role = session.memberships[0]?.role;
+  if (!role || !CLINICIAN_ROLES.has(role)) return { ok: false, reason: "CLINICIAN_ROLE_REQUIRED" };
+
+  return { ok: true, clinicianId: session.user.id, role: role as ClinicianRole };
+}

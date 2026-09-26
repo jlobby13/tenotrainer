@@ -2360,6 +2360,50 @@ async def clinician_patient_detail_api(request: Request, patient_id: int, email:
     })
 
 
+@app.get("/api/internal/supervisor-status")
+async def supervisor_status_api(request: Request, supervisor_email: str = "", patient_email: str = ""):
+    """BRIDGE_SECRET-protected, narrow point-check ONLY: is this specific
+    clinician-patient relationship currently active according to the
+    authoritative legacy `supervisor_patients` table? Built for C5.3's
+    high-consequence prescription-mutation authorization (draft creation,
+    publish, pause, resume) — the ONE thing those Next.js server routes
+    cannot verify synchronously themselves, since the async C1A mirror into
+    Postgres can be stale. Deliberately does NOT rebuild the clinician
+    roster (unlike GET /api/clinician/patients, which is the wrong tool for
+    a single point-check — it computes a full per-patient summary for
+    every active patient) and exposes nothing beyond {"active": bool}.
+    Status is actually checked (not merely relationship existence, unlike
+    GET /api/clinician/patients/{id} above)."""
+    if not _require_bridge(request):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    if not supervisor_email or not patient_email:
+        return JSONResponse({"error": "supervisor_email and patient_email required"}, status_code=400)
+
+    db = await get_db()
+    try:
+        cursor = await db.execute(
+            "SELECT id FROM users WHERE email = ?", (supervisor_email.lower().strip(),)
+        )
+        supervisor_row = await cursor.fetchone()
+        cursor = await db.execute(
+            "SELECT id FROM users WHERE email = ?", (patient_email.lower().strip(),)
+        )
+        patient_row = await cursor.fetchone()
+        if not supervisor_row or not patient_row:
+            return JSONResponse({"active": False})
+
+        cursor = await db.execute(
+            "SELECT status FROM supervisor_patients WHERE supervisor_id = ? AND patient_id = ?",
+            (supervisor_row["id"], patient_row["id"]),
+        )
+        relationship_row = await cursor.fetchone()
+    finally:
+        await db.close()
+
+    is_active = bool(relationship_row) and (relationship_row["status"] is None or relationship_row["status"] == "active")
+    return JSONResponse({"active": is_active})
+
+
 @app.post("/api/dashboard-layout")
 async def save_dashboard_layout(
     request: Request,
