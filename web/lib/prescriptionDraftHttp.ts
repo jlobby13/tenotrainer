@@ -25,7 +25,10 @@ const STATUS_BY_CODE: Record<string, number> = {
 // web/app/api/clinician/prescription* funnels its catch block through this.
 export function prescriptionDraftErrorResponse(err: unknown): NextResponse {
   if (err instanceof PrescriptionDraftError) {
-    return NextResponse.json({ error: err.code }, { status: STATUS_BY_CODE[err.code] ?? 500 });
+    // `details` is only ever OUR OWN structured validation output (e.g.
+    // C5.4B's dosage fieldErrors) — never a raw SQL/Postgres/RPC message.
+    const body = err.details !== undefined ? { error: err.code, details: err.details } : { error: err.code };
+    return NextResponse.json(body, { status: STATUS_BY_CODE[err.code] ?? 500 });
   }
   console.error("Unexpected prescription-draft route error:", err);
   return NextResponse.json({ error: "INTERNAL_ERROR" }, { status: 500 });

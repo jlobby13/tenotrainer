@@ -3,6 +3,7 @@ import { requireClinicianAuth, assertSupervises } from "@/lib/clinicianAuth";
 import { findEditingDraftId, getClinicianDisplayName } from "@/lib/prescriptionManagementServer";
 import { getDraft } from "@/lib/prescriptionDraftServer";
 import { listCanonicalExercisesForClinician, getCanonicalExerciseNamesByIds } from "@/lib/canonicalExerciseLibraryServer";
+import { mapDosageRowToInput } from "@/lib/dosageEditor";
 import { BuilderShell } from "./BuilderShell";
 import type { BuilderDraftWorkout } from "./types";
 
@@ -13,6 +14,7 @@ type RawExercise = {
   canonical_exercise_id: string;
   order_index: number;
   status: "active" | "paused";
+  additional_instructions: string | null;
   prescription_exercise_dosage: unknown;
 };
 type RawWorkout = { id: string; order_index: number; prescription_exercises: RawExercise[] | null };
@@ -52,7 +54,8 @@ export default async function PrescriptionBuilderPage({ params }: { params: Prom
         .slice()
         .sort((a, b) => a.order_index - b.order_index)
         .map((e) => {
-          const dosage = Array.isArray(e.prescription_exercise_dosage) ? e.prescription_exercise_dosage[0] : e.prescription_exercise_dosage;
+          const rawDosage = Array.isArray(e.prescription_exercise_dosage) ? e.prescription_exercise_dosage[0] : e.prescription_exercise_dosage;
+          const dosage = mapDosageRowToInput(rawDosage as Record<string, unknown> | null | undefined);
           const meta = nameById.get(e.canonical_exercise_id);
           return {
             id: e.id,
@@ -61,7 +64,9 @@ export default async function PrescriptionBuilderPage({ params }: { params: Prom
             status: e.status,
             exerciseName: meta?.name ?? "Unknown exercise",
             loadingProfile: meta?.loadingProfile ?? null,
-            dosageConfigured: !!dosage,
+            dosageConfigured: dosage !== null,
+            dosage,
+            additionalInstructions: e.additional_instructions ?? null,
           };
         }),
     }));

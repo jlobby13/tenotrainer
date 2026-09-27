@@ -25,6 +25,7 @@ import { createServiceRoleClient } from "./supabase/server";
 import { assertSupervises } from "./clinicianAuth";
 import { verifyHighConsequenceAuthorization, assertPublishEnabled } from "./prescriptionDraftAuth";
 import { PrescriptionDraftError, mapRpcError } from "./prescriptionDraftErrors";
+import { validateDosageInput } from "./dosageEditor";
 import type {
   DraftSource,
   DraftStatus,
@@ -338,7 +339,22 @@ export async function reorderExercises(params: { clinicianId: string; workoutId:
 }
 
 // ---------------------------------------------------------------------------
-// Dosage — upsert (one row per exercise, 1:1 by DB constraint)
+// Dosage — upsert (one row per exercise, 1:1 by DB constraint). C5.4B: the
+// row object below explicitly sets EVERY dosage column from the incoming
+// DosageInput (never a partial patch) — switching dosage type therefore
+// automatically nulls out every field belonging to the PREVIOUS type,
+// because the caller constructs a fresh DosageInput containing only the
+// newly-selected type's fields. This is deliberate: it is what gives C5.4B
+// §20's "no stale hidden fields survive a type switch" guarantee for free,
+// with no separate clear-then-write step needed.
+//
+// validateDosageInput() (lib/dosageEditor.ts, pure/isomorphic) is called
+// here BEFORE the upsert — the exact same validator the client editor runs
+// for immediate feedback, never duplicated or re-implemented differently
+// per caller (C5.4B §21). The DB's own CHECK constraints remain the true,
+// final authority underneath this — this call exists to turn what would
+// otherwise be an opaque Postgres constraint violation into an early,
+// specific, clinician-readable rejection.
 // ---------------------------------------------------------------------------
 
 export async function updateDosage(params: { clinicianId: string; exerciseId: string; dosage: DosageInput }): Promise<void> {
@@ -348,6 +364,11 @@ export async function updateDosage(params: { clinicianId: string; exerciseId: st
   await loadEditableDraft(supabase, params.clinicianId, draftId);
 
   const d = params.dosage;
+  const validationErrors = validateDosageInput(d);
+  if (validationErrors.length > 0) {
+    throw new PrescriptionDraftError("VALIDATION_FAILED", validationErrors[0].message, { fieldErrors: validationErrors });
+  }
+
   const row = {
     prescription_exercise_id: params.exerciseId,
     dosage_type: d.dosageType,
@@ -371,6 +392,11 @@ export async function updateDosage(params: { clinicianId: string; exerciseId: st
     interval_work_seconds: d.intervalWorkSeconds ?? null,
     interval_recovery_seconds: d.intervalRecoverySeconds ?? null,
     interval_rounds: d.intervalRounds ?? null,
+    distance_mode: d.distanceMode ?? null,
+    distance_exact_value: d.distanceExactValue ?? null,
+    distance_min_value: d.distanceMinValue ?? null,
+    distance_max_value: d.distanceMaxValue ?? null,
+    distance_unit: d.distanceUnit ?? null,
     concentric_duration_seconds: d.concentricDurationSeconds ?? null,
     rep_hold_duration_seconds: d.repHoldDurationSeconds ?? null,
     eccentric_duration_seconds: d.eccentricDurationSeconds ?? null,

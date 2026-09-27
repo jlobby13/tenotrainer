@@ -70,8 +70,12 @@ export function formatFreeTextLabel(value: string | null): string | null {
 
 const DISTANCE_UNIT_LABELS: Record<DistanceUnit, string> = { m: "m", km: "km", ft: "ft", mi: "mi" };
 
-function formatSeconds(seconds: number): string {
-  if (seconds % 60 === 0 && seconds >= 60) return `${seconds / 60} min`;
+// Founder-locked thresholds (C5.4B dosage-summary examples): 60s and 90s
+// render as raw seconds ("60s rest", "90s rest"); 120s+ multiples of 60
+// render as minutes ("2 min rest"). The cutoff is deliberately >=120, not
+// >=60 — exactly 60s stays "60s", never "1 min".
+export function formatSeconds(seconds: number): string {
+  if (seconds % 60 === 0 && seconds >= 120) return `${seconds / 60} min`;
   return `${seconds}s`;
 }
 

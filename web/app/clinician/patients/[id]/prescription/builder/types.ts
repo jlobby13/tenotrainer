@@ -9,6 +9,7 @@
 // prescriptionDraftTypes.ts/prescriptionDraftServer.ts split.
 
 import type { ReferenceDosageLike } from "@/lib/canonicalExerciseLibrary";
+import type { DosageInput } from "@/lib/prescriptionDraftTypes";
 
 export type BuilderLibraryExercise = {
   id: string;
@@ -36,6 +37,11 @@ export type BuilderDraftExercise = {
   exerciseName: string;
   loadingProfile: string | null;
   dosageConfigured: boolean;
+  // C5.4B — full structured dosage (null until first saved). dosageConfigured
+  // above is kept as a cheap boolean derived from `dosage !== null` so
+  // existing C5.4A call sites don't need to change.
+  dosage: DosageInput | null;
+  additionalInstructions: string | null;
 };
 
 export type BuilderDraftWorkout = {

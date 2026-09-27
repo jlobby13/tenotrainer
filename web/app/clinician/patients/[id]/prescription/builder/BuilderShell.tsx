@@ -11,11 +11,20 @@
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { filterLibraryExercises, computeLibraryFacets, EMPTY_LIBRARY_FILTERS, type LibraryFilters } from "@/lib/canonicalExerciseLibrary";
+import { mapDosageRowToInput } from "@/lib/dosageEditor";
+import type { DosageInput } from "@/lib/prescriptionDraftTypes";
 import { LibraryPanel } from "./LibraryPanel";
 import { DraftPanel } from "./DraftPanel";
 import type { BuilderDraftWorkout, BuilderLibraryExercise } from "./types";
 
-type RawApiExercise = { id: string; canonical_exercise_id: string; order_index: number; status: "active" | "paused"; prescription_exercise_dosage: unknown };
+type RawApiExercise = {
+  id: string;
+  canonical_exercise_id: string;
+  order_index: number;
+  status: "active" | "paused";
+  additional_instructions: string | null;
+  prescription_exercise_dosage: unknown;
+};
 type RawApiWorkout = { id: string; order_index: number; prescription_exercises: RawApiExercise[] | null };
 
 type Props = {
@@ -26,6 +35,23 @@ type Props = {
   initialWorkouts: BuilderDraftWorkout[];
   initialExercises: Omit<BuilderLibraryExercise, "hasReferenceDosage">[];
 };
+
+function mapRawExercise(ex: RawApiExercise, exercisesById: Map<string, BuilderLibraryExercise>) {
+  const rawDosage = Array.isArray(ex.prescription_exercise_dosage) ? ex.prescription_exercise_dosage[0] : ex.prescription_exercise_dosage;
+  const dosage: DosageInput | null = mapDosageRowToInput(rawDosage as Record<string, unknown> | null | undefined);
+  const meta = exercisesById.get(ex.canonical_exercise_id);
+  return {
+    id: ex.id,
+    canonicalExerciseId: ex.canonical_exercise_id,
+    orderIndex: ex.order_index,
+    status: ex.status,
+    exerciseName: meta?.name ?? "Unknown exercise",
+    loadingProfile: meta?.loadingProfile ?? null,
+    dosageConfigured: dosage !== null,
+    dosage,
+    additionalInstructions: ex.additional_instructions ?? null,
+  };
+}
 
 function withDerived(e: Omit<BuilderLibraryExercise, "hasReferenceDosage">): BuilderLibraryExercise {
   return { ...e, hasReferenceDosage: e.referenceDosage !== null };
@@ -39,6 +65,9 @@ export function BuilderShell({ patientId, draftId, isOwner, editingClinicianName
   const [mobileTab, setMobileTab] = useState<"library" | "draft">("library");
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // C5.4B — only one exercise's dosage editor open at a time (§2), enforced
+  // trivially by a single id rather than a Set.
+  const [editingDosageExerciseId, setEditingDosageExerciseId] = useState<string | null>(null);
 
   // "Another clinician" is prescriptionManagementServer.ts's own fallback
   // sentinel for an unresolvable profile — matches the founder's exact
@@ -84,19 +113,7 @@ export function BuilderShell({ patientId, draftId, isOwner, editingClinicianName
         exercises: (w.prescription_exercises ?? [])
           .slice()
           .sort((a, b) => a.order_index - b.order_index)
-          .map((ex) => {
-            const dosage = Array.isArray(ex.prescription_exercise_dosage) ? ex.prescription_exercise_dosage[0] : ex.prescription_exercise_dosage;
-            const meta = exercisesById.get(ex.canonical_exercise_id);
-            return {
-              id: ex.id,
-              canonicalExerciseId: ex.canonical_exercise_id,
-              orderIndex: ex.order_index,
-              status: ex.status,
-              exerciseName: meta?.name ?? "Unknown exercise",
-              loadingProfile: meta?.loadingProfile ?? null,
-              dosageConfigured: !!dosage,
-            };
-          }),
+          .map((ex) => mapRawExercise(ex, exercisesById)),
       }));
     setWorkouts(enriched);
   }, [draftId, exercisesById]);
@@ -193,6 +210,52 @@ export function BuilderShell({ patientId, draftId, isOwner, editingClinicianName
     })();
   };
 
+  // C5.4B — dosage editor open/close. Only the editing clinician may open
+  // it (view-only clinicians may still see the persisted summary — §23).
+  const handleOpenDosageEditor = (exerciseId: string) => {
+    if (!isOwner) return;
+    setEditingDosageExerciseId((cur) => (cur === exerciseId ? null : exerciseId));
+  };
+  const handleCloseDosageEditor = () => setEditingDosageExerciseId(null);
+
+  // Two independent existing-mutation calls (dosage upsert + the exercise's
+  // own additional_instructions patch) — both already-approved C5.3
+  // endpoints, never a new bespoke combined endpoint. Returns a result
+  // object (rather than throwing into the generic top-banner `actionError`)
+  // so the editor can show the message INLINE next to its own fields,
+  // matching §22's "clinician-readable inline errors" requirement.
+  const handleSaveDosage = async (
+    exerciseId: string,
+    dosage: DosageInput,
+    additionalInstructions: string | null
+  ): Promise<{ ok: true } | { ok: false; message: string }> => {
+    try {
+      const dosageRes = await fetch(`/api/clinician/prescription-exercises/${exerciseId}/dosage`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dosage }),
+      });
+      if (!dosageRes.ok) {
+        const body = await dosageRes.json().catch(() => ({}) as { details?: { fieldErrors?: { message: string }[] } });
+        const firstFieldError = body?.details?.fieldErrors?.[0]?.message;
+        return { ok: false, message: firstFieldError ?? "This dosage could not be saved. Please check the values and try again." };
+      }
+      const instrRes = await fetch(`/api/clinician/prescription-exercises/${exerciseId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ additionalInstructions }),
+      });
+      if (!instrRes.ok) {
+        return { ok: false, message: "Dosage saved, but instructions could not be saved. Please try again." };
+      }
+      await refreshDraft();
+      setEditingDosageExerciseId(null);
+      return { ok: true };
+    } catch {
+      return { ok: false, message: "Something went wrong. Please try again." };
+    }
+  };
+
   return (
     <div className="h-screen flex flex-col bg-gray-50">
       <nav className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between shrink-0">
@@ -244,7 +307,18 @@ export function BuilderShell({ patientId, draftId, isOwner, editingClinicianName
           />
         </div>
         <div className={`${mobileTab === "draft" ? "block" : "hidden"} md:block overflow-y-auto p-4`} data-testid="draft-panel">
-          <DraftPanel workouts={workouts} isOwner={isOwner} onRemove={handleRemove} onMove={handleMove} busy={busy} />
+          <DraftPanel
+            workouts={workouts}
+            isOwner={isOwner}
+            onRemove={handleRemove}
+            onMove={handleMove}
+            busy={busy}
+            exercisesById={exercisesById}
+            editingDosageExerciseId={editingDosageExerciseId}
+            onOpenDosageEditor={handleOpenDosageEditor}
+            onCloseDosageEditor={handleCloseDosageEditor}
+            onSaveDosage={handleSaveDosage}
+          />
         </div>
       </div>
     </div>

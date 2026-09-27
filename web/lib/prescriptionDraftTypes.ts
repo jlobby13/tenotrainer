@@ -15,12 +15,17 @@ export type PerformanceFocus =
   | "maintenance";
 
 export type ExerciseStatus = "active" | "paused";
-export type DosageType = "repetition" | "hold" | "time" | "contact";
+// "distance" added C5.4B — the column set has existed since C5.3F
+// (20260920000001) but this type/DosageInput never carried it, so
+// updateDosage() could not previously write a distance dosage at all. Pure
+// application-layer completion, no schema change.
+export type DosageType = "repetition" | "hold" | "time" | "contact" | "distance";
 export type DosageMode = "exact" | "range";
 export type LoadType = "external" | "bodyweight" | "assisted" | "not_applicable";
 export type LoadUnit = "kg" | "lb";
 export type AssistanceLevel = "contact_guard" | "minimal" | "moderate" | "maximum";
 export type Side = "bilateral" | "left" | "right" | "both_sides_separately" | "not_applicable";
+export type DistanceUnit = "m" | "km" | "ft" | "mi";
 
 // Mirrors prescription_exercise_dosage's column set exactly (camelCase).
 // Every field optional except dosageType — the DB's own CHECK constraints
@@ -48,6 +53,11 @@ export type DosageInput = {
   intervalWorkSeconds?: number | null;
   intervalRecoverySeconds?: number | null;
   intervalRounds?: number | null;
+  distanceMode?: DosageMode | null;
+  distanceExactValue?: number | null;
+  distanceMinValue?: number | null;
+  distanceMaxValue?: number | null;
+  distanceUnit?: DistanceUnit | null;
   concentricDurationSeconds?: number | null;
   repHoldDurationSeconds?: number | null;
   eccentricDurationSeconds?: number | null;
