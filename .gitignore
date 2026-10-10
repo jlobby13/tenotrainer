@@ -3,10 +3,10 @@
 .claude/
 __pycache__/
 *.pyc
-.env
-.env.local
-.env.*.local
-.env.production
+# Local env files and any copies/backups of them (e.g. an editor's
+# .env.save) are never committed; only *.example templates are.
+.env*
+!.env*.example
 *.db
 
 # Next.js

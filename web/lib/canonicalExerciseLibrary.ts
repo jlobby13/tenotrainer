@@ -22,6 +22,27 @@ export type LoadingProfile =
 
 export type UnilateralBilateral = "unilateral" | "bilateral" | "both" | "not_applicable";
 
+// C5.4 Revision C — anatomical/functional Region taxonomy, stored in the
+// pre-existing canonical_exercises.body_part TEXT[] column (populated for
+// the first time in 20261003000001). Deliberately separate from category
+// (a training-paradigm taxonomy), loading_profile, and region_bias (the
+// Achilles-tendinopathy clinical subtype: midportion/insertional — not a
+// body region) — see that migration's header for the full rationale.
+export type BodyPartRegion = "calf_achilles" | "foot_ankle" | "knee" | "hip" | "core_trunk" | "whole_lower_extremity_general";
+export const BODY_PART_REGIONS: BodyPartRegion[] = ["calf_achilles", "foot_ankle", "knee", "hip", "core_trunk", "whole_lower_extremity_general"];
+const BODY_PART_REGION_LABELS: Record<BodyPartRegion, string> = {
+  calf_achilles: "Calf / Achilles",
+  foot_ankle: "Foot / Ankle",
+  knee: "Knee",
+  hip: "Hip",
+  core_trunk: "Core / Trunk",
+  whole_lower_extremity_general: "Whole Lower Extremity / General",
+};
+export function formatBodyPartRegionLabel(value: string | null | undefined): string | null {
+  if (!value) return null;
+  return BODY_PART_REGION_LABELS[value as BodyPartRegion] ?? value;
+}
+
 export type ReferenceDosageType = "repetition" | "hold" | "time" | "contact" | "distance";
 export type DosageMode = "exact" | "range";
 export type DistanceUnit = "m" | "km" | "ft" | "mi";
@@ -177,6 +198,7 @@ export type LibraryExercise = {
   category: string | null;
   loadingProfile: string | null;
   unilateralBilateral: string | null;
+  bodyPart: string[] | null;
   isFavorite: boolean;
   hasReferenceDosage: boolean;
 };
@@ -186,6 +208,11 @@ export type LibraryFilters = {
   loadingProfile: string | null;
   category: string | null;
   laterality: string | null;
+  // C5.4 Revision C — multi-select, OR-within-Region (an exercise matches if
+  // its body_part overlaps ANY selected region), AND-across-filter-families
+  // with search/loadingProfile/category/favorites exactly like every other
+  // filter here. Empty array = no Region filter applied.
+  regions: BodyPartRegion[];
   favoritesOnly: boolean;
 };
 
@@ -194,6 +221,7 @@ export const EMPTY_LIBRARY_FILTERS: LibraryFilters = {
   loadingProfile: null,
   category: null,
   laterality: null,
+  regions: [],
   favoritesOnly: false,
 };
 
@@ -204,6 +232,10 @@ export function filterLibraryExercises<T extends LibraryExercise>(exercises: T[]
     if (filters.loadingProfile && ex.loadingProfile !== filters.loadingProfile) return false;
     if (filters.category && ex.category !== filters.category) return false;
     if (filters.laterality && ex.unilateralBilateral !== filters.laterality) return false;
+    if (filters.regions.length > 0) {
+      const exerciseRegions = ex.bodyPart ?? [];
+      if (!filters.regions.some((r) => exerciseRegions.includes(r))) return false;
+    }
     if (term.length > 0) {
       const haystack = `${ex.name} ${ex.category ?? ""} ${formatLoadingProfileLabel(ex.loadingProfile) ?? ""}`.toLowerCase();
       if (!haystack.includes(term)) return false;
@@ -214,9 +246,14 @@ export function filterLibraryExercises<T extends LibraryExercise>(exercises: T[]
 
 // Facet option lists are always derived from the FULL authorized/active set,
 // not the currently-filtered set — so narrowing one filter never hides the
-// other available options (standard faceted-search convention).
-export function computeLibraryFacets(exercises: LibraryExercise[]): { loadingProfiles: string[]; categories: string[] } {
+// other available options (standard faceted-search convention). Region
+// facets use the fixed, curated BODY_PART_REGIONS order (not alphabetical)
+// so Calf/Achilles-first reads naturally, filtered down to regions actually
+// present in the data (never offering an option with zero matches).
+export function computeLibraryFacets(exercises: LibraryExercise[]): { loadingProfiles: string[]; categories: string[]; regions: BodyPartRegion[] } {
   const loadingProfiles = Array.from(new Set(exercises.map((e) => e.loadingProfile).filter((v): v is string => !!v))).sort();
   const categories = Array.from(new Set(exercises.map((e) => e.category).filter((v): v is string => !!v))).sort();
-  return { loadingProfiles, categories };
+  const presentRegions = new Set(exercises.flatMap((e) => e.bodyPart ?? []));
+  const regions = BODY_PART_REGIONS.filter((r) => presentRegions.has(r));
+  return { loadingProfiles, categories, regions };
 }

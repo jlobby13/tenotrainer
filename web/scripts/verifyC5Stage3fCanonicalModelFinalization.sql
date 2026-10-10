@@ -195,18 +195,24 @@ BEGIN
   EXCEPTION WHEN check_violation THEN INSERT INTO verify_results(result) VALUES ('PASS: distance without unit rejected'); v_pass := v_pass + 1;
   END;
 
-  -- cannot coexist with other quantity fields
+  -- C5.4 Revision A (20260929000001) intentionally removed dosage_type-keyed
+  -- mutual exclusivity between dimensions — distance+reps combined in one
+  -- row is now legitimately structurally valid (each dimension validates
+  -- independently). These two checks now assert the new behavior.
+  DELETE FROM prescription_exercise_dosage WHERE prescription_exercise_id = v_pex_id; -- clear the still-live 'mi' row from the derived-meters checks above
   BEGIN
     INSERT INTO prescription_exercise_dosage (prescription_exercise_id, dosage_type, sets, distance_mode, distance_exact_value, distance_unit, reps_mode, reps_exact)
       VALUES (v_pex_id, 'distance', 1, 'exact', 60, 'm', 'exact', 10);
-    INSERT INTO verify_results(result) VALUES ('FAIL: distance dosage with reps fields populated was ACCEPTED'); v_fail := v_fail + 1;
-  EXCEPTION WHEN check_violation THEN INSERT INTO verify_results(result) VALUES ('PASS: distance dosage cannot simultaneously populate reps fields'); v_pass := v_pass + 1;
+    INSERT INTO verify_results(result) VALUES ('PASS: distance dosage combined with reps fields now accepted (Revision A)'); v_pass := v_pass + 1;
+    DELETE FROM prescription_exercise_dosage WHERE prescription_exercise_id = v_pex_id;
+  EXCEPTION WHEN check_violation THEN INSERT INTO verify_results(result) VALUES ('FAIL: distance+reps combination was rejected (Revision A regression)'); v_fail := v_fail + 1;
   END;
   BEGIN
     INSERT INTO prescription_exercise_dosage (prescription_exercise_id, dosage_type, sets, reps_mode, reps_exact, distance_mode, distance_exact_value, distance_unit)
       VALUES (v_pex_id, 'repetition', 1, 'exact', 10, 'exact', 60, 'm');
-    INSERT INTO verify_results(result) VALUES ('FAIL: repetition dosage with distance fields populated was ACCEPTED'); v_fail := v_fail + 1;
-  EXCEPTION WHEN check_violation THEN INSERT INTO verify_results(result) VALUES ('PASS: repetition dosage cannot simultaneously populate distance fields'); v_pass := v_pass + 1;
+    INSERT INTO verify_results(result) VALUES ('PASS: repetition dosage combined with distance fields now accepted (Revision A)'); v_pass := v_pass + 1;
+    DELETE FROM prescription_exercise_dosage WHERE prescription_exercise_id = v_pex_id;
+  EXCEPTION WHEN check_violation THEN INSERT INTO verify_results(result) VALUES ('FAIL: repetition+distance combination was rejected (Revision A regression)'); v_fail := v_fail + 1;
   END;
 
   -- ================= COPY/PUBLISH INTEGRITY: template -> draft -> published -> new draft =================
@@ -230,7 +236,9 @@ BEGIN
     INSERT INTO verify_results(result) VALUES ('FAIL: template -> draft copy lost/altered distance dosage'); v_fail := v_fail + 1;
   END IF;
 
-  UPDATE prescription_drafts SET scheduling_mode = 'sequence' WHERE id = v_draft_id;
+  -- C5.4C: sequence mode now requires target_sessions_per_week for
+  -- validate_prescription_draft's sequence_target_frequency_present rule.
+  UPDATE prescription_drafts SET scheduling_mode = 'sequence', target_sessions_per_week = 3 WHERE id = v_draft_id;
   v_version1_id := publish_prescription_draft(v_draft_id, v_clinician);
 
   SELECT ped.* INTO v_row FROM prescription_exercise_dosage ped

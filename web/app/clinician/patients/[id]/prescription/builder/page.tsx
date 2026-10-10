@@ -4,6 +4,7 @@ import { findEditingDraftId, getClinicianDisplayName } from "@/lib/prescriptionM
 import { getDraft } from "@/lib/prescriptionDraftServer";
 import { listCanonicalExercisesForClinician, getCanonicalExerciseNamesByIds } from "@/lib/canonicalExerciseLibraryServer";
 import { mapDosageRowToInput } from "@/lib/dosageEditor";
+import type { SchedulingMode, RehabPhase } from "@/lib/prescriptionDraftTypes";
 import { BuilderShell } from "./BuilderShell";
 import type { BuilderDraftWorkout } from "./types";
 
@@ -17,7 +18,13 @@ type RawExercise = {
   additional_instructions: string | null;
   prescription_exercise_dosage: unknown;
 };
-type RawWorkout = { id: string; order_index: number; prescription_exercises: RawExercise[] | null };
+type RawWorkout = {
+  id: string;
+  label: string | null;
+  order_index: number;
+  days_of_week: number[] | null;
+  prescription_exercises: RawExercise[] | null;
+};
 
 // C5.4A — Builder route (brief §3). Same authorization sequence as the
 // entry point: requireClinicianAuth() -> assertSupervises() -> notFound().
@@ -34,7 +41,7 @@ export default async function PrescriptionBuilderPage({ params }: { params: Prom
   const draftId = await findEditingDraftId(patientId);
   if (!draftId) redirect(`/clinician/patients/${patientId}/prescription`);
 
-  const { draft, workouts } = await getDraft({ clinicianId, draftId });
+  const { draft, workouts, performanceFocuses } = await getDraft({ clinicianId, draftId });
   if (draft.status !== "editing") redirect(`/clinician/patients/${patientId}/prescription`);
 
   const isOwner = draft.editing_clinician_id === clinicianId;
@@ -49,7 +56,9 @@ export default async function PrescriptionBuilderPage({ params }: { params: Prom
     .sort((a, b) => a.order_index - b.order_index)
     .map((w) => ({
       id: w.id,
+      label: w.label ?? null,
       orderIndex: w.order_index,
+      daysOfWeek: w.days_of_week ?? null,
       exercises: (w.prescription_exercises ?? [])
         .slice()
         .sort((a, b) => a.order_index - b.order_index)
@@ -81,6 +90,10 @@ export default async function PrescriptionBuilderPage({ params }: { params: Prom
       editingClinicianName={editingClinicianName}
       initialWorkouts={initialWorkouts}
       initialExercises={exercises}
+      initialSchedulingMode={(draft.scheduling_mode as SchedulingMode | null) ?? null}
+      initialPhase={(draft.phase as RehabPhase | null) ?? null}
+      initialTargetSessionsPerWeek={(draft as unknown as { target_sessions_per_week: number | null }).target_sessions_per_week ?? null}
+      initialPerformanceFocuses={performanceFocuses}
     />
   );
 }

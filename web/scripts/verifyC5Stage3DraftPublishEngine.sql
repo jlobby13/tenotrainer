@@ -10,8 +10,8 @@ CREATE TEMP TABLE verify_results (seq SERIAL PRIMARY KEY, result TEXT);
 
 DO $verify$
 DECLARE
-  v_patient1 UUID := 'dc12a11e-39b7-47eb-886d-1b90f94c1cbb';
-  v_patient2 UUID := '6017c6ee-df39-412c-8037-2a522f0b3b46';
+  v_patient1 UUID;
+  v_patient2 UUID;
   v_clinician UUID := '44197ef7-7421-47ed-a164-75d2765fc019';
   v_other_clinician UUID := '53eaa2d2-b526-4d01-aa5b-033bff88dd46';
 
@@ -31,6 +31,34 @@ DECLARE
   v_pass INT := 0;
   v_fail INT := 0;
 BEGIN
+  -- ---- setup: two FK-only patient users with NO prescription state ----
+  -- Every assertion below assumes each patient starts with no
+  -- patient_prescriptions row and no prescription_versions (e.g. the first
+  -- publish must be version_number = 1). The original two hard-coded ids
+  -- are still preferred, but a real user who has since been given a real
+  -- prescription/draft in this shared project (C5.4 closeout found one) is
+  -- skipped rather than having their data touched. Throwaway verification
+  -- users (@example.invalid) are excluded: concurrent suites delete them.
+  SELECT u.id INTO v_patient1 FROM auth.users u
+  WHERE u.id NOT IN (v_clinician, v_other_clinician)
+    AND coalesce(u.email, '') NOT LIKE '%@example.invalid'
+    AND NOT EXISTS (SELECT 1 FROM patient_prescriptions pp WHERE pp.patient_id = u.id)
+    AND NOT EXISTS (SELECT 1 FROM prescription_versions pv WHERE pv.user_id = u.id)
+    AND NOT EXISTS (SELECT 1 FROM supervisor_patients sp WHERE sp.patient_id = u.id AND sp.supervisor_id IN (v_clinician, v_other_clinician))
+  ORDER BY (u.id = 'dc12a11e-39b7-47eb-886d-1b90f94c1cbb') DESC, u.created_at, u.id
+  LIMIT 1;
+  SELECT u.id INTO v_patient2 FROM auth.users u
+  WHERE u.id NOT IN (v_clinician, v_other_clinician, v_patient1)
+    AND coalesce(u.email, '') NOT LIKE '%@example.invalid'
+    AND NOT EXISTS (SELECT 1 FROM patient_prescriptions pp WHERE pp.patient_id = u.id)
+    AND NOT EXISTS (SELECT 1 FROM prescription_versions pv WHERE pv.user_id = u.id)
+    AND NOT EXISTS (SELECT 1 FROM supervisor_patients sp WHERE sp.patient_id = u.id AND sp.supervisor_id IN (v_clinician, v_other_clinician))
+  ORDER BY (u.id = '6017c6ee-df39-412c-8037-2a522f0b3b46') DESC, u.created_at, u.id
+  LIMIT 1;
+  IF v_patient1 IS NULL OR v_patient2 IS NULL THEN
+    RAISE EXCEPTION 'C5.3 verify setup: need two auth.users with no prescription state';
+  END IF;
+
   -- ---- setup: temporary supervision relationships (rolled back) ----
   INSERT INTO supervisor_patients (supervisor_id, patient_id, status) VALUES (v_clinician, v_patient1, 'active');
   INSERT INTO supervisor_patients (supervisor_id, patient_id, status) VALUES (v_clinician, v_patient2, 'active');
@@ -99,7 +127,9 @@ BEGIN
   END;
 
   -- build it into a valid, publishable draft: 2 workouts, sequence mode
-  UPDATE prescription_drafts SET scheduling_mode = 'sequence' WHERE id = v_draft_id;
+  -- (C5.4C: sequence mode now requires a target_sessions_per_week for
+  -- validate_prescription_draft's sequence_target_frequency_present rule)
+  UPDATE prescription_drafts SET scheduling_mode = 'sequence', target_sessions_per_week = 3 WHERE id = v_draft_id;
   INSERT INTO prescription_workouts (prescription_draft_id, order_index) VALUES (v_draft_id, 0) RETURNING id INTO v_workout_id;
   INSERT INTO prescription_workouts (prescription_draft_id, order_index) VALUES (v_draft_id, 1) RETURNING id INTO v_workout2_id;
   INSERT INTO prescription_exercises (prescription_workout_id, canonical_exercise_id, order_index) VALUES (v_workout_id, v_ex_active, 0) RETURNING id INTO v_ex1_id;
@@ -292,8 +322,13 @@ BEGIN
 
   -- ================= CALENDAR MODE CLEARS SEQUENCE STATE =================
   v_draft_id := create_prescription_draft(v_patient1, v_clinician, 'clone_active', v_version2_id, NULL);
-  UPDATE prescription_drafts SET scheduling_mode = 'calendar' WHERE id = v_draft_id;
-  UPDATE prescription_workouts SET days_of_week = ARRAY[1,3,5]::SMALLINT[] WHERE prescription_draft_id = v_draft_id;
+  -- raw SQL bypasses the app-layer mode-switch cleanup (updateDraftMetadata),
+  -- so target_sessions_per_week (inherited sequence-mode value from clone)
+  -- is cleared explicitly here to satisfy calendar_target_frequency_absent.
+  UPDATE prescription_drafts SET scheduling_mode = 'calendar', target_sessions_per_week = NULL WHERE id = v_draft_id;
+  -- distinct, non-overlapping days per workout (C5.4C calendar_weekdays_exclusive)
+  UPDATE prescription_workouts SET days_of_week = CASE WHEN order_index = 0 THEN ARRAY[1,3,5]::SMALLINT[] ELSE ARRAY[2,4,6]::SMALLINT[] END
+    WHERE prescription_draft_id = v_draft_id;
   PERFORM publish_prescription_draft(v_draft_id, v_clinician);
   IF NOT EXISTS (SELECT 1 FROM prescription_sequence_state WHERE patient_prescription_id = v_pp1_id) THEN
     INSERT INTO verify_results(result) VALUES ('PASS: publishing Calendar-mode version deletes prescription_sequence_state (invariant: row exists iff Sequence Mode)'); v_pass := v_pass + 1;
@@ -308,7 +343,7 @@ BEGIN
   INSERT INTO prescription_workouts (prescription_draft_id, order_index) VALUES (v_draft_id, 0) RETURNING id INTO v_workout_id;
   INSERT INTO prescription_exercises (prescription_workout_id, canonical_exercise_id, order_index) VALUES (v_workout_id, v_ex_active, 0) RETURNING id INTO v_ex1_id;
   INSERT INTO prescription_exercise_dosage (prescription_exercise_id, dosage_type, sets, reps_mode, reps_exact) VALUES (v_ex1_id, 'repetition', 3, 'exact', 10);
-  UPDATE prescription_drafts SET scheduling_mode = 'sequence' WHERE id = v_draft_id;
+  UPDATE prescription_drafts SET scheduling_mode = 'sequence', target_sessions_per_week = 4 WHERE id = v_draft_id;
   -- simulate "someone else published v1 in the meantime" by directly advancing the pointer
   UPDATE patient_prescriptions SET current_prescription_version_id = v_version1_id WHERE id = v_pp2_id;
   BEGIN

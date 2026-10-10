@@ -328,14 +328,26 @@ async function main() {
       check("desktop draft panel is wider than the library panel (~55%)", draftWidth > libraryWidth, `library=${libraryWidth} draft=${draftWidth}`);
 
       // ===================== REORDER =====================
-      const draftRowsBefore = await page.locator('button[aria-label="Move down"]').count();
-      check("draft rows render move controls", draftRowsBefore > 0);
-      const firstRowNameBefore = await draftRows.first().locator("div.font-medium").innerText();
-      await page.locator('button[aria-label="Move down"]').first().click();
+      // C5.4 Revision C replaced the visible up/down move buttons with
+      // drag-and-drop as the primary reorder interaction (a deliberate,
+      // founder-directed UI change — see that stage's report); the
+      // keyboard-accessible fallback (dnd-kit's Space/Arrow/Space sequence
+      // on the drag handle) is the closest equivalent for this historical
+      // assertion's intent (a reorder control exists and reordering works).
+      const draftRowsBefore = await page.locator('[data-testid="drag-handle"]').count();
+      check("draft rows render a drag handle for reordering", draftRowsBefore > 0);
+      const firstRowNameBefore = await draftRows.first().locator('[data-testid="draft-exercise-name"]').innerText();
+      const firstDragHandle = draftRows.first().locator('[data-testid="drag-handle"]');
+      await firstDragHandle.focus();
+      await page.keyboard.press("Space");
+      await page.waitForTimeout(150);
+      await page.keyboard.press("ArrowDown");
+      await page.waitForTimeout(150);
+      await page.keyboard.press("Space");
       const reorderStart = Date.now();
       let firstRowNameAfter = firstRowNameBefore;
       while (Date.now() - reorderStart < 5000) {
-        firstRowNameAfter = await draftRows.first().locator("div.font-medium").innerText();
+        firstRowNameAfter = await draftRows.first().locator('[data-testid="draft-exercise-name"]').innerText();
         if (firstRowNameAfter !== firstRowNameBefore) break;
         await page.waitForTimeout(100);
       }
@@ -420,7 +432,7 @@ async function main() {
       check("view-only clinician still sees Add buttons but they are disabled (no takeover of edit rights)", otherAddButtons > 0);
       const firstOtherAddDisabled = await otherPage.getByRole("button", { name: "Add", exact: true }).first().isDisabled();
       check("Add button is disabled for the non-owning clinician", firstOtherAddDisabled);
-      const moveButtonsForOther = await otherPage.locator('button[aria-label="Move down"]').count();
+      const moveButtonsForOther = await otherPage.locator('[data-testid="drag-handle"]').count();
       check("no reorder/remove controls rendered for the non-owning clinician", moveButtonsForOther === 0);
 
       // Fetch a currently-live exercise id fresh (rather than reusing an

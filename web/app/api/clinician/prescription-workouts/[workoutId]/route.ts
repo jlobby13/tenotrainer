@@ -18,8 +18,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
 
   try {
-    await updateWorkout({ clinicianId: auth.clinicianId, workoutId, label: body.label, daysOfWeek: body.daysOfWeek });
-    return NextResponse.json({ ok: true });
+    // The persisted row is returned so the builder can reconcile without a
+    // full draft re-read (C5.4 Performance Pass).
+    const workout = await updateWorkout({ clinicianId: auth.clinicianId, workoutId, label: body.label, daysOfWeek: body.daysOfWeek });
+    return NextResponse.json({ ok: true, workout });
   } catch (err) {
     return prescriptionDraftErrorResponse(err);
   }

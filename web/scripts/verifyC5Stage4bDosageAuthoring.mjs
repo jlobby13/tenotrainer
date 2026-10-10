@@ -9,6 +9,21 @@
 //
 // Run from the web/ directory:
 //   node scripts/verifyC5Stage4bDosageAuthoring.mjs
+//
+// C5.4 Performance Pass — ported to the current editor. This suite was
+// written against the original C5.4B type-first editor (a "Dosage type"
+// select, a `dosage-affordance` row button, one-line "3 × 10 · …"
+// summaries), all of which Revision B/E deliberately replaced; it had not
+// been runnable since Revision B. Every original check's clinical intent is
+// kept; only the mechanics changed:
+//   - choosing a dosage type → filling that dimension's capability field
+//     (dosage_type is now derived; the derived value is still asserted);
+//   - `dosage-affordance` → the Edit / Add dosage control;
+//   - sentence summaries → the Revision E saved-prescription chips;
+//   - exercises: contacts/distance/time/RPE-RIR checks now use exercises
+//     whose CURATED capabilities include those fields (the original
+//     isometric stand-ins no longer offer them — correct Revision B/D
+//     behaviour, not a regression).
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
@@ -35,11 +50,12 @@ const PASSWORD = "throwaway-verification-1!";
 // Real, permanently-migrated C5.3G canonical exercises (deterministic
 // UUIDv5 — see 20260921000001's header). READ-ONLY here: this script never
 // inserts/updates/deletes canonical_exercises or exercise_reference_dosage.
-const REP_EX = { id: "8b1bf121-fa02-5e64-9a1d-61deaf7e8c70", name: "Double-Leg Calf Isometric Hold" };
-const HOLD_EX = { id: "a09d5f06-4e1c-534e-8e28-521ded8d679b", name: "Single-Leg Calf Isometric Hold" };
-const CONTACT_EX = { id: "105e9b07-0895-5dff-be29-b1d00fda34e3", name: "Bent-Knee Calf Isometric Hold" };
-const DISTANCE_EX = { id: "29459eea-e973-51d4-970e-fad1d9e582e0", name: "Seated Isometric Plantarflexion" };
-const TIME_EX = { id: "3e5afb82-94ca-5e00-839b-7e6f69ab0984", name: "Supported Standing Calf Raise — Partial Range" };
+const REP_EX = { id: "8b1bf121-fa02-5e64-9a1d-61deaf7e8c70", name: "Double-Leg Calf Isometric Hold" }; // hold + reps
+const HOLD_EX = { id: "a09d5f06-4e1c-534e-8e28-521ded8d679b", name: "Single-Leg Calf Isometric Hold" }; // hold + reps
+const CONTACT_EX = { id: "43fd59cf-0324-53db-88c8-805ce8607faf", name: "Bilateral Pogos" }; // contacts (+ reps)
+const STRENGTH_EX = { id: "6f4db02e-7664-5fe8-b00c-428fdf89c97a", name: "Single-Leg Standing Calf Raise" }; // reps; tempo/RPE/RIR/ROM/assistance/side
+const DISTANCE_EX = { id: "07469f83-da7c-5d40-a646-16513a549f46", name: "Stride Accelerations" }; // distance
+const TIME_EX = { id: "82092d25-3ce5-5a4d-89a5-d7975bd0e1b3", name: "Walk-Jog Intervals" }; // interval_time
 const CANCEL_EX = { id: "4d67ba9e-b524-535b-9325-e14aa24acbdd", name: "Balance and Frontal-Plane Control Drills" }; // no reference dosage (approved C5.3G omission)
 const CLONE_EX = { id: "2782f1b4-3b8c-5575-a25c-06b809e116fd", name: "Leg Press Calf Raise — Short-Range Isometric" };
 
@@ -84,7 +100,7 @@ function draftRow(page, exerciseName) {
 }
 async function openEditor(page, exerciseName) {
   const row = draftRow(page, exerciseName);
-  await row.locator('[data-testid="dosage-affordance"]').click();
+  await row.locator('[data-testid="edit-dosage"]').click();
   const editor = row.locator('[data-testid="dosage-editor"]');
   await editor.waitFor({ state: "visible" });
   return { row, editor };
@@ -102,10 +118,45 @@ async function setDuration(editor, label, min, sec) {
   if (min != null) await editor.getByLabel(`${label} minutes`).fill(String(min));
   if (sec != null) await editor.getByLabel(`${label} seconds`).fill(String(sec));
 }
+// Synchronizes on the save itself, not just the editor disappearing. The
+// editor collapses only after a successful save (Revision E), but a closed
+// editor alone is not proof of persistence (e.g. a dev-server Fast Refresh
+// remount also closes it), and the old version swallowed its own timeout
+// and let the next DB assertion read pre-save data. Now: a dosage PUT /
+// instructions PATCH for an exercise must have completed successfully AND
+// the editor must have closed — otherwise the run stops with diagnostics.
 async function saveAndWaitClosed(row, editor) {
-  await editor.getByRole("button", { name: "Save dosage" }).click();
-  await editor.waitFor({ state: "detached", timeout: 8000 }).catch(() => {});
+  const page = editor.page();
+  const writes = [];
+  const onResponse = (r) => {
+    const method = r.request().method();
+    if ((method === "PUT" || method === "PATCH") && /\/api\/clinician\/prescription-exercises\/[^/]+(\/dosage)?$/.test(new URL(r.url()).pathname)) writes.push(r.status());
+  };
+  page.on("response", onResponse);
+  try {
+    await editor.getByRole("button", { name: "Save dosage" }).click();
+    try {
+      await editor.waitFor({ state: "detached", timeout: 15000 });
+    } catch {
+      const errors = await editor.locator('[data-testid="dosage-save-error"]').allInnerTexts().catch(() => []);
+      throw new Error(`Save dosage did not complete — editor still open. errors=${JSON.stringify(errors)} writes=${JSON.stringify(writes)}`);
+    }
+    if (writes.length === 0 || writes.some((s) => s >= 400)) throw new Error(`Editor closed without a successful save write (writes=${JSON.stringify(writes)})`);
+  } finally {
+    page.off("response", onResponse);
+  }
 }
+// One capability field group inside an editor (scopes Exact/Range buttons,
+// which now exist per dimension and for Load).
+function field(editor, testId) {
+  return editor.locator(`[data-testid="${testId}"]`);
+}
+// The Revision E saved-prescription chips, as normalized text.
+async function chips(row) {
+  const texts = await row.locator('[data-testid="dosage-summary"] li').allInnerTexts();
+  return texts.map((t) => t.replace(/\s+/g, " ").trim());
+}
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 async function main() {
   const owner = await makeUser("dosage-owner");
@@ -161,7 +212,7 @@ async function main() {
     const { data: workoutRow } = await admin.from("prescription_workouts").insert({ prescription_draft_id: draftId, order_index: 0 }).select("id").single();
     workoutId = workoutRow.id;
 
-    const exercisesToSeed = [REP_EX, HOLD_EX, CONTACT_EX, DISTANCE_EX, TIME_EX, CANCEL_EX];
+    const exercisesToSeed = [REP_EX, HOLD_EX, CONTACT_EX, STRENGTH_EX, DISTANCE_EX, TIME_EX, CANCEL_EX];
     for (let i = 0; i < exercisesToSeed.length; i++) {
       const { data: peRow } = await admin
         .from("prescription_exercises")
@@ -217,7 +268,7 @@ async function main() {
       const page = await ctxOwner.newPage();
       await page.goto(`${BASE_URL}/clinician/patients/${patient.userId}/prescription/builder`);
       await page.waitForSelector("text=Exercise Library");
-      await page.locator('[data-testid="draft-panel"]').getByText("Draft").first().isVisible().catch(() => {});
+      await page.waitForLoadState("networkidle");
 
       // ===================== REPETITION: exact -> range (also = edit-existing) =====================
       {
@@ -230,18 +281,22 @@ async function main() {
         for (const forbidden of ["Apply", "Copy reference", "Use this", "Autofill"]) {
           check(`no "${forbidden}" one-click affordance exists in the editor`, (await editor.getByRole("button", { name: forbidden }).count()) === 0);
         }
-        check("new exercise's dosage type starts unselected (never auto-picked from reference)", await editor.locator("#dosage-type").inputValue() === "");
+        // Was: "dosage type starts unselected". The type is now derived, so
+        // the equivalent guarantee is that nothing is pre-filled from the
+        // reference dosage: no sets, and no exact/range mode chosen.
+        check(
+          "new exercise's dosage starts empty (never auto-filled from reference)",
+          (await field(editor, "dosage-field-sets").inputValue()) === "" && (await editor.getByLabel("Exact reps").count()) === 0 && (await editor.getByLabel("Hold seconds").count()) === 0
+        );
 
-        await editor.locator("#dosage-type").selectOption("repetition");
-        await editor.locator("#dosage-sets").fill("3");
-        await editor.getByRole("button", { name: "Exact", exact: true }).click();
+        await field(editor, "dosage-field-sets").fill("3");
+        await field(editor, "dosage-field-reps").getByRole("button", { name: "Exact", exact: true }).click();
         await editor.getByLabel("Exact reps").fill("10");
-        await editor.locator("#dosage-load-type").selectOption("bodyweight");
+        await editor.getByLabel("Load type").selectOption("bodyweight");
         await setDuration(editor, "Rest", 1, 0);
         await saveAndWaitClosed(row, editor);
 
-        const summary = row.locator('[data-testid="dosage-affordance"]');
-        check("repetition exact summary renders correctly", (await summary.innerText()).trim() === "3 × 10 · Bodyweight · 60s rest", await summary.innerText());
+        check("repetition exact summary renders correctly", same(await chips(row), ["3 sets", "10 reps", "Bodyweight", "60s rest"]), JSON.stringify(await chips(row)));
 
         const { data: dbRow } = await admin.from("prescription_exercise_dosage").select("*").eq("prescription_exercise_id", exerciseIdByName[REP_EX.name]).single();
         check("repetition exact persisted correctly (DB)", dbRow.dosage_type === "repetition" && dbRow.reps_mode === "exact" && dbRow.reps_exact === 10 && dbRow.load_type === "bodyweight" && Number(dbRow.rest_seconds) === 60);
@@ -249,21 +304,21 @@ async function main() {
         // Edit existing -> switch to range + external load lb (also proves reload-then-edit)
         await page.reload();
         await page.waitForSelector("text=Exercise Library");
+        await page.waitForLoadState("networkidle");
         const { row: row2, editor: editor2 } = await openEditor(page, REP_EX.name);
         check("editing a dosage with NO advanced values starts More options COLLAPSED", !(await isMoreOptionsOpen(editor2)));
-        check("editing existing dosage loads persisted values (mode)", await editor2.locator("#dosage-type").inputValue() === "repetition");
+        check("editing existing dosage loads persisted values (mode)", (await editor2.getByLabel("Exact reps").count()) === 1);
         check("editing existing dosage loads persisted exact value", await editor2.getByLabel("Exact reps").inputValue() === "10");
-        await editor2.getByRole("button", { name: "Range", exact: true }).click();
+        await field(editor2, "dosage-field-reps").getByRole("button", { name: "Range", exact: true }).click();
         await editor2.getByLabel("Minimum reps").fill("8");
         await editor2.getByLabel("Maximum reps").fill("12");
-        await editor2.locator("#dosage-load-type").selectOption("external");
+        await editor2.getByLabel("Load type").selectOption("external");
         await editor2.getByLabel("Load value").fill("25");
         await editor2.getByLabel("Load unit").selectOption("lb");
         await setDuration(editor2, "Rest", 1, 30);
         await saveAndWaitClosed(row2, editor2);
 
-        const summary2 = row2.locator('[data-testid="dosage-affordance"]');
-        check("repetition range summary renders correctly", (await summary2.innerText()).trim() === "3 × 8–12 · 25 lb · 90s rest", await summary2.innerText());
+        check("repetition range summary renders correctly", same(await chips(row2), ["3 sets", "8–12 reps", "25 lb", "90s rest"]), JSON.stringify(await chips(row2)));
         const { data: dbRow2 } = await admin.from("prescription_exercise_dosage").select("*").eq("prescription_exercise_id", exerciseIdByName[REP_EX.name]).single();
         check(
           "repetition range persisted correctly and exact fields cleared",
@@ -272,45 +327,48 @@ async function main() {
         check("clinician-entered unit (lb) preserved, not silently converted", dbRow2.load_unit === "lb");
         check("DB-owned derived kg value computed automatically (internal only)", Math.abs(Number(dbRow2.load_value_kg_derived) - 11.3398) < 0.01);
 
-        // ===== dosage-type switch: Repetition -> Hold on the SAME exercise =====
+        // ===== dimension switch: Repetition -> Hold on the SAME exercise =====
+        // Was a type-select switch; now the clinician clears reps (re-click
+        // the active Range button) and fills hold — dosage_type re-derives.
         const { row: row3, editor: editor3 } = await openEditor(page, REP_EX.name);
-        await editor3.locator("#dosage-type").selectOption("hold");
-        await editor3.locator("#dosage-sets").fill("2");
-        await editor3.getByRole("button", { name: "Exact", exact: true }).click();
-        await setDuration(editor3, "Duration", 0, 20);
+        await field(editor3, "dosage-field-reps").getByRole("button", { name: "Range", exact: true }).click();
+        await field(editor3, "dosage-field-sets").fill("2");
+        await field(editor3, "dosage-field-hold").getByRole("button", { name: "Exact", exact: true }).click();
+        await setDuration(field(editor3, "dosage-field-hold"), "Hold", 0, 20);
         await saveAndWaitClosed(row3, editor3);
         const { data: switchedRow } = await admin.from("prescription_exercise_dosage").select("*").eq("prescription_exercise_id", exerciseIdByName[REP_EX.name]).single();
         check(
-          "type switch Repetition->Hold clears ALL stale repetition fields",
+          "switch Repetition->Hold clears ALL stale repetition fields",
           switchedRow.dosage_type === "hold" &&
             switchedRow.reps_mode === null &&
             switchedRow.reps_exact === null &&
             switchedRow.reps_min === null &&
             switchedRow.reps_max === null &&
-            Number(switchedRow.hold_duration_exact_seconds) === 20
+            Number(switchedRow.hold_duration_exact_seconds) === 20,
+          JSON.stringify({ t: switchedRow.dosage_type, rm: switchedRow.reps_mode, h: switchedRow.hold_duration_exact_seconds, sets: switchedRow.sets })
         );
-        check("type switch preserves type-independent fields (sets updated, not stale)", switchedRow.sets === 2);
-        check("type switch PRESERVES shared optional fields (rest) rather than wiping them", Number(switchedRow.rest_seconds) === 90);
+        check("switch preserves type-independent fields (sets updated, not stale)", switchedRow.sets === 2, `sets=${switchedRow.sets}`);
+        check("switch PRESERVES shared optional fields (rest) rather than wiping them", Number(switchedRow.rest_seconds) === 90);
       }
 
       // ===================== HOLD: exact, then load-type coverage (external kg, assisted) =====================
       {
         const { row, editor } = await openEditor(page, HOLD_EX.name);
-        await editor.locator("#dosage-type").selectOption("hold");
-        await editor.locator("#dosage-sets").fill("4");
-        await editor.getByRole("button", { name: "Exact", exact: true }).click();
-        await setDuration(editor, "Duration", 0, 30);
-        await editor.locator("#dosage-load-type").selectOption("external");
+        await field(editor, "dosage-field-sets").fill("4");
+        await field(editor, "dosage-field-hold").getByRole("button", { name: "Exact", exact: true }).click();
+        await setDuration(field(editor, "dosage-field-hold"), "Hold", 0, 30);
+        await editor.getByLabel("Load type").selectOption("external");
         await editor.getByLabel("Load value").fill("20");
         await editor.getByLabel("Load unit").selectOption("lb");
         await setDuration(editor, "Rest", 1, 0);
         await saveAndWaitClosed(row, editor);
-        const summary = row.locator('[data-testid="dosage-affordance"]');
-        check("hold exact summary renders correctly", (await summary.innerText()).trim() === "4 × 30s hold · 20 lb · 60s rest", await summary.innerText());
+        check("hold exact summary renders correctly", same(await chips(row), ["4 sets", "30s hold", "20 lb", "60s rest"]), JSON.stringify(await chips(row)));
+        const { data: holdRow } = await admin.from("prescription_exercise_dosage").select("dosage_type").eq("prescription_exercise_id", exerciseIdByName[HOLD_EX.name]).single();
+        check("hold-only dosage derives dosage_type 'hold'", holdRow.dosage_type === "hold");
 
         // External kg
         const { row: row2, editor: editor2 } = await openEditor(page, HOLD_EX.name);
-        await editor2.locator("#dosage-load-type").selectOption("external");
+        await editor2.getByLabel("Load type").selectOption("external");
         await editor2.getByLabel("Load value").fill("9");
         await editor2.getByLabel("Load unit").selectOption("kg");
         await saveAndWaitClosed(row2, editor2);
@@ -320,55 +378,41 @@ async function main() {
 
         // Assisted (no fake zero-load)
         const { row: row3, editor: editor3 } = await openEditor(page, HOLD_EX.name);
-        await editor3.locator("#dosage-load-type").selectOption("assisted");
+        await editor3.getByLabel("Load type").selectOption("assisted");
         await saveAndWaitClosed(row3, editor3);
         const { data: assistedRow } = await admin.from("prescription_exercise_dosage").select("load_type, load_value_exact, load_unit").eq("prescription_exercise_id", exerciseIdByName[HOLD_EX.name]).single();
         check("Assisted load carries no numeric value (no fake 0)", assistedRow.load_type === "assisted" && assistedRow.load_value_exact === null && assistedRow.load_unit === null);
-        const summary3 = row3.locator('[data-testid="dosage-affordance"]');
-        check("Assisted renders in the summary without a fabricated number", (await summary3.innerText()).includes("Assisted"));
+        check("Assisted renders in the summary without a fabricated number", (await chips(row3)).includes("Assisted") && !(await chips(row3)).some((c) => /\b0 (kg|lb)\b/.test(c)), JSON.stringify(await chips(row3)));
       }
 
-      // ===================== CONTACT: exact, plus RPE/RIR mutual exclusion =====================
+      // ===================== CONTACT: exact, More options progressive disclosure =====================
       {
         const { row, editor } = await openEditor(page, CONTACT_EX.name);
-        await editor.locator("#dosage-type").selectOption("contact");
         check("new dosage with no advanced values starts with More options COLLAPSED", !(await isMoreOptionsOpen(editor)));
-        check("Load remains visible while More options is collapsed", await editor.locator("#dosage-load-type").isVisible());
-        check("Rest remains visible while More options is collapsed", await editor.getByText("Rest (optional)").isVisible());
-        await editor.locator("#dosage-sets").fill("3");
-        await editor.getByRole("button", { name: "Exact", exact: true }).click();
+        check("Load remains visible while More options is collapsed", await editor.getByLabel("Load type").isVisible());
+        check("Rest remains visible while More options is collapsed", await field(editor, "dosage-field-rest").isVisible());
+        await field(editor, "dosage-field-sets").fill("3");
+        await field(editor, "dosage-field-contacts").getByRole("button", { name: "Exact", exact: true }).click();
         await editor.getByLabel("Exact contacts").fill("20");
         await setDuration(editor, "Rest", 2, 0);
-        await ensureMoreOptionsOpen(editor);
-        await editor.getByRole("button", { name: "RPE", exact: true }).click();
-        await editor.getByLabel("RPE value").fill("7");
         await saveAndWaitClosed(row, editor);
-        const summary = row.locator('[data-testid="dosage-affordance"]');
-        check("contact exact summary renders correctly", (await summary.innerText()).trim() === "3 × 20 contacts · 2 min rest", await summary.innerText());
-        const { data: rpeRow } = await admin.from("prescription_exercise_dosage").select("rpe, rir").eq("prescription_exercise_id", exerciseIdByName[CONTACT_EX.name]).single();
-        check("RPE persisted, RIR left null", Number(rpeRow.rpe) === 7 && rpeRow.rir === null);
-
-        // Switch RPE -> RIR: RPE must be cleared. This dosage now HAS an
-        // advanced value (RPE=7), so reopening must start EXPANDED.
-        const { row: row2, editor: editor2 } = await openEditor(page, CONTACT_EX.name);
-        check("editing a dosage that already has an advanced value (RPE) starts More options EXPANDED", await isMoreOptionsOpen(editor2));
-        await editor2.getByRole("button", { name: "RIR", exact: true }).click();
-        await editor2.getByLabel("RIR value").fill("2");
-        await saveAndWaitClosed(row2, editor2);
-        const { data: rirRow } = await admin.from("prescription_exercise_dosage").select("rpe, rir").eq("prescription_exercise_id", exerciseIdByName[CONTACT_EX.name]).single();
-        check("switching to RIR clears RPE (mutual exclusion honored on save)", rirRow.rpe === null && rirRow.rir === 2);
+        check("contact exact summary renders correctly", same(await chips(row), ["3 sets", "20 contacts", "2 min rest"]), JSON.stringify(await chips(row)));
+        const { data: cRow } = await admin.from("prescription_exercise_dosage").select("dosage_type, contacts_exact").eq("prescription_exercise_id", exerciseIdByName[CONTACT_EX.name]).single();
+        check("contact dosage persisted with derived dosage_type 'contact'", cRow.dosage_type === "contact" && cRow.contacts_exact === 20);
       }
 
-      // ===================== DISTANCE: exact + full optional-field coverage =====================
+      // ===================== RPE/RIR mutual exclusion + full optional-field coverage =====================
+      // (Moved from the contact/distance exercises: the curated Revision D
+      // capabilities offer RPE/RIR/ROM/assistance/side on strength work, not
+      // on pogos or strides.)
       {
-        const { row, editor } = await openEditor(page, DISTANCE_EX.name);
-        await editor.locator("#dosage-type").selectOption("distance");
-        await editor.locator("#dosage-sets").fill("4");
-        await editor.getByRole("button", { name: "Exact", exact: true }).click();
-        await editor.getByLabel("Exact distance").fill("60");
-        await editor.getByLabel("Unit").selectOption("m");
-        await setDuration(editor, "Rest", 2, 0);
+        const { row, editor } = await openEditor(page, STRENGTH_EX.name);
+        await field(editor, "dosage-field-sets").fill("3");
+        await field(editor, "dosage-field-reps").getByRole("button", { name: "Exact", exact: true }).click();
+        await editor.getByLabel("Exact reps").fill("10");
         await ensureMoreOptionsOpen(editor);
+        await editor.getByRole("group", { name: "RPE or RIR" }).getByRole("button", { name: "RPE", exact: true }).click();
+        await editor.getByLabel("RPE value").fill("7");
         await editor.locator("#dosage-rom").fill("Full range, pain-free only");
         await editor.locator("#dosage-assistance").selectOption("moderate");
         await editor.locator("#dosage-side").selectOption("left");
@@ -376,30 +420,25 @@ async function main() {
         // Collapse BEFORE saving — collapsing must never clear values, and
         // the collapsed values must still persist normally on Save.
         await moreOptionsToggle(editor).click();
-        check("collapsing More options hides (does not remove) the advanced fields", await editor.locator("#dosage-rom").isHidden());
+        check("collapsing More options hides (does not remove) the advanced fields", (await editor.locator("#dosage-rom").count()) === 0 || (await editor.locator("#dosage-rom").isHidden()));
         await ensureMoreOptionsOpen(editor);
         check("re-expanding after a collapse shows the value UNCHANGED (never cleared)", (await editor.locator("#dosage-rom").inputValue()) === "Full range, pain-free only");
         await moreOptionsToggle(editor).click();
         await saveAndWaitClosed(row, editor);
-        const summary = row.locator('[data-testid="dosage-affordance"]');
-        check("distance exact summary renders correctly", (await summary.innerText()).trim() === "4 × 60 m · 2 min rest", await summary.innerText());
 
-        const { data: dRow } = await admin.from("prescription_exercise_dosage").select("*").eq("prescription_exercise_id", exerciseIdByName[DISTANCE_EX.name]).single();
-        check("distance unit persisted exactly as entered (m)", dRow.distance_unit === "m");
-        check("derived meters value correct for unit m (identity)", Math.abs(Number(dRow.distance_value_m_derived) - 60) < 0.0001);
-        check("ROM persisted as free text", dRow.rom === "Full range, pain-free only");
-        check("Assistance persisted using locked vocabulary", dRow.assistance_level === "moderate");
-        check("Side persisted using locked vocabulary (patient-specific, not library laterality)", dRow.side === "left");
-
-        const { data: peRow } = await admin.from("prescription_exercises").select("additional_instructions").eq("id", exerciseIdByName[DISTANCE_EX.name]).single();
+        const { data: sRow } = await admin.from("prescription_exercise_dosage").select("*").eq("prescription_exercise_id", exerciseIdByName[STRENGTH_EX.name]).single();
+        check("RPE persisted, RIR left null", Number(sRow.rpe) === 7 && sRow.rir === null);
+        check("ROM persisted as free text", sRow.rom === "Full range, pain-free only");
+        check("Assistance persisted using locked vocabulary", sRow.assistance_level === "moderate");
+        check("Side persisted using locked vocabulary (patient-specific, not library laterality)", sRow.side === "left");
+        const { data: peRow } = await admin.from("prescription_exercises").select("additional_instructions").eq("id", exerciseIdByName[STRENGTH_EX.name]).single();
         check("patient-specific instructions persisted separately from dosage", peRow.additional_instructions === "Use countertop support if needed.");
+        const savedChips = await chips(row);
+        check("saved summary shows the More options values (Revision E)", savedChips.includes("RPE 7") && savedChips.includes("ROM Full range, pain-free only") && savedChips.includes("Left side") && savedChips.includes("Moderate assist"), JSON.stringify(savedChips));
 
-        // Distance in a different unit (km) — derived-meters correctness across units
-        const { row: row2, editor: editor2 } = await openEditor(page, DISTANCE_EX.name);
-        check(
-          "editing a dosage with saved ROM/assistance/side/instructions starts More options EXPANDED",
-          await isMoreOptionsOpen(editor2)
-        );
+        // This dosage now HAS advanced values, so reopening must start EXPANDED.
+        const { row: row2, editor: editor2 } = await openEditor(page, STRENGTH_EX.name);
+        check("editing a dosage with saved RPE/ROM/assistance/side/instructions starts More options EXPANDED", await isMoreOptionsOpen(editor2));
         check("all advanced fields remain correctly populated on edit (ROM)", (await editor2.locator("#dosage-rom").inputValue()) === "Full range, pain-free only");
         check("all advanced fields remain correctly populated on edit (Assistance)", (await editor2.locator("#dosage-assistance").inputValue()) === "moderate");
         check("all advanced fields remain correctly populated on edit (Side)", (await editor2.locator("#dosage-side").inputValue()) === "left");
@@ -407,13 +446,38 @@ async function main() {
           "all advanced fields remain correctly populated on edit (instructions)",
           (await editor2.locator("#dosage-instructions").inputValue()) === "Use countertop support if needed."
         );
-        await editor2.getByRole("button", { name: "Range", exact: true }).click();
+        // Switch RPE -> RIR: RPE must be cleared.
+        await editor2.getByRole("group", { name: "RPE or RIR" }).getByRole("button", { name: "RIR", exact: true }).click();
+        await editor2.getByLabel("RIR value").fill("2");
+        await saveAndWaitClosed(row2, editor2);
+        const { data: rirRow } = await admin.from("prescription_exercise_dosage").select("rpe, rir").eq("prescription_exercise_id", exerciseIdByName[STRENGTH_EX.name]).single();
+        check("switching to RIR clears RPE (mutual exclusion honored on save)", rirRow.rpe === null && rirRow.rir === 2);
+      }
+
+      // ===================== DISTANCE: exact, then range in km =====================
+      {
+        const { row, editor } = await openEditor(page, DISTANCE_EX.name);
+        await field(editor, "dosage-field-sets").fill("4");
+        await field(editor, "dosage-field-distance").getByRole("button", { name: "Exact", exact: true }).click();
+        await editor.getByLabel("Exact distance").fill("60");
+        await editor.getByLabel("Distance unit").selectOption("m");
+        await setDuration(editor, "Rest", 2, 0);
+        await saveAndWaitClosed(row, editor);
+        check("distance exact summary renders correctly", same(await chips(row), ["4 sets", "60 m", "2 min rest"]), JSON.stringify(await chips(row)));
+
+        const { data: dRow } = await admin.from("prescription_exercise_dosage").select("*").eq("prescription_exercise_id", exerciseIdByName[DISTANCE_EX.name]).single();
+        check("distance unit persisted exactly as entered (m)", dRow.distance_unit === "m");
+        check("distance dosage derives dosage_type 'distance'", dRow.dosage_type === "distance");
+        check("derived meters value correct for unit m (identity)", Math.abs(Number(dRow.distance_value_m_derived) - 60) < 0.0001);
+
+        // Distance in a different unit (km) — derived-meters correctness across units
+        const { row: row2, editor: editor2 } = await openEditor(page, DISTANCE_EX.name);
+        await field(editor2, "dosage-field-distance").getByRole("button", { name: "Range", exact: true }).click();
         await editor2.getByLabel("Minimum distance").fill("0.5");
         await editor2.getByLabel("Maximum distance").fill("1");
-        await editor2.getByLabel("Unit").selectOption("km");
+        await editor2.getByLabel("Distance unit").selectOption("km");
         await saveAndWaitClosed(row2, editor2);
-        const summary2 = row2.locator('[data-testid="dosage-affordance"]');
-        check("distance range summary with km unit renders correctly", (await summary2.innerText()).trim() === "4 × 0.5–1 km · 2 min rest", await summary2.innerText());
+        check("distance range summary with km unit renders correctly", same(await chips(row2), ["4 sets", "0.5–1 km", "2 min rest"]), JSON.stringify(await chips(row2)));
         const { data: kmRow } = await admin.from("prescription_exercise_dosage").select("distance_min_value, distance_max_value, distance_value_m_derived").eq("prescription_exercise_id", exerciseIdByName[DISTANCE_EX.name]).single();
         check(
           "range values persisted exactly (0.5-1 km), derived-meters column correctly NULL for ranges (GENERATED formula is exact-only)",
@@ -424,25 +488,30 @@ async function main() {
       // ===================== TIME: continuous, then interval representation =====================
       {
         const { row, editor } = await openEditor(page, TIME_EX.name);
-        await editor.locator("#dosage-type").selectOption("time");
-        await editor.getByRole("button", { name: "Exact", exact: true }).click();
-        await setDuration(editor, "Duration", 20, 0);
-        check("redundant trailing 'Duration' helper word removed (Field heading already says it)", (await editor.getByText("Duration", { exact: true }).count()) === 0);
-        check("min/sec unit context remains clear despite trailing-word removal", (await editor.getByText("min", { exact: true }).count()) > 0 && (await editor.getByText("sec", { exact: true }).count()) > 0);
+        const timeField = field(editor, "dosage-field-interval-time");
+        await timeField.getByRole("button", { name: "Exact", exact: true }).click();
+        await setDuration(timeField, "Duration", 20, 0);
+        // Was: "redundant trailing 'Duration' helper word removed". The
+        // compact Revision B layout labels each sub-field once; assert there
+        // is still exactly ONE "Duration" label (no redundant duplicate).
+        check("no redundant duplicate 'Duration' label", (await timeField.getByText("Duration", { exact: true }).count()) === 1);
+        check("min/sec unit context remains clear", (await timeField.getByText("min", { exact: true }).count()) > 0 && (await timeField.getByText("sec", { exact: true }).count()) > 0);
         await saveAndWaitClosed(row, editor);
         const { data: contRow } = await admin.from("prescription_exercise_dosage").select("*").eq("prescription_exercise_id", exerciseIdByName[TIME_EX.name]).single();
         check("time continuous representation persisted (20 min = 1200s)", contRow.time_duration_mode === "exact" && Number(contRow.time_duration_exact_seconds) === 1200);
+        check("time dosage derives dosage_type 'time'", contRow.dosage_type === "time");
         check("time type does not require sets", contRow.sets === null);
-        const summary = row.locator('[data-testid="dosage-affordance"]');
-        check("time continuous summary renders correctly", (await summary.innerText()).trim().includes("20 min"), await summary.innerText());
+        check("time continuous summary renders correctly", (await chips(row)).includes("20 min"), JSON.stringify(await chips(row)));
 
         // Switch to interval-only representation — continuous fields must clear
+        // (re-clicking the active Exact button is the current "None").
         const { row: row2, editor: editor2 } = await openEditor(page, TIME_EX.name);
-        await editor2.getByRole("group", { name: "Exact or range" }).getByRole("button", { name: "None", exact: true }).click();
-        await setDuration(editor2, "Work", 1, 0);
-        await setDuration(editor2, "Recovery", 2, 0);
-        check("redundant trailing 'Work'/'Recovery' helper words removed", (await editor2.getByText("Work", { exact: true }).count()) === 0 && (await editor2.getByText("Recovery", { exact: true }).count()) === 0);
-        await editor2.locator("#interval-rounds").fill("3");
+        const timeField2 = field(editor2, "dosage-field-interval-time");
+        await timeField2.getByRole("button", { name: "Exact", exact: true }).click();
+        await setDuration(timeField2, "Work", 1, 0);
+        await setDuration(timeField2, "Recovery", 2, 0);
+        check("no redundant duplicate 'Work'/'Recovery' labels", (await timeField2.getByText("Work", { exact: true }).count()) === 1 && (await timeField2.getByText("Recovery", { exact: true }).count()) === 1);
+        await timeField2.getByLabel("Rounds").fill("3");
         await saveAndWaitClosed(row2, editor2);
         const { data: intervalRow } = await admin.from("prescription_exercise_dosage").select("*").eq("prescription_exercise_id", exerciseIdByName[TIME_EX.name]).single();
         check(
@@ -453,8 +522,7 @@ async function main() {
           "interval work/recovery/rounds persisted correctly",
           Number(intervalRow.interval_work_seconds) === 60 && Number(intervalRow.interval_recovery_seconds) === 120 && intervalRow.interval_rounds === 3
         );
-        const summary2 = row2.locator('[data-testid="dosage-affordance"]');
-        const summaryText2 = await summary2.innerText();
+        const summaryText2 = (await chips(row2)).join(" | ");
         check("interval summary reflects work/recovery/rounds", summaryText2.includes("work") && summaryText2.includes("recovery") && summaryText2.includes("3 rounds"), summaryText2);
       }
 
@@ -462,13 +530,12 @@ async function main() {
       {
         const { row, editor } = await openEditor(page, CANCEL_EX.name);
         check("exercise with no reference dosage omits the reference section", (await editor.getByText("Reference dosage").count()) === 0);
-        await editor.locator("#dosage-type").selectOption("repetition");
-        await editor.locator("#dosage-sets").fill("5");
-        await editor.getByRole("button", { name: "Exact", exact: true }).click();
+        await field(editor, "dosage-field-sets").fill("5");
+        await field(editor, "dosage-field-reps").getByRole("button", { name: "Exact", exact: true }).click();
         await editor.getByLabel("Exact reps").fill("8");
         await editor.getByRole("button", { name: "Cancel", exact: true }).click();
         await editor.waitFor({ state: "detached", timeout: 5000 }).catch(() => {});
-        const summary = row.locator('[data-testid="dosage-affordance"]');
+        const summary = row.locator('[data-testid="dosage-summary"]');
         check("Cancel returns the row to 'Dosage needed'", (await summary.innerText()).trim() === "Dosage needed");
         const { data: cancelRow } = await admin.from("prescription_exercise_dosage").select("id").eq("prescription_exercise_id", exerciseIdByName[CANCEL_EX.name]).maybeSingle();
         check("Cancel never persisted a dosage row", cancelRow === null);
@@ -491,8 +558,9 @@ async function main() {
       // ===================== PERSISTENCE ACROSS REFRESH =====================
       await page.reload();
       await page.waitForSelector("text=Exercise Library");
-      const repSummaryAfterReload = await draftRow(page, REP_EX.name).locator('[data-testid="dosage-affordance"]').innerText();
-      check("dosage summaries persist across refresh", repSummaryAfterReload.trim().startsWith("2 × 20s hold"), repSummaryAfterReload);
+      await page.waitForLoadState("networkidle");
+      const repChipsAfterReload = await chips(draftRow(page, REP_EX.name));
+      check("dosage summaries persist across refresh", same(repChipsAfterReload, ["2 sets", "20s hold", "25 lb", "90s rest"]), JSON.stringify(repChipsAfterReload));
 
       // ===================== CLONED-ACTIVE DOSAGE =====================
       const cloneDraftResp = await ctxOwner.request.post(`${BASE_URL}/api/clinician/patients/${clonePatient.userId}/prescription-drafts`, {
@@ -504,8 +572,9 @@ async function main() {
 
       await page.goto(`${BASE_URL}/clinician/patients/${clonePatient.userId}/prescription/builder`);
       await page.waitForSelector("text=Exercise Library");
-      const cloneSummary = draftRow(page, CLONE_EX.name).locator('[data-testid="dosage-affordance"]');
-      check("cloned draft exercise shows its cloned-from-active dosage immediately", (await cloneSummary.innerText()).trim() === "3 × 12 · Bodyweight · 45s rest", await cloneSummary.innerText());
+      await page.waitForLoadState("networkidle");
+      const cloneChips = await chips(draftRow(page, CLONE_EX.name));
+      check("cloned draft exercise shows its cloned-from-active dosage immediately", same(cloneChips, ["3 sets", "12 reps", "Bodyweight", "45s rest"]), JSON.stringify(cloneChips));
 
       const { row: cloneRow, editor: cloneEditor } = await openEditor(page, CLONE_EX.name);
       check("editor loads the cloned dosage's persisted values", (await cloneEditor.getByLabel("Exact reps").inputValue()) === "12");
@@ -528,9 +597,9 @@ async function main() {
       await otherPage.goto(`${BASE_URL}/clinician/patients/${patient.userId}/prescription/builder`);
       await otherPage.waitForSelector("text=Exercise Library");
       const otherRow = otherPage.locator('[data-testid="draft-exercise-row"]').filter({ hasText: DISTANCE_EX.name });
-      const readonlySummaryText = await otherRow.getByTestId("dosage-summary-readonly").innerText();
-      check("view-only clinician sees the persisted dosage summary as plain text", readonlySummaryText.includes("km") && readonlySummaryText.includes("min rest"), readonlySummaryText);
-      check("view-only clinician has no clickable dosage-affordance button", (await otherRow.getByTestId("dosage-affordance").count()) === 0);
+      const readonlySummaryText = (await chips(otherRow)).join(" | ");
+      check("view-only clinician sees the persisted dosage summary", readonlySummaryText.includes("km") && readonlySummaryText.includes("min rest"), readonlySummaryText);
+      check("view-only clinician has no Edit / dosage control", (await otherRow.getByTestId("edit-dosage").count()) === 0);
 
       const otherPutResp = await ctxOther.request.put(`${BASE_URL}/api/clinician/prescription-exercises/${exerciseIdByName[DISTANCE_EX.name]}/dosage`, {
         data: { dosage: { dosageType: "repetition", sets: 1, repsMode: "exact", repsExact: 1, loadType: "not_applicable" } },
@@ -546,14 +615,14 @@ async function main() {
       // ===================== VISUAL: completed draft summaries =====================
       await page.goto(`${BASE_URL}/clinician/patients/${patient.userId}/prescription/builder`);
       await page.waitForSelector("text=Exercise Library");
+      await page.waitForLoadState("networkidle");
       await page.screenshot({ path: "scripts/.c5s4b-desktop-summaries.png", fullPage: true });
 
       // ===================== VISUAL: new repetition dosage, collapsed then expanded =====================
       {
         const { row, editor } = await openEditor(page, CANCEL_EX.name);
-        await editor.locator("#dosage-type").selectOption("repetition");
-        await editor.locator("#dosage-sets").fill("3");
-        await editor.getByRole("button", { name: "Exact", exact: true }).click();
+        await field(editor, "dosage-field-sets").fill("3");
+        await field(editor, "dosage-field-reps").getByRole("button", { name: "Exact", exact: true }).click();
         await editor.getByLabel("Exact reps").fill("10");
         check("routine repetition authoring is understandable without opening More options", !(await isMoreOptionsOpen(editor)));
         await editor.scrollIntoViewIfNeeded();
@@ -562,20 +631,17 @@ async function main() {
         await ensureMoreOptionsOpen(editor);
         await page.screenshot({ path: "scripts/.c5s4b-repetition-expanded.png", fullPage: true });
 
-        // Same session, switch to Distance to capture its own collapsed
-        // core-fields-only view (collapse More options again first).
-        await moreOptionsToggle(editor).click();
-        await editor.locator("#dosage-type").selectOption("distance");
-        await editor.locator("#dosage-sets").fill("4");
-        await editor.getByRole("button", { name: "Exact", exact: true }).click();
-        await editor.getByLabel("Exact distance").fill("60");
-        await editor.getByLabel("Unit").selectOption("m");
-        await page.screenshot({ path: "scripts/.c5s4b-distance-collapsed.png", fullPage: true });
-
-        // Discard entirely — CANCEL_EX must remain undosaged for the
-        // existing Cancel-behavior assertions below to hold.
+        // Discard entirely — CANCEL_EX must remain undosaged.
         await editor.getByRole("button", { name: "Cancel", exact: true }).click();
         void row;
+
+        // Distance's own core-fields-only view (a distance-capable
+        // exercise; the type select that used to switch here is gone).
+        const { editor: distEditor } = await openEditor(page, DISTANCE_EX.name);
+        check("existing Distance dosage with no advanced values starts collapsed", !(await isMoreOptionsOpen(distEditor)));
+        await distEditor.scrollIntoViewIfNeeded();
+        await page.screenshot({ path: "scripts/.c5s4b-distance-collapsed.png", fullPage: true });
+        await distEditor.getByRole("button", { name: "Cancel", exact: true }).click();
       }
 
       // ===================== VISUAL: Time editor (existing dosage, no advanced values -> collapsed) =====================
@@ -590,8 +656,8 @@ async function main() {
 
       // ===================== VISUAL: existing dosage WITH an advanced value -> auto-expanded =====================
       {
-        const { row, editor } = await openEditor(page, CONTACT_EX.name);
-        check("existing Contact dosage with a saved advanced value (RIR) auto-expands", await isMoreOptionsOpen(editor));
+        const { row, editor } = await openEditor(page, STRENGTH_EX.name);
+        check("existing dosage with a saved advanced value (RIR) auto-expands", await isMoreOptionsOpen(editor));
         await editor.scrollIntoViewIfNeeded();
         await page.screenshot({ path: "scripts/.c5s4b-existing-advanced-expanded.png", fullPage: true });
         await editor.getByRole("button", { name: "Cancel", exact: true }).click();

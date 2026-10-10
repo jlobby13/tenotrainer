@@ -141,18 +141,25 @@ BEGIN
   EXCEPTION WHEN check_violation THEN INSERT INTO verify_results(result) VALUES ('PASS: bodyweight with numeric load rejected'); v_pass := v_pass + 1;
   END;
 
+  -- C5.4 Revision A (20260929000001) intentionally removed dosage_type-keyed
+  -- mutual exclusivity — a row combining reps + hold is now the explicit,
+  -- founder-approved motivating case (e.g. "4 sets x 5 reps x 30 sec hold").
+  -- These two checks now assert the NEW, correct behavior instead of the
+  -- old exclusivity they used to assert.
   BEGIN
     INSERT INTO prescription_exercise_dosage (prescription_exercise_id, dosage_type, sets, hold_duration_mode, hold_duration_exact_seconds, reps_mode, reps_exact)
       VALUES (v_pe_ids[14], 'hold', 5, 'exact', 45, 'exact', 10);
-    INSERT INTO verify_results(result) VALUES ('FAIL: hold dosage using rep fields was ACCEPTED (should reject)'); v_fail := v_fail + 1;
-  EXCEPTION WHEN check_violation THEN INSERT INTO verify_results(result) VALUES ('PASS: hold dosage using rep fields rejected'); v_pass := v_pass + 1;
+    INSERT INTO verify_results(result) VALUES ('PASS: hold dosage combined with rep fields now accepted (Revision A)'); v_pass := v_pass + 1;
+    DELETE FROM prescription_exercise_dosage WHERE prescription_exercise_id = v_pe_ids[14];
+  EXCEPTION WHEN check_violation THEN INSERT INTO verify_results(result) VALUES ('FAIL: hold+reps combination was rejected (Revision A regression)'); v_fail := v_fail + 1;
   END;
 
   BEGIN
     INSERT INTO prescription_exercise_dosage (prescription_exercise_id, dosage_type, sets, reps_mode, reps_exact, hold_duration_mode, hold_duration_exact_seconds, load_type)
       VALUES (v_pe_ids[15], 'repetition', 3, 'exact', 10, 'exact', 45, 'bodyweight');
-    INSERT INTO verify_results(result) VALUES ('FAIL: repetition dosage using hold fields was ACCEPTED (should reject)'); v_fail := v_fail + 1;
-  EXCEPTION WHEN check_violation THEN INSERT INTO verify_results(result) VALUES ('PASS: repetition dosage using hold fields rejected'); v_pass := v_pass + 1;
+    INSERT INTO verify_results(result) VALUES ('PASS: repetition dosage combined with hold fields now accepted (Revision A)'); v_pass := v_pass + 1;
+    DELETE FROM prescription_exercise_dosage WHERE prescription_exercise_id = v_pe_ids[15];
+  EXCEPTION WHEN check_violation THEN INSERT INTO verify_results(result) VALUES ('FAIL: repetition+hold combination was rejected (Revision A regression)'); v_fail := v_fail + 1;
   END;
 
   BEGIN
@@ -176,11 +183,17 @@ BEGIN
   EXCEPTION WHEN check_violation THEN INSERT INTO verify_results(result) VALUES ('PASS: negative reps rejected'); v_pass := v_pass + 1;
   END;
 
+  -- C5.4 Revision A dropped the old dosage_type-coupled "sets required
+  -- unless time" rule, replacing it with dosage_at_least_one_dimension (at
+  -- least one of sets/reps/hold/contacts/distance/time/interval/load must
+  -- be populated). A repetition row with reps but no sets now legitimately
+  -- passes that rule (reps_mode alone is a meaningful dimension).
   BEGIN
     INSERT INTO prescription_exercise_dosage (prescription_exercise_id, dosage_type, reps_mode, reps_exact, load_type)
       VALUES (v_pe_ids[19], 'repetition', 'exact', 10, 'bodyweight');
-    INSERT INTO verify_results(result) VALUES ('FAIL: repetition dosage with NULL sets was ACCEPTED (should reject)'); v_fail := v_fail + 1;
-  EXCEPTION WHEN check_violation THEN INSERT INTO verify_results(result) VALUES ('PASS: repetition dosage with NULL sets rejected'); v_pass := v_pass + 1;
+    INSERT INTO verify_results(result) VALUES ('PASS: repetition dosage with NULL sets now accepted (Revision A: sets no longer separately required)'); v_pass := v_pass + 1;
+    DELETE FROM prescription_exercise_dosage WHERE prescription_exercise_id = v_pe_ids[19];
+  EXCEPTION WHEN check_violation THEN INSERT INTO verify_results(result) VALUES ('FAIL: repetition dosage with NULL sets was rejected (Revision A regression)'); v_fail := v_fail + 1;
   END;
 
   -- ================= STRUCTURAL / IDENTITY CONSTRAINTS =================

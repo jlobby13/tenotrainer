@@ -32,6 +32,16 @@ export type CanonicalExerciseRecord = {
   commonCompensations: string[] | null;
   contraindicationsOrCautions: string | null;
   isFavorite: boolean;
+  // C5.4 Revision B focused correction — DEFAULT (auto-shown) vs ALLOWED
+  // (the full "+ Add parameter" universe) are now distinct, both
+  // authoritative canonical_exercises columns, never inferred client-side
+  // from loadingProfile. default ⊆ allowed always (DB-enforced). See
+  // dosageEditor.ts's SPECIALIZED_CAPABILITIES / CAPABILITY_DISPLAY_ORDER.
+  defaultDosageCapabilities: ("reps" | "hold" | "contacts" | "distance" | "interval_time")[];
+  allowedDosageCapabilities: ("reps" | "hold" | "contacts" | "distance" | "interval_time")[];
+  // C5.4 Revision D — optional "More options" modifiers offered for clean
+  // authoring (see the 20261004000001 migration). Never gates saved values.
+  optionalFieldCapabilities: ("tempo" | "rpe" | "rir" | "rom" | "assistance" | "side")[];
   referenceDosage: {
     dosageType: "repetition" | "hold" | "time" | "contact" | "distance";
     sets: number | null;
@@ -86,7 +96,7 @@ export async function listCanonicalExercisesForClinician(clinicianId: string): P
   const { data: exercises, error } = await supabase
     .from("canonical_exercises")
     .select(
-      "id, name, category, loading_profile, unilateral_bilateral, body_part, equipment, setup_instructions, execution_cues, patient_facing_explanation, common_compensations, contraindications_or_cautions"
+      "id, name, category, loading_profile, unilateral_bilateral, body_part, equipment, setup_instructions, execution_cues, patient_facing_explanation, common_compensations, contraindications_or_cautions, dosage_capabilities, default_dosage_capabilities, optional_field_capabilities"
     )
     .eq("active", true)
     .or(orParts.join(","))
@@ -119,6 +129,11 @@ export async function listCanonicalExercisesForClinician(clinicianId: string): P
       commonCompensations: r.common_compensations as string[] | null,
       contraindicationsOrCautions: r.contraindications_or_cautions as string | null,
       isFavorite: favoriteIds.has(r.id as string),
+      // dosage_capabilities was REPURPOSED (20261001000001) to mean
+      // ALLOWED — see that migration's header for the full rationale.
+      allowedDosageCapabilities: (r.dosage_capabilities as ("reps" | "hold" | "contacts" | "distance" | "interval_time")[] | null) ?? [],
+      defaultDosageCapabilities: (r.default_dosage_capabilities as ("reps" | "hold" | "contacts" | "distance" | "interval_time")[] | null) ?? [],
+      optionalFieldCapabilities: (r.optional_field_capabilities as ("tempo" | "rpe" | "rir" | "rom" | "assistance" | "side")[] | null) ?? [],
       referenceDosage: d
         ? {
             dosageType: d.dosage_type,

@@ -9,6 +9,11 @@ import type { DosageInput } from "@/lib/prescriptionDraftTypes";
 // authoritative shape validation (exact/range mutual exclusivity, per-type
 // field requirements, load consistency) — this route does not re-implement
 // them, it only maps VALIDATION_FAILED through cleanly.
+//
+// C5.4 Revision B — dosage_type is no longer clinician-chosen; updateDosage()
+// derives it authoritatively and returns the derived DosageInput so the
+// caller can reconcile its working-state "last saved" snapshot with exactly
+// what was persisted (never re-deriving it a second time client-side).
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ exerciseId: string }> }) {
   const auth = await requireClinicianForRoute();
   if ("response" in auth) return auth.response;
@@ -20,13 +25,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   } catch {
     return NextResponse.json({ error: "VALIDATION_FAILED" }, { status: 422 });
   }
-  if (!body.dosage?.dosageType) {
+  if (!body.dosage) {
     return NextResponse.json({ error: "VALIDATION_FAILED" }, { status: 422 });
   }
 
   try {
-    await updateDosage({ clinicianId: auth.clinicianId, exerciseId, dosage: body.dosage });
-    return NextResponse.json({ ok: true });
+    const saved = await updateDosage({ clinicianId: auth.clinicianId, exerciseId, dosage: body.dosage });
+    return NextResponse.json({ ok: true, dosage: saved });
   } catch (err) {
     return prescriptionDraftErrorResponse(err);
   }

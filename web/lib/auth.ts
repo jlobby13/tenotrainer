@@ -51,21 +51,16 @@ export async function getSessionInfo(): Promise<SessionInfo> {
       createdAt: user.created_at,
     };
 
-    // Profile row
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("name, tfa_enabled, organization_id")
-      .eq("id", user.id)
-      .maybeSingle();
+    // Profile row and org memberships (may be empty — handled gracefully).
+    // Independent reads keyed only by user.id, so they run in parallel —
+    // every authenticated page and API route pays this once, and running
+    // them sequentially cost one extra Supabase round trip each time.
+    const [{ data: profile, error: profileError }, { data: memberships, error: memberError }] = await Promise.all([
+      supabase.from("profiles").select("name, tfa_enabled, organization_id").eq("id", user.id).maybeSingle(),
+      supabase.from("organization_members").select("organization_id, role, joined_at, organizations(name, slug)").eq("user_id", user.id),
+    ]);
 
     if (profileError) errors.push({ source: "profiles", message: profileError.message });
-
-    // Org memberships (may be empty — handled gracefully)
-    const { data: memberships, error: memberError } = await supabase
-      .from("organization_members")
-      .select("organization_id, role, joined_at, organizations(name, slug)")
-      .eq("user_id", user.id);
-
     if (memberError) errors.push({ source: "organization_members", message: memberError.message });
 
     return {

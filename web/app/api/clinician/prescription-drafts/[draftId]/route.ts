@@ -25,7 +25,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if ("response" in auth) return auth.response;
   const { draftId } = await params;
 
-  let body: { phase?: RehabPhase | null; schedulingMode?: SchedulingMode | null; performanceFocuses?: PerformanceFocus[] };
+  let body: {
+    phase?: RehabPhase | null;
+    schedulingMode?: SchedulingMode | null;
+    targetSessionsPerWeek?: number | null;
+    performanceFocuses?: PerformanceFocus[];
+  };
   try {
     body = await request.json();
   } catch {
@@ -38,6 +43,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       draftId,
       phase: body.phase,
       schedulingMode: body.schedulingMode,
+      targetSessionsPerWeek: body.targetSessionsPerWeek,
       performanceFocuses: body.performanceFocuses,
     });
     return NextResponse.json({ ok: true });
