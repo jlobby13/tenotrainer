@@ -95,7 +95,15 @@ export async function verifyHighConsequenceAuthorization(clinicianId: string, pa
 // boundary; a missing "Publish" button in a future C5.4 UI is not. Must
 // not be removed until the C5.6 cutover is explicitly authorized.
 export function assertPublishEnabled(): void {
-  if (process.env.C5_PRESCRIPTION_PUBLISH_ENABLED !== "true") {
+  if (!isPublishEnabled()) {
     throw new PrescriptionDraftError("PUBLISH_DISABLED");
   }
+}
+
+// C5.4D — the same predicate, read-only, so the Review page can tell the
+// clinician publishing is unavailable instead of offering a button that
+// can only fail. Display only: assertPublishEnabled() above stays the
+// enforcement point inside publishDraft().
+export function isPublishEnabled(): boolean {
+  return process.env.C5_PRESCRIPTION_PUBLISH_ENABLED === "true";
 }

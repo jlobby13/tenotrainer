@@ -26,6 +26,7 @@ import { assertSupervises } from "./clinicianAuth";
 import { verifyHighConsequenceAuthorization, assertPublishEnabled } from "./prescriptionDraftAuth";
 import { PrescriptionDraftError, mapRpcError } from "./prescriptionDraftErrors";
 import { validateDosageInput, deriveDosageType, type DosageDraft } from "./dosageEditor";
+import { loadProgramContent, computeDraftFingerprint } from "./prescriptionProgramServer";
 import type {
   DraftSource,
   DraftStatus,
@@ -622,7 +623,19 @@ export async function validateDraft(params: { clinicianId: string; draftId: stri
 // Publish (high-consequence + feature-gated)
 // ---------------------------------------------------------------------------
 
-export async function publishDraft(params: { clinicianId: string; draftId: string }): Promise<{ versionId: string }> {
+// C5.4D — expectedFingerprint (optional, sent by Review): the draft content
+// must still be exactly what the clinician reviewed, else DRAFT_CHANGED.
+// Computed from the database, never from client state; omitting it keeps
+// the C5.3 contract unchanged. Publication VALIDITY is not decided here:
+// every blocking rule (including C5.4D's workouts_have_active_exercise and
+// active_exercise_dosage_valid) is enforced by validate_prescription_draft
+// inside publish_prescription_draft's transaction, with the draft row locked
+// FOR UPDATE against concurrent content writes (20261010000001).
+export async function publishDraft(params: {
+  clinicianId: string;
+  draftId: string;
+  expectedFingerprint?: string | null;
+}): Promise<{ versionId: string; versionNumber: number | null }> {
   assertPublishEnabled();
 
   const supabase = createServiceRoleClient();
@@ -639,12 +652,64 @@ export async function publishDraft(params: { clinicianId: string; draftId: strin
 
   await verifyHighConsequenceAuthorization(params.clinicianId, pp.patient_id as string);
 
+  if (params.expectedFingerprint != null) {
+    let program;
+    try {
+      program = await loadProgramContent(supabase, { kind: "draft", id: params.draftId }, draft);
+    } catch {
+      throw new PrescriptionDraftError("INTERNAL_ERROR");
+    }
+    if (computeDraftFingerprint(draft, program) !== params.expectedFingerprint) {
+      throw new PrescriptionDraftError("DRAFT_CHANGED");
+    }
+  }
+
   const { data, error } = await supabase.rpc("publish_prescription_draft", {
     p_draft_id: params.draftId,
     p_clinician_id: params.clinicianId,
   });
   if (error) throw mapRpcError(error);
-  return { versionId: data as string };
+  const versionId = data as string;
+
+  // The version is already committed; a failed number lookup must not turn
+  // a successful publication into a reported failure.
+  const { data: version } = await supabase.from("prescription_versions").select("version_number").eq("id", versionId).maybeSingle();
+  return { versionId, versionNumber: (version?.version_number as number | undefined) ?? null };
+}
+
+// C5.4D §20 — authoritative reconciliation after an ambiguous publish
+// response (network loss, timeout, 5xx). Read tier, like getDraft: any
+// actively-supervising clinician may ask. A draft can only reach 'published'
+// inside publish_prescription_draft, which writes the draft's updated_at and
+// the new version's published_at from the same transaction's now() — so
+// equality on those two timestamps identifies exactly the version this draft
+// produced, never a later one.
+export async function getDraftPublicationOutcome(params: { clinicianId: string; draftId: string }): Promise<{
+  status: DraftStatus;
+  version: { id: string; versionNumber: number; isCurrent: boolean } | null;
+}> {
+  const supabase = createServiceRoleClient();
+  const draft = await loadEditableDraftOrReadable(supabase, params.clinicianId, params.draftId);
+  if (draft.status !== "published") return { status: draft.status, version: null };
+
+  const [{ data: version }, { data: pp }] = await Promise.all([
+    supabase
+      .from("prescription_versions")
+      .select("id, version_number")
+      .eq("patient_prescription_id", draft.patient_prescription_id)
+      .eq("published_at", draft.updated_at)
+      .maybeSingle(),
+    supabase.from("patient_prescriptions").select("current_prescription_version_id").eq("id", draft.patient_prescription_id).maybeSingle(),
+  ]);
+  if (!version) return { status: draft.status, version: null };
+  return {
+    status: draft.status,
+    version: {
+      id: version.id as string,
+      versionNumber: version.version_number as number,
+      isCurrent: pp?.current_prescription_version_id === version.id,
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------

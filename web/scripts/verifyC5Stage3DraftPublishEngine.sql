@@ -135,10 +135,14 @@ BEGIN
   INSERT INTO prescription_exercises (prescription_workout_id, canonical_exercise_id, order_index) VALUES (v_workout_id, v_ex_active, 0) RETURNING id INTO v_ex1_id;
   INSERT INTO prescription_exercise_dosage (prescription_exercise_id, dosage_type, sets, reps_mode, reps_exact) VALUES (v_ex1_id, 'repetition', 3, 'exact', 10);
 
-  IF EXISTS (SELECT 1 FROM validate_prescription_draft(v_draft_id) WHERE NOT passed) THEN
-    INSERT INTO verify_results(result) VALUES ('FAIL: fully-populated draft unexpectedly fails validation'); v_fail := v_fail + 1;
+  -- C5.4D: v_workout2_id is still empty here (it is populated further down
+  -- for the archived-exercise case), so workouts_have_active_exercise must
+  -- be the ONLY failing rule; every C5.3 rule must pass.
+  IF EXISTS (SELECT 1 FROM validate_prescription_draft(v_draft_id) WHERE NOT passed AND rule <> 'workouts_have_active_exercise')
+     OR NOT EXISTS (SELECT 1 FROM validate_prescription_draft(v_draft_id) WHERE rule = 'workouts_have_active_exercise' AND NOT passed) THEN
+    INSERT INTO verify_results(result) VALUES ('FAIL: populated draft: expected only workouts_have_active_exercise (empty workout 2) to fail'); v_fail := v_fail + 1;
   ELSE
-    INSERT INTO verify_results(result) VALUES ('PASS: fully-populated draft passes all validation rules'); v_pass := v_pass + 1;
+    INSERT INTO verify_results(result) VALUES ('PASS: populated draft passes every C5.3 rule; C5.4D flags only the still-empty workout 2'); v_pass := v_pass + 1;
   END IF;
 
   -- ================= NON-OWNER CANNOT MUTATE, CAN VIEW =================
@@ -191,6 +195,23 @@ BEGIN
 
   DELETE FROM prescription_exercises WHERE id = v_ex2_id; -- remove the blocker, retry below
 
+  -- C5.4D (20261010000001, founder-approved): removing the blocker leaves
+  -- v_workout2_id EMPTY, which workouts_have_active_exercise now refuses
+  -- (C5.3 originally published it). Assert the refusal, then give the
+  -- workout a valid active exercise so the first publish below is valid.
+  BEGIN
+    PERFORM publish_prescription_draft(v_draft_id, v_clinician);
+    INSERT INTO verify_results(result) VALUES ('FAIL: publish with an empty workout was ACCEPTED (C5.4D should reject)'); v_fail := v_fail + 1;
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM LIKE '%VALIDATION_FAILED%' THEN
+      INSERT INTO verify_results(result) VALUES ('PASS: publish blocked by empty workout (C5.4D workouts_have_active_exercise)'); v_pass := v_pass + 1;
+    ELSE
+      INSERT INTO verify_results(result) VALUES (format('FAIL: wrong error for empty-workout publish: %s', SQLERRM)); v_fail := v_fail + 1;
+    END IF;
+  END;
+  INSERT INTO prescription_exercises (prescription_workout_id, canonical_exercise_id, order_index) VALUES (v_workout2_id, v_ex_active, 0) RETURNING id INTO v_ex2_id;
+  INSERT INTO prescription_exercise_dosage (prescription_exercise_id, dosage_type, sets, reps_mode, reps_exact) VALUES (v_ex2_id, 'repetition', 2, 'exact', 12);
+
   -- ================= FIRST PUBLISH (v1) =================
   BEGIN
     v_version1_id := publish_prescription_draft(v_draft_id, v_clinician);
@@ -229,13 +250,12 @@ BEGIN
     INSERT INTO verify_results(result) VALUES ('FAIL: sequence state not initialized correctly'); v_fail := v_fail + 1;
   END IF;
 
-  -- Both draft workouts (v_workout_id with its 1 active exercise, and
-  -- v_workout2_id left empty after its archived-exercise blocker was
-  -- deleted) are published: 2 workouts, 1 exercise total, all with fresh
-  -- version-owned IDs distinct from the draft's own IDs.
+  -- Both draft workouts (each with 1 active exercise — C5.4D forbids
+  -- publishing an empty workout) are published: 2 workouts, 2 exercises,
+  -- all with fresh version-owned IDs distinct from the draft's own IDs.
   IF (SELECT count(*) FROM prescription_workouts WHERE prescription_version_id = v_version1_id) = 2
-     AND (SELECT count(*) FROM prescription_exercises pe JOIN prescription_workouts pw ON pw.id = pe.prescription_workout_id WHERE pw.prescription_version_id = v_version1_id) = 1 THEN
-    INSERT INTO verify_results(result) VALUES ('PASS: 2 workouts / 1 exercise published (matches draft content after archived-blocker removal) — fresh version-owned IDs, distinct from draft IDs'); v_pass := v_pass + 1;
+     AND (SELECT count(*) FROM prescription_exercises pe JOIN prescription_workouts pw ON pw.id = pe.prescription_workout_id WHERE pw.prescription_version_id = v_version1_id) = 2 THEN
+    INSERT INTO verify_results(result) VALUES ('PASS: 2 workouts / 2 exercises published (matches draft content) — fresh version-owned IDs, distinct from draft IDs'); v_pass := v_pass + 1;
   ELSE
     INSERT INTO verify_results(result) VALUES ('FAIL: unexpected workout/exercise count on v1'); v_fail := v_fail + 1;
   END IF;

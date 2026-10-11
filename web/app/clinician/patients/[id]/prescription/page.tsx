@@ -2,9 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireClinicianAuth, assertSupervises } from "@/lib/clinicianAuth";
 import { getPrescriptionManagementState } from "@/lib/prescriptionManagementServer";
+import { listPublishedVersions, type PublishedVersionListItem } from "@/lib/prescriptionReviewServer";
 import { formatLastSessionLabel } from "@/lib/clinicianRoster";
 import { PatientNav } from "../components/PatientNav";
 import { createDraftAction } from "./actions";
+import { LocalDateTime } from "./components/LocalDateTime";
 
 export const metadata = { title: "Prescription — TenoTrainer" };
 
@@ -35,7 +37,7 @@ export default async function PrescriptionManagementPage({
   const supervises = await assertSupervises(clinicianId, patientId);
   if (!supervises) notFound();
 
-  const state = await getPrescriptionManagementState({ clinicianId, patientId });
+  const [state, versions] = await Promise.all([getPrescriptionManagementState({ clinicianId, patientId }), listPublishedVersions(patientId)]);
   const now = new Date();
 
   return (
@@ -68,10 +70,12 @@ export default async function PrescriptionManagementPage({
         {state.draft ? (
           <DraftExistsCard patientId={patientId} draft={state.draft} now={now} />
         ) : state.hasActivePrescription && state.activeSummary ? (
-          <ActivePrescriptionCard patientId={patientId} summary={state.activeSummary} now={now} />
+          <ActivePrescriptionCard patientId={patientId} summary={state.activeSummary} />
         ) : (
           <NoPrescriptionCard patientId={patientId} />
         )}
+
+        {versions.length > 0 && <VersionHistoryCard patientId={patientId} versions={versions} />}
       </main>
     </div>
   );
@@ -95,11 +99,9 @@ function NoPrescriptionCard({ patientId }: { patientId: string }) {
 function ActivePrescriptionCard({
   patientId,
   summary,
-  now,
 }: {
   patientId: string;
   summary: { versionId: string; versionNumber: number; stage: number; publishedAt: string };
-  now: Date;
 }) {
   return (
     <section className="bg-white rounded-xl shadow border border-gray-100 p-6 space-y-4">
@@ -107,16 +109,25 @@ function ActivePrescriptionCard({
       <div className="space-y-2 text-sm">
         <Row label="Version" value={`v${summary.versionNumber}`} />
         <Row label="Stage" value={`Stage ${summary.stage}`} />
-        <Row label="Published" value={formatLastSessionLabel(summary.publishedAt, now)} />
+        <Row label="Published" value={<LocalDateTime iso={summary.publishedAt} />} />
       </div>
-      <form action={createDraftAction}>
-        <input type="hidden" name="patientId" value={patientId} />
-        <input type="hidden" name="source" value="clone_active" />
-        <input type="hidden" name="sourceVersionId" value={summary.versionId} />
-        <button type="submit" className="inline-flex items-center rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">
-          Edit Prescription
-        </button>
-      </form>
+      <div className="flex flex-wrap gap-2">
+        <form action={createDraftAction}>
+          <input type="hidden" name="patientId" value={patientId} />
+          <input type="hidden" name="source" value="clone_active" />
+          <input type="hidden" name="sourceVersionId" value={summary.versionId} />
+          <button type="submit" className="inline-flex items-center rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">
+            Edit Prescription
+          </button>
+        </form>
+        <Link
+          href={`/clinician/patients/${patientId}/prescription/versions/${summary.versionId}`}
+          className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          data-testid="view-current-version"
+        >
+          View Published Prescription
+        </Link>
+      </div>
     </section>
   );
 }
@@ -143,17 +154,54 @@ function DraftExistsCard({
           This draft is currently being edited by {draft.editingClinicianName}. You may open it to view progress, but only they can make changes.
         </p>
       )}
-      <Link
-        href={`/clinician/patients/${patientId}/prescription/builder`}
-        className="inline-flex items-center rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
-      >
-        {draft.isOwnedByCaller ? "Continue Editing" : "View Draft"}
-      </Link>
+      <div className="flex flex-wrap gap-2">
+        <Link
+          href={`/clinician/patients/${patientId}/prescription/builder`}
+          className="inline-flex items-center rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+        >
+          {draft.isOwnedByCaller ? "Continue Editing" : "View Draft"}
+        </Link>
+        <Link
+          href={`/clinician/patients/${patientId}/prescription/review`}
+          className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          data-testid="overview-review-link"
+        >
+          Review Prescription
+        </Link>
+      </div>
     </section>
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+// C5.4D — every published version stays inspectable (read-only), newest
+// first; the current one is marked.
+function VersionHistoryCard({ patientId, versions }: { patientId: string; versions: PublishedVersionListItem[] }) {
+  return (
+    <section className="bg-white rounded-xl shadow border border-gray-100 p-6 space-y-3" data-testid="version-history">
+      <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Version History</h2>
+      <ul className="divide-y divide-gray-100 text-sm">
+        {versions.map((v) => (
+          <li key={v.id} className="flex items-center justify-between gap-3 py-2">
+            <span className="flex items-center gap-2">
+              <span className="font-medium text-gray-900">Version {v.versionNumber}</span>
+              {v.isCurrent && <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800">Current</span>}
+              {v.publishedAt && (
+                <span className="text-gray-500">
+                  <LocalDateTime iso={v.publishedAt} />
+                </span>
+              )}
+            </span>
+            <Link href={`/clinician/patients/${patientId}/prescription/versions/${v.id}`} className="font-medium text-brand-700 hover:text-brand-800" data-testid="version-history-link">
+              View
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between">
       <span className="text-gray-500">{label}</span>

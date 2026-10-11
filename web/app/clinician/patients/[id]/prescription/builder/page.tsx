@@ -31,8 +31,20 @@ type RawWorkout = {
 // If there is no OPEN (status='editing') draft for this patient, redirect
 // back to the management route rather than rendering a fake/empty builder
 // — never invents draft state client-side.
-export default async function PrescriptionBuilderPage({ params }: { params: Promise<{ id: string }> }) {
+//
+// C5.4D — optional ?workout=&exercise=&focus= open the builder at the place a
+// Review issue points to. Pure navigation hints: ids that don't belong to
+// this draft are ignored (BuilderShell falls back to its normal start), and
+// nothing about the draft itself is carried in the URL.
+export default async function PrescriptionBuilderPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ workout?: string; exercise?: string; focus?: string }>;
+}) {
   const { id: patientId } = await params;
+  const { workout: focusWorkoutId, exercise: focusExerciseId, focus } = await searchParams;
   const { clinicianId } = await requireClinicianAuth();
 
   const supervises = await assertSupervises(clinicianId, patientId);
@@ -94,6 +106,11 @@ export default async function PrescriptionBuilderPage({ params }: { params: Prom
       initialPhase={(draft.phase as RehabPhase | null) ?? null}
       initialTargetSessionsPerWeek={(draft as unknown as { target_sessions_per_week: number | null }).target_sessions_per_week ?? null}
       initialPerformanceFocuses={performanceFocuses}
+      initialFocus={{
+        workoutId: typeof focusWorkoutId === "string" ? focusWorkoutId : null,
+        exerciseId: typeof focusExerciseId === "string" ? focusExerciseId : null,
+        section: focus === "schedule" || focus === "weekdays" ? focus : null,
+      }}
     />
   );
 }

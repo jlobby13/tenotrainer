@@ -6,25 +6,11 @@
 // never exposed by any UI until now — this component is pure authoring, no
 // new data model.
 
+import { PHASE_OPTIONS, FOCUS_OPTIONS } from "@/lib/prescriptionProgram";
 import type { BuilderDraftWorkout, SchedulingMode, RehabPhase, PerformanceFocus } from "./types";
 
-const PHASE_OPTIONS: { value: RehabPhase; label: string }[] = [
-  { value: "early", label: "Early" },
-  { value: "middle", label: "Middle" },
-  { value: "late", label: "Late" },
-  { value: "return_to_activity", label: "Return to Sport / Activity" },
-  { value: "maintenance", label: "Maintenance" },
-];
-
-const FOCUS_OPTIONS: { value: PerformanceFocus; label: string }[] = [
-  { value: "symptom_management_load_introduction", label: "Symptom Management / Load Introduction" },
-  { value: "strength_development", label: "Strength Development" },
-  { value: "energy_storage", label: "Energy Storage" },
-  { value: "reactive_strength", label: "Reactive Strength" },
-  { value: "explosive_strength", label: "Explosive Strength" },
-  { value: "return_to_sport_prep", label: "Return-to-Sport / Activity Preparation" },
-  { value: "maintenance", label: "Maintenance" },
-];
+// C5.4D — phase/focus label lists now live in lib/prescriptionProgram.ts so
+// the Review and published views use the exact same wording.
 
 type Props = {
   schedulingMode: SchedulingMode | null;

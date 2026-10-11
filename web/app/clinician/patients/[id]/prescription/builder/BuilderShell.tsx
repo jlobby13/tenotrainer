@@ -49,7 +49,7 @@
 // database stays the only source of clinical truth: overlays only ever hold
 // a value that is in flight or that the server has already confirmed.
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { filterLibraryExercises, computeLibraryFacets, EMPTY_LIBRARY_FILTERS, type LibraryFilters } from "@/lib/canonicalExerciseLibrary";
 import { mapDosageRowToInput, emptyDosageDraft, dosageDraftsEqual, deriveDosageType, validateDosageInput, type DosageDraft } from "@/lib/dosageEditor";
@@ -88,6 +88,8 @@ type Props = {
   initialPhase: RehabPhase | null;
   initialTargetSessionsPerWeek: number | null;
   initialPerformanceFocuses: PerformanceFocus[];
+  // C5.4D — where a Review issue's "Edit …" link wants the builder opened.
+  initialFocus?: { workoutId: string | null; exerciseId: string | null; section: "schedule" | "weekdays" | null };
 };
 
 const WORKOUT_MAX = 3;
@@ -166,10 +168,21 @@ export function BuilderShell({
   initialPhase,
   initialTargetSessionsPerWeek,
   initialPerformanceFocuses,
+  initialFocus,
 }: Props) {
+  // C5.4D — resolve the Review deep-link against the draft actually loaded.
+  // Unknown ids are simply ignored. Opening an exercise's dosage editor here
+  // goes through the same working-state initialization ensureWorkingEntry()
+  // performs (from the SAVED dosage), so no data is created or changed.
+  const focusTarget = useMemo(() => {
+    const workout = initialWorkouts.find((w) => w.id === initialFocus?.workoutId) ?? null;
+    const exercise = workout?.exercises.find((e) => e.id === initialFocus?.exerciseId) ?? null;
+    return { workout, exercise, section: initialFocus?.section ?? null };
+    // Initial render only: a deep link is consumed once, never re-applied.
+  }, []);
   const [workouts, setWorkouts] = useState<BuilderDraftWorkout[]>(initialWorkouts);
   const [selectedWorkoutId, setSelectedWorkoutId] = useState<string | null>(
-    initialWorkouts.slice().sort((a, b) => a.orderIndex - b.orderIndex)[0]?.id ?? null
+    focusTarget.workout?.id ?? initialWorkouts.slice().sort((a, b) => a.orderIndex - b.orderIndex)[0]?.id ?? null
   );
   const [schedulingMode, setSchedulingMode] = useState<SchedulingMode | null>(initialSchedulingMode);
   const [phase, setPhase] = useState<RehabPhase | null>(initialPhase);
@@ -206,17 +219,25 @@ export function BuilderShell({
   const [exercises, setExercises] = useState<BuilderLibraryExercise[]>(() => initialExercises.map(withDerived));
   const [filters, setFilters] = useState<LibraryFilters>(EMPTY_LIBRARY_FILTERS);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [mobileTab, setMobileTab] = useState<"library" | "draft">("library");
+  const [mobileTab, setMobileTab] = useState<"library" | "draft">(focusTarget.workout || focusTarget.section ? "draft" : "library");
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   // C5.4 Revision B — multi-open dosage editors (decision #8): a plain
   // presence map, not a single id. Independent of dosageWorkingState below
   // so collapsing/expanding never touches the working values themselves.
-  const [expandedDosageIds, setExpandedDosageIds] = useState<Record<string, boolean>>({});
+  const [expandedDosageIds, setExpandedDosageIds] = useState<Record<string, boolean>>(() =>
+    isOwner && focusTarget.exercise ? { [focusTarget.exercise.id]: true } : {}
+  );
   // The lifted working-state map itself (decision #10). See this file's
   // header comment for why it must live here rather than in DosageEditor.
-  const [dosageWorkingState, setDosageWorkingState] = useState<Record<string, DosageWorkingEntry>>({});
+  const [dosageWorkingState, setDosageWorkingState] = useState<Record<string, DosageWorkingEntry>>(() => {
+    const ex = isOwner ? focusTarget.exercise : null;
+    if (!ex) return {};
+    const savedDraft: DosageDraft = ex.dosage ?? emptyDosageDraft();
+    const savedInstructions = ex.additionalInstructions ?? "";
+    return { [ex.id]: { draft: savedDraft, instructions: savedInstructions, savedDraft, savedInstructions } };
+  });
   const [dosageSaving, setDosageSaving] = useState<Record<string, boolean>>({});
   const [dosageSaveError, setDosageSaveError] = useState<Record<string, string | null>>({});
   // Whether an editor shows its inline validation messages — set by the
@@ -308,6 +329,20 @@ export function BuilderShell({
     }
     return ids;
   }, [dosageWorkingState]);
+
+  // C5.4D — bring the deep-linked exercise / schedule control into view once.
+  useEffect(() => {
+    const selector = focusTarget.exercise
+      ? `[data-exercise-id="${focusTarget.exercise.id}"]`
+      : focusTarget.section === "weekdays"
+        ? '[data-testid="weekday-assignment"]'
+        : focusTarget.section === "schedule"
+          ? '[data-testid="scheduling-panel"]'
+          : focusTarget.workout
+            ? '[data-testid="workout-tabs"]'
+            : null;
+    if (selector) document.querySelector(selector)?.scrollIntoView({ block: "center" });
+  }, [focusTarget]);
 
   const refreshDraft = useCallback(async () => {
     const seq = ++refreshSeqRef.current;
@@ -1095,6 +1130,21 @@ export function BuilderShell({
     })();
   };
 
+  // C5.4D — Review shows only SAVED draft content, and leaving the builder
+  // drops unsaved working state, so Review is held back (never auto-saved)
+  // until every edit has actually reached the server. The reason is carried
+  // on the control itself (title/aria), never as an extra line: `busy`
+  // toggles during reorders, and any header height change would shift the
+  // list under an in-progress dnd-kit keyboard drag.
+  const hasPendingAdds = workouts.some((w) => w.exercises.some((e) => e.pending));
+  const reviewBlockedReason = !isOwner
+    ? null
+    : dirtyExerciseIds.size > 0
+      ? `Save or cancel ${dirtyExerciseIds.size} unsaved ${dirtyExerciseIds.size === 1 ? "dosage" : "dosages"} before reviewing.`
+      : saveAllRunning || syncingKeys.size > 0 || hasPendingAdds || busy
+        ? "Saving changes…"
+        : null;
+
   return (
     <div className="h-screen flex flex-col bg-gray-50">
       <nav className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between shrink-0">
@@ -1144,25 +1194,28 @@ export function BuilderShell({
           <div className="sticky top-0 z-20 -mx-4 -mt-4 px-4 pt-4 pb-2 bg-gray-50/95 backdrop-blur-sm space-y-2" data-testid="draft-header">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Prescription Draft</h2>
-              {isOwner && (
-                <div className="flex items-center gap-2">
-                  {dirtyExerciseIds.size > 0 && !saveAllRunning && (
-                    <span className="text-xs font-medium text-amber-700" data-testid="save-all-dirty-count">
-                      {dirtyExerciseIds.size} unsaved {dirtyExerciseIds.size === 1 ? "dosage" : "dosages"}
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={handleSaveAllDosing}
-                    disabled={saveAllRunning || dirtyExerciseIds.size === 0}
-                    data-testid="save-all-dosing"
-                    title={dirtyExerciseIds.size === 0 ? "No unsaved dosage changes" : "Save every exercise with unsaved dosage changes in this draft"}
-                    className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:bg-gray-200 disabled:text-gray-500 disabled:cursor-not-allowed"
-                  >
-                    {saveAllRunning ? "Saving dosing…" : "Save all dosing"}
-                  </button>
-                </div>
-              )}
+              <div className="flex flex-wrap items-center gap-2">
+                <ReviewEntry patientId={patientId} blockedReason={reviewBlockedReason} />
+                {isOwner && (
+                  <div className="flex items-center gap-2">
+                    {dirtyExerciseIds.size > 0 && !saveAllRunning && (
+                      <span className="text-xs font-medium text-amber-700" data-testid="save-all-dirty-count">
+                        {dirtyExerciseIds.size} unsaved {dirtyExerciseIds.size === 1 ? "dosage" : "dosages"}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleSaveAllDosing}
+                      disabled={saveAllRunning || dirtyExerciseIds.size === 0}
+                      data-testid="save-all-dosing"
+                      title={dirtyExerciseIds.size === 0 ? "No unsaved dosage changes" : "Save every exercise with unsaved dosage changes in this draft"}
+                      className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:bg-gray-200 disabled:text-gray-500 disabled:cursor-not-allowed"
+                    >
+                      {saveAllRunning ? "Saving dosing…" : "Save all dosing"}
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
             {isOwner && saveAllResult && <SaveAllResultBanner result={saveAllResult} dirtyExerciseIds={dirtyExerciseIds} onDismiss={() => setSaveAllResult(null)} />}
           </div>
@@ -1274,5 +1327,30 @@ function SaveAllResultBanner({
         ))}
       </ul>
     </div>
+  );
+}
+
+// C5.4D — entry into Prescription Review. A plain link when the draft is
+// fully saved; otherwise an inert button explaining why.
+function ReviewEntry({ patientId, blockedReason }: { patientId: string; blockedReason: string | null }) {
+  const className = "rounded-lg border px-3 py-1.5 text-sm font-medium";
+  if (blockedReason) {
+    return (
+      <button
+        type="button"
+        disabled
+        title={blockedReason}
+        aria-label={`Review Prescription — ${blockedReason}`}
+        data-testid="review-prescription"
+        className={`${className} border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed`}
+      >
+        Review Prescription
+      </button>
+    );
+  }
+  return (
+    <Link href={`/clinician/patients/${patientId}/prescription/review`} data-testid="review-prescription" className={`${className} border-brand-600 bg-white text-brand-700 hover:bg-brand-50`}>
+      Review Prescription
+    </Link>
   );
 }

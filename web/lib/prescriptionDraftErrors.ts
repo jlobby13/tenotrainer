@@ -13,6 +13,10 @@ export const PRESCRIPTION_DRAFT_ERROR_CODES = [
   "DRAFT_NOT_FOUND",
   "DRAFT_NOT_OWNED_BY_CALLER",
   "DRAFT_STALE_BASE",
+  // C5.4D — the draft's content no longer matches the snapshot the
+  // clinician reviewed (publishDraft's expectedFingerprint check). Raised
+  // only by the server layer, never by an RPC.
+  "DRAFT_CHANGED",
   "VALIDATION_FAILED",
   "EXERCISE_UNAVAILABLE",
   "TEMPLATE_UNAVAILABLE",

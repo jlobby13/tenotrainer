@@ -415,6 +415,7 @@ function SortableExerciseRow({ exerciseId, disabled, highlightError, children }:
       style={style}
       className={`bg-white rounded-lg border shadow-sm p-3 flex gap-2 ${highlightError ? "border-red-300 ring-1 ring-red-200" : "border-gray-100"}`}
       data-testid="draft-exercise-row"
+      data-exercise-id={exerciseId}
       data-save-failed={highlightError ? "true" : undefined}
     >
       {!disabled && (
