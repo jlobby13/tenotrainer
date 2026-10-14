@@ -532,7 +532,6 @@ async function teardown() {
     const { data: pp } = await admin.from("patient_prescriptions").select("id").eq("patient_id", userId).maybeSingle();
     if (pp) {
       await admin.from("patient_prescriptions").update({ current_prescription_version_id: null }).eq("id", pp.id);
-      await admin.from("prescription_sequence_state").delete().eq("patient_prescription_id", pp.id);
       await admin.from("prescription_drafts").delete().eq("patient_prescription_id", pp.id);
     }
     await admin.from("notifications").delete().eq("patient_id", userId);

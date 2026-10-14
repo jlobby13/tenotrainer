@@ -243,11 +243,12 @@ BEGIN
     INSERT INTO verify_results(result) VALUES ('FAIL: prescription_published notification missing/wrong'); v_fail := v_fail + 1;
   END IF;
 
-  IF EXISTS (SELECT 1 FROM prescription_sequence_state WHERE patient_prescription_id = v_pp1_id AND prescription_version_id = v_version1_id
-             AND current_workout_id = (SELECT id FROM prescription_workouts WHERE prescription_version_id = v_version1_id ORDER BY order_index LIMIT 1)) THEN
-    INSERT INTO verify_results(result) VALUES ('PASS: sequence state initialized to first workout of v1'); v_pass := v_pass + 1;
+  -- C5.6B retired prescription_sequence_state: Sequence position is derived
+  -- from session history, so publish writes no mutable sequence pointer.
+  IF to_regclass('public.prescription_sequence_state') IS NULL THEN
+    INSERT INTO verify_results(result) VALUES ('PASS: publish writes no mutable sequence state (prescription_sequence_state retired in C5.6B)'); v_pass := v_pass + 1;
   ELSE
-    INSERT INTO verify_results(result) VALUES ('FAIL: sequence state not initialized correctly'); v_fail := v_fail + 1;
+    INSERT INTO verify_results(result) VALUES ('FAIL: prescription_sequence_state still exists'); v_fail := v_fail + 1;
   END IF;
 
   -- Both draft workouts (each with 1 active exercise — C5.4D forbids
@@ -340,7 +341,7 @@ BEGIN
     INSERT INTO verify_results(result) VALUES ('FAIL: publish while paused changed operational_status'); v_fail := v_fail + 1;
   END IF;
 
-  -- ================= CALENDAR MODE CLEARS SEQUENCE STATE =================
+  -- ================= CALENDAR MODE PUBLISH (sequence state retired in C5.6B) =================
   v_draft_id := create_prescription_draft(v_patient1, v_clinician, 'clone_active', v_version2_id, NULL);
   -- raw SQL bypasses the app-layer mode-switch cleanup (updateDraftMetadata),
   -- so target_sessions_per_week (inherited sequence-mode value from clone)
@@ -350,10 +351,10 @@ BEGIN
   UPDATE prescription_workouts SET days_of_week = CASE WHEN order_index = 0 THEN ARRAY[1,3,5]::SMALLINT[] ELSE ARRAY[2,4,6]::SMALLINT[] END
     WHERE prescription_draft_id = v_draft_id;
   PERFORM publish_prescription_draft(v_draft_id, v_clinician);
-  IF NOT EXISTS (SELECT 1 FROM prescription_sequence_state WHERE patient_prescription_id = v_pp1_id) THEN
-    INSERT INTO verify_results(result) VALUES ('PASS: publishing Calendar-mode version deletes prescription_sequence_state (invariant: row exists iff Sequence Mode)'); v_pass := v_pass + 1;
+  IF (SELECT pv.scheduling_mode FROM patient_prescriptions pp JOIN prescription_versions pv ON pv.id = pp.current_prescription_version_id WHERE pp.id = v_pp1_id) = 'calendar' THEN
+    INSERT INTO verify_results(result) VALUES ('PASS: Calendar-mode version published and current'); v_pass := v_pass + 1;
   ELSE
-    INSERT INTO verify_results(result) VALUES ('FAIL: sequence_state row still present after Calendar-mode publish'); v_fail := v_fail + 1;
+    INSERT INTO verify_results(result) VALUES ('FAIL: Calendar-mode publish did not become current'); v_fail := v_fail + 1;
   END IF;
 
   -- ================= STALE-BASE PROTECTION (direct mechanism test — see report) =================
