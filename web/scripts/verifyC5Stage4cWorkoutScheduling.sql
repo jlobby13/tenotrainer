@@ -100,11 +100,13 @@ BEGIN
     INSERT INTO verify_results(result) VALUES ('FAIL: calendar_weekdays_exclusive rule missing'); v_fail := v_fail + 1;
   END IF;
 
-  -- Existing rules must still be present (nothing weakened/removed)
+  -- Existing rules must still be present (nothing weakened/removed), except
+  -- has_prior_clinical_state, deliberately removed in C5.6C (founder-locked:
+  -- absent stage/irritability must never gate publication).
   IF v_src LIKE '%has_workout%' AND v_src LIKE '%has_active_exercise%' AND v_src LIKE '%active_exercises_have_dosage%'
      AND v_src LIKE '%scheduling_mode_present%' AND v_src LIKE '%sequence_ordering_valid%' AND v_src LIKE '%calendar_days_present%'
-     AND v_src LIKE '%exercises_active_and_accessible%' AND v_src LIKE '%has_prior_clinical_state%' THEN
-    INSERT INTO verify_results(result) VALUES ('PASS: all 8 pre-existing C5.3 validation rules still present'); v_pass := v_pass + 1;
+     AND v_src LIKE '%exercises_active_and_accessible%' AND v_src NOT LIKE '%has_prior_clinical_state%' THEN
+    INSERT INTO verify_results(result) VALUES ('PASS: all 7 retained pre-existing C5.3 validation rules present; has_prior_clinical_state removed (C5.6C)'); v_pass := v_pass + 1;
   ELSE
     INSERT INTO verify_results(result) VALUES ('FAIL: an existing validation rule appears to have been removed/weakened'); v_fail := v_fail + 1;
   END IF;

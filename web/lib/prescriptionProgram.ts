@@ -475,14 +475,6 @@ export function buildReviewIssues(params: {
         }
         break;
       }
-      case "has_prior_clinical_state":
-        issues.push({
-          key: rule.rule,
-          rule: rule.rule,
-          message: "This patient has no clinical stage record on file yet. A stage/irritability record is required before a prescription can be published.",
-          action: null,
-        });
-        break;
       default:
         issues.push({ key: rule.rule, rule: rule.rule, message: rule.detail, action: editPrescription() });
     }

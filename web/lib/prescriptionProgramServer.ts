@@ -142,3 +142,19 @@ export function computeDraftFingerprint(
   };
   return createHash("sha256").update(JSON.stringify(canonical)).digest("hex");
 }
+
+// C5.6C — the token Review hands out is "<revision>:<content hash>". The
+// revision (prescription_draft_content_revisions, bumped by every draft
+// write) is re-checked by publish_prescription_draft while it holds the
+// draft row FOR UPDATE, closing the gap between the hash check below and the
+// copy. Review reads the revision BEFORE loading content, so any write it
+// might have missed has already bumped the revision past the token's.
+export function formatReviewFingerprint(revision: number, contentHash: string): string {
+  return `${revision}:${contentHash}`;
+}
+
+export function parseReviewFingerprint(fingerprint: string): { revision: number | null; contentHash: string } {
+  const match = fingerprint.match(/^(\d+):([0-9a-f]{64})$/);
+  if (!match) return { revision: null, contentHash: fingerprint };
+  return { revision: Number(match[1]), contentHash: match[2] };
+}

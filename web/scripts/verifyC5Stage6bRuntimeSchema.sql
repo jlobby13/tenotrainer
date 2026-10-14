@@ -303,7 +303,7 @@ BEGIN
   PERFORM pg_temp.chk('resolved immediate response is immutable', v_r LIKE '%C5_RESPONSE_RESOLVED_IMMUTABLE%', v_r);
 
   -- ================= MORNING RESPONSE =================
-  v_r := pg_temp.try(format('INSERT INTO morning_responses (rehab_session_id, user_id, scheduled_eligible_at) VALUES (%L, %L, %L)', v_s9, v_patient, '2026-03-02 04:00 America/New_York'));
+  v_r := pg_temp.try(format('INSERT INTO morning_responses (rehab_session_id, user_id, scheduled_eligible_at, reference_local_date) VALUES (%L, %L, %L, %L)', v_s9, v_patient, '2026-03-02 04:00 America/New_York', '2026-03-02'));
   PERFORM pg_temp.chk('outstanding morning response created for a closed C5 session', v_r = 'OK', v_r);
 
   v_r := pg_temp.try(format('UPDATE morning_responses SET submitted_at = now() WHERE rehab_session_id = %L', v_s9));
@@ -325,7 +325,7 @@ BEGIN
   v_r := pg_temp.try(format('UPDATE morning_responses SET patient_note = %L WHERE rehab_session_id = %L', 'changed', v_s9));
   PERFORM pg_temp.chk('submitted C5 morning response is immutable', v_r LIKE '%C5_RESPONSE_RESOLVED_IMMUTABLE%', v_r);
 
-  v_r := pg_temp.try(format('INSERT INTO morning_responses (rehab_session_id, user_id, next_morning_pain, next_morning_stiffness, stiffness_duration, resolution, submitted_at) VALUES (%L, %L, 2, 1, %L, %L, now())', v_s1, v_patient, 'lt_5_min', 'answered'));
+  v_r := pg_temp.try(format('INSERT INTO morning_responses (rehab_session_id, user_id, scheduled_eligible_at, reference_local_date, next_morning_pain, next_morning_stiffness, stiffness_duration, resolution, submitted_at) VALUES (%L, %L, %L, %L, 2, 1, %L, %L, now())', v_s1, v_patient, '2026-01-06 05:00 America/New_York', '2026-01-06', 'lt_5_min', 'answered'));
   PERFORM pg_temp.chk('answered morning response (pain, stiffness, duration) accepted', v_r = 'OK', v_r);
 
   v_r := pg_temp.try(format('INSERT INTO morning_responses (rehab_session_id, user_id, next_morning_pain, next_morning_stiffness, submitted_at) VALUES (%L, %L, 2, 0, now())', v_legacy, v_patient));
@@ -442,7 +442,9 @@ BEGIN
   SET LOCAL ROLE authenticated;
   v_r := pg_temp.try(format('INSERT INTO morning_responses (rehab_session_id, user_id) VALUES (%L, %L)', v_s8, v_patient));
   RESET ROLE;
-  PERFORM pg_temp.chk('patient direct INSERT of a morning response for a C5 session denied (RLS)', v_r LIKE '42501%', v_r);
+  -- Denied either by RLS (42501) or, since C5.6C, earlier by the BEFORE
+  -- guard requiring the server-computed reference morning.
+  PERFORM pg_temp.chk('patient direct INSERT of a morning response for a C5 session denied', v_r LIKE '42501%' OR v_r LIKE '%C5_MORNING_REFERENCE_REQUIRED%', v_r);
 
   SET LOCAL ROLE authenticated;
   v_r := pg_temp.try(format('INSERT INTO session_events (rehab_session_id, type, occurred_at) VALUES (%L, %L, now())', v_s8, 'other'));

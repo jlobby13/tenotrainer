@@ -14,7 +14,7 @@ import {
   type ProgramSnapshot,
   type ReviewIssue,
 } from "./prescriptionProgram";
-import { loadProgramContent, attachExerciseNames, computeDraftFingerprint } from "./prescriptionProgramServer";
+import { loadProgramContent, attachExerciseNames, computeDraftFingerprint, formatReviewFingerprint } from "./prescriptionProgramServer";
 import type { ValidationRuleResult } from "./prescriptionDraftTypes";
 
 export type VersionSummary = { id: string; versionNumber: number; publishedAt: string | null };
@@ -66,6 +66,9 @@ export async function getPrescriptionReviewState(params: { clinicianId: string; 
   if (!draft) return { kind: "no_draft", currentVersion };
 
   const draftId = draft.id as string;
+  // Read before the content (see formatReviewFingerprint).
+  const { data: revision, error: revisionError } = await supabase.rpc("get_prescription_draft_revision", { p_draft_id: draftId });
+  if (revisionError) throw new Error("get_prescription_draft_revision failed");
   // The SAME validate_prescription_draft RPC publish_prescription_draft runs
   // — never re-implemented here.
   const [content, rpcResult] = await Promise.all([
@@ -97,7 +100,7 @@ export async function getPrescriptionReviewState(params: { clinicianId: string; 
     editingClinicianName: isOwner ? "You" : ((await clinicianName(supabase, draft.editing_clinician_id as string)) ?? "Another clinician"),
     program,
     issues: buildReviewIssues({ patientId: params.patientId, rules, program, unavailableExerciseIds }),
-    fingerprint: computeDraftFingerprint(draft, content),
+    fingerprint: formatReviewFingerprint(Number(revision), computeDraftFingerprint(draft, content)),
     publishEnabled: isPublishEnabled(),
     paused: pp.operational_status === "paused",
     currentVersion,

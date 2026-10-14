@@ -550,10 +550,12 @@ async function main() {
       const { page } = await openReview(ctxA, ON, P.p3);
       const issues = await issueRules(page);
       const rules = issues.map((i) => i.rule);
-      check("multiple simultaneous issues listed", issues.length === 5, JSON.stringify(issues, null, 1));
+      // C5.6C removed has_prior_clinical_state (absent stage/irritability no
+      // longer gates publication), so this fixture now has 4 issues, not 5.
+      check("multiple simultaneous issues listed", issues.length === 4, JSON.stringify(issues, null, 1));
       check("issues read in program order (prescription-level, then A by exercise, then B)",
-        rules.join(",") === "scheduling_mode_present,has_prior_clinical_state,active_exercises_have_dosage,active_exercise_dosage_valid,workouts_have_active_exercise", rules.join(","));
-      check("'5 issues need attention' header", (await page.locator('[data-testid="validation-issues"] > p').first().textContent()).includes("5 issues need attention"));
+        rules.join(",") === "scheduling_mode_present,active_exercises_have_dosage,active_exercise_dosage_valid,workouts_have_active_exercise", rules.join(","));
+      check("'4 issues need attention' header", (await page.locator('[data-testid="validation-issues"] > p').first().textContent()).includes("4 issues need attention"));
       check("scheduling mode missing", rules.includes("scheduling_mode_present"));
       const missing = issues.find((i) => i.rule === "active_exercises_have_dosage");
       check("missing dosage names workout + exercise", missing?.context === `Main · ${withRef.name}` && missing?.message === "No dosage saved.", JSON.stringify(missing));
@@ -562,8 +564,7 @@ async function main() {
       check("invalid saved dosage located + explained", invalid?.context === `Main · ${E[1].name}` && invalid.message.includes("either RPE or RIR"), JSON.stringify(invalid));
       const empty = issues.find((i) => i.rule === "workouts_have_active_exercise");
       check("empty workout located", empty?.context === "Empty" && empty.message.includes("no exercises") && empty.kind === "prescription", JSON.stringify(empty));
-      const prior = issues.find((i) => i.rule === "has_prior_clinical_state");
-      check("missing clinical stage record surfaced (RPC rule), no fake edit link", !!prior && prior.href === null, JSON.stringify(prior));
+      check("missing clinical stage record is not a publication issue (C5.6C)", !issues.some((i) => i.rule === "has_prior_clinical_state"));
       const schedule = issues.find((i) => i.rule === "scheduling_mode_present");
       check("scheduling issue -> Edit schedule link", schedule?.kind === "schedule" && schedule.href.includes("focus=schedule"));
       const prog = await readProgram(page);

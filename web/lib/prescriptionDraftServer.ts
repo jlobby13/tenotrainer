@@ -26,7 +26,7 @@ import { assertSupervises } from "./clinicianAuth";
 import { verifyHighConsequenceAuthorization, assertPublishEnabled } from "./prescriptionDraftAuth";
 import { PrescriptionDraftError, mapRpcError } from "./prescriptionDraftErrors";
 import { validateDosageInput, deriveDosageType, type DosageDraft } from "./dosageEditor";
-import { loadProgramContent, computeDraftFingerprint } from "./prescriptionProgramServer";
+import { loadProgramContent, computeDraftFingerprint, parseReviewFingerprint } from "./prescriptionProgramServer";
 import type {
   DraftSource,
   DraftStatus,
@@ -652,21 +652,27 @@ export async function publishDraft(params: {
 
   await verifyHighConsequenceAuthorization(params.clinicianId, pp.patient_id as string);
 
+  let expectedRevision: number | null = null;
   if (params.expectedFingerprint != null) {
+    const expected = parseReviewFingerprint(params.expectedFingerprint);
+    expectedRevision = expected.revision;
     let program;
     try {
       program = await loadProgramContent(supabase, { kind: "draft", id: params.draftId }, draft);
     } catch {
       throw new PrescriptionDraftError("INTERNAL_ERROR");
     }
-    if (computeDraftFingerprint(draft, program) !== params.expectedFingerprint) {
+    if (computeDraftFingerprint(draft, program) !== expected.contentHash) {
       throw new PrescriptionDraftError("DRAFT_CHANGED");
     }
   }
 
+  // C5.6C — the revision is re-verified inside the RPC under the draft row
+  // lock, so a write landing after the hash check above is still refused.
   const { data, error } = await supabase.rpc("publish_prescription_draft", {
     p_draft_id: params.draftId,
     p_clinician_id: params.clinicianId,
+    p_expected_revision: expectedRevision,
   });
   if (error) throw mapRpcError(error);
   const versionId = data as string;

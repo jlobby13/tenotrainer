@@ -388,7 +388,9 @@ async function main() {
       check("invalid dosage: publish route -> 422 VALIDATION_FAILED", h.status === 422 && h.body?.error === "VALIDATION_FAILED", JSON.stringify(h));
       const rules = (await admin.rpc("validate_prescription_draft", { p_draft_id: d.draftId })).data ?? [];
       check("validate_prescription_draft reports active_exercise_dosage_valid", rules.some((x) => x.rule === "active_exercise_dosage_valid" && !x.passed));
-      check("all pre-existing C5.3 rules still reported", ["has_workout", "has_active_exercise", "active_exercises_have_dosage", "scheduling_mode_present", "sequence_ordering_valid", "calendar_days_present", "calendar_weekdays_exclusive", "sequence_target_frequency_present", "calendar_target_frequency_absent", "exercises_active_and_accessible", "has_prior_clinical_state"].every((rule) => rules.some((x) => x.rule === rule)));
+      check("all pre-existing C5.3 rules still reported", ["has_workout", "has_active_exercise", "active_exercises_have_dosage", "scheduling_mode_present", "sequence_ordering_valid", "calendar_days_present", "calendar_weekdays_exclusive", "sequence_target_frequency_present", "calendar_target_frequency_absent", "exercises_active_and_accessible"].every((rule) => rules.some((x) => x.rule === rule)));
+      // C5.6C — founder-locked: absent stage/irritability never gates publication.
+      check("has_prior_clinical_state rule removed (C5.6C)", !rules.some((x) => x.rule === "has_prior_clinical_state"));
       await admin.from("prescription_exercise_dosage").update({ rir: null }).eq("id", d.workouts[0].dosageId);
       const paused = await admin.from("prescription_exercise_dosage").select("id").eq("id", d.workouts[0].dosageId);
       check("fixture repaired", paused.data?.length === 1);
