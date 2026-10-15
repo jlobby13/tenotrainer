@@ -14,6 +14,8 @@ import { DashboardTimeline } from "./components/DashboardTimeline";
 import { TimezoneInitializer } from "./components/TimezoneInitializer";
 import { PreviousSessionSummary } from "./components/PreviousSessionSummary";
 import { SecondaryLinks } from "./components/SecondaryLinks";
+import { C5Dashboard } from "./components/C5Dashboard";
+import { getC5TrainingState, usesC5Runtime } from "@/lib/c5RuntimeServer";
 
 export const metadata = { title: "Dashboard — TenoTrainer" };
 
@@ -61,6 +63,15 @@ export default async function PatientDashboardPage() {
   // Guard — only patients land here
   if (role === "super_user") redirect("/super/dashboard");
   if (role === "clinician" || role === "clinician_admin") redirect("/clinician/dashboard");
+
+  // C5.6D — gated C5 runtime (C5_PATIENT_RUNTIME_ENABLED). When it serves
+  // this patient, Today's Rehab comes only from the authoritative C5 state;
+  // the legacy FastAPI session_plan is not consulted. Legacy is unchanged
+  // otherwise.
+  if (await usesC5Runtime(authUser.id)) {
+    const state = await getC5TrainingState(authUser.id);
+    return <C5Dashboard email={authUser.email ?? ""} firstName={session.profile?.name?.split(" ")[0] ?? null} state={state} />;
+  }
 
   const hasOrgMembership = session.memberships.length > 0;
 

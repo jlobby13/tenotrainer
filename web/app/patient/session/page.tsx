@@ -7,6 +7,8 @@ import { getActiveBrakeStatus } from "@/lib/acuteSafetyServer";
 import { SessionPlayer } from "./components/SessionPlayer";
 import { MorningCheckInRequired } from "./components/MorningCheckInRequired";
 import { SessionUnavailable } from "./components/SessionUnavailable";
+import { C5SessionRunner } from "./components/c5/C5SessionRunner";
+import { getC5TrainingState, usesC5Runtime } from "@/lib/c5RuntimeServer";
 
 // A non-terminal rehab_sessions row means the patient already legitimately
 // started (or is mid-M3-response on) something real — that must never be
@@ -37,6 +39,15 @@ export default async function PatientSessionPage() {
 
   if (role === "super_user") redirect("/super/dashboard");
   if (role === "clinician" || role === "clinician_admin") redirect("/clinician/dashboard");
+
+  // C5.6D — gated C5 runtime. Opening this page is a READ: the
+  // authoritative state (resume an existing session, or the eligible
+  // workout preview) — no session is created until the first confirmed
+  // performance inside C5SessionRunner.
+  if (await usesC5Runtime(authUser.id)) {
+    const state = await getC5TrainingState(authUser.id);
+    return <C5SessionRunner initialState={state} />;
+  }
 
   let summary;
   try {

@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { mapRehabSessionRow } from "@/lib/rehabSessionTypes";
 import { getOldestOutstandingMorningResponse } from "@/lib/morningResponseServer";
+import { usesC5Runtime } from "@/lib/c5RuntimeServer";
 
 // M4 Stage 3: creates (or idempotently recovers) the durable rehab_sessions
 // row through the atomic create_rehab_session_if_allowed() RPC — see
@@ -20,6 +21,13 @@ export async function POST(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // C5.6D — a patient served by the gated C5 runtime trains only through
+  // /api/patient/c5/** (first-performance Start); never also a legacy
+  // session. No effect while C5_PATIENT_RUNTIME_ENABLED is off.
+  if (await usesC5Runtime(user.id)) {
+    return NextResponse.json({ error: "This patient uses the new rehab runtime", code: "C5_RUNTIME_ACTIVE", redirectTo: "/patient/session" }, { status: 409 });
+  }
 
   const body = await request.json();
   const { sessionInstanceId, planId, prescriptionInstanceId, patientLocalDate, startedAt, prescriptionSnapshot } = body;
