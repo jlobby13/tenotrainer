@@ -6,6 +6,7 @@
 // answer. The browser never decides lifecycle outcomes itself.
 
 import type { C5PerformancePayload, C5SessionView, C5TrainingState, C5TrainingStatus } from "./c5RuntimeTypes";
+import type { C5CheckIns, C5ImmediateResponseInput, C5MorningResponseInput, C5SubmitResult } from "./c5ResponseTypes";
 
 export class C5NetworkError extends Error {
   constructor(message: string, readonly status: number | null) {
@@ -68,4 +69,17 @@ export function stopSession(
 
 export function fetchSessionView(sessionId: string): Promise<{ session: C5SessionView }> {
   return call(`/api/patient/c5/session/${sessionId}/view`);
+}
+
+// C5.6E — check-ins.
+export function fetchCheckIns(): Promise<{ checkIns: C5CheckIns }> {
+  return call("/api/patient/c5/check-ins");
+}
+
+export function submitImmediate(sessionId: string, response: C5ImmediateResponseInput): Promise<C5SubmitResult> {
+  return call(`/api/patient/c5/check-ins/immediate/${sessionId}`, { method: "POST", body: JSON.stringify({ response }) });
+}
+
+export function submitMorning(sessionId: string, response: C5MorningResponseInput): Promise<C5SubmitResult> {
+  return call(`/api/patient/c5/check-ins/morning/${sessionId}`, { method: "POST", body: JSON.stringify({ response }) });
 }

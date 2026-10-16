@@ -390,9 +390,14 @@ export function C5SessionRunner({ initialState }: { initialState: C5TrainingStat
           {closed === "stopped_pause" && <p className="mt-2 text-sm text-slate-400">Your clinician has paused your program.</p>}
           {closed === "stopped_acute" && <p className="mt-2 text-sm text-slate-400">If you&apos;re worried about your symptoms, contact your clinician.</p>}
           <p className="mt-4 text-sm text-slate-400">Next: a short check-in about today&apos;s session.</p>
-          <Link href="/patient/dashboard" className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-teal-400 px-5 text-sm font-semibold text-slate-950">
-            Back to Today&apos;s Rehab
-          </Link>
+          <div className="mt-6 flex flex-col items-center gap-2">
+            <Link href="/patient/check-in" className="inline-flex min-h-11 items-center justify-center rounded-xl bg-teal-400 px-5 text-sm font-semibold text-slate-950">
+              Continue to check-in
+            </Link>
+            <Link href="/patient/dashboard" className="inline-flex min-h-11 items-center text-sm text-slate-400 hover:text-slate-200">
+              Back to Today&apos;s Rehab
+            </Link>
+          </div>
         </section>
       </Frame>
     );

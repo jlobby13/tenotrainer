@@ -1,12 +1,24 @@
 import Link from "next/link";
 import type { C5TrainingState } from "@/lib/c5RuntimeTypes";
-import { C5TodaysRehabCard } from "./C5TodaysRehabCard";
+import { C5PendingCheckInCard, C5TodaysRehabCard } from "./C5TodaysRehabCard";
 import { TimezoneInitializer } from "./TimezoneInitializer";
 
 // C5.6D — the patient dashboard when the gated C5 runtime serves this
 // patient. Independent of the legacy FastAPI summary (no stage/irritability
 // session_plan): Today's Rehab comes only from the authoritative C5 state.
-export function C5Dashboard({ email, firstName, state }: { email: string; firstName: string | null; state: C5TrainingState }) {
+export function C5Dashboard({
+  email,
+  firstName,
+  state,
+  pendingCheckIns,
+}: {
+  email: string;
+  firstName: string | null;
+  state: C5TrainingState;
+  // Outstanding (due) check-ins, from the patient's own obligation rows.
+  pendingCheckIns: number;
+}) {
+  const checkInCardShown = state.kind === "immediate_response_required" || state.kind === "morning_response_required";
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <TimezoneInitializer />
@@ -34,6 +46,11 @@ export function C5Dashboard({ email, firstName, state }: { email: string; firstN
           <div className="mt-6">
             <C5TodaysRehabCard state={state} />
           </div>
+          {pendingCheckIns > 0 && !checkInCardShown && (
+            <div className="mt-4">
+              <C5PendingCheckInCard count={pendingCheckIns} />
+            </div>
+          )}
         </div>
       </main>
     </div>

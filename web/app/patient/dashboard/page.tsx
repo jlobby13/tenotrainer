@@ -16,6 +16,7 @@ import { PreviousSessionSummary } from "./components/PreviousSessionSummary";
 import { SecondaryLinks } from "./components/SecondaryLinks";
 import { C5Dashboard } from "./components/C5Dashboard";
 import { getC5TrainingState, usesC5Runtime } from "@/lib/c5RuntimeServer";
+import { getC5CheckIns } from "@/lib/c5ResponseServer";
 
 export const metadata = { title: "Dashboard — TenoTrainer" };
 
@@ -70,7 +71,15 @@ export default async function PatientDashboardPage() {
   // otherwise.
   if (await usesC5Runtime(authUser.id)) {
     const state = await getC5TrainingState(authUser.id);
-    return <C5Dashboard email={authUser.email ?? ""} firstName={session.profile?.name?.split(" ")[0] ?? null} state={state} />;
+    const checkIns = await getC5CheckIns(authUser.id);
+    return (
+      <C5Dashboard
+        email={authUser.email ?? ""}
+        firstName={session.profile?.name?.split(" ")[0] ?? null}
+        state={state}
+        pendingCheckIns={checkIns.immediate.length + checkIns.mornings.length}
+      />
+    );
   }
 
   const hasOrgMembership = session.memberships.length > 0;

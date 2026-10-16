@@ -4,6 +4,7 @@ import { getOldestOutstandingMorningResponse } from "@/lib/morningResponseServer
 import { isScheduledEligible } from "@/lib/morningEligibility";
 import { mapRehabSessionRow } from "@/lib/rehabSessionTypes";
 import { MorningCheckInScreen } from "./components/MorningCheckInScreen";
+import { usesC5Runtime } from "@/lib/c5RuntimeServer";
 
 export const metadata = { title: "Morning Check-In — TenoTrainer" };
 
@@ -17,6 +18,10 @@ export default async function MorningResponsePage() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+
+  // C5.6E — C5 morning responses are answered in the C5 check-in (no effect
+  // while C5_PATIENT_RUNTIME_ENABLED is off).
+  if (await usesC5Runtime(user.id)) redirect("/patient/check-in");
 
   const outstanding = await getOldestOutstandingMorningResponse(user.id);
   if (!outstanding) redirect("/patient/dashboard");

@@ -7,7 +7,7 @@ export function c5WorkoutTitle(workout: C5Snapshot["workout"]): string {
   return label.length <= 2 ? `Workout ${label}` : label;
 }
 
-function shortDate(isoDate: string): string {
+export function shortDate(isoDate: string): string {
   // A patient-local calendar date (YYYY-MM-DD) — format without shifting it.
   const [y, m, d] = isoDate.split("-").map(Number);
   return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" });

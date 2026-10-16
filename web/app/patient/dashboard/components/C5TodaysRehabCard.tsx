@@ -48,6 +48,22 @@ function WorkoutSummary({ option }: { option: C5WorkoutOption }) {
   );
 }
 
+// Shown in addition to the main card whenever the patient has an
+// outstanding check-in that the main card isn't already asking for (for
+// example during a safety hold or a pause — responses can still be given).
+export function C5PendingCheckInCard({ count }: { count: number }) {
+  return (
+    <Shell eyebrow="Check-in" title={count === 1 ? "A check-in is waiting" : `${count} check-ins are waiting`} tone="calm">
+      <Body>You can answer it now.</Body>
+      <div className="mt-5">
+        <Link href="/patient/check-in" className={SECONDARY}>
+          Open check-in
+        </Link>
+      </div>
+    </Shell>
+  );
+}
+
 export function C5TodaysRehabCard({ state }: { state: C5TrainingState }) {
   switch (state.kind) {
     case "available": {
@@ -133,15 +149,22 @@ export function C5TodaysRehabCard({ state }: { state: C5TrainingState }) {
       return (
         <Shell eyebrow="Check-in" title="Post-session check-in needed" tone="calm">
           <Body>Before your next workout, tell us how your last session went.</Body>
-          {/* C5.6E builds the check-in itself; nothing here resolves it. */}
-          <p className="mt-4 rounded-xl border border-dashed border-slate-700 px-4 py-3 text-xs text-slate-400">The check-in form is coming soon.</p>
+          <div className="mt-5">
+            <Link href="/patient/check-in" className={PRIMARY}>
+              Start check-in
+            </Link>
+          </div>
         </Shell>
       );
     case "morning_response_required":
       return (
         <Shell eyebrow="Check-in" title="Morning check-in needed" tone="calm">
-          <Body>Before your next workout, tell us how you feel this morning.</Body>
-          <p className="mt-4 rounded-xl border border-dashed border-slate-700 px-4 py-3 text-xs text-slate-400">The check-in form is coming soon.</p>
+          <Body>Before your next workout, tell us how you felt the morning after your last session.</Body>
+          <div className="mt-5">
+            <Link href="/patient/check-in" className={PRIMARY}>
+              Start check-in
+            </Link>
+          </div>
         </Shell>
       );
     case "already_trained_today":
