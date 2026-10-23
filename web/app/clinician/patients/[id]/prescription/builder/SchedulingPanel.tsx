@@ -6,7 +6,7 @@
 // never exposed by any UI until now — this component is pure authoring, no
 // new data model.
 
-import { PHASE_OPTIONS, FOCUS_OPTIONS } from "@/lib/prescriptionProgram";
+import { PHASE_OPTIONS, FOCUS_OPTIONS, RECOVERY_DAY_OPTIONS, recoveryDaysLabel } from "@/lib/prescriptionProgram";
 import type { BuilderDraftWorkout, SchedulingMode, RehabPhase, PerformanceFocus } from "./types";
 
 // C5.4D — phase/focus label lists now live in lib/prescriptionProgram.ts so
@@ -15,6 +15,7 @@ import type { BuilderDraftWorkout, SchedulingMode, RehabPhase, PerformanceFocus 
 type Props = {
   schedulingMode: SchedulingMode | null;
   targetSessionsPerWeek: number | null;
+  recoveryDays: number;
   phase: RehabPhase | null;
   performanceFocuses: PerformanceFocus[];
   workouts: BuilderDraftWorkout[];
@@ -25,6 +26,7 @@ type Props = {
   modeChangeLocked: boolean;
   onSchedulingModeChange: (mode: SchedulingMode) => void;
   onTargetSessionsChange: (n: number | null) => void;
+  onRecoveryDaysChange: (days: number) => void;
   onPhaseChange: (phase: RehabPhase | null) => void;
   onPerformanceFocusToggle: (focus: PerformanceFocus) => void;
 };
@@ -32,6 +34,7 @@ type Props = {
 export function SchedulingPanel({
   schedulingMode,
   targetSessionsPerWeek,
+  recoveryDays,
   phase,
   performanceFocuses,
   workouts,
@@ -39,6 +42,7 @@ export function SchedulingPanel({
   modeChangeLocked,
   onSchedulingModeChange,
   onTargetSessionsChange,
+  onRecoveryDaysChange,
   onPhaseChange,
   onPerformanceFocusToggle,
 }: Props) {
@@ -109,24 +113,53 @@ export function SchedulingPanel({
         </div>
       )}
 
-      <div className="space-y-2 pt-2 border-t border-gray-100">
-        <label htmlFor="rehab-phase" className="block text-sm font-medium text-gray-700">
-          Rehabilitation Phase (optional)
-        </label>
-        <select
-          id="rehab-phase"
-          disabled={!isOwner}
-          value={phase ?? ""}
-          onChange={(e) => onPhaseChange((e.target.value || null) as RehabPhase | null)}
-          className="w-full sm:w-64 rounded-lg border border-gray-300 px-3 py-2 text-sm"
-        >
-          <option value="">None</option>
-          {PHASE_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+      {/* (C5.6F) Recommended recovery and phase share one row so adding the
+          recovery field does not push the workout list further down. Recovery
+          is advisory only and independent of the weekly target; a value
+          outside the v1 choices (e.g. from a template) is kept and shown. */}
+      <div className="grid gap-4 pt-2 border-t border-gray-100 sm:grid-cols-2">
+        <div className="space-y-2" data-testid="recovery-authoring">
+          <label htmlFor="recovery-days" className="block text-sm font-medium text-gray-700">
+            Recommended recovery between sessions
+          </label>
+          <select
+            id="recovery-days"
+            disabled={!isOwner}
+            value={recoveryDays}
+            onChange={(e) => onRecoveryDaysChange(Number(e.target.value))}
+            title="Provides patients with advisory recovery guidance between training sessions. It does not prevent them from training."
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          >
+            {RECOVERY_DAY_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+            {!RECOVERY_DAY_OPTIONS.some((o) => o.value === recoveryDays) && <option value={recoveryDays}>{recoveryDaysLabel(recoveryDays)}</option>}
+          </select>
+        </div>
+        <div className="space-y-2">
+          <label htmlFor="rehab-phase" className="block text-sm font-medium text-gray-700">
+            Rehabilitation Phase (optional)
+          </label>
+          <select
+            id="rehab-phase"
+            disabled={!isOwner}
+            value={phase ?? ""}
+            onChange={(e) => onPhaseChange((e.target.value || null) as RehabPhase | null)}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          >
+            <option value="">None</option>
+            {PHASE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <p className="text-xs text-gray-500 sm:col-span-2 sm:-mt-2">
+          Recommended recovery provides patients with advisory recovery guidance between training sessions. It does not prevent them from training.
+        </p>
       </div>
 
       <div className="space-y-2 pt-2 border-t border-gray-100">

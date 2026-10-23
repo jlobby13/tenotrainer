@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { C5TrainingState, C5WorkoutOption } from "@/lib/c5RuntimeTypes";
 import { c5WorkoutTitle, c5OptionLabel } from "@/app/patient/session/components/c5/c5Display";
+import { C5RecoveryGuidance } from "./C5RecoveryGuidance";
 
 // C5.6D — Today's Rehab for the C5 runtime. Purely presentational: one
 // branch per authoritative C5TrainingState kind (from c5_get_start_eligibility
@@ -67,6 +68,11 @@ export function C5PendingCheckInCard({ count }: { count: number }) {
 export function C5TodaysRehabCard({ state }: { state: C5TrainingState }) {
   switch (state.kind) {
     case "available": {
+      // C5.6F — advisory recovery guidance replaces the plain "ready" card
+      // until the patient has chosen Continue today.
+      if (state.recovery && state.recovery.todaysDecision !== "continue") {
+        return <C5RecoveryGuidance recovery={state.recovery} weekly={state.weekly} variant="dashboard" />;
+      }
       if (state.choiceRequired) {
         return (
           <Shell eyebrow="Today's Rehab" title="Choose today's workout">
@@ -82,6 +88,7 @@ export function C5TodaysRehabCard({ state }: { state: C5TrainingState }) {
       const option = state.options[0];
       return (
         <Shell eyebrow="Today's Rehab" title={option.key === "make_up" ? "Make-up workout available" : "Your workout is ready"}>
+          {state.weekly?.targetReached && <Body>You&apos;ve reached this week&apos;s target.</Body>}
           <WorkoutSummary option={option} />
           <div className="mt-5">
             <Link href="/patient/session" className={PRIMARY}>

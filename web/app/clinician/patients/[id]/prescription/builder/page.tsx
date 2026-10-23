@@ -105,6 +105,7 @@ export default async function PrescriptionBuilderPage({
       initialSchedulingMode={(draft.scheduling_mode as SchedulingMode | null) ?? null}
       initialPhase={(draft.phase as RehabPhase | null) ?? null}
       initialTargetSessionsPerWeek={(draft as unknown as { target_sessions_per_week: number | null }).target_sessions_per_week ?? null}
+      initialRecoveryDays={(draft as unknown as { recovery_days: number | null }).recovery_days ?? 0}
       initialPerformanceFocuses={performanceFocuses}
       initialFocus={{
         workoutId: typeof focusWorkoutId === "string" ? focusWorkoutId : null,

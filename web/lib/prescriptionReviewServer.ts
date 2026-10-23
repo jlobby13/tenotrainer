@@ -181,7 +181,7 @@ export async function getPublishedVersionView(params: { clinicianId: string; pat
   const [{ data: version }, { data: draft }] = await Promise.all([
     supabase
       .from("prescription_versions")
-      .select("id, version_number, published_at, published_by, phase, scheduling_mode, target_sessions_per_week")
+      .select("id, version_number, published_at, published_by, phase, scheduling_mode, target_sessions_per_week, recovery_days")
       .eq("id", params.versionId)
       .eq("patient_prescription_id", pp.id)
       .maybeSingle(),

@@ -83,3 +83,11 @@ export function submitImmediate(sessionId: string, response: C5ImmediateResponse
 export function submitMorning(sessionId: string, response: C5MorningResponseInput): Promise<C5SubmitResult> {
   return call(`/api/patient/c5/check-ins/morning/${sessionId}`, { method: "POST", body: JSON.stringify({ response }) });
 }
+
+// C5.6F — Take Recovery Day / Continue (advisory; never starts a session).
+export function recordRecoveryDecision(
+  clientRequestId: string,
+  decision: "take_recovery_day" | "continue"
+): Promise<{ result: string; replayed?: boolean; decision?: string; state: C5TrainingState }> {
+  return call("/api/patient/c5/recovery-decision", { method: "POST", body: JSON.stringify({ clientRequestId, decision }) });
+}

@@ -18,6 +18,8 @@ import { createServerSupabaseClient, createServiceRoleClient } from "./supabase/
 import { mapDosageRowToInput } from "./dosageEditor";
 import type {
   C5AcuteGate,
+  C5RecoveryGuidance,
+  C5WeeklyProgress,
   C5PerformancePayload,
   C5SessionView,
   C5Snapshot,
@@ -228,6 +230,42 @@ async function mapEligibility(admin: Admin, patientId: string, r: Json): Promise
   }
 }
 
+function mapWeekly(raw: unknown): C5WeeklyProgress | null {
+  if (!raw || typeof raw !== "object") return null;
+  const w = raw as Json;
+  return {
+    target: Number(w.target),
+    finishedSessions: Number(w.finished_sessions),
+    weekStart: w.week_start as string,
+    weekEnd: w.week_end as string,
+    targetReached: w.target_reached === true,
+  };
+}
+
+function mapRecovery(raw: unknown): C5RecoveryGuidance | null {
+  if (!raw || typeof raw !== "object" || (raw as Json).applies !== true) return null;
+  const r = raw as Json;
+  return {
+    recommendedRecoveryDays: Number(r.recommended_recovery_days),
+    anchorStartLocalDate: r.anchor_start_local_date as string,
+    earliestRecommendedDate: r.earliest_recommended_date as string,
+    restDaysCompleted: Number(r.rest_days_completed),
+    todaysDecision: (r.todays_decision as C5RecoveryGuidance["todaysDecision"]) ?? null,
+  };
+}
+
+// Eligibility (C5.6C) + the C5.6F advisory layers, from one server read.
+// Weekly progress and recovery guidance are informational: they never
+// change the eligibility result, and recovery is only ever present when
+// the result is `eligible`.
+async function readState(admin: Admin, patientId: string): Promise<C5TrainingState> {
+  const g = await callRpc(admin, "c5_get_training_guidance", { p_patient_id: patientId });
+  const state: C5TrainingState = await mapEligibility(admin, patientId, (g.eligibility ?? {}) as Json);
+  state.weekly = mapWeekly(g.weekly);
+  if (state.kind === "available") state.recovery = mapRecovery(g.recovery);
+  return state;
+}
+
 // THE patient-facing training-state path (dashboard + session page + API).
 export async function getC5TrainingState(patientId: string): Promise<C5TrainingState> {
   const admin = createServiceRoleClient();
@@ -237,7 +275,7 @@ export async function getC5TrainingState(patientId: string): Promise<C5TrainingS
     if (e instanceof C5SafetyCheckError) return { kind: "unavailable", reason: "safety_check_failed" };
     throw e;
   }
-  return mapEligibility(admin, patientId, await callRpc(admin, "c5_get_start_eligibility", { p_patient_id: patientId }));
+  return readState(admin, patientId);
 }
 
 // ---------------------------------------------------------------------------
@@ -295,7 +333,7 @@ export async function recordFirstPerformance(patientId: string, req: C5StartRequ
     if (session) return { result: "started", replayed: r.replayed === true, session };
   }
   // Not started: hand back the authoritative state so the UI re-renders it.
-  const state = await mapEligibility(admin, patientId, await callRpc(admin, "c5_get_start_eligibility", { p_patient_id: patientId }));
+  const state = await readState(admin, patientId);
   return { result: r.result as string, detail: (r.detail as string | undefined) ?? undefined, state };
 }
 
@@ -327,6 +365,24 @@ export async function closeSession(patientId: string, sessionId: string, intent:
     result: r.result as string,
     trainingStatus: (r.training_status as C5TrainingStatus | undefined) ?? undefined,
     replayed: (r.replayed as boolean | undefined) ?? undefined,
+  };
+}
+
+// C5.6F — record Take Recovery Day / Continue. The browser sends only its
+// idempotency key and the choice; the database recomputes the guidance
+// (patient-local dates, current version, anchor) and refuses unless the
+// guidance is currently presented. Never creates a session.
+export type C5RecoveryDecisionResponse = { result: string; replayed?: boolean; decision?: string; state: C5TrainingState };
+
+export async function recordRecoveryDecision(patientId: string, clientRequestId: string, decision: "take_recovery_day" | "continue"): Promise<C5RecoveryDecisionResponse> {
+  const admin = createServiceRoleClient();
+  await reconcileAcute(admin, patientId);
+  const r = await callRpc(admin, "c5_record_recovery_decision", { p_patient_id: patientId, p_client_request_id: clientRequestId, p_decision: decision });
+  return {
+    result: r.result as string,
+    replayed: (r.replayed as boolean | undefined) ?? undefined,
+    decision: (r.decision as string | undefined) ?? undefined,
+    state: await readState(admin, patientId),
   };
 }
 

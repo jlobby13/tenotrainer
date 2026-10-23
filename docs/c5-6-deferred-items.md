@@ -66,3 +66,15 @@ least one performed unit). Requires a lifecycle change — not part of C5.6D.
   and approved — it must NOT be derived from peak pain, Session RPE, morning
   pain/stiffness, incomplete performance, skipped work or any other
   unapproved proxy.
+
+## C5.6F — frequency / recovery follow-ups (recorded 2026-10-15)
+
+- **Clinician presentation of adherence and recovery facts.** Weekly progress
+  is derived (`c5_weekly_progress`: FINISHED sessions per Mon–Sun local week;
+  each session's snapshot keeps the target in force when it was trained) and
+  patient decisions are stored in `c5_recovery_decisions`. No clinician page
+  shows them yet.
+- **Reminder / notification of the next recommended training day** — none
+  (no delivery infrastructure; see Reminder delivery above).
+- Recovery guidance remains advisory; any future "hard" recovery restriction
+  would be a new founder decision, not a configuration of this one.

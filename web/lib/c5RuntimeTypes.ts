@@ -70,9 +70,35 @@ export type C5WorkoutOption = {
   preview: C5Snapshot;
 };
 
+// C5.6F — informational weekly progress (Sequence only; Mon–Sun local week,
+// FINISHED sessions only, never capped, never a gate).
+export type C5WeeklyProgress = {
+  target: number;
+  finishedSessions: number;
+  weekStart: string;
+  weekEnd: string;
+  targetReached: boolean;
+};
+
+// C5.6F — ADVISORY recovery guidance, present only when the server says
+// training is otherwise available and today is before the earliest
+// recommended date (anchor start date + N + 1). Never a gate.
+export type C5RecoveryGuidance = {
+  recommendedRecoveryDays: number;
+  anchorStartLocalDate: string;
+  earliestRecommendedDate: string;
+  restDaysCompleted: number;
+  todaysDecision: "take_recovery_day" | "continue" | null;
+};
+
 // Today's Rehab state — a 1:1 translation of c5_get_start_eligibility's
 // result codes. Clinically different states stay distinct.
-export type C5TrainingState =
+export type C5TrainingState = C5TrainingStateCore & {
+  weekly?: C5WeeklyProgress | null;
+  recovery?: C5RecoveryGuidance | null;
+};
+
+export type C5TrainingStateCore =
   | { kind: "no_active_prescription" }
   | { kind: "prescription_paused" }
   | { kind: "acute_blocked"; gate: C5AcuteGate; brakeLevel: number | null }

@@ -75,7 +75,7 @@ type RawApiWorkout = {
   days_of_week: number[] | null;
   prescription_exercises: RawApiExercise[] | null;
 };
-type RawApiDraft = { scheduling_mode: SchedulingMode | null; phase: RehabPhase | null; target_sessions_per_week: number | null };
+type RawApiDraft = { scheduling_mode: SchedulingMode | null; phase: RehabPhase | null; target_sessions_per_week: number | null; recovery_days: number | null };
 
 type Props = {
   patientId: string;
@@ -87,6 +87,7 @@ type Props = {
   initialSchedulingMode: SchedulingMode | null;
   initialPhase: RehabPhase | null;
   initialTargetSessionsPerWeek: number | null;
+  initialRecoveryDays: number;
   initialPerformanceFocuses: PerformanceFocus[];
   // C5.4D — where a Review issue's "Edit …" link wants the builder opened.
   initialFocus?: { workoutId: string | null; exerciseId: string | null; section: "schedule" | "weekdays" | null };
@@ -138,6 +139,7 @@ type FreshDraftState = {
   workouts: BuilderDraftWorkout[];
   phase: RehabPhase | null;
   targetSessionsPerWeek: number | null;
+  recoveryDays: number;
   performanceFocuses: PerformanceFocus[];
 };
 type Overlay = { epoch: number; pending: boolean; apply: (s: FreshDraftState) => FreshDraftState };
@@ -167,6 +169,7 @@ export function BuilderShell({
   initialSchedulingMode,
   initialPhase,
   initialTargetSessionsPerWeek,
+  initialRecoveryDays,
   initialPerformanceFocuses,
   initialFocus,
 }: Props) {
@@ -187,6 +190,7 @@ export function BuilderShell({
   const [schedulingMode, setSchedulingMode] = useState<SchedulingMode | null>(initialSchedulingMode);
   const [phase, setPhase] = useState<RehabPhase | null>(initialPhase);
   const [targetSessionsPerWeek, setTargetSessionsPerWeek] = useState<number | null>(initialTargetSessionsPerWeek);
+  const [recoveryDays, setRecoveryDays] = useState<number>(initialRecoveryDays);
   const [performanceFocuses, setPerformanceFocuses] = useState<PerformanceFocus[]>(initialPerformanceFocuses);
   // Kept in sync with performanceFocuses on every render, but also updated
   // SYNCHRONOUSLY inside handlePerformanceFocusToggle itself — a plain
@@ -361,6 +365,7 @@ export function BuilderShell({
       workouts: (data.workouts ?? []).map((w) => mapRawWorkout(w, exercisesById)).sort((a, b) => a.orderIndex - b.orderIndex),
       phase: data.draft.phase ?? null,
       targetSessionsPerWeek: data.draft.target_sessions_per_week ?? null,
+      recoveryDays: data.draft.recovery_days ?? 0,
       performanceFocuses: data.performanceFocuses ?? [],
     };
     for (const [key, overlay] of overlaysRef.current) {
@@ -372,6 +377,7 @@ export function BuilderShell({
     setSchedulingMode(data.draft.scheduling_mode ?? null);
     setPhase(fresh.phase);
     setTargetSessionsPerWeek(fresh.targetSessionsPerWeek);
+    setRecoveryDays(fresh.recoveryDays);
     performanceFocusesRef.current = fresh.performanceFocuses;
     setPerformanceFocuses(fresh.performanceFocuses);
     setSelectedWorkoutId((cur) => (cur && enriched.some((w) => w.id === cur) ? cur : (enriched[0]?.id ?? null)));
@@ -842,6 +848,19 @@ export function BuilderShell({
       errorMessage: "Could not save the target sessions per week. It has been restored to the last saved value.",
     });
   };
+  const handleRecoveryDaysChange = (days: number) => {
+    if (!isOwner) return;
+    setActionError(null);
+    syncLatest<number>({
+      key: "recoveryDays",
+      desired: days,
+      confirmedNow: recoveryDays,
+      applyLocal: setRecoveryDays,
+      applyFresh: (st, v) => ({ ...st, recoveryDays: v }),
+      send: metadataSender<number>("recoveryDays"),
+      errorMessage: "Could not save the recommended recovery. It has been restored to the last saved value.",
+    });
+  };
   const handlePhaseChange = (nextPhase: RehabPhase | null) => {
     if (!isOwner) return;
     setActionError(null);
@@ -1223,6 +1242,7 @@ export function BuilderShell({
           <SchedulingPanel
             schedulingMode={schedulingMode}
             targetSessionsPerWeek={targetSessionsPerWeek}
+            recoveryDays={recoveryDays}
             phase={phase}
             performanceFocuses={performanceFocuses}
             workouts={orderedWorkouts}
@@ -1230,6 +1250,7 @@ export function BuilderShell({
             modeChangeLocked={savingWeekdayWorkoutIds.size > 0}
             onSchedulingModeChange={handleSchedulingModeChange}
             onTargetSessionsChange={handleTargetSessionsChange}
+            onRecoveryDaysChange={handleRecoveryDaysChange}
             onPhaseChange={handlePhaseChange}
             onPerformanceFocusToggle={handlePerformanceFocusToggle}
           />

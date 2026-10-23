@@ -29,6 +29,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     phase?: RehabPhase | null;
     schedulingMode?: SchedulingMode | null;
     targetSessionsPerWeek?: number | null;
+    recoveryDays?: number;
     performanceFocuses?: PerformanceFocus[];
   };
   try {
@@ -44,6 +45,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       phase: body.phase,
       schedulingMode: body.schedulingMode,
       targetSessionsPerWeek: body.targetSessionsPerWeek,
+      recoveryDays: body.recoveryDays,
       performanceFocuses: body.performanceFocuses,
     });
     return NextResponse.json({ ok: true });

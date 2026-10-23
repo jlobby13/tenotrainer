@@ -75,6 +75,7 @@ export type BuilderDraftWorkout = {
 export type BuilderSchedulingState = {
   schedulingMode: SchedulingMode | null;
   targetSessionsPerWeek: number | null;
+  recoveryDays: number;
   phase: RehabPhase | null;
   performanceFocuses: PerformanceFocus[];
 };

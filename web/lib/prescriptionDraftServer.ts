@@ -52,6 +52,7 @@ type DraftRow = {
   phase: RehabPhase | null;
   scheduling_mode: SchedulingMode | null;
   target_sessions_per_week: number | null;
+  recovery_days: number;
   created_by: string;
   editing_clinician_id: string;
   updated_by: string;
@@ -209,6 +210,8 @@ export async function updateDraftMetadata(params: {
   phase?: RehabPhase | null;
   schedulingMode?: SchedulingMode | null;
   targetSessionsPerWeek?: number | null;
+  // C5.6F — advisory recommended recovery between sessions (0 = None).
+  recoveryDays?: number;
   performanceFocuses?: PerformanceFocus[];
 }): Promise<void> {
   const supabase = createServiceRoleClient();
@@ -247,6 +250,13 @@ export async function updateDraftMetadata(params: {
   }
 
   if (targetSessionsPerWeek !== undefined) patch.target_sessions_per_week = targetSessionsPerWeek;
+  if (params.recoveryDays !== undefined) {
+    // The database bound (0-14) is the sanity check; the builder offers 0/1/2.
+    if (!Number.isInteger(params.recoveryDays) || params.recoveryDays < 0 || params.recoveryDays > 14) {
+      throw new PrescriptionDraftError("VALIDATION_FAILED");
+    }
+    patch.recovery_days = params.recoveryDays;
+  }
 
   const { error } = await supabase.from("prescription_drafts").update(patch).eq("id", params.draftId);
   if (error) throw new PrescriptionDraftError("INTERNAL_ERROR");

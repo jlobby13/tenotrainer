@@ -30,6 +30,7 @@ import {
   writeUnit,
 } from "@/lib/c5RuntimeClient";
 import { C5TodaysRehabCard } from "@/app/patient/dashboard/components/C5TodaysRehabCard";
+import { C5RecoveryGuidance } from "@/app/patient/dashboard/components/C5RecoveryGuidance";
 import { C5ExerciseCard } from "./C5ExerciseCard";
 import type { C5UnitDisplay, C5UnitSyncView } from "./C5UnitRow";
 import { C5SequenceChoice } from "./C5SequenceChoice";
@@ -84,6 +85,8 @@ export function C5SessionRunner({ initialState }: { initialState: C5TrainingStat
   const [closed, setClosed] = useState<C5TrainingStatus | null>(null);
   const [closing, setClosing] = useState(false);
   const [showStop, setShowStop] = useState(false);
+  // C5.6F — set once Continue has been recorded on this page.
+  const [continued, setContinued] = useState(false);
 
   const sessionRef = useRef(session);
   useEffect(() => {
@@ -411,6 +414,20 @@ export function C5SessionRunner({ initialState }: { initialState: C5TrainingStat
         {banner && <Banner tone="info">{banner}</Banner>}
         <div className="mt-6">
           <C5TodaysRehabCard state={state} />
+        </div>
+      </Frame>
+    );
+  }
+
+  // C5.6F — advisory recovery guidance before the workout (only ever present
+  // when the server says training is otherwise available). Continue records
+  // the choice and reveals the workout; nothing starts until the first set.
+  if (!session && state.kind === "available" && state.recovery && state.recovery.todaysDecision !== "continue" && !continued) {
+    return (
+      <Frame>
+        {header}
+        <div className="mt-6">
+          <C5RecoveryGuidance recovery={state.recovery} weekly={state.weekly} variant="session" onContinue={() => setContinued(true)} />
         </div>
       </Frame>
     );

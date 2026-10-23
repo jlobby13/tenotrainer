@@ -56,9 +56,25 @@ export type ProgramSnapshot = {
   phase: RehabPhase | null;
   schedulingMode: SchedulingMode | null;
   targetSessionsPerWeek: number | null;
+  // C5.6F — advisory recommended recovery between sessions, in days.
+  // 0 = None authored; null = a version published before the field existed.
+  recoveryDays: number | null;
   performanceFocuses: PerformanceFocus[];
   workouts: ProgramWorkout[]; // ordered by orderIndex, exercises likewise
 };
+
+// C5.6F — the clinician-facing choices for recommended recovery. The
+// database accepts 0-14 (a sanity bound, not policy); v1 offers these.
+export const RECOVERY_DAY_OPTIONS: { value: number; label: string }[] = [
+  { value: 0, label: "None" },
+  { value: 1, label: "1 day" },
+  { value: 2, label: "2 days" },
+];
+
+export function recoveryDaysLabel(days: number | null): string {
+  if (days == null || days === 0) return "None";
+  return days === 1 ? "1 day" : `${days} days`;
+}
 
 // ---------------------------------------------------------------------------
 // Labels (shared with the builder's SchedulingPanel so wording never drifts)

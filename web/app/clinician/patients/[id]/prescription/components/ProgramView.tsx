@@ -11,6 +11,7 @@ import {
   focusLabel,
   formatWeekdays,
   phaseLabel,
+  recoveryDaysLabel,
   workoutDisplayLabel,
   workoutLetter,
   WEEKDAY_ORDER,
@@ -75,6 +76,11 @@ function ProgramSummary({ program }: { program: ProgramSnapshot }) {
         )}
       </dl>
       <ScheduleSummary program={program} />
+      {/* C5.6F — advisory only (never a training restriction). */}
+      <p className="mt-2 text-sm text-gray-700" data-testid="schedule-recovery">
+        <span className="font-semibold text-gray-900">Recommended recovery between sessions:</span>{" "}
+        {program.recoveryDays == null ? <span className="text-gray-400">Not set</span> : recoveryDaysLabel(program.recoveryDays)}
+      </p>
     </section>
   );
 }

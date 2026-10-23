@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { C5TrainingState } from "@/lib/c5RuntimeTypes";
 import { C5PendingCheckInCard, C5TodaysRehabCard } from "./C5TodaysRehabCard";
+import { C5WeeklyProgressLine } from "./C5RecoveryGuidance";
 import { TimezoneInitializer } from "./TimezoneInitializer";
 
 // C5.6D — the patient dashboard when the gated C5 runtime serves this
@@ -46,6 +47,11 @@ export function C5Dashboard({
           <div className="mt-6">
             <C5TodaysRehabCard state={state} />
           </div>
+          {state.weekly && (
+            <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-900/60 px-5 py-3">
+              <C5WeeklyProgressLine weekly={state.weekly} />
+            </div>
+          )}
           {pendingCheckIns > 0 && !checkInCardShown && (
             <div className="mt-4">
               <C5PendingCheckInCard count={pendingCheckIns} />

@@ -39,7 +39,7 @@ type RawWorkout = {
 export async function loadProgramContent(
   supabase: Supabase,
   owner: ProgramOwner,
-  metadata: { phase: RehabPhase | null; scheduling_mode: SchedulingMode | null; target_sessions_per_week: number | null }
+  metadata: { phase: RehabPhase | null; scheduling_mode: SchedulingMode | null; target_sessions_per_week: number | null; recovery_days?: number | null }
 ): Promise<ProgramSnapshot> {
   const ownerColumn = owner.kind === "draft" ? "prescription_draft_id" : "prescription_version_id";
   const [workoutsResult, focusResult] = await Promise.all([
@@ -83,6 +83,7 @@ export async function loadProgramContent(
     phase: metadata.phase ?? null,
     schedulingMode: metadata.scheduling_mode ?? null,
     targetSessionsPerWeek: metadata.target_sessions_per_week ?? null,
+    recoveryDays: metadata.recovery_days ?? null,
     performanceFocuses: sortFocuses(((focusResult.data ?? []) as { focus: PerformanceFocus }[]).map((f) => f.focus)),
     workouts,
   };
@@ -122,6 +123,7 @@ export function computeDraftFingerprint(
     phase: program.phase,
     schedulingMode: program.schedulingMode,
     target: program.targetSessionsPerWeek,
+    recovery: program.recoveryDays,
     focuses: program.performanceFocuses,
     workouts: program.workouts.map((w) => ({
       id: w.id,
