@@ -1,6 +1,6 @@
 # C5.6 — deferred items and launch constraints
 
-Recorded at C5.6D founder review (2026-10-15); updated through M1 (2026-10-24). Items are deferred unless a section marks them resolved.
+Recorded at C5.6D founder review (2026-10-15); updated through M2 (2026-10-25). Items are deferred unless a section marks them resolved.
 
 ## Launch constraint
 
@@ -11,13 +11,14 @@ Recorded at C5.6D founder review (2026-10-15); updated through M1 (2026-10-24). 
   C5 sessions/responses/safety and the explicit clinician release of
   professional-review holds (see the M1 section below).
 - Production cutover still requires the remaining pre-cutover roadmap AND
-  explicit founder approval. Outstanding dependencies: native onboarding and
-  clinician–patient assignment (M2, which also removes the FastAPI/SQLite
-  dependency from authorization); required notification delivery (clinician
-  alerts for Level 3/5 and effective >= 4 holds; in-app pause/resume/new-version
-  notices); patient-experience completion (exercise guidance); production
-  environment and release readiness (hosting, auth URLs, release gate,
-  observability); and final cutover verification.
+  explicit founder approval. M2 (2026-10-25) delivered native onboarding,
+  Postgres assignment authority, the FastAPI/SQLite removal from
+  authorization, clinician pause/resume and in-app program notices (see the M2
+  section). Outstanding dependencies: required clinician notification delivery
+  (alerts for Level 3/5 and effective >= 4 holds); patient-experience
+  completion (exercise guidance); production environment and release
+  readiness (hosting, auth URLs, disabling public Supabase sign-ups, release
+  gate, observability); and final cutover verification.
 
 ## Patient experience follow-ups (C5 session)
 
@@ -108,12 +109,9 @@ Resolved in M1 (no longer deferred):
 
 Still deferred / new debt:
 
-- **M2 REMOVAL REQUIREMENT — FastAPI in the release path.** The clinician
-  release uses `verifyHighConsequenceAuthorization`, which still calls the
-  legacy FastAPI/SQLite supervisor check and fails closed. M2 must replace it
-  with the native Postgres assignment authority. Production cutover must NOT
-  depend on FastAPI being available for a clinician to release a
-  professional-review hold.
+- ~~M2 REMOVAL REQUIREMENT — FastAPI in the release path.~~ Resolved in M2:
+  the release (and create/publish/pause/resume) authorize against Postgres
+  only and are verified with FastAPI unreachable.
 - **Clinician notification** for Level 3 / Level 5 (and effective >= 4)
   episodes — state is visible on the roster/Overview/Safety, but nothing is
   delivered (M3). With Level 5 now clinician-released, delivery is a launch
@@ -122,7 +120,7 @@ Still deferred / new debt:
   consider freezing canonical `setup_instructions`, `execution_cues` and the
   `media_url` reference into the session snapshot so later library edits
   never change what a started session instructed. Not changed in M1.
-- **Clinician pause/resume controls** — M2 (Overview shows pause read-only).
+- ~~**Clinician pause/resume controls**~~ — resolved in M2 (Program page).
 - **Safety page query shape**: one `acute_episode_review_state` call per
   episode (parallel). Fine at current volumes; a set-returning variant can
   replace it if episode history grows.
@@ -132,3 +130,103 @@ Still deferred / new debt:
   fixture now moves the persisted `scheduled_eligible_at` into the past (the
   064ecf6 precedent); the gate itself stays asserted by
   `verifyM6Stage4GeneratorWiring.mjs`. Both retire with the legacy runtime (M4).
+
+## M2 — native onboarding, assignment authority & clinician controls (recorded 2026-10-25)
+
+Founder decisions (locked): several active clinicians per patient within one
+organization; a second same-organization invitation ADDS a clinician; a
+different-organization invitation is refused (no automatic transfer); the
+clinical record belongs to the patient (assignment changes never touch
+programs, history, safety state, Started sessions or obligations); regular
+clinicians invite, clinician_admin / super_user add and end assignments;
+"Accept invitation" is the patient's confirmation; a minimal native admin
+assignment page, not hand-written SQL.
+
+Delivered:
+
+- **Postgres is the assignment authority** (`supervisor_patients`, migrations
+  `20261025000000` + `20261025000001`): organization + provenance
+  (`created_by`, `source_invitation_id`, dismissal fields); one row per
+  assignment period; active-only uniqueness per (organization, clinician,
+  patient); ended periods are never reactivated (re-assignment is a new row);
+  an active row's clinician must hold a clinician role in the row's
+  organization, enforced by trigger, with a guard refusing membership changes
+  that would break an active row. `clinician_patient_access()` is the one
+  authorization primitive (`assertSupervises` /
+  `verifyHighConsequenceAuthorization` both use it).
+- **FastAPI/SQLite removed from authorization** for create draft, publish,
+  pause, resume and professional-review release — not replaced by any
+  fallback; proven with FastAPI unreachable (`verifyM2NativeOnboardingUi.mjs`).
+- **Patient invitations**: type `PATIENT`, role fixed to `member` (by type, in
+  the database), SHA-256 token hash only (plaintext column dropped for all
+  invitations), atomic `accept_patient_invitation` (membership + assignment +
+  accepted state in one transaction), native acceptance (never the FastAPI
+  bridge).
+- **Role-escalation fix**: direct client reads/writes of `invitations` removed;
+  `invitations_role_matches_type` makes a super_user invitation impossible.
+- **Grant hardening**: no client INSERT/UPDATE/DELETE/TRUNCATE on
+  `supervisor_patients`, `organization_members`, `invitations`; no anon writes on
+  `organizations` / `profiles`.
+- **One redirect validator** (`lib/safeRedirect.ts`) for login, auth callback,
+  invitation login handoff, admin `_redirect_base` and launch-dashboard `dest`.
+- `/register` is not an onboarding path (redirects to login with
+  invitation-required copy; the public sign-up action is deleted).
+- Gate ON: every patient-role account is served by C5 ("No active program"
+  when nothing is published) — no legacy fallback.
+- Clinician Pause / Resume program (Program page, two-step confirmation with
+  the locked semantics); patient program notices (paused / resumed / shared /
+  updated, fixed copy, `read_at` dismissal).
+- Legacy assignment sync writer retired (`/api/internal/supervisor-patients-sync`
+  answers 410; `backfillSupervisorPatients.mjs --write` refuses).
+
+Still deferred / new debt:
+
+- **Legacy patient write grants (M3 cutover).** Still granted to
+  `authenticated` because the gate-OFF legacy runtime uses them; no M2/C5
+  feature depends on them: `rehab_sessions` INSERT/UPDATE, `set_outcomes`
+  INSERT/UPDATE, `session_events` INSERT, `morning_responses` INSERT/UPDATE,
+  EXECUTE on `create_rehab_session_if_allowed` and
+  `reconcile_missing_acute_episodes`. Revoke at cutover. (`notifications`
+  UPDATE(read_at) is intended and stays.)
+- **Public Supabase sign-up** must be disabled in the production project (M3
+  environment configuration). An orphan account reaches only "No active
+  program" and has no clinician.
+- **Cross-organization transfer** is not product-defined: unavailable in the
+  normal UI (invitation refuses; admin page is single-organization).
+- **Remaining FastAPI dependencies** (not authorization): legacy gate-OFF
+  patient dashboard/session (`getPatientSummary`), Exercise Library /
+  onboarding links via `launch-dashboard`, `/super/dashboard`
+  (`getSuperOverview`), `/api/internal/prescription-versions`,
+  validate-bridge. Removal belongs to cutover.
+- **Admin tester/clinician-admin invitation** page still carries the one-time
+  token in its post-create redirect URL (pre-M2 admin flow; tokens are now
+  hashed at rest). The clinician patient-invitation flow returns the link in
+  the action response instead.
+- `getSessionInfo().memberships[0]` still drives page ROUTING (which dashboard
+  a user lands on) for multi-organization users; it is no longer used for any
+  clinician–patient authorization.
+- Pause/resume controls are offered for C5 programs only (the C5 runtime is
+  what enforces a pause); legacy patients keep the read-only banner.
+
+### Test infrastructure (recorded at M2 closeout, 2026-10-25)
+
+- **M6 Stage 3B/3C suites repaired, not retired.** They were written against
+  a temporary dev-only route (`/api/internal/dev-verify-symptom-engine`) that
+  was deleted before Stage 3B was finalized and never committed, so they
+  had been unrunnable since 2026-09-12/13. They now call the same
+  authoritative engine functions in-process via
+  `web/scripts/lib/m6EngineHarness.mjs` (run with
+  `node --conditions=react-server --experimental-strip-types …`); assertions
+  unchanged. No dev endpoint was restored. The production wiring of those
+  engines into the morning-response finalize route stays covered by
+  `verifyM6Stage4GeneratorWiring.mjs`.
+- **DEBT — fixture leakage (not acceptable as permanent behaviour).** The
+  Builder suites `verifyC5Stage4aPrescriptionBuilder.mjs`,
+  `verifyC5Stage4bDosageAuthoring.mjs` and `verifyC5Stage4cWorkoutScheduling.mjs`
+  leave their owner clinician and (published-program) patient
+  `@example.invalid` accounts behind after every run (observed on
+  2026-10-10, 10-11, 10-16, 10-24 and 10-25; pre-dates M2). The Stage 4
+  legacy suites (`verifyStage4Loop`, `verifyStage4ScheduleAuthority`) also
+  leave `m5-stage4-*` users. Their teardowns need the same treatment as the
+  M2 HttpLayer fix (delete notifications / prescription rows that block user
+  deletion, and log teardown errors) in a dedicated test-infrastructure pass.

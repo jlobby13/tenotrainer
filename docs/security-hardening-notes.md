@@ -44,11 +44,12 @@ should be required to enroll MFA before accessing sensitive dashboards. This req
 against the HaveIBeenPwned breach database at sign-up and password change.
 
 ### Public self-registration
-`/register` is publicly accessible. Any person can create an account without an invitation.
-They cannot access patient/clinician data (no org membership), but they can attempt to
-use `/setup` (now blocked by the "no org exists" guard).
-For a fully invite-only production system, consider disabling the `/register` page
-or gating it behind an environment variable (`ALLOW_SELF_SIGNUP=false`).
+M2 (2026-10-25): `/register` is no longer an onboarding path — it redirects to
+`/login` with invitation-required copy, and the app's public sign-up action was
+deleted. Accounts are created only by accepting an invitation. The Supabase
+public sign-up endpoint itself is still enabled at the project level and must be
+disabled in production (M3 environment configuration); an orphan account has no
+membership, no clinician and sees only "No active program".
 
 ## Low — Post-launch hardening
 
@@ -64,8 +65,9 @@ a user's MFA factor, no email is sent. Enable alongside the enrolled notificatio
 
 ### Rate limit on invitation sends
 Invitations can be created in bulk without email rate limiting (only 2 auth emails/hour
-are rate-limited, not transactional invitation emails via Resend). Low risk because only
-`clinician_admin` and `super_user` can send invitations.
+are rate-limited, not transactional invitation emails via Resend). Since M2, clinicians
+can also send PATIENT invitations (role fixed to `member`); invitation tokens are stored
+only as SHA-256 hashes and all invitation writes are server-side.
 
 ### Audit log retention
 `supervisor_audit_logs` captures supervisor actions. No retention or rotation policy is

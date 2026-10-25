@@ -457,7 +457,8 @@ async function main() {
       // ===================== PAUSED STATE (entry point only) =====================
       await admin.from("patient_prescriptions").update({ operational_status: "paused", paused_at: new Date().toISOString(), paused_by: owner.userId }).eq("id", patientPrescriptionId);
       await page.goto(`${BASE_URL}/clinician/patients/${patient.userId}/prescription`);
-      check('entry point shows "Prescription Paused" without silently resuming', await page.getByText(/Prescription Paused/).isVisible());
+      // M2: a C5 program shows the pause/resume control (state + Resume) instead of the old banner.
+      check('entry point shows the paused state without silently resuming', (await page.getByTestId("program-pause-control").getAttribute("data-status")) === "paused" && (await page.getByText(/Program Paused/).isVisible()) && (await page.getByTestId("resume-program").isVisible()));
       await admin.from("patient_prescriptions").update({ operational_status: "active", paused_at: null, paused_by: null }).eq("id", patientPrescriptionId);
 
       // ===================== VISUAL: mobile layout =====================

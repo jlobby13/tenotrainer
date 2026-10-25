@@ -9,7 +9,7 @@ import "server-only";
 //
 // Authorization tiers (C5.3A, locked in C5.3B):
 //   - create/publish/pause/resume: verifyHighConsequenceAuthorization()
-//     (PG + synchronous legacy re-check, fail closed, no PG-only fallback).
+//     (Postgres assignment authority, fail closed; re-checked in-transaction).
 //   - everything else (draft micro-edits, reads): assertSupervises() only,
 //     matching the C1-C4 precedent — a draft is never patient-visible and
 //     is fully discardable, so the lower tier is an accepted, bounded risk.

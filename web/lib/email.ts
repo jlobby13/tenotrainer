@@ -142,3 +142,39 @@ export async function sendInvitationEmail(opts: {
   }
   return { sent: true };
 }
+
+// M2 — patient invitation from a clinician. Neutral, factual copy; the same
+// Resend delivery as the tester invitation (no new email infrastructure).
+export async function sendPatientInvitationEmail(opts: {
+  to: string;
+  inviteUrl: string;
+  orgName: string;
+  clinicianName: string;
+}): Promise<EmailResult> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    return { sent: false, reason: "RESEND_API_KEY not configured" };
+  }
+  const from = process.env.RESEND_FROM ?? "TenoTrainer <onboarding@resend.dev>";
+  const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const text = `${opts.clinicianName} at ${opts.orgName} has invited you to TenoTrainer, where your rehabilitation program will be shared with you.
+
+Accept the invitation:
+${opts.inviteUrl}
+
+This invitation was sent to ${opts.to} and expires in 7 days. If you weren't expecting it, you can ignore this email.
+`;
+  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Your TenoTrainer invitation</title></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+<div style="max-width:560px;margin:40px auto;padding:0 16px;"><div style="background:#ffffff;border-radius:12px;border:1px solid #e5e7eb;padding:36px;">
+<div style="font-size:22px;font-weight:700;color:#2563eb;margin-bottom:24px;">TenoTrainer</div>
+<p style="font-size:15px;line-height:1.6;color:#374151;"><strong>${esc(opts.clinicianName)}</strong> at <strong>${esc(opts.orgName)}</strong> has invited you to TenoTrainer, where your rehabilitation program will be shared with you.</p>
+<p style="margin:28px 0;text-align:center;"><a href="${esc(opts.inviteUrl)}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;font-size:16px;font-weight:600;padding:14px 32px;border-radius:8px;">Accept invitation</a></p>
+<p style="font-size:13px;color:#9ca3af;line-height:1.6;">This invitation was sent to ${esc(opts.to)} and expires in 7 days. If you weren't expecting it, you can ignore this email.</p>
+<p style="font-size:12px;color:#6b7280;word-break:break-all;background:#f3f4f6;border-radius:6px;padding:10px 14px;">${esc(opts.inviteUrl)}</p>
+</div></div></body></html>`;
+  const resend = new Resend(apiKey);
+  const { error } = await resend.emails.send({ from, to: opts.to, subject: "Your TenoTrainer invitation", html, text });
+  if (error) return { sent: false, reason: error.message };
+  return { sent: true };
+}

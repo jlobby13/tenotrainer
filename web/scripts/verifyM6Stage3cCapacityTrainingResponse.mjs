@@ -3,17 +3,22 @@
 // structural comparison, deterministic Capacity, episode-scoped generation,
 // Training Response window aggregation left as an explicit pending gate).
 // Mirrors verifyM6Stage3bSymptomEngine.mjs's conventions (throwaway users,
-// service-role + anon-signed-in clients, real engine execution via a
-// TEMPORARY dev-only route, full teardown in `finally`).
+// service-role + anon-signed-in clients, real engine execution, full
+// teardown in `finally`). The engines run in-process through
+// scripts/lib/m6EngineHarness.mjs — the same functions the production
+// morning-response finalize route calls (wiring: verifyM6Stage4GeneratorWiring
+// .mjs). Originally this suite POSTed to a temporary, never-committed dev
+// route (/api/internal/dev-verify-symptom-engine); M2 closeout (2026-10-25)
+// replaced that call with the harness — assertions unchanged.
 //
-// Requires: `next dev` running on localhost:3000, web/.env.local populated,
-// Stage 3A/3B migrations and the Stage 3C heuristic seed migration
-// (20260913000001) already applied.
+// Requires: web/.env.local populated, Stage 3A/3B migrations and the Stage 3C
+// heuristic seed migration (20260913000001) applied. No server needed.
 //
 // Run from the web/ directory:
-//   node scripts/verifyM6Stage3cCapacityTrainingResponse.mjs
+//   node --conditions=react-server --experimental-strip-types scripts/verifyM6Stage3cCapacityTrainingResponse.mjs
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "node:fs";
+import { generateCapacityInterpretations, generateTrainingResponseInterpretation } from "./lib/m6EngineHarness.mjs";
 
 function loadEnv(path) {
   const env = {};
@@ -29,7 +34,6 @@ const env = loadEnv(".env.local");
 const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 const REAL_ORG_ID = "07f342fd-075c-42b5-a885-30ca64953d46";
 const PASSWORD = "throwaway-verification-1!";
-const DEV_ROUTE = "http://localhost:3000/api/internal/dev-verify-symptom-engine";
 
 function genUuid() {
   return crypto.randomUUID();
@@ -136,10 +140,17 @@ function dateFor(dayIndex) {
   return d.toISOString().slice(0, 10);
 }
 
+// The real engines, in-process (see header). Same inputs (kind, optional
+// rehabSessionId) and result shape the retired dev route passed through.
 async function runEngine(userId, kind, extra = {}) {
-  const res = await fetch(DEV_ROUTE, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ userId, kind, ...extra }) });
-  if (!res.ok) throw new Error(`dev-verify-symptom-engine route failed (${kind}): ${res.status} ${await res.text()}`);
-  return res.json();
+  const result =
+    kind === "capacity"
+      ? await generateCapacityInterpretations(userId, extra.rehabSessionId)
+      : kind === "trainingResponse"
+        ? await generateTrainingResponseInterpretation(userId)
+        : null;
+  if (!result) throw new Error(`unknown engine kind: ${kind}`);
+  return JSON.parse(JSON.stringify(result));
 }
 
 async function main() {

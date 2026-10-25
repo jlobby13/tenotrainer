@@ -2,11 +2,12 @@
 
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { safeInternalPath } from "@/lib/safeRedirect";
 
 export async function loginAction(formData: FormData) {
   const email = (formData.get("email") as string).toLowerCase().trim();
   const password = formData.get("password") as string;
-  const next = (formData.get("next") as string) || "/dashboard";
+  const next = safeInternalPath(formData.get("next"), "/dashboard");
 
   const supabase = await createServerSupabaseClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -20,5 +21,5 @@ export async function loginAction(formData: FormData) {
     redirect(`/login?${params}`);
   }
 
-  redirect(next.startsWith("/") ? next : "/dashboard");
+  redirect(next);
 }

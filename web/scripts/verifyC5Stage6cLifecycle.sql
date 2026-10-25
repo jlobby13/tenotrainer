@@ -67,19 +67,19 @@ DECLARE
   v_pass INT; v_fail INT;
 BEGIN
   -- ---------------- setup ----------------
-  SELECT u.id INTO v_patient FROM auth.users u
-  WHERE u.id NOT IN (v_clinician, '53eaa2d2-b526-4d01-aa5b-033bff88dd46')
-    AND coalesce(u.email, '') NOT LIKE '%@example.invalid'
-    AND EXISTS (SELECT 1 FROM profiles p WHERE p.id = u.id)
-    AND NOT EXISTS (SELECT 1 FROM patient_prescriptions pp WHERE pp.patient_id = u.id)
-    AND NOT EXISTS (SELECT 1 FROM prescription_versions pv WHERE pv.user_id = u.id)
-    AND NOT EXISTS (SELECT 1 FROM rehab_sessions rs WHERE rs.user_id = u.id)
-    AND NOT EXISTS (SELECT 1 FROM acute_safety_episodes e WHERE e.user_id = u.id)
-  ORDER BY u.created_at, u.id LIMIT 1;
+  -- M2: throwaway in-transaction user(s) (rolled back). An assignment's patient
+  -- must never be a staff account, and an assignment's clinician must hold a
+  -- clinician role in its organization; the shared project has no spare real
+  -- non-staff account to borrow.
+  v_patient := gen_random_uuid();
+  INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
+  VALUES (v_patient, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'verify-' || v_patient || '@example.invalid', '', now(), now(), now(), '{}', '{}');
   IF v_patient IS NULL THEN RAISE EXCEPTION 'C5.6C verify setup: need an auth.users row with a profile and no prescription/session state'; END IF;
 
   UPDATE profiles SET timezone = v_tz, morning_reminder_time = '05:00' WHERE id = v_patient;
   v_today := (now() AT TIME ZONE v_tz)::date;
+  -- M2: an assignment requires the clinician's clinician-role membership in its organization.
+  INSERT INTO organization_members (organization_id, user_id, role) VALUES ('07f342fd-075c-42b5-a885-30ca64953d46', v_clinician, 'clinician') ON CONFLICT (organization_id, user_id) DO NOTHING;
   INSERT INTO supervisor_patients (supervisor_id, patient_id, status) VALUES (v_clinician, v_patient, 'active');
   INSERT INTO canonical_exercises (name, visibility, active) VALUES ('C5.6C verify exercise', 'global', true) RETURNING id INTO v_ce;
   INSERT INTO patient_prescriptions (patient_id) VALUES (v_patient) RETURNING id INTO v_pp;

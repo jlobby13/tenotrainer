@@ -47,8 +47,9 @@ export default async function InvitationsPage({ searchParams }: Props) {
     );
   }
 
-  const orgId = session.memberships[0].organization_id;
-  const orgName = session.memberships[0].organizations?.name ?? "Your Organization";
+  const adminMembership = session.memberships.find((m) => m.role === "clinician_admin" || m.role === "super_user")!;
+  const orgId = adminMembership.organization_id;
+  const orgName = adminMembership.organizations?.name ?? "Your Organization";
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
   const service = createServiceRoleClient();

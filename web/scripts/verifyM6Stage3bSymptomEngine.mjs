@@ -5,20 +5,24 @@
 //
 // UNLIKE the Stage 3A schema script, this one also exercises the REAL
 // TypeScript engine (web/lib/longitudinalInterpretationEngine.ts) end to
-// end — not just the DB contract — via a TEMPORARY dev-only route
-// (app/api/internal/dev-verify-symptom-engine/route.ts, deleted before
-// Stage 3B is finalized) POSTed to a running `next dev` server. That route
-// exists ONLY for this verification pass; nothing else in this stage's
-// deliverables depends on it.
+// end against the database — not just the DB contract. The engine runs
+// in-process through scripts/lib/m6EngineHarness.mjs (the same function the
+// production morning-response finalize route calls; that wiring is covered
+// by verifyM6Stage4GeneratorWiring.mjs). Originally this suite POSTed to a
+// temporary dev-only route (/api/internal/dev-verify-symptom-engine) that
+// was deleted before Stage 3B was finalized and never committed; M2
+// closeout (2026-10-25) replaced that call with the in-process harness —
+// assertions unchanged.
 //
-// Requires: `next dev` running on localhost:3000, web/.env.local populated,
-// the Stage 3A migrations (20260911000006-8) AND the Stage 3B heuristic
-// seed migration (20260912000001) already applied.
+// Requires: web/.env.local populated, the Stage 3A migrations
+// (20260911000006-8) AND the Stage 3B heuristic seed migration
+// (20260912000001) applied. No server needed.
 //
 // Run from the web/ directory:
-//   node scripts/verifyM6Stage3bSymptomEngine.mjs
+//   node --conditions=react-server --experimental-strip-types scripts/verifyM6Stage3bSymptomEngine.mjs
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "node:fs";
+import { generateShortWindowSymptomInterpretation } from "./lib/m6EngineHarness.mjs";
 
 function loadEnv(path) {
   const env = {};
@@ -34,7 +38,6 @@ const env = loadEnv(".env.local");
 const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 const REAL_ORG_ID = "07f342fd-075c-42b5-a885-30ca64953d46";
 const PASSWORD = "throwaway-verification-1!";
-const DEV_ROUTE = "http://localhost:3000/api/internal/dev-verify-symptom-engine";
 
 function genUuid() {
   return crypto.randomUUID();
@@ -147,14 +150,10 @@ function dateFor(dayIndex) {
   return d.toISOString().slice(0, 10);
 }
 
+// The real engine, in-process (see header). Same input and result shape the
+// retired dev route passed through.
 async function runEngine(userId) {
-  const res = await fetch(DEV_ROUTE, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ userId }),
-  });
-  if (!res.ok) throw new Error(`dev-verify-symptom-engine route failed: ${res.status} ${await res.text()}`);
-  return res.json();
+  return JSON.parse(JSON.stringify(await generateShortWindowSymptomInterpretation(userId)));
 }
 
 async function main() {

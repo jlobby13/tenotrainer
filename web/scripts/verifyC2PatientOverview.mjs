@@ -296,10 +296,20 @@ async function main() {
 
     const { error: relError } = await admin.from("supervisor_patients").insert([
       ...allPatients.filter((p) => p !== patientDismissed && p !== patientUnrelated).map((p) => ({ supervisor_id: clinicianA.userId, patient_id: p.userId, status: "active" })),
-      { supervisor_id: clinicianA.userId, patient_id: patientDismissed.userId, status: "dismissed", dismissed_at: new Date().toISOString(), dismissed_reason: "goals_achieved", dismissed_by: clinicianA.userId },
+      // M2: an assignment period always starts active; it is ended below.
+      { supervisor_id: clinicianA.userId, patient_id: patientDismissed.userId, status: "active" },
       // patientUnrelated: no relationship at all.
     ]);
     if (relError) throw relError;
+    {
+      // M2: end patientDismissed's period (the only way a row becomes dismissed).
+      const { error: endError } = await admin
+        .from("supervisor_patients")
+        .update({ status: "dismissed", dismissed_at: new Date().toISOString(), dismissed_reason: "goals_achieved", dismissed_by: clinicianA.userId })
+        .eq("supervisor_id", clinicianA.userId)
+        .eq("patient_id", patientDismissed.userId);
+      if (endError) throw endError;
+    }
 
     // --- Prescription metadata fixture ---
     await admin.from("prescription_versions").insert([

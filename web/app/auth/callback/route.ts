@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { safeInternalPath } from "@/lib/safeRedirect";
 
 // Supabase redirects here after email confirmation / magic-link / OAuth.
 // Exchanges the one-time code for a persistent session.
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/dashboard";
+  // Same-origin paths only (shared validator) — never an open redirect.
+  const next = safeInternalPath(searchParams.get("next"), "/dashboard");
   const error = searchParams.get("error");
   const errorDescription = searchParams.get("error_description");
 

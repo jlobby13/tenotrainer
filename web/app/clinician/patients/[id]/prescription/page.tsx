@@ -8,13 +8,22 @@ import { PatientNav } from "../components/PatientNav";
 import { isC5Patient } from "@/lib/clinicianC5Server";
 import { createDraftAction } from "./actions";
 import { LocalDateTime } from "./components/LocalDateTime";
+import { ProgramPauseControl } from "./components/ProgramPauseControl";
 
 export const metadata = { title: "Prescription — TenoTrainer" };
 
 const ERROR_MESSAGES: Record<string, string> = {
   PATIENT_NOT_AUTHORIZED: "Prescription creation could not be authorized for this patient. Please refresh and try again.",
   DRAFT_ALREADY_EXISTS: "A draft already exists for this patient — reloading the current draft.",
-  INTERNAL_ERROR: "Something went wrong creating the prescription draft. Please try again.",
+  INTERNAL_ERROR: "Something went wrong. Please try again.",
+  PRESCRIPTION_ALREADY_PAUSED: "The program was already paused — the current state is shown below.",
+  PRESCRIPTION_ALREADY_ACTIVE: "The program was already active — the current state is shown below.",
+  VALIDATION_FAILED: "There is no program to pause for this patient.",
+};
+
+const NOTICE_MESSAGES: Record<string, string> = {
+  paused: "Program paused. New sessions are unavailable until it is resumed.",
+  resumed: "Program resumed. Future eligible training is available again.",
 };
 
 // C5.4A — Prescription Management entry point (brief §1). Server-rendered,
@@ -29,10 +38,10 @@ export default async function PrescriptionManagementPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; notice?: string }>;
 }) {
   const { id: patientId } = await params;
-  const { error } = await searchParams;
+  const { error, notice } = await searchParams;
   const { clinicianId } = await requireClinicianAuth();
 
   const supervises = await assertSupervises(clinicianId, patientId);
@@ -66,10 +75,27 @@ export default async function PrescriptionManagementPage({
           </div>
         )}
 
-        {state.operationalStatus === "paused" && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-sm px-4 py-3 font-medium">
-            Prescription Paused — the patient will not see daily rehab until this is resumed. Draft editing remains available below.
+        {notice && NOTICE_MESSAGES[notice] && (
+          <div className="rounded-lg border border-green-200 bg-green-50 text-green-800 text-sm px-4 py-3" data-testid="program-notice">
+            {NOTICE_MESSAGES[notice]}
           </div>
+        )}
+
+        {/* M2 — clinician pause/resume (C5 programs: the C5 runtime is what
+            enforces a pause). Legacy patients keep the read-only banner. */}
+        {c5 && state.operationalStatus && (state.hasActivePrescription || state.operationalStatus === "paused") ? (
+          <ProgramPauseControl
+            patientId={patientId}
+            status={state.operationalStatus}
+            pausedAt={state.pause?.pausedAt ?? null}
+            pausedByName={state.pause?.pausedByName ?? null}
+          />
+        ) : (
+          state.operationalStatus === "paused" && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-sm px-4 py-3 font-medium">
+              Prescription Paused — the patient will not see daily rehab until this is resumed. Draft editing remains available below.
+            </div>
+          )
         )}
 
         {state.draft ? (

@@ -870,23 +870,25 @@ async function main() {
       check("network failure before send: reconciled, nothing published, retry allowed",
         (await page.locator('[data-testid="publish-error"]').textContent()).includes("did not complete") && (await c5Versions(P.p5)).versions.length === 0);
       await page.unroute(publishUrl);
-      // (c) Legacy authorization lost after Review loaded.
+      // (c) M2: legacy SQLite is no longer an authority. Removing the legacy
+      // link after Review loaded changes nothing — Review stays authorized
+      // (publishing itself is exercised by the later cases).
       const db2 = legacyDb();
       db2.prepare("DELETE FROM supervisor_patients WHERE id = ?").run(legacyLinkA5);
       db2.close();
       try {
-        await confirmPublish(page);
-        await waitOutcome(page);
-        check("authorization loss: refused with explanation, nothing published",
-          (await page.locator('[data-testid="publish-error"]').textContent()).includes("could not be authorized") && (await c5Versions(P.p5)).versions.length === 0);
+        const rp = await ctxA.newPage();
+        check("M2: losing only the legacy SQLite link does not affect authorization (Review still 200)", (await rp.goto(`${ON}/clinician/patients/${P.p5.userId}/prescription/review`)).status() === 200);
+        await rp.close();
       } finally {
         const db3 = legacyDb();
         legacyLinkA5 = db3.prepare("INSERT INTO supervisor_patients (supervisor_id, patient_id, status) VALUES (?, ?, 'active')").run(legacyA, legacyP5).lastInsertRowid;
         legacyLinkIds.push(legacyLinkA5);
         db3.close();
       }
-      // (d) Postgres supervision lost after Review loaded.
-      await admin.from("supervisor_patients").update({ status: "inactive" }).eq("supervisor_id", A.userId).eq("patient_id", P.p5.userId);
+      // (d) Postgres supervision lost after Review loaded (M2: the assignment
+      // period is ended; restoring it is a NEW period row).
+      await admin.from("supervisor_patients").update({ status: "dismissed", dismissed_at: new Date().toISOString(), dismissed_reason: "verify: supervision loss" }).eq("supervisor_id", A.userId).eq("patient_id", P.p5.userId).eq("status", "active");
       try {
         await confirmPublish(page);
         await waitOutcome(page);
@@ -896,7 +898,7 @@ async function main() {
         check("supervision loss: Review itself is no longer reachable (404)", (await r404.goto(`${ON}/clinician/patients/${P.p5.userId}/prescription/review`)).status() === 404);
         await r404.close();
       } finally {
-        await admin.from("supervisor_patients").update({ status: "active" }).eq("supervisor_id", A.userId).eq("patient_id", P.p5.userId);
+        await admin.from("supervisor_patients").insert({ supervisor_id: A.userId, patient_id: P.p5.userId, status: "active" });
       }
       // (e) Publication succeeds but the response is lost AND reconciliation is
       // briefly unreachable: must not claim success or failure, must not retry.

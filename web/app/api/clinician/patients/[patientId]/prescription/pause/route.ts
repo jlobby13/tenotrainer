@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { requireClinicianForRoute, prescriptionDraftErrorResponse } from "@/lib/prescriptionDraftHttp";
 import { pausePrescription } from "@/lib/prescriptionDraftServer";
 
-// POST — pausePrescription. High-consequence: PG + synchronous legacy check.
+// POST — pausePrescription. High-consequence: Postgres assignment check.
 export async function POST(_request: Request, { params }: { params: Promise<{ patientId: string }> }) {
   const auth = await requireClinicianForRoute();
   if ("response" in auth) return auth.response;

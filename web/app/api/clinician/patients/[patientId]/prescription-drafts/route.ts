@@ -7,7 +7,7 @@ import type { DraftSource } from "@/lib/prescriptionDraftTypes";
 
 const VALID_SOURCES: DraftSource[] = ["empty", "clone_active", "clone_historical", "from_template"];
 
-// POST — createDraft. High-consequence: PG + synchronous legacy check
+// POST — createDraft. High-consequence: Postgres assignment check
 // inside createDraft() itself (verifyHighConsequenceAuthorization).
 export async function POST(request: NextRequest, { params }: { params: Promise<{ patientId: string }> }) {
   const auth = await requireClinicianForRoute();

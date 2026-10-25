@@ -2,12 +2,9 @@ import "server-only";
 
 // M1 — explicit clinician release of a professional-review training hold.
 //
-// Authorization (founder-approved for M1): verifyHighConsequenceAuthorization
-// — the same check as publish/pause/resume (Postgres assignment AND the
-// legacy FastAPI/SQLite supervisor check). It fails closed. TEMPORARY: M2
-// must replace the FastAPI/SQLite dependency with the native Postgres
-// assignment authority; production cutover must not depend on FastAPI for
-// a clinician to release a professional-review hold.
+// Authorization: verifyHighConsequenceAuthorization — the same check as
+// publish/pause/resume. Since M2 it is the native Postgres assignment
+// authority only (no FastAPI/SQLite dependency); it fails closed.
 //
 // The release itself is clinician_release_acute_episode (server-only), which
 // re-checks the active Postgres assignment, enforces the required note,

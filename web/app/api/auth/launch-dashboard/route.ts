@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { safeInternalPath } from "@/lib/safeRedirect";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getSessionInfo } from "@/lib/auth";
 import { createBridgeToken, FASTAPI_ROLE } from "@/lib/bridge";
@@ -32,8 +33,9 @@ export async function GET(request: NextRequest) {
   dest.searchParams.set("token", token);
 
   // Optional deep-link: ?dest=/daily-log gets forwarded as ?next= to FastAPI
-  const destPath = request.nextUrl.searchParams.get("dest");
-  if (destPath && destPath.startsWith("/") && !destPath.startsWith("//")) {
+  // (shared same-origin path validator — see lib/safeRedirect.ts)
+  const destPath = safeInternalPath(request.nextUrl.searchParams.get("dest"), "");
+  if (destPath) {
     dest.searchParams.set("next", destPath);
   }
 

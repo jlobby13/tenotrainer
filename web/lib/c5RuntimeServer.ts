@@ -42,17 +42,15 @@ export function isC5PatientRuntimeEnabled(): boolean {
   return process.env.C5_PATIENT_RUNTIME_ENABLED === "true";
 }
 
-// Cutover routing, not a lifecycle decision: with the gate on, a patient is
-// served by the C5 runtime once they have a published C5 prescription or any
-// C5 session (so an open C5 session is never stranded behind legacy).
-export async function usesC5Runtime(patientId: string): Promise<boolean> {
-  if (!isC5PatientRuntimeEnabled()) return false;
-  const admin = createServiceRoleClient();
-  const [{ data: pp }, { data: session }] = await Promise.all([
-    admin.from("patient_prescriptions").select("current_prescription_version_id").eq("patient_id", patientId).maybeSingle(),
-    admin.from("rehab_sessions").select("id").eq("user_id", patientId).not("training_status", "is", null).limit(1).maybeSingle(),
-  ]);
-  return Boolean(pp?.current_prescription_version_id) || Boolean(session);
+// Cutover routing, not a lifecycle decision. M2 (founder-approved): with
+// the gate ON, every patient-role account is served by the native C5
+// runtime — including one with no published prescription, which sees the
+// native "No active program" state instead of falling back to the legacy
+// FastAPI dashboard. Callers are patient pages/routes that have already
+// routed staff away. With the gate OFF nothing changes (legacy).
+// Rollback/cutover policy is M3.
+export async function usesC5Runtime(_patientId: string): Promise<boolean> {
+  return isC5PatientRuntimeEnabled();
 }
 
 const NON_PATIENT_ROLES = new Set(["super_user", "clinician", "clinician_admin"]);

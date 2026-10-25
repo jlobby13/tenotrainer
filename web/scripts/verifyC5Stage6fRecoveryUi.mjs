@@ -24,6 +24,25 @@ const OFF = process.argv[3] ?? "http://localhost:3000";
 const SHOTS = process.argv[4] ?? null;
 const REPO_ROOT = "..";
 const CLINICIAN = "44197ef7-7421-47ed-a164-75d2765fc019";
+
+// M2 — an assignment requires the clinician's clinician-role membership in
+// its organization. This shared fixture clinician has none, so the suite
+// grants one for the run and removes it in teardown (only if it added it).
+const M2_FIXTURE_ORG_ID = "07f342fd-075c-42b5-a885-30ca64953d46";
+let fixtureClinicianMembershipAdded = false;
+async function ensureFixtureClinicianMembership() {
+  if (fixtureClinicianMembershipAdded) return;
+  const { data } = await admin.from("organization_members").select("id").eq("user_id", CLINICIAN).eq("organization_id", M2_FIXTURE_ORG_ID).maybeSingle();
+  if (data) return;
+  const { error } = await admin.from("organization_members").insert({ organization_id: M2_FIXTURE_ORG_ID, user_id: CLINICIAN, role: "clinician" });
+  if (error) throw error;
+  fixtureClinicianMembershipAdded = true;
+}
+async function removeFixtureClinicianMembership() {
+  if (!fixtureClinicianMembershipAdded) return;
+  await admin.from("supervisor_patients").delete().eq("supervisor_id", CLINICIAN);
+  await admin.from("organization_members").delete().eq("user_id", CLINICIAN).eq("organization_id", M2_FIXTURE_ORG_ID);
+}
 const REAL_ORG_ID = "07f342fd-075c-42b5-a885-30ca64953d46";
 const TZ = "America/New_York";
 const PASSWORD = "throwaway-verification-1!";
@@ -129,6 +148,7 @@ async function makeUser(label, tz = TZ) {
 // Two-workout program. mode 'sequence' (target, recovery) or 'calendar' (days, recovery).
 async function makeFixture(label, { mode = "sequence", target = 2, recovery = 1, days = [null, null], tz = TZ } = {}) {
   const patient = await makeUser(label, tz);
+  await ensureFixtureClinicianMembership();
   await admin.from("supervisor_patients").insert({ supervisor_id: CLINICIAN, patient_id: patient.userId, status: "active" });
   const { data: pp } = await admin.from("patient_prescriptions").insert({ patient_id: patient.userId }).select("id").single();
   const { data: v, error } = await admin
@@ -212,6 +232,7 @@ async function teardown() {
   if (exerciseId) await admin.from("canonical_exercises").delete().eq("id", exerciseId);
   const { data: left } = await admin.from("rehab_sessions").select("id").in("user_id", ids);
   console.log(`\nteardown: ${createdUsers.length} fixture users removed; remaining fixture sessions: ${left?.length ?? "?"}`);
+  await removeFixtureClinicianMembership();
 }
 
 // ---------------------------------------------------------------- browser / API

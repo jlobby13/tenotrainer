@@ -149,6 +149,7 @@ export default async function SuperDashboardPage({ searchParams }: Props) {
           <span className="text-gray-400">{session.user?.email}</span>
           <span className="text-gray-300">|</span>
           <span className="font-medium text-gray-700">{orgName}</span>
+          <a href="/admin/assignments" className="hover:underline text-brand-600 font-medium" data-testid="nav-assignments">Assignments</a>
           <a href="/logout" className="hover:underline text-gray-500 ml-2">Log out</a>
         </div>
       </header>

@@ -3,6 +3,8 @@ import type { C5TrainingState } from "@/lib/c5RuntimeTypes";
 import { C5PendingCheckInCard, C5TodaysRehabCard } from "./C5TodaysRehabCard";
 import { C5WeeklyProgressLine } from "./C5RecoveryGuidance";
 import { TimezoneInitializer } from "./TimezoneInitializer";
+import { C5ProgramNotices } from "./C5ProgramNotices";
+import type { ProgramNotice } from "@/lib/programNoticesServer";
 
 // C5.6D — the patient dashboard when the gated C5 runtime serves this
 // patient. Independent of the legacy FastAPI summary (no stage/irritability
@@ -12,12 +14,15 @@ export function C5Dashboard({
   firstName,
   state,
   pendingCheckIns,
+  notices = [],
 }: {
   email: string;
   firstName: string | null;
   state: C5TrainingState;
   // Outstanding (due) check-ins, from the patient's own obligation rows.
   pendingCheckIns: number;
+  // M2 — unread program notices (paused / resumed / shared / updated).
+  notices?: ProgramNotice[];
 }) {
   const checkInCardShown = state.kind === "immediate_response_required" || state.kind === "morning_response_required";
   return (
@@ -44,6 +49,7 @@ export function C5Dashboard({
         <div className="max-w-2xl">
           <h1 className="text-2xl font-semibold text-slate-50">{firstName ? `Welcome back, ${firstName}` : "Welcome back"}</h1>
           <p className="mt-0.5 text-sm text-slate-400">{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</p>
+          <C5ProgramNotices notices={notices} />
           <div className="mt-6">
             <C5TodaysRehabCard state={state} />
           </div>

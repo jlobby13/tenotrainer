@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { requireClinicianForRoute, prescriptionDraftErrorResponse } from "@/lib/prescriptionDraftHttp";
 import { publishDraft } from "@/lib/prescriptionDraftServer";
 
-// POST — publishDraft. High-consequence (PG + synchronous legacy check)
+// POST — publishDraft. High-consequence (Postgres assignment check)
 // AND feature-gated (C5_PRESCRIPTION_PUBLISH_ENABLED) — both enforced
 // inside publishDraft()/assertPublishEnabled(), never only by omitting a
 // UI button. This is deliberately the "clinician-facing publish route"

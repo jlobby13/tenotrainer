@@ -1,11 +1,12 @@
 import { loginAction } from "./actions";
+import { safeInternalPath } from "@/lib/safeRedirect";
 
 export const metadata = { title: "Log In — TenoTrainer" };
 
-type Props = { searchParams: Promise<{ error?: string; email?: string; next?: string }> };
+type Props = { searchParams: Promise<{ error?: string; email?: string; next?: string; notice?: string }> };
 
 export default async function LoginPage({ searchParams }: Props) {
-  const { error, email, next } = await searchParams;
+  const { error, email, next, notice } = await searchParams;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
@@ -22,6 +23,12 @@ export default async function LoginPage({ searchParams }: Props) {
             Access your rehab plan and progress tracking.
           </p>
 
+          {notice === "invitation_required" && (
+            <div className="bg-gray-50 border border-gray-200 text-gray-700 text-sm rounded-lg px-4 py-3 mb-5" data-testid="invitation-required">
+              TenoTrainer currently requires an invitation. If you&apos;ve been invited, use the link in your invitation email.
+            </div>
+          )}
+
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 mb-5">
               {error}
@@ -29,7 +36,7 @@ export default async function LoginPage({ searchParams }: Props) {
           )}
 
           <form action={loginAction} className="space-y-4">
-            <input type="hidden" name="next" value={next ?? "/dashboard"} />
+            <input type="hidden" name="next" value={safeInternalPath(next, "/dashboard")} />
 
             <div>
               <label
@@ -74,13 +81,6 @@ export default async function LoginPage({ searchParams }: Props) {
               Log in
             </button>
           </form>
-
-          <p className="mt-5 text-center text-sm text-gray-500">
-            Don&apos;t have an account?{" "}
-            <a href="/register" className="text-brand-600 font-medium hover:underline">
-              Create one
-            </a>
-          </p>
         </div>
       </div>
     </div>

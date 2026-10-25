@@ -13,7 +13,7 @@ DECLARE
   v_patient1 UUID;
   v_patient2 UUID;
   v_clinician UUID := '44197ef7-7421-47ed-a164-75d2765fc019';
-  v_other_clinician UUID := '53eaa2d2-b526-4d01-aa5b-033bff88dd46';
+  v_other_clinician UUID;
 
   v_ex_active UUID;
   v_ex_archived UUID;
@@ -39,29 +39,30 @@ BEGIN
   -- prescription/draft in this shared project (C5.4 closeout found one) is
   -- skipped rather than having their data touched. Throwaway verification
   -- users (@example.invalid) are excluded: concurrent suites delete them.
-  SELECT u.id INTO v_patient1 FROM auth.users u
-  WHERE u.id NOT IN (v_clinician, v_other_clinician)
-    AND coalesce(u.email, '') NOT LIKE '%@example.invalid'
-    AND NOT EXISTS (SELECT 1 FROM patient_prescriptions pp WHERE pp.patient_id = u.id)
-    AND NOT EXISTS (SELECT 1 FROM prescription_versions pv WHERE pv.user_id = u.id)
-    AND NOT EXISTS (SELECT 1 FROM supervisor_patients sp WHERE sp.patient_id = u.id AND sp.supervisor_id IN (v_clinician, v_other_clinician))
-  ORDER BY (u.id = 'dc12a11e-39b7-47eb-886d-1b90f94c1cbb') DESC, u.created_at, u.id
-  LIMIT 1;
-  SELECT u.id INTO v_patient2 FROM auth.users u
-  WHERE u.id NOT IN (v_clinician, v_other_clinician, v_patient1)
-    AND coalesce(u.email, '') NOT LIKE '%@example.invalid'
-    AND NOT EXISTS (SELECT 1 FROM patient_prescriptions pp WHERE pp.patient_id = u.id)
-    AND NOT EXISTS (SELECT 1 FROM prescription_versions pv WHERE pv.user_id = u.id)
-    AND NOT EXISTS (SELECT 1 FROM supervisor_patients sp WHERE sp.patient_id = u.id AND sp.supervisor_id IN (v_clinician, v_other_clinician))
-  ORDER BY (u.id = '6017c6ee-df39-412c-8037-2a522f0b3b46') DESC, u.created_at, u.id
-  LIMIT 1;
+  -- M2: throwaway in-transaction user(s) (rolled back). An assignment's patient
+  -- must never be a staff account, and an assignment's clinician must hold a
+  -- clinician role in its organization; the shared project has no spare real
+  -- non-staff account to borrow.
+  v_other_clinician := gen_random_uuid();
+  INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
+  VALUES (v_other_clinician, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'verify-' || v_other_clinician || '@example.invalid', '', now(), now(), now(), '{}', '{}');
+  v_patient1 := gen_random_uuid();
+  INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
+  VALUES (v_patient1, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'verify-' || v_patient1 || '@example.invalid', '', now(), now(), now(), '{}', '{}');
+  v_patient2 := gen_random_uuid();
+  INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
+  VALUES (v_patient2, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'verify-' || v_patient2 || '@example.invalid', '', now(), now(), now(), '{}', '{}');
   IF v_patient1 IS NULL OR v_patient2 IS NULL THEN
     RAISE EXCEPTION 'C5.3 verify setup: need two auth.users with no prescription state';
   END IF;
 
   -- ---- setup: temporary supervision relationships (rolled back) ----
+  -- M2: an assignment requires the clinician's clinician-role membership in its organization.
+  INSERT INTO organization_members (organization_id, user_id, role) VALUES ('07f342fd-075c-42b5-a885-30ca64953d46', v_clinician, 'clinician') ON CONFLICT (organization_id, user_id) DO NOTHING;
   INSERT INTO supervisor_patients (supervisor_id, patient_id, status) VALUES (v_clinician, v_patient1, 'active');
   INSERT INTO supervisor_patients (supervisor_id, patient_id, status) VALUES (v_clinician, v_patient2, 'active');
+  -- M2: an assignment requires the clinician's clinician-role membership in its organization.
+  INSERT INTO organization_members (organization_id, user_id, role) VALUES ('07f342fd-075c-42b5-a885-30ca64953d46', v_other_clinician, 'clinician') ON CONFLICT (organization_id, user_id) DO NOTHING;
   INSERT INTO supervisor_patients (supervisor_id, patient_id, status) VALUES (v_other_clinician, v_patient1, 'active');
 
   -- prior clinical state (stage/irritability/is_insertional carry-forward

@@ -1,89 +1,27 @@
 import "server-only";
 
-// C5.3 — high-consequence clinician-write authorization (C5.3A §4-5,
-// LOCKED in C5.3B decision 1). Every one of: create prescription draft,
-// publish, pause, resume MUST call verifyHighConsequenceAuthorization()
-// before any mutation. Draft micro-edits (add/reorder/remove workout or
-// exercise, dosage edits on an already-open draft) continue to use the
-// lower-consequence assertSupervises() from clinicianAuth.ts, per the
-// approved audit — do not upgrade those to this check without a founder
-// decision, and do not downgrade any of the four high-consequence
-// operations to assertSupervises() alone.
+// High-consequence clinician-write authorization. Every one of: create
+// prescription draft, publish, pause, resume and the M1 professional-review
+// release MUST call verifyHighConsequenceAuthorization() before any
+// mutation, and each of those database functions re-checks the active
+// assignment inside its own transaction (so a revocation is effective at
+// action time).
 //
-// FAIL CLOSED, no exceptions: inactive relationship, unresolvable
-// identity, missing bridge secret, network error, timeout, non-2xx
-// response, or a malformed body are ALL treated identically — the caller
-// only ever sees PATIENT_NOT_AUTHORIZED, never which of these occurred.
-// There is deliberately no PG-only fallback path anywhere in this
-// function; the Postgres check and the legacy check are both mandatory.
+// M2 — Postgres is the sole assignment authority. The former synchronous
+// FastAPI/SQLite re-check (/api/internal/supervisor-status) is removed: it
+// only ever re-confirmed the legacy SQLite assignment fact that Postgres
+// mirrored, and SQLite is no longer authoritative. It is deliberately NOT
+// recreated anywhere. The check is the shared clinician_patient_access()
+// primitive (assertSupervises): authenticated clinician + clinician role in
+// the assignment's organization + active assignment.
+//
+// FAIL CLOSED: any failure is PATIENT_NOT_AUTHORIZED, never a distinct code.
 
-import { createServiceRoleClient } from "./supabase/server";
+import { assertSupervises } from "./clinicianAuth";
 import { PrescriptionDraftError } from "./prescriptionDraftErrors";
 
-const LEGACY_CHECK_TIMEOUT_MS = 5000;
-const FASTAPI_URL = process.env.FASTAPI_URL ?? "http://localhost:8000";
-
 export async function verifyHighConsequenceAuthorization(clinicianId: string, patientId: string): Promise<void> {
-  const supabase = createServiceRoleClient();
-
-  // 1. Existing Postgres relationship check (necessary, not sufficient).
-  const { data: pgRow, error: pgError } = await supabase
-    .from("supervisor_patients")
-    .select("id")
-    .eq("supervisor_id", clinicianId)
-    .eq("patient_id", patientId)
-    .eq("status", "active")
-    .maybeSingle();
-  if (pgError || !pgRow) {
-    throw new PrescriptionDraftError("PATIENT_NOT_AUTHORIZED");
-  }
-
-  // 2. Resolve both identities to email — the legacy system has no concept
-  // of a Supabase UUID and can only be queried by the same email-bridge
-  // convention already established by the C1A sync route.
-  const bridgeSecret = process.env.BRIDGE_SECRET;
-  const [clinicianUser, patientUser] = await Promise.all([
-    supabase.auth.admin.getUserById(clinicianId),
-    supabase.auth.admin.getUserById(patientId),
-  ]);
-  const supervisorEmail = clinicianUser.data.user?.email;
-  const patientEmail = patientUser.data.user?.email;
-  if (!bridgeSecret || !supervisorEmail || !patientEmail) {
-    console.error("verifyHighConsequenceAuthorization: cannot resolve identity/bridge secret for the legacy check — blocking (fail closed).");
-    throw new PrescriptionDraftError("PATIENT_NOT_AUTHORIZED");
-  }
-
-  // 3. Synchronous authoritative legacy re-check. Any failure to
-  // positively confirm "active" blocks the mutation.
-  let legacyActive = false;
-  try {
-    const controller = new AbortController();
-    const timeoutHandle = setTimeout(() => controller.abort(), LEGACY_CHECK_TIMEOUT_MS);
-    const url = new URL("/api/internal/supervisor-status", FASTAPI_URL);
-    url.searchParams.set("supervisor_email", supervisorEmail);
-    url.searchParams.set("patient_email", patientEmail);
-    let response: Response;
-    try {
-      response = await fetch(url, {
-        headers: { Authorization: `Bearer ${bridgeSecret}` },
-        signal: controller.signal,
-      });
-    } finally {
-      clearTimeout(timeoutHandle);
-    }
-    if (!response.ok) {
-      console.error(`verifyHighConsequenceAuthorization: legacy check returned HTTP ${response.status} — blocking (fail closed).`);
-      throw new PrescriptionDraftError("PATIENT_NOT_AUTHORIZED");
-    }
-    const body: unknown = await response.json();
-    legacyActive = typeof body === "object" && body !== null && (body as { active?: unknown }).active === true;
-  } catch (err) {
-    if (err instanceof PrescriptionDraftError) throw err;
-    console.error("verifyHighConsequenceAuthorization: legacy check unreachable or timed out — blocking (fail closed).", err);
-    throw new PrescriptionDraftError("PATIENT_NOT_AUTHORIZED");
-  }
-
-  if (!legacyActive) {
+  if (!(await assertSupervises(clinicianId, patientId))) {
     throw new PrescriptionDraftError("PATIENT_NOT_AUTHORIZED");
   }
 }

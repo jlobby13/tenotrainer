@@ -22,14 +22,9 @@ export type ClinicianAuth = {
 // LOCKED (founder decision): explicit allowlist, never permissive-by-
 // omission. super_user is deliberately EXCLUDED — administrative privilege
 // never implies clinician-route access on its own. A super_user who is
-// ALSO a clinician/clinician_admin via a separate membership role gets in
-// because of THAT role, not because of super_user status; today's role
-// model only carries one role per (user, org) membership row, and
-// `getSessionInfo()` surfaces only the first membership — so a super_user
-// cannot currently ALSO present as clinician in the same request. That is
-// the exact "future permission-model question" flagged for the founder
-// (see the C1A report) rather than silently worked around here.
-const CLINICIAN_ROLES: ReadonlySet<string> = new Set<ClinicianRole>(["clinician", "clinician_admin"]);
+// ALSO a clinician/clinician_admin via a separate membership (another
+// organization) gets in because of THAT role, not because of super_user
+// status — one role per (user, organization) membership row.
 
 // Redirects (never throws) — every clinician route calls this first, before
 // touching any patient data. Unauthenticated -> /login. Authenticated but
@@ -39,10 +34,20 @@ export async function requireClinicianAuth(): Promise<ClinicianAuth> {
   const session = await getSessionInfo();
   if (!session.user) redirect("/login");
 
-  const role = session.memberships[0]?.role;
-  if (!role || !CLINICIAN_ROLES.has(role)) redirect("/dashboard");
+  const role = clinicianRoleOf(session.memberships);
+  if (!role) redirect("/dashboard");
 
-  return { clinicianId: session.user.id, role: role as ClinicianRole };
+  return { clinicianId: session.user.id, role };
+}
+
+// M2 — the clinician role is read from ANY of the user's memberships, never
+// from memberships[0]. This only answers "is this a clinician at all"; which
+// patients they may touch is decided per patient by assertSupervises(),
+// against the organization the assignment belongs to.
+function clinicianRoleOf(memberships: { role: string }[]): ClinicianRole | null {
+  if (memberships.some((m) => m.role === "clinician_admin")) return "clinician_admin";
+  if (memberships.some((m) => m.role === "clinician")) return "clinician";
+  return null;
 }
 
 // LOCKED canonical active-supervision predicate — the ONLY thing that
@@ -53,6 +58,14 @@ export async function requireClinicianAuth(): Promise<ClinicianAuth> {
 // happen only after this call succeeds, using helpers that do not enforce
 // authorization themselves.
 //
+// M2 — Postgres is the sole assignment authority. clinician_patient_access()
+// (20261025000001) is TRUE only for an ACTIVE assignment of this clinician
+// to this patient in an organization where the clinician holds a
+// clinician/clinician_admin membership. Every clinician read and write —
+// including the high-consequence ones (prescriptionDraftAuth.ts) — goes
+// through this one function; the database functions re-check the active
+// assignment inside their own transactions.
+//
 // Fails CLOSED: any error (including a malformed `patientId` that isn't
 // valid UUID syntax — Postgres would otherwise raise a type-cast error)
 // is treated as "not supervised," not surfaced as a distinct failure mode.
@@ -61,15 +74,12 @@ export async function requireClinicianAuth(): Promise<ClinicianAuth> {
 // to a real patient, or to a patient supervised by someone else).
 export async function assertSupervises(clinicianId: string, patientId: string): Promise<boolean> {
   const supabase = createServiceRoleClient();
-  const { data, error } = await supabase
-    .from("supervisor_patients")
-    .select("id")
-    .eq("supervisor_id", clinicianId)
-    .eq("patient_id", patientId)
-    .eq("status", "active")
-    .maybeSingle();
+  const { data, error } = await supabase.rpc("clinician_patient_access", {
+    p_clinician_id: clinicianId,
+    p_patient_id: patientId,
+  });
   if (error) return false;
-  return data != null;
+  return data === true;
 }
 
 export type ClinicianAuthResult =
@@ -85,8 +95,8 @@ export async function requireClinicianAuthForRoute(): Promise<ClinicianAuthResul
   const session = await getSessionInfo();
   if (!session.user) return { ok: false, reason: "UNAUTHENTICATED" };
 
-  const role = session.memberships[0]?.role;
-  if (!role || !CLINICIAN_ROLES.has(role)) return { ok: false, reason: "CLINICIAN_ROLE_REQUIRED" };
+  const role = clinicianRoleOf(session.memberships);
+  if (!role) return { ok: false, reason: "CLINICIAN_ROLE_REQUIRED" };
 
-  return { ok: true, clinicianId: session.user.id, role: role as ClinicianRole };
+  return { ok: true, clinicianId: session.user.id, role };
 }

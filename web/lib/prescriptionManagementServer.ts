@@ -16,6 +16,8 @@ export type PrescriptionManagementState = {
   // null = no patient_prescriptions row exists yet (never had a prescription
   // or draft) — distinct from 'active' (a real, if empty, row).
   operationalStatus: "active" | "paused" | null;
+  // M2 — pause context for the Program controls (null unless paused).
+  pause: { pausedAt: string | null; pausedByName: string | null } | null;
   hasActivePrescription: boolean;
   activeSummary: { versionId: string; versionNumber: number; stage: number; publishedAt: string } | null;
   draft: {
@@ -35,12 +37,12 @@ export async function getPrescriptionManagementState(params: { clinicianId: stri
 
   const { data: pp } = await supabase
     .from("patient_prescriptions")
-    .select("id, operational_status, current_prescription_version_id")
+    .select("id, operational_status, current_prescription_version_id, paused_at, paused_by")
     .eq("patient_id", params.patientId)
     .maybeSingle();
 
   if (!pp) {
-    return { operationalStatus: null, hasActivePrescription: false, activeSummary: null, draft: null };
+    return { operationalStatus: null, pause: null, hasActivePrescription: false, activeSummary: null, draft: null };
   }
 
   let activeSummary: PrescriptionManagementState["activeSummary"] = null;
@@ -83,8 +85,17 @@ export async function getPrescriptionManagementState(params: { clinicianId: stri
     };
   }
 
+  let pause: PrescriptionManagementState["pause"] = null;
+  if (pp.operational_status === "paused") {
+    const { data: pauser } = pp.paused_by
+      ? await supabase.from("profiles").select("name").eq("id", pp.paused_by).maybeSingle()
+      : { data: null };
+    pause = { pausedAt: (pp.paused_at as string | null) ?? null, pausedByName: ((pauser?.name as string | undefined) ?? "").trim() || null };
+  }
+
   return {
     operationalStatus: pp.operational_status as "active" | "paused",
+    pause,
     hasActivePrescription: !!pp.current_prescription_version_id,
     activeSummary,
     draft,

@@ -338,16 +338,12 @@ function fmtRow(r) {
 // script that decides whether a write happens.
 const WRITE_MODE = process.argv.includes("--write");
 
-async function writeApprovedRelationships(eligibleRows) {
-  if (eligibleRows.length === 0) {
-    console.log("\nNo eligible relationships to write.");
-    return { written: 0 };
-  }
-  const payload = eligibleRows.map(buildUpsertPayload);
-  const { error } = await admin.from("supervisor_patients").upsert(payload, { onConflict: "supervisor_id,patient_id" });
-  if (error) throw new Error(`Write failed: ${error.message}`);
-  console.log(`\nWROTE ${payload.length} relationship(s) to Postgres supervisor_patients (idempotent upsert on supervisor_id,patient_id).`);
-  return { written: payload.length };
+// M2 — RETIRED. Postgres is the authoritative assignment record; legacy
+// SQLite relationships must never be written over it (the old upsert target,
+// UNIQUE (supervisor_id, patient_id), no longer exists either). Dry-run
+// reporting still works; --write refuses.
+async function writeApprovedRelationships() {
+  throw new Error("RETIRED (M2): Postgres supervisor_patients is authoritative; the legacy backfill --write path is disabled.");
 }
 
 async function main() {

@@ -106,16 +106,19 @@ async function main() {
     // clinicianA supervises patientActive (active) and patientDismissed (dismissed).
     const { error: relError } = await admin.from("supervisor_patients").insert([
       { supervisor_id: clinicianA.userId, patient_id: patientActive.userId, status: "active" },
-      {
-        supervisor_id: clinicianA.userId,
-        patient_id: patientDismissed.userId,
-        status: "dismissed",
-        dismissed_at: new Date().toISOString(),
-        dismissed_reason: "goals_achieved",
-        dismissed_by: clinicianA.userId,
-      },
+      // M2: an assignment period always starts active; it is ended below.
+      { supervisor_id: clinicianA.userId, patient_id: patientDismissed.userId, status: "active" },
     ]);
     if (relError) throw relError;
+    {
+      // M2: end patientDismissed's period (the only way a row becomes dismissed).
+      const { error: endError } = await admin
+        .from("supervisor_patients")
+        .update({ status: "dismissed", dismissed_at: new Date().toISOString(), dismissed_reason: "goals_achieved", dismissed_by: clinicianA.userId })
+        .eq("supervisor_id", clinicianA.userId)
+        .eq("patient_id", patientDismissed.userId);
+      if (endError) throw endError;
+    }
 
     await admin.from("prescription_versions").insert({ user_id: patientActive.userId, stage: 2, irritability: "moderate", is_insertional: false, source: "onboarding" });
 
@@ -197,66 +200,25 @@ async function main() {
       });
       check("sync endpoint rejects wrong bridge secret", badAuthRes.status() === 401, `status ${badAuthRes.status()}`);
 
-      const unresolvableRes = await syncCtx.request.post(`${BASE_URL}/api/internal/supervisor-patients-sync`, {
-        headers: { Authorization: `Bearer ${BRIDGE_SECRET}` },
-        data: { status: "active", supervisor: { email: clinicianA.email }, patient: { email: "no-such-user@example.invalid" } },
-      });
-      check("sync endpoint rejects an unresolvable patient identity (422, never guessed)", unresolvableRes.status() === 422, `status ${unresolvableRes.status()}`);
-
-      // Dismiss clinicianA<->patientActive via the sync endpoint (mirrors
-      // what app/supervisor.py's dismiss handler would send), then reinstate —
-      // exercises the exact contract without touching the founder's own data.
+      // M2: the legacy -> Postgres sync WRITE path is retired. Postgres is the
+      // authoritative assignment record, so even a correctly authenticated
+      // dismiss/reinstate call answers 410 and changes nothing.
+      const before = await admin.from("supervisor_patients").select("id, status").eq("supervisor_id", clinicianA.userId).eq("patient_id", patientActive.userId);
       const dismissSyncRes = await syncCtx.request.post(`${BASE_URL}/api/internal/supervisor-patients-sync`, {
-        headers: { Authorization: `Bearer ${BRIDGE_SECRET}` },
-        data: {
-          status: "dismissed",
-          supervisor: { email: clinicianA.email },
-          patient: { email: patientActive.email },
-          dismissedAt: new Date().toISOString(),
-          dismissedReason: "non_compliance",
-        },
-      });
-      check("sync endpoint dismiss call succeeds", dismissSyncRes.ok(), `status ${dismissSyncRes.status()}: ${await dismissSyncRes.text().catch(() => "")}`);
-
-      const { data: afterDismiss } = await admin
-        .from("supervisor_patients")
-        .select("status, dismissed_reason")
-        .eq("supervisor_id", clinicianA.userId)
-        .eq("patient_id", patientActive.userId)
-        .maybeSingle();
-      check("dismiss sync correctly wrote status=dismissed with reason", afterDismiss?.status === "dismissed" && afterDismiss?.dismissed_reason === "non_compliance", JSON.stringify(afterDismiss));
-
-      // Retrying dismiss/reinstate confirms idempotency at the endpoint level.
-      const dismissAgainRes = await syncCtx.request.post(`${BASE_URL}/api/internal/supervisor-patients-sync`, {
         headers: { Authorization: `Bearer ${BRIDGE_SECRET}` },
         data: { status: "dismissed", supervisor: { email: clinicianA.email }, patient: { email: patientActive.email }, dismissedAt: new Date().toISOString(), dismissedReason: "non_compliance" },
       });
-      check("repeat dismiss sync call remains idempotent (still succeeds, no duplicate row)", dismissAgainRes.ok(), `status ${dismissAgainRes.status()}`);
-
+      check("M2: authenticated legacy dismiss sync is retired (410)", dismissSyncRes.status() === 410, `status ${dismissSyncRes.status()}`);
       const reinstateSyncRes = await syncCtx.request.post(`${BASE_URL}/api/internal/supervisor-patients-sync`, {
         headers: { Authorization: `Bearer ${BRIDGE_SECRET}` },
-        data: { status: "active", supervisor: { email: clinicianA.email }, patient: { email: patientActive.email } },
+        data: { status: "active", supervisor: { email: clinicianA.email }, patient: { email: patientDismissed.email } },
       });
-      check("sync endpoint reinstate call succeeds", reinstateSyncRes.ok(), `status ${reinstateSyncRes.status()}`);
-
-      const { data: afterReinstate } = await admin
-        .from("supervisor_patients")
-        .select("status, dismissed_at, dismissed_reason, dismissed_by")
-        .eq("supervisor_id", clinicianA.userId)
-        .eq("patient_id", patientActive.userId)
-        .maybeSingle();
-      check(
-        "reinstate sync correctly clears status to active and NULLs dismissal fields",
-        afterReinstate?.status === "active" && afterReinstate?.dismissed_at === null && afterReinstate?.dismissed_reason === null && afterReinstate?.dismissed_by === null,
-        JSON.stringify(afterReinstate)
-      );
-
-      const { count: relCountCheck } = await admin
-        .from("supervisor_patients")
-        .select("id", { count: "exact", head: true })
-        .eq("supervisor_id", clinicianA.userId)
-        .eq("patient_id", patientActive.userId);
-      check("exactly one relationship row exists — no duplicates created by repeated sync calls", relCountCheck === 1, `count=${relCountCheck}`);
+      check("M2: authenticated legacy reinstate sync is retired (410)", reinstateSyncRes.status() === 410, `status ${reinstateSyncRes.status()}`);
+      const after = await admin.from("supervisor_patients").select("id, status").eq("supervisor_id", clinicianA.userId).eq("patient_id", patientActive.userId);
+      const dismissedAfter = await admin.from("supervisor_patients").select("status").eq("supervisor_id", clinicianA.userId).eq("patient_id", patientDismissed.userId);
+      check("M2: native assignment truth unchanged by legacy sync calls",
+        JSON.stringify(after.data) === JSON.stringify(before.data) && after.data?.[0]?.status === "active" && dismissedAfter.data?.length === 1 && dismissedAfter.data[0].status === "dismissed",
+        JSON.stringify({ before: before.data, after: after.data, dismissedAfter: dismissedAfter.data }));
 
       await syncCtx.close();
     }

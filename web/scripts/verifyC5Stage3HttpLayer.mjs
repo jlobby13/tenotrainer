@@ -94,7 +94,7 @@ async function main() {
   const clinician1 = await makeUser("owner");
   const clinician2 = await makeUser("other");
   const patient1 = await makeUser("patient"); // has BOTH PG and legacy active relationships -> full positive path
-  const patient2 = await makeUser("patient-pg-only"); // PG-only relationship, no legacy row -> fail-closed path
+  const patient2 = await makeUser("patient-pg-only"); // PG-only relationship, no legacy row (M2: sufficient)
   let patientPrescriptionId = null;
   let legacyClinicianId = null;
   let legacyPatientId = null;
@@ -150,19 +150,21 @@ async function main() {
       const anonBody = await anonResp.json().catch(() => ({}));
       check("unauthenticated body carries an auth-denial code (proxy.ts's own, ahead of our route)", anonBody.error === "Unauthorized", JSON.stringify(anonBody));
 
-      // --- createDraft against a PG-only relationship (no legacy SQLite
-      // counterpart) MUST fail closed, even though the PG mirror itself
-      // says active — proves there is no PG-only fallback path. ---
+      // --- M2: Postgres is the sole assignment authority. A PG-only
+      // relationship (no legacy SQLite counterpart) is now sufficient — the
+      // C5.3 mandatory legacy re-check was removed, never replaced by a
+      // fallback. (Refusal without an active Postgres assignment is covered
+      // by the cross-clinician checks below and by verifyM2NativeOnboarding*.) ---
       const pgOnlyResp = await ctxOwner.request.post(`${BASE_URL}/api/clinician/patients/${patient2.userId}/prescription-drafts`, {
         data: { source: "empty" },
       });
       check(
-        "createDraft against PG-only relationship -> 403 PATIENT_NOT_AUTHORIZED (fail closed, no PG-only fallback)",
-        pgOnlyResp.status() === 403,
+        "M2: createDraft against a PG-only relationship -> 201 (Postgres is the authority; no legacy check)",
+        pgOnlyResp.status() === 201,
         `got ${pgOnlyResp.status()}: ${await pgOnlyResp.text()}`
       );
       const pgOnlyBody = await pgOnlyResp.json().catch(() => ({}));
-      check("PG-only fail-closed body carries PATIENT_NOT_AUTHORIZED", pgOnlyBody.error === "PATIENT_NOT_AUTHORIZED", JSON.stringify(pgOnlyBody));
+      check("M2: PG-only createDraft returns the new draft id", typeof pgOnlyBody.draftId === "string", JSON.stringify(pgOnlyBody));
 
       // --- createDraft (owner, patient1 — has BOTH PG and legacy active) ---
       const createResp = await ctxOwner.request.post(`${BASE_URL}/api/clinician/patients/${patient1.userId}/prescription-drafts`, {
@@ -225,11 +227,11 @@ async function main() {
       const resumeResp = await ctxOwner.request.post(`${BASE_URL}/api/clinician/patients/${patient1.userId}/prescription/resume`);
       check("resume with real legacy relationship -> 200", resumeResp.status() === 200, `got ${resumeResp.status()}: ${await resumeResp.text()}`);
 
-      // --- pause against the PG-only patient2 -> fail closed, same as createDraft above ---
+      // --- M2: pause against the PG-only patient2 is authorized by Postgres alone ---
       const pausePgOnlyResp = await ctxOwner.request.post(`${BASE_URL}/api/clinician/patients/${patient2.userId}/prescription/pause`);
       check(
-        "pause against PG-only relationship -> 403 PATIENT_NOT_AUTHORIZED (fail closed)",
-        pausePgOnlyResp.status() === 403,
+        "M2: pause against a PG-only relationship -> 200 (Postgres is the authority)",
+        pausePgOnlyResp.status() === 200,
         `got ${pausePgOnlyResp.status()}: ${await pausePgOnlyResp.text()}`
       );
 
@@ -246,16 +248,24 @@ async function main() {
   } finally {
     // Teardown — deleting patient_prescriptions cascades to
     // drafts/workouts/exercises/dosage/sequence_state/notifications.
+    // Pause/resume notifications reference patient_prescriptions (no cascade).
+    await admin.from("notifications").delete().in("patient_id", [patient1.userId, patient2.userId]);
     if (patientPrescriptionId) {
-      await admin.from("patient_prescriptions").delete().eq("id", patientPrescriptionId);
+      const { error } = await admin.from("patient_prescriptions").delete().eq("id", patientPrescriptionId);
+      if (error) console.log(`teardown: patient1 prescription delete: ${error.message}`);
+    }
+    // M2: the PG-only patient2 now gets a real draft + pause too.
+    {
+      const { error } = await admin.from("patient_prescriptions").delete().eq("patient_id", patient2.userId);
+      if (error) console.log(`teardown: patient2 prescription delete: ${error.message}`);
     }
     await admin.from("supervisor_patients").delete().in("patient_id", [patient1.userId, patient2.userId]);
     await admin.from("organization_members").delete().in("user_id", [clinician1.userId, clinician2.userId, patient1.userId, patient2.userId]);
     await admin.from("profiles").delete().in("id", [clinician1.userId, clinician2.userId, patient1.userId, patient2.userId]);
-    await admin.auth.admin.deleteUser(clinician1.userId);
-    await admin.auth.admin.deleteUser(clinician2.userId);
-    await admin.auth.admin.deleteUser(patient1.userId);
-    await admin.auth.admin.deleteUser(patient2.userId);
+    for (const u of [clinician1, clinician2, patient1, patient2]) {
+      const { error } = await admin.auth.admin.deleteUser(u.userId);
+      if (error) console.log(`teardown: could not delete ${u.email}: ${error.message}`);
+    }
 
     const legacyDbTeardown = new DatabaseSync(LEGACY_DB_PATH);
     try {

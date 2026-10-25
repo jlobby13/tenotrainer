@@ -7,6 +7,7 @@ CREATE TEMP TABLE verify_results (seq SERIAL PRIMARY KEY, result TEXT);
 DO $verify$
 DECLARE
   v_clinician UUID := '44197ef7-7421-47ed-a164-75d2765fc019';
+  v_patient UUID;
   v_ex_active UUID;
   v_template0_id UUID; -- zero focuses
   v_template1_id UUID; -- one focus
@@ -18,7 +19,16 @@ DECLARE
   v_pass INT := 0;
   v_fail INT := 0;
 BEGIN
-  INSERT INTO supervisor_patients (supervisor_id, patient_id, status) VALUES (v_clinician, 'dc12a11e-39b7-47eb-886d-1b90f94c1cbb'::uuid, 'active');
+  -- M2: throwaway in-transaction user(s) (rolled back). An assignment's patient
+  -- must never be a staff account, and an assignment's clinician must hold a
+  -- clinician role in its organization; the shared project has no spare real
+  -- non-staff account to borrow.
+  v_patient := gen_random_uuid();
+  INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
+  VALUES (v_patient, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'verify-' || v_patient || '@example.invalid', '', now(), now(), now(), '{}', '{}');
+  -- M2: an assignment requires the clinician's clinician-role membership in its organization.
+  INSERT INTO organization_members (organization_id, user_id, role) VALUES ('07f342fd-075c-42b5-a885-30ca64953d46', v_clinician, 'clinician') ON CONFLICT (organization_id, user_id) DO NOTHING;
+  INSERT INTO supervisor_patients (supervisor_id, patient_id, status) VALUES (v_clinician, v_patient, 'active');
   INSERT INTO canonical_exercises (name, visibility, active) VALUES ('TPF verify exercise', 'global', true) RETURNING id INTO v_ex_active;
 
   -- --- template with ZERO performance focuses ---
@@ -58,7 +68,7 @@ BEGIN
   END;
 
   -- --- copy: zero focuses ---
-  v_draft_id := create_prescription_draft('dc12a11e-39b7-47eb-886d-1b90f94c1cbb'::uuid, v_clinician, 'from_template', NULL, v_template0_id);
+  v_draft_id := create_prescription_draft(v_patient, v_clinician, 'from_template', NULL, v_template0_id);
   IF NOT EXISTS (SELECT 1 FROM prescription_draft_performance_focus WHERE prescription_draft_id = v_draft_id) THEN
     INSERT INTO verify_results(result) VALUES ('PASS: template with zero focuses copies zero draft focus rows'); v_pass := v_pass + 1;
   ELSE
@@ -67,7 +77,7 @@ BEGIN
   UPDATE prescription_drafts SET status = 'discarded' WHERE id = v_draft_id;
 
   -- --- copy: one focus ---
-  v_draft_id := create_prescription_draft('dc12a11e-39b7-47eb-886d-1b90f94c1cbb'::uuid, v_clinician, 'from_template', NULL, v_template1_id);
+  v_draft_id := create_prescription_draft(v_patient, v_clinician, 'from_template', NULL, v_template1_id);
   IF (SELECT array_agg(focus ORDER BY focus) FROM prescription_draft_performance_focus WHERE prescription_draft_id = v_draft_id) = ARRAY['strength_development'] THEN
     INSERT INTO verify_results(result) VALUES ('PASS: template with one focus copies exactly that one focus'); v_pass := v_pass + 1;
   ELSE
@@ -76,7 +86,7 @@ BEGIN
   UPDATE prescription_drafts SET status = 'discarded' WHERE id = v_draft_id;
 
   -- --- copy: multiple focuses ---
-  v_draft_id := create_prescription_draft('dc12a11e-39b7-47eb-886d-1b90f94c1cbb'::uuid, v_clinician, 'from_template', NULL, v_templateN_id);
+  v_draft_id := create_prescription_draft(v_patient, v_clinician, 'from_template', NULL, v_templateN_id);
   IF (SELECT array_agg(focus ORDER BY focus) FROM prescription_draft_performance_focus WHERE prescription_draft_id = v_draft_id)
      = ARRAY['energy_storage','maintenance','strength_development'] THEN
     INSERT INTO verify_results(result) VALUES ('PASS: template with multiple focuses copies all of them correctly'); v_pass := v_pass + 1;

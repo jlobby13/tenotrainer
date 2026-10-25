@@ -16,7 +16,7 @@ export const metadata = { title: "Clinician Dashboard — TenoTrainer" };
 // composite "needs attention"/risk/priority score — each status is an
 // independent, factual badge.
 export default async function ClinicianDashboardPage() {
-  const { clinicianId } = await requireClinicianAuth();
+  const { clinicianId, role } = await requireClinicianAuth();
   const roster = await getClinicianRoster(clinicianId);
   const now = new Date();
 
@@ -24,7 +24,17 @@ export default async function ClinicianDashboardPage() {
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
         <span className="text-xl font-bold text-brand-600">TenoTrainer</span>
-        <span className="text-sm text-gray-500">Clinician</span>
+        <div className="flex items-center gap-4 text-sm">
+          <Link href="/clinician/invitations" className="font-medium text-brand-700 hover:text-brand-800" data-testid="nav-invite-patient">
+            Invite patient
+          </Link>
+          {role === "clinician_admin" && (
+            <Link href="/admin/assignments" className="font-medium text-gray-600 hover:text-brand-700" data-testid="nav-assignments">
+              Assignments
+            </Link>
+          )}
+          <span className="text-gray-500">Clinician</span>
+        </div>
       </nav>
 
       <main className="max-w-5xl mx-auto px-4 py-8 lg:py-10">

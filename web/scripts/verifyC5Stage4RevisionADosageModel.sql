@@ -135,7 +135,7 @@ DECLARE
   -- Real, pre-existing auth.users ids (same fixture ids used by
   -- verifyC5Stage3DraftPublishEngine.sql) purely to satisfy FK constraints —
   -- everything here is rolled back, no clinical meaning is attached to them.
-  v_patient UUID := 'dc12a11e-39b7-47eb-886d-1b90f94c1cbb';
+  v_patient UUID;
   v_clinician UUID := '44197ef7-7421-47ed-a164-75d2765fc019';
   v_ex UUID;
   v_pp_id UUID;
@@ -150,6 +150,15 @@ DECLARE
   v_pass INT := 0;
   v_fail INT := 0;
 BEGIN
+  -- M2: throwaway in-transaction user(s) (rolled back). An assignment's patient
+  -- must never be a staff account, and an assignment's clinician must hold a
+  -- clinician role in its organization; the shared project has no spare real
+  -- non-staff account to borrow.
+  v_patient := gen_random_uuid();
+  INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
+  VALUES (v_patient, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'verify-' || v_patient || '@example.invalid', '', now(), now(), now(), '{}', '{}');
+  -- M2: an assignment requires the clinician's clinician-role membership in its organization.
+  INSERT INTO organization_members (organization_id, user_id, role) VALUES ('07f342fd-075c-42b5-a885-30ca64953d46', v_clinician, 'clinician') ON CONFLICT (organization_id, user_id) DO NOTHING;
   INSERT INTO supervisor_patients (supervisor_id, patient_id, status) VALUES (v_clinician, v_patient, 'active');
   -- prior clinical state (stage/irritability/is_insertional carry-forward
   -- source), matching the legacy onboarding shape — required by publish's
