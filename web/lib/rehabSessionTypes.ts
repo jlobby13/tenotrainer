@@ -44,6 +44,15 @@ export type PrescriptionSnapshotExercise = {
   };
 };
 
+// M1 — explicit snapshot shape handling. A legacy (pre-C5) row stores its
+// prescription_snapshot as an ARRAY of PrescriptionSnapshotExercise; a C5
+// row stores an OBJECT (c5_build_session_snapshot: { snapshot_version,
+// workout, exercises, ... }). Legacy-only readers call this and SKIP a C5
+// snapshot (null) — a C5 object is never reinterpreted as the old array.
+export function legacySnapshotExercises(raw: unknown): PrescriptionSnapshotExercise[] | null {
+  return Array.isArray(raw) ? (raw as PrescriptionSnapshotExercise[]) : null;
+}
+
 export type RehabSessionRecord = {
   id: string;
   userId: string;
@@ -161,7 +170,7 @@ export function mapRehabSessionRow(row: Record<string, unknown>): RehabSessionRe
     earlyEndReason: (row.early_end_reason as string | null) ?? null,
     startedAt: row.started_at as string,
     exercisesEndedAt: (row.exercises_ended_at as string | null) ?? null,
-    prescriptionSnapshot: (row.prescription_snapshot as PrescriptionSnapshotExercise[]) ?? [],
+    prescriptionSnapshot: legacySnapshotExercises(row.prescription_snapshot) ?? [],
     peakSessionPain: (row.peak_session_pain as number | null) ?? null,
     difficulty: (row.difficulty as Difficulty | null) ?? null,
     contributorReason: (row.contributor_reason as ContributorReason | null) ?? null,

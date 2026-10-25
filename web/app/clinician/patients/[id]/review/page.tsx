@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireClinicianAuth, assertSupervises } from "@/lib/clinicianAuth";
 import { getClinicianPatientReview } from "@/lib/clinicianPatientReviewServer";
 import { PatientNav } from "../components/PatientNav";
+import { isC5Patient } from "@/lib/clinicianC5Server";
 import { SafetySection } from "./components/SafetySection";
 import { WhatChangedSection } from "./components/WhatChangedSection";
 import { ReviewContextSection } from "./components/ReviewContextSection";
@@ -32,6 +33,8 @@ export default async function ClinicianPatientReviewPage({ params }: { params: P
 
   const review = await getClinicianPatientReview(patientId);
   if (!review) notFound();
+  // M1: a C5 patient reaches this legacy page only by URL (tab hidden, D3).
+  const c5 = await isC5Patient(patientId);
 
   const now = new Date();
 
@@ -47,8 +50,19 @@ export default async function ClinicianPatientReviewPage({ params }: { params: P
       <main className="max-w-3xl mx-auto px-4 py-8 lg:py-10 space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 mb-3">{review.displayName}</h1>
-          <PatientNav patientId={review.patientId} active="review" />
+          <PatientNav patientId={review.patientId} active="review" isC5={c5} />
         </div>
+
+        {c5 && (
+          <div className="bg-gray-100 border border-gray-200 rounded-xl p-4 text-sm text-gray-700" data-testid="legacy-interpretation-caveat">
+            Automated interpretation on this page is built only from sessions recorded by the previous training system. It does not include
+            current sessions, so the absence of a finding here says nothing about them. The current session record is under{" "}
+            <Link href={`/clinician/patients/${patientId}/sessions`} className="font-medium text-brand-600 underline">
+              Sessions
+            </Link>
+            .
+          </div>
+        )}
 
         <SafetySection active={review.acuteReviewActive} />
         <WhatChangedSection review={review} now={now} />

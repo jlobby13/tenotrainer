@@ -398,8 +398,11 @@ async function main() {
       startedAt: isoDaysAgo(3),
       prescriptionSnapshot: [exercise({ ex_id: "released_ex", name: "Released Episode Exercise" })],
     });
-    const releasedEpisodeId = await insertAcuteEpisode({ userId: patientReleasedAcute.userId, sourceRehabSessionId: releasedAcuteSessionId, confirmedAt: isoDaysAgo(3) });
-    await releaseEpisode({ episodeId: releasedEpisodeId, userId: patientReleasedAcute.userId, releasePath: "professional_clearance", releasedAt: isoDaysAgo(1) });
+    // M1: a patient-path release is only valid for an ordinary Level 3 (not a
+    // professional-review hold, e.g. > 48 h unresolved) — confirmed 1 day ago,
+    // released now (the database guard evaluates the episode as of now).
+    const releasedEpisodeId = await insertAcuteEpisode({ userId: patientReleasedAcute.userId, sourceRehabSessionId: releasedAcuteSessionId, confirmedAt: isoDaysAgo(1) });
+    await releaseEpisode({ episodeId: releasedEpisodeId, userId: patientReleasedAcute.userId, releasePath: "professional_clearance" });
 
     // --- In-progress only: exercise_outcome NULL, must be entirely excluded ---
     const inProgressId = crypto.randomUUID();

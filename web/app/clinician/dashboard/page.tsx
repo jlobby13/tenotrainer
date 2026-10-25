@@ -57,7 +57,7 @@ export default async function ClinicianDashboardPage() {
                           {patient.displayName}
                         </Link>
                       </td>
-                      <td className="px-6 py-4 text-gray-700">{formatStageLabel(patient.currentStage)}</td>
+                      <td className="px-6 py-4 text-gray-700">{patient.isC5 ? "Not recorded" : formatStageLabel(patient.currentStage)}</td>
                       <td className="px-6 py-4 text-gray-700">{formatLastSessionLabel(patient.lastSessionAt, now)}</td>
                       <td className="px-6 py-4 text-gray-700">{formatRecentActivityLabel(patient.recentSessionCount)}</td>
                       <td className="px-6 py-4">
@@ -82,7 +82,7 @@ export default async function ClinicianDashboardPage() {
                     <span className="text-sm text-gray-400 shrink-0">View &rarr;</span>
                   </div>
                   <div className="mt-2 space-y-1 text-sm text-gray-600">
-                    <div>{formatStageLabel(patient.currentStage)}</div>
+                    <div>{patient.isC5 ? "Stage not recorded" : formatStageLabel(patient.currentStage)}</div>
                     <div>{formatLastSessionLabel(patient.lastSessionAt, now)}</div>
                     <div>{formatRecentActivityLabel(patient.recentSessionCount)}</div>
                   </div>
@@ -103,13 +103,22 @@ export default async function ClinicianDashboardPage() {
 // a traffic-light composite. Absent entirely when there is nothing to
 // show (no active episode, no due/pending morning response).
 function RosterStatusBadges({ patient }: { patient: ClinicianRosterEntry }) {
-  if (!patient.acuteReviewActive && patient.morningResponseStatus === null) {
+  if (!patient.acuteReviewActive && !patient.safetyState && !patient.checkInPending && patient.morningResponseStatus === null) {
     return <span className="text-sm text-gray-300">&mdash;</span>;
   }
   return (
     <div className="flex flex-wrap gap-1.5">
-      {patient.acuteReviewActive && (
-        <span className="inline-flex items-center rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">Clinical review active</span>
+      {patient.safetyState === "clinician_release_required" ? (
+        <span className="inline-flex items-center rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">Clinician release required</span>
+      ) : patient.safetyState === "safety_check_in_pending" ? (
+        <span className="inline-flex items-center rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">Safety check-in pending</span>
+      ) : (
+        patient.acuteReviewActive && (
+          <span className="inline-flex items-center rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">Clinical review active</span>
+        )
+      )}
+      {patient.checkInPending && (
+        <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">Check-in pending</span>
       )}
       {patient.morningResponseStatus === "due" && (
         <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">Morning response due</span>

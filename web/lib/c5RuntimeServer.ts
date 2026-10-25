@@ -100,7 +100,7 @@ async function callRpc(admin: Admin, name: string, params: Json): Promise<Json> 
 // ---------------------------------------------------------------------------
 // Display mapping
 // ---------------------------------------------------------------------------
-function mapSnapshot(raw: Json | null): C5Snapshot | null {
+export function mapSnapshot(raw: Json | null): C5Snapshot | null {
   if (!raw || typeof raw !== "object") return null;
   const workout = (raw.workout ?? {}) as Json;
   const exercises = Array.isArray(raw.exercises) ? (raw.exercises as Json[]) : [];
@@ -264,6 +264,13 @@ async function readState(admin: Admin, patientId: string): Promise<C5TrainingSta
   state.weekly = mapWeekly(g.weekly);
   if (state.kind === "available") state.recovery = mapRecovery(g.recovery);
   return state;
+}
+
+// M1 — the clinician's read-only view of the same authoritative state. Never
+// reconciles (a clinician read must not write); a pending reconciliation is
+// reported as such by the eligibility result itself.
+export async function readC5TrainingStateForClinician(patientId: string): Promise<C5TrainingState> {
+  return readState(createServiceRoleClient(), patientId);
 }
 
 // THE patient-facing training-state path (dashboard + session page + API).

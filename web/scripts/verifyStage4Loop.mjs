@@ -199,6 +199,20 @@ async function completeM3(page, sessionId, { peakSessionPain, difficulty, sudden
 async function completeM4(page, { nextMorningPain, nextMorningStiffness, stiffnessDuration = null, tolerability = null }) {
   const { json: pending } = await apiGet(page, "/api/patient/rehab-session/pending-morning-response");
   const mrId = pending.morningResponse.id;
+  // Since 064ecf6 (2026-09-14, "enforce morning response eligibility") the
+  // morning response can only be FINALIZED at/after its persisted
+  // scheduled_eligible_at (409 MORNING_RESPONSE_NOT_YET_ELIGIBLE before it).
+  // These scenarios test what happens AFTER the morning check-in, so the
+  // fixture moves that persisted instant into the past — the same real
+  // write-boundary mechanism verifyM6Stage4GeneratorWiring.mjs uses. Never
+  // the browser clock, never a fabricated response; the eligibility gate
+  // itself is asserted by verifyM6Stage4GeneratorWiring.mjs.
+  const { error: dueError } = await admin
+    .from("morning_responses")
+    .update({ scheduled_eligible_at: new Date(Date.now() - 60 * 1000).toISOString() })
+    .eq("id", mrId)
+    .is("submitted_at", null);
+  if (dueError) throw dueError;
   const body = { nextMorningPain, nextMorningStiffness, finalize: true };
   if (stiffnessDuration) body.stiffnessDuration = stiffnessDuration;
   if (tolerability) body.morningPainTolerability = tolerability;

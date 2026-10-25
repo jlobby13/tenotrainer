@@ -288,7 +288,8 @@ async function main() {
     // Acute-review patient: badge present, no diagnostic detail leaked.
     {
       const text = await rowText("Ccc AcuteReviewActive");
-      check("active acute episode shows 'Clinical review active'", text.includes("Clinical review active"), text);
+      // M1 (D4): process language — an ordinary Level 3 reads "Safety check-in pending".
+      check("active acute episode shows 'Safety check-in pending' (M1 process language)", text.includes("Safety check-in pending"), text);
       check("acute badge never leaks level/trigger/diagnosis detail", !/level|rupture|pop|sudden|diagnos/i.test(text), text);
     }
 
@@ -340,7 +341,7 @@ async function main() {
     await mobilePage.waitForLoadState("networkidle");
     const mobileBody = await mobilePage.locator("body").innerText();
     check("mobile view shows the same stage fact", mobileBody.includes("Stage 4"), "Stage 4 missing on mobile");
-    check("mobile view shows the same acute badge", mobileBody.includes("Clinical review active"), "badge missing on mobile");
+    check("mobile view shows the same acute badge", mobileBody.includes("Safety check-in pending"), "badge missing on mobile");
     check("mobile view shows the same morning-response due badge", mobileBody.includes("Morning response due"), "badge missing on mobile");
     await mobileCtx.close();
 

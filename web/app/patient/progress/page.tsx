@@ -12,6 +12,9 @@ import { ProgressSummarySection } from "./components/ProgressSummarySection";
 import { SymptomsInterpretationCard } from "./components/SymptomsInterpretationCard";
 import { CapacityConstructSection } from "./components/CapacityConstructSection";
 import { TrainingResponseCard } from "./components/TrainingResponseCard";
+import { C5ProgressHistory } from "./components/C5ProgressHistory";
+import { usesC5Runtime } from "@/lib/c5RuntimeServer";
+import { listC5Sessions } from "@/lib/clinicianC5Server";
 
 export const metadata = { title: "Progress — TenoTrainer" };
 
@@ -38,6 +41,15 @@ export default async function PatientProgressPage() {
   const role = session.memberships[0]?.role ?? "member";
   if (role === "super_user") redirect("/super/dashboard");
   if (role === "clinician" || role === "clinician_admin") redirect("/clinician/dashboard");
+
+  // M1 — a patient served by the C5 runtime sees a minimal factual history
+  // of their OWN C5 sessions (identity from the session, never the client).
+  // The legacy interpretation sections below are never shown to them: they
+  // are built only from legacy sessions and would not cover C5 training.
+  if (await usesC5Runtime(authUser.id)) {
+    const { sessions } = await listC5Sessions(authUser.id, 0);
+    return <C5ProgressHistory sessions={sessions} />;
+  }
 
   const hasOrgMembership = session.memberships.length > 0;
   const [data, interpretationData] = hasOrgMembership

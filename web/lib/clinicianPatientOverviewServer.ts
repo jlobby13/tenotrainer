@@ -28,6 +28,7 @@ import { getActiveBrakeStatus } from "./acuteSafetyServer";
 import { deriveMorningResponseBadge, type RosterMorningResponseStatus } from "./clinicianRoster";
 import { buildPrescribedVsActual, type PrescribedVsActualExercise } from "./clinicianPatientOverview";
 import type { PrescriptionSnapshotExercise, ExerciseOutcome, Difficulty } from "./rehabSessionTypes";
+import { legacySnapshotExercises } from "./rehabSessionTypes";
 import type { Irritability } from "./prescriptionVersionTypes";
 import type { ToleranceClassification, ImmediateGuidance, StiffnessDuration } from "./morningResponseTypes";
 import type { ExternalLoadCategory, ExternalLoadTiming, LoadObservationProvenance } from "./sessionLoadObservations";
@@ -304,7 +305,7 @@ export async function getClinicianPatientOverview(patientId: string): Promise<Cl
       earlyEndReason: s.early_end_reason,
       difficulty: s.difficulty,
       peakSessionPain: s.peak_session_pain,
-      exercises: buildPrescribedVsActual(s.prescription_snapshot ?? [], setOutcomesBySession.get(s.id) ?? []),
+      exercises: buildPrescribedVsActual(legacySnapshotExercises(s.prescription_snapshot) ?? [], setOutcomesBySession.get(s.id) ?? []),
       morningResponseStatus,
       morningResponse: morningRow
         ? {

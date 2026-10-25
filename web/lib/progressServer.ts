@@ -18,7 +18,7 @@ import "server-only";
 // surfaced only as an independent factual marker (see progressTypes.ts).
 
 import { createServiceRoleClient } from "./supabase/server";
-import type { PrescriptionSnapshotExercise } from "./rehabSessionTypes";
+import { legacySnapshotExercises, type PrescriptionSnapshotExercise } from "./rehabSessionTypes";
 import type { StiffnessDuration, ToleranceClassification, ImmediateGuidance } from "./morningResponseTypes";
 import {
   buildNumericComparison,
@@ -90,9 +90,15 @@ export async function getProgressData(userId: string): Promise<ProgressData> {
     .from("rehab_sessions")
     .select("id, started_at, patient_local_date, peak_session_pain, prescription_version_id, prescription_snapshot")
     .eq("user_id", userId)
+    // M1 — legacy (pre-C5) rows only: this page's analysis is built on the
+    // legacy array snapshot and legacy response columns. C5 sessions are
+    // presented separately (getC5ProgressHistory), never analyzed here.
+    .is("training_status", null)
     .order("started_at", { ascending: false })
     .limit(HISTORY_LIMIT);
-  const sessionsDesc = (sessionRows ?? []) as SessionRow[];
+  const sessionsDesc = ((sessionRows ?? []) as (Omit<SessionRow, "prescription_snapshot"> & { prescription_snapshot: unknown })[])
+    .map((s) => ({ ...s, prescription_snapshot: legacySnapshotExercises(s.prescription_snapshot) }))
+    .filter((s): s is SessionRow => s.prescription_snapshot !== null);
   const sessionIds = sessionsDesc.map((s) => s.id);
 
   const [morningRes, setOutcomeRes, loadObsRes, toleranceRes, acuteRes] = await Promise.all([

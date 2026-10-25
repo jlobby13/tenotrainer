@@ -89,46 +89,34 @@ export type ReleaseEligibilityInput = {
   };
   latestReassessment: ReassessmentAnswers | null;
   // True iff ANY reassessment ever submitted for this episode had
-  // evaluated=true AND cleared=false. Once true, this episode has entered
-  // the "professional hold" state PERMANENTLY (Section 6C) — a LATER
-  // reassessment reporting cleared=true no longer takes the ordinary
-  // no-prescription-required path; it now also needs a newer prescription,
-  // exactly like Level 4/5. Self-resolution (evaluated=No) is also no
-  // longer reachable once this is true.
+  // evaluated=true AND cleared=false (the M5 professional hold).
   hasEverBeenProfessionallyHeld: boolean;
-  // A prescription_versions row exists for this patient with created_at
-  // after the episode's confirmed_at. Chronology only — this function
-  // never infers that its existence means a clinician reviewed the episode
-  // (see guidance.ts's identical LOCKED distinction); it is only ever
-  // combined with, never substituted for, actual reported clearance.
-  newerPrescriptionVersionExists: boolean;
+  // M1 — the database's authoritative verdict (acute_episode_review_state.
+  // requires_clinician_release: effective level >= 4 OR professionally
+  // held). The patient path never releases such an episode.
+  requiresClinicianRelease: boolean;
 };
 
 export type ReleaseEligibilityResult =
-  | { eligible: false }
+  | { eligible: false; clinicianReleaseRequired?: true }
   | {
       eligible: true;
-      releasePath: "self_resolved_no_evaluation" | "professional_clearance" | "professional_clearance_with_prescription";
+      releasePath: "self_resolved_no_evaluation" | "professional_clearance";
     };
 
 export function evaluateReleaseEligibility(input: ReleaseEligibilityInput): ReleaseEligibilityResult {
-  const { episode, latestReassessment, hasEverBeenProfessionallyHeld, newerPrescriptionVersionExists } = input;
+  const { episode, latestReassessment, hasEverBeenProfessionallyHeld, requiresClinicianRelease } = input;
 
   if (!latestReassessment) return { eligible: false };
 
-  // Level 4/5, OR a Level 3 episode that has ever entered professional
-  // hold: BOTH clearance AND a newer prescription are required. Neither
-  // alone releases (Section 6C/11/13) — chronology is not intent, and a
-  // later symptom improvement alone is never sufficient once this state
-  // has been reached.
-  const requiresClearanceAndPrescription =
-    episode.effectiveLevel >= 4 || episode.initialLevel === 5 || hasEverBeenProfessionallyHeld;
-
-  if (requiresClearanceAndPrescription) {
-    if (latestReassessment.evaluatedByProfessional && latestReassessment.clearedByProfessional === true && newerPrescriptionVersionExists) {
-      return { eligible: true, releasePath: "professional_clearance_with_prescription" };
-    }
-    return { eligible: false };
+  // M1 (founder-locked D1/D2): any professional-review state — effective
+  // Level 4/5, an initial Level 5, or an episode that has entered
+  // professional hold — requires an explicit clinician release. A patient
+  // reassessment is recorded but never releases it, whatever it reports.
+  // The database guard (trg_acute_safety_releases_guard) enforces the same
+  // rule independently; the local checks here are defensive only.
+  if (requiresClinicianRelease || episode.effectiveLevel >= 4 || episode.initialLevel === 5 || hasEverBeenProfessionallyHeld) {
+    return { eligible: false, clinicianReleaseRequired: true };
   }
 
   // Ordinary Level 3 only, never yet professionally held.
@@ -139,11 +127,8 @@ export function evaluateReleaseEligibility(input: ReleaseEligibilityInput): Rele
       return { eligible: true, releasePath: "professional_clearance" };
     }
     // evaluated=true, cleared=false (or, defensively, not yet answered) —
-    // this IS the professional-hold-entering case. The caller is
-    // responsible for recording hasEverBeenProfessionallyHeld=true for any
-    // FUTURE evaluation of this episode once this reassessment is
-    // persisted — this function only decides eligibility for the CURRENT
-    // reassessment being evaluated.
+    // this IS the professional-hold-entering case: from now on the episode
+    // requires a clinician release.
     return { eligible: false };
   }
 
@@ -171,9 +156,9 @@ export type BrakeDisplayState =
   | { kind: "level3_unresolved"; title: string; body: string; symptomsStillPresent: boolean }
   | { kind: "level3_released_self"; title: string; body: string }
   | { kind: "level3_released_cleared"; title: string; body: string }
-  | { kind: "level3_professional_hold"; title: string; body: string; waitingOnPrescription: boolean }
-  | { kind: "level4"; title: string; body: string; symptomsImproved: boolean; waitingOnPrescription: boolean }
-  | { kind: "level5"; title: string; body: string; waitingOnPrescription: boolean };
+  | { kind: "level3_professional_hold"; title: string; body: string; awaitingClinicianRelease: boolean }
+  | { kind: "level4"; title: string; body: string; symptomsImproved: boolean; awaitingClinicianRelease: boolean }
+  | { kind: "level5"; title: string; body: string; awaitingClinicianRelease: boolean };
 
 export function describeActiveBrake(params: {
   effectiveLevel: EffectiveLevel;
@@ -184,42 +169,42 @@ export function describeActiveBrake(params: {
   const { effectiveLevel, hasEverBeenProfessionallyHeld, latestReassessment, symptomsStillPresent } = params;
 
   if (effectiveLevel === 5) {
-    const waitingOnPrescription = latestReassessment?.evaluatedByProfessional === true && latestReassessment.clearedByProfessional === true;
+    const awaitingClinicianRelease = latestReassessment?.evaluatedByProfessional === true && latestReassessment.clearedByProfessional === true;
     return {
       kind: "level5",
       title: "Stop Loading",
-      body: waitingOnPrescription
-        ? "You've reported that you were cleared to resume rehabilitation. TenoTrainer is waiting for an updated exercise prescription before your next rehab session."
-        : "Do not continue your Achilles exercises. Protect and offload the affected leg. Seek prompt medical evaluation.",
-      waitingOnPrescription,
+      body: awaitingClinicianRelease
+        ? "You've reported that you were cleared to resume rehabilitation. Your clinician will review this and release the hold before your next rehab session."
+        : "Do not continue your Achilles exercises. Protect and offload the affected leg. Seek prompt medical evaluation. Your clinician will review this before your rehab resumes.",
+      awaitingClinicianRelease,
     };
   }
 
   if (effectiveLevel === 4) {
-    const waitingOnPrescription = latestReassessment?.evaluatedByProfessional === true && latestReassessment.clearedByProfessional === true;
+    const awaitingClinicianRelease = latestReassessment?.evaluatedByProfessional === true && latestReassessment.clearedByProfessional === true;
     return {
       kind: "level4",
       title: "Professional review recommended",
-      body: waitingOnPrescription
-        ? "You've reported that you were cleared to resume rehabilitation. TenoTrainer is waiting for an updated exercise prescription before your next rehab session."
+      body: awaitingClinicianRelease
+        ? "You've reported that you were cleared to resume rehabilitation. Your clinician will review this and release the hold before your next rehab session."
         : symptomsStillPresent
           ? "Your recent Achilles concerns have persisted or occurred repeatedly. Before continuing your prescribed rehab, we recommend review by a healthcare professional."
           : "It's encouraging that your symptoms have improved, but because this concern has persisted or recurred, professional review is still recommended before you resume prescribed loading.",
       symptomsImproved: !symptomsStillPresent,
-      waitingOnPrescription,
+      awaitingClinicianRelease,
     };
   }
 
   // effectiveLevel === 3
   if (hasEverBeenProfessionallyHeld) {
-    const waitingOnPrescription = latestReassessment?.evaluatedByProfessional === true && latestReassessment.clearedByProfessional === true;
+    const awaitingClinicianRelease = latestReassessment?.evaluatedByProfessional === true && latestReassessment.clearedByProfessional === true;
     return {
       kind: "level3_professional_hold",
       title: "Rehab on hold",
-      body: waitingOnPrescription
-        ? "Your rehab will remain on hold until clearance and an updated exercise prescription are available."
-        : "You reported that you were evaluated but have not been cleared to resume rehabilitation. TenoTrainer will keep your rehab on hold.",
-      waitingOnPrescription,
+      body: awaitingClinicianRelease
+        ? "You've reported that you were cleared to resume rehabilitation. Your clinician will review this and release the hold before your next rehab session."
+        : "You reported that you were evaluated but have not been cleared to resume rehabilitation. Your rehab stays on hold until your clinician reviews it.",
+      awaitingClinicianRelease,
     };
   }
 
@@ -234,8 +219,15 @@ export function describeActiveBrake(params: {
 }
 
 export function describeReleasedBrake(
-  releasePath: "self_resolved_no_evaluation" | "professional_clearance" | "professional_clearance_with_prescription"
+  releasePath: "self_resolved_no_evaluation" | "professional_clearance" | "professional_clearance_with_prescription" | "clinician_release"
 ): Extract<BrakeDisplayState, { kind: "level3_released_self" | "level3_released_cleared" }> {
+  if (releasePath === "clinician_release") {
+    return {
+      kind: "level3_released_cleared",
+      title: "Cleared to continue",
+      body: "Your clinician has reviewed your safety check-in and released the hold. Return to your prescribed rehab cautiously and monitor your response.",
+    };
+  }
   if (releasePath === "self_resolved_no_evaluation") {
     return {
       kind: "level3_released_self",

@@ -133,7 +133,7 @@ export function C5TodaysRehabCard({ state }: { state: C5TrainingState }) {
           {state.gate === "acute_safety_reconciliation_required" ? (
             <Body>We&apos;re checking your safety status. Please refresh in a moment.</Body>
           ) : state.gate === "acute_safety_professional_review_required" ? (
-            <Body>Training is paused until you&apos;ve been reviewed by a professional.</Body>
+            <Body>Training is on hold until your clinician reviews your safety check-in and releases the hold.</Body>
           ) : (
             <Body>A short safety check-in is needed before you train again.</Body>
           )}

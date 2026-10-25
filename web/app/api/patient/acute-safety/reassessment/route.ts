@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
   const clearedByProfessional = evaluatedByProfessional === true ? (body.clearedByProfessional === true ? true : body.clearedByProfessional === false ? false : null) : null;
 
   try {
-    const { reassessment, release } = await submitReassessmentAndMaybeRelease({
+    const { reassessment, release, clinicianReleaseRequired } = await submitReassessmentAndMaybeRelease({
       userId: user.id,
       episodeId,
       answers: {
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
         clearedByProfessional,
       },
     });
-    return NextResponse.json({ reassessment, release });
+    return NextResponse.json({ reassessment, release, clinicianReleaseRequired });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Failed to submit reassessment";
     if (message === "REHAB_SESSION_NOT_FOUND") {

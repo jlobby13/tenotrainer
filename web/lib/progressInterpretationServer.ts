@@ -21,7 +21,7 @@ import "server-only";
 import { createServiceRoleClient } from "./supabase/server";
 import { listLongitudinalInterpretationsForPatient } from "./longitudinalInterpretationServer";
 import { getLatestCapacityInterpretationsByConstruct } from "./capacityInterpretationEngine";
-import type { PrescriptionSnapshotExercise } from "./rehabSessionTypes";
+import { legacySnapshotExercises } from "./rehabSessionTypes";
 import type { ComparableConstruct } from "./capacityTypes";
 import { constructKey as buildConstructKey } from "./capacityConstruct";
 import type {
@@ -63,9 +63,10 @@ async function resolveExerciseNames(userId: string, exIds: string[]): Promise<Ma
     .order("started_at", { ascending: false })
     .limit(EXERCISE_NAME_LOOKUP_SESSION_LIMIT);
 
-  for (const row of (sessionRows ?? []) as { prescription_snapshot: PrescriptionSnapshotExercise[] | null }[]) {
+  for (const row of (sessionRows ?? []) as { prescription_snapshot: unknown }[]) {
     if (remaining.size === 0) break;
-    for (const ex of row.prescription_snapshot ?? []) {
+    // Legacy array snapshots only; a C5 object snapshot is skipped.
+    for (const ex of legacySnapshotExercises(row.prescription_snapshot) ?? []) {
       if (remaining.has(ex.ex_id) && ex.name) {
         names.set(ex.ex_id, ex.name);
         remaining.delete(ex.ex_id);

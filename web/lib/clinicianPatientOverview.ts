@@ -283,6 +283,7 @@ const RELEASE_PATH_LABELS: Record<ReleasePath, string> = {
   self_resolved_no_evaluation: "Self-resolved (no professional evaluation)",
   professional_clearance: "Released after professional clearance",
   professional_clearance_with_prescription: "Released after professional clearance and an updated prescription",
+  clinician_release: "Released by clinician",
 };
 
 export function formatReleasePathLabel(releasePath: ReleasePath): string {

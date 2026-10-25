@@ -6,6 +6,8 @@ import { formatInsertionalLabel, formatIrritabilityLabel, formatReleasePathLabel
 import { formatLastSessionLabel } from "@/lib/clinicianRoster";
 import { RecentSessionCard } from "./components/RecentSessionCard";
 import { PatientNav } from "./components/PatientNav";
+import { C5OverviewView } from "./components/c5/C5OverviewView";
+import { getC5Overview, getPatientHeader, getRecentRecoveryDecisions, isC5Patient } from "@/lib/clinicianC5Server";
 
 export const metadata = { title: "Patient — TenoTrainer" };
 
@@ -29,6 +31,18 @@ export default async function ClinicianPatientPage({ params }: { params: Promise
 
   const supervises = await assertSupervises(clinicianId, patientId);
   if (!supervises) notFound();
+
+  // M1 — a C5 patient's Overview comes from the authoritative C5 read model
+  // (the legacy overview below filters to legacy sessions only).
+  if (await isC5Patient(patientId)) {
+    const [header, c5Overview, recoveryDecisions] = await Promise.all([
+      getPatientHeader(patientId),
+      getC5Overview(patientId),
+      getRecentRecoveryDecisions(patientId),
+    ]);
+    if (!header) notFound();
+    return <C5OverviewView patientId={patientId} displayName={header.displayName} overview={c5Overview} recoveryDecisions={recoveryDecisions} />;
+  }
 
   const overview = await getClinicianPatientOverview(patientId);
   if (!overview) notFound();

@@ -4,7 +4,7 @@
 
 export type AcuteEpisodeLevel = 3 | 5;
 export type EffectiveAcuteLevel = 3 | 4 | 5;
-export type ReleasePath = "self_resolved_no_evaluation" | "professional_clearance" | "professional_clearance_with_prescription";
+export type ReleasePath = "self_resolved_no_evaluation" | "professional_clearance" | "professional_clearance_with_prescription" | "clinician_release";
 export type Level4Reason = "unresolved_over_48_hours" | "three_blocked_opportunities" | "recurrent_level_3_episodes";
 
 export type AcuteSafetyEpisodeRecord = {
@@ -41,6 +41,9 @@ export type AcuteSafetyReleaseRecord = {
   releasePath: ReleasePath;
   sourceReassessmentId: string | null;
   sourcePrescriptionVersionId: string | null;
+  // M1 — set only on release_path = "clinician_release".
+  releasedByClinicianId: string | null;
+  releaseNote: string | null;
   releasedAt: string;
 };
 
@@ -111,6 +114,8 @@ export function mapAcuteSafetyReleaseRow(row: Record<string, unknown>): AcuteSaf
     releasePath: row.release_path as ReleasePath,
     sourceReassessmentId: (row.source_reassessment_id as string | null) ?? null,
     sourcePrescriptionVersionId: (row.source_prescription_version_id as string | null) ?? null,
+    releasedByClinicianId: (row.released_by_clinician_id as string | null) ?? null,
+    releaseNote: (row.release_note as string | null) ?? null,
     releasedAt: row.released_at as string,
   };
 }

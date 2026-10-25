@@ -60,7 +60,7 @@ export function AcuteReassessmentScreen({
   const [cleared, setCleared] = useState<boolean | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ released: boolean; releasePath: string | null } | null>(null);
+  const [result, setResult] = useState<{ released: boolean; releasePath: string | null; clinicianReleaseRequired: boolean } | null>(null);
 
   const requiresProfessionalPath = effectiveLevel >= 4 || hasEverBeenProfessionallyHeld;
 
@@ -94,7 +94,7 @@ export function AcuteReassessmentScreen({
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Something went wrong.");
-      setResult({ released: !!json.release, releasePath: json.release?.releasePath ?? null });
+      setResult({ released: !!json.release, releasePath: json.release?.releasePath ?? null, clinicianReleaseRequired: json.clinicianReleaseRequired === true });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
@@ -104,7 +104,7 @@ export function AcuteReassessmentScreen({
 
   if (result) {
     if (result.released && result.releasePath) {
-      const display = describeReleasedBrake(result.releasePath as "self_resolved_no_evaluation" | "professional_clearance" | "professional_clearance_with_prescription");
+      const display = describeReleasedBrake(result.releasePath as "self_resolved_no_evaluation" | "professional_clearance" | "professional_clearance_with_prescription" | "clinician_release");
       return (
         <div className="max-w-md mx-auto px-4 py-10 text-center">
           <div className="bg-green-50 border-2 border-green-200 rounded-xl p-5 text-left">
@@ -122,7 +122,9 @@ export function AcuteReassessmentScreen({
     }
     const display = describeActiveBrake({
       effectiveLevel,
-      hasEverBeenProfessionallyHeld: requiresProfessionalPath,
+      // M1: the server's verdict — a professional-review hold is released
+      // only by the clinician; the copy says so.
+      hasEverBeenProfessionallyHeld: requiresProfessionalPath || result.clinicianReleaseRequired,
       latestReassessment: {
         suddenOrSharpPainResolved: initialSuddenOrSharpPain ? sudden : null,
         newFunctionalDifficultyResolved: initialNewFunctionalDifficulty ? functional : null,
@@ -148,8 +150,8 @@ export function AcuteReassessmentScreen({
     <div className="max-w-md mx-auto px-4 py-10">
       <h1 className="text-xl font-bold text-gray-900">Safety Check-In</h1>
       <p className="text-sm text-gray-500 mt-1">
-        {effectiveLevel >= 4
-          ? "Because this concern has persisted or recurred, professional review is recommended. Let us know what you've learned so far."
+        {requiresProfessionalPath
+          ? "Your clinician needs to review this concern and release your training hold before you resume. Let us know what you've learned so far — your answers are shared with them."
           : "A quick follow-up before your next rehab session."}
       </p>
 
@@ -185,7 +187,7 @@ export function AcuteReassessmentScreen({
 
       {requiresProfessionalPath && evaluated === false && (
         <p className="mt-4 text-xs text-amber-700">
-          Because this concern has persisted, recurred, or previously required professional evaluation, symptom improvement alone will not release your rehab hold — professional clearance is needed.
+          Because this concern has persisted, recurred, or previously required professional evaluation, your clinician needs to review it and release your rehab hold. Your answers here are shared with them.
         </p>
       )}
 

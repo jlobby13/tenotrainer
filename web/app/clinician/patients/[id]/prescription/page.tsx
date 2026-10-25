@@ -5,6 +5,7 @@ import { getPrescriptionManagementState } from "@/lib/prescriptionManagementServ
 import { listPublishedVersions, type PublishedVersionListItem } from "@/lib/prescriptionReviewServer";
 import { formatLastSessionLabel } from "@/lib/clinicianRoster";
 import { PatientNav } from "../components/PatientNav";
+import { isC5Patient } from "@/lib/clinicianC5Server";
 import { createDraftAction } from "./actions";
 import { LocalDateTime } from "./components/LocalDateTime";
 
@@ -37,7 +38,11 @@ export default async function PrescriptionManagementPage({
   const supervises = await assertSupervises(clinicianId, patientId);
   if (!supervises) notFound();
 
-  const [state, versions] = await Promise.all([getPrescriptionManagementState({ clinicianId, patientId }), listPublishedVersions(patientId)]);
+  const [state, versions, c5] = await Promise.all([
+    getPrescriptionManagementState({ clinicianId, patientId }),
+    listPublishedVersions(patientId),
+    isC5Patient(patientId),
+  ]);
   const now = new Date();
 
   return (
@@ -51,8 +56,8 @@ export default async function PrescriptionManagementPage({
 
       <main className="max-w-3xl mx-auto px-4 py-8 lg:py-10 space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-3">Prescription</h1>
-          <PatientNav patientId={patientId} active="prescription" />
+          <h1 className="text-2xl font-bold text-gray-900 mb-3">{c5 ? "Program" : "Prescription"}</h1>
+          <PatientNav patientId={patientId} active="prescription" isC5={c5} />
         </div>
 
         {error && (

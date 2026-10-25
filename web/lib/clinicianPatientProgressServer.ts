@@ -34,7 +34,7 @@ import { listLongitudinalInterpretationsForPatient, getInterpretationProvenance 
 import { getActiveBrakeStatus } from "./acuteSafetyServer";
 import { getHeuristicsByIds } from "./heuristicsCatalogServer";
 import type { LongitudinalInterpretationRecord, InterpretationProvenance, InterpretationReasonCode } from "./longitudinalInterpretationTypes";
-import type { PrescriptionSnapshotExercise } from "./rehabSessionTypes";
+import { legacySnapshotExercises } from "./rehabSessionTypes";
 import type { ComparableConstruct } from "./capacityTypes";
 import {
   parseSymptomsResultDetail,
@@ -171,7 +171,8 @@ async function resolveExerciseDisplayNames(
 
   const nameByExIdAndProfile = new Map<string, string>();
   for (const row of data ?? []) {
-    for (const ex of (row.prescription_snapshot as PrescriptionSnapshotExercise[]) ?? []) {
+    // Legacy array snapshots only; a C5 object snapshot is skipped.
+    for (const ex of legacySnapshotExercises(row.prescription_snapshot) ?? []) {
       nameByExIdAndProfile.set(`${ex.ex_id}::${ex.loading_profile ?? ""}`, ex.name);
     }
   }

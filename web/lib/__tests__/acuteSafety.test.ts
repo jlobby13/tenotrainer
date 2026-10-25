@@ -122,7 +122,7 @@ test("L3-E: symptoms resolve, evaluated=No -> self_resolved_no_evaluation releas
     episode: baseEpisode(),
     latestReassessment: { suddenOrSharpPainResolved: true, newFunctionalDifficultyResolved: null, evaluatedByProfessional: false, clearedByProfessional: null },
     hasEverBeenProfessionallyHeld: false,
-    newerPrescriptionVersionExists: false,
+    requiresClinicianRelease: false,
   });
   assertEqual(result, { eligible: true, releasePath: "self_resolved_no_evaluation" }, "self-release, no prescription required");
 });
@@ -133,7 +133,7 @@ test("L3-F: one original symptom still unresolved, evaluated=No -> brake stays",
     episode: baseEpisode({ initialSuddenOrSharpPain: true, initialNewFunctionalDifficulty: true }),
     latestReassessment: { suddenOrSharpPainResolved: true, newFunctionalDifficultyResolved: false, evaluatedByProfessional: false, clearedByProfessional: null },
     hasEverBeenProfessionallyHeld: false,
-    newerPrescriptionVersionExists: false,
+    requiresClinicianRelease: false,
   });
   assertEqual(result, { eligible: false }, "not all original findings resolved");
 });
@@ -144,7 +144,7 @@ test("L3-G: evaluated=Yes, cleared=Yes -> professional_clearance release, no pre
     episode: baseEpisode(),
     latestReassessment: { suddenOrSharpPainResolved: false, newFunctionalDifficultyResolved: null, evaluatedByProfessional: true, clearedByProfessional: true },
     hasEverBeenProfessionallyHeld: false,
-    newerPrescriptionVersionExists: false, // deliberately false — must still release
+    requiresClinicianRelease: false,
   });
   assertEqual(result, { eligible: true, releasePath: "professional_clearance" }, "clearance alone suffices for ordinary Level 3, even with symptoms still reported");
 });
@@ -155,7 +155,7 @@ test("L3-H: evaluated=Yes, cleared=No -> brake stays (enters professional hold)"
     episode: baseEpisode(),
     latestReassessment: { suddenOrSharpPainResolved: null, newFunctionalDifficultyResolved: null, evaluatedByProfessional: true, clearedByProfessional: false },
     hasEverBeenProfessionallyHeld: false,
-    newerPrescriptionVersionExists: false,
+    requiresClinicianRelease: false,
   });
   assertEqual(result, { eligible: false }, "not cleared -> stays blocked");
 });
@@ -174,7 +174,7 @@ test("L3-I: evaluated=No structurally cannot carry a clearance answer (represent
     episode: baseEpisode({ initialSuddenOrSharpPain: false, initialNewFunctionalDifficulty: false }),
     latestReassessment: { suddenOrSharpPainResolved: null, newFunctionalDifficultyResolved: null, evaluatedByProfessional: false, clearedByProfessional: null },
     hasEverBeenProfessionallyHeld: false,
-    newerPrescriptionVersionExists: false,
+    requiresClinicianRelease: false,
   });
   // No findings were present at all -> vacuously resolved -> self-release eligible.
   assertEqual(result, { eligible: true, releasePath: "self_resolved_no_evaluation" }, "evaluated=No path only ever considers resolution, never a clearance answer");
@@ -186,20 +186,20 @@ test("L3-J: once professionally held, later symptom resolution ALONE does not re
     episode: baseEpisode(),
     latestReassessment: { suddenOrSharpPainResolved: true, newFunctionalDifficultyResolved: null, evaluatedByProfessional: false, clearedByProfessional: null },
     hasEverBeenProfessionallyHeld: true, // this episode was evaluated+not-cleared at some point
-    newerPrescriptionVersionExists: false,
+    requiresClinicianRelease: true,
   });
-  assertEqual(result, { eligible: false }, "professional hold blocks the self-resolution path entirely, even with symptoms resolved");
+  assertEqual(result, { eligible: false, clinicianReleaseRequired: true }, "professional hold blocks the self-resolution path entirely, even with symptoms resolved");
 });
 
 // --- L3-K: professional hold, subsequent valid clearance + newer prescription -> release ---
-test("L3-K: professional hold + clearance + newer prescription -> release with prescription path", () => {
+test("L3-K (M1): professional hold + patient-reported clearance -> NO release; clinician release required", () => {
   const result = evaluateReleaseEligibility({
     episode: baseEpisode(),
     latestReassessment: { suddenOrSharpPainResolved: true, newFunctionalDifficultyResolved: null, evaluatedByProfessional: true, clearedByProfessional: true },
     hasEverBeenProfessionallyHeld: true,
-    newerPrescriptionVersionExists: true,
+    requiresClinicianRelease: true,
   });
-  assertEqual(result, { eligible: true, releasePath: "professional_clearance_with_prescription" }, "both requirements satisfied");
+  assertEqual(result, { eligible: false, clinicianReleaseRequired: true }, "a patient report never releases a professional-review hold");
 });
 
 // --- L4-L: Level 4 + symptoms resolve + no professional evaluation -> remains blocked ---
@@ -208,31 +208,31 @@ test("L4-L: Level 4, symptoms resolved, evaluated=No -> remains blocked (self-re
     episode: baseEpisode({ effectiveLevel: 4 }),
     latestReassessment: { suddenOrSharpPainResolved: true, newFunctionalDifficultyResolved: null, evaluatedByProfessional: false, clearedByProfessional: null },
     hasEverBeenProfessionallyHeld: false,
-    newerPrescriptionVersionExists: false,
+    requiresClinicianRelease: true,
   });
-  assertEqual(result, { eligible: false }, "ordinary self-resolution insufficient at Level 4");
+  assertEqual(result, { eligible: false, clinicianReleaseRequired: true }, "ordinary self-resolution insufficient at Level 4");
 });
 
 // --- L4-M: Level 4 + evaluated=Yes + cleared=Yes + NO newer prescription -> remains blocked ---
-test("L4-M: Level 4, cleared=Yes, no newer prescription -> remains blocked, waiting for updated prescription", () => {
+test("L4-M (M1): Level 4, cleared=Yes -> remains blocked; clinician release required", () => {
   const result = evaluateReleaseEligibility({
     episode: baseEpisode({ effectiveLevel: 4 }),
     latestReassessment: { suddenOrSharpPainResolved: true, newFunctionalDifficultyResolved: null, evaluatedByProfessional: true, clearedByProfessional: true },
     hasEverBeenProfessionallyHeld: false,
-    newerPrescriptionVersionExists: false,
+    requiresClinicianRelease: true,
   });
-  assertEqual(result, { eligible: false }, "clearance alone insufficient at Level 4 — needs a newer prescription too");
+  assertEqual(result, { eligible: false, clinicianReleaseRequired: true }, "patient-reported clearance insufficient at Level 4");
 });
 
 // --- L4-N: Level 4 + evaluated=Yes + cleared=Yes + newer prescription -> release ---
-test("L4-N: Level 4, cleared=Yes, newer prescription exists -> release", () => {
+test("L4-N (M1): Level 4, cleared=Yes, even with a newer prescription -> NO release; clinician release required", () => {
   const result = evaluateReleaseEligibility({
     episode: baseEpisode({ effectiveLevel: 4 }),
     latestReassessment: { suddenOrSharpPainResolved: true, newFunctionalDifficultyResolved: null, evaluatedByProfessional: true, clearedByProfessional: true },
     hasEverBeenProfessionallyHeld: false,
-    newerPrescriptionVersionExists: true,
+    requiresClinicianRelease: true,
   });
-  assertEqual(result, { eligible: true, releasePath: "professional_clearance_with_prescription" }, "both requirements satisfied -> release");
+  assertEqual(result, { eligible: false, clinicianReleaseRequired: true }, "effective >=4 requires an explicit clinician release");
 });
 
 // --- L4-O: new prescription without clearance -> remains blocked ---
@@ -241,9 +241,9 @@ test("L4-O: Level 4, newer prescription exists but NOT cleared -> remains blocke
     episode: baseEpisode({ effectiveLevel: 4 }),
     latestReassessment: { suddenOrSharpPainResolved: true, newFunctionalDifficultyResolved: null, evaluatedByProfessional: true, clearedByProfessional: false },
     hasEverBeenProfessionallyHeld: false,
-    newerPrescriptionVersionExists: true,
+    requiresClinicianRelease: true,
   });
-  assertEqual(result, { eligible: false }, "a newer prescription alone, without clearance, never releases");
+  assertEqual(result, { eligible: false, clinicianReleaseRequired: true }, "never releases");
 });
 
 // --- Level 5: symptom self-resolution alone / clearance alone / prescription alone all insufficient ---
@@ -252,29 +252,29 @@ test("Level 5: symptom resolution alone cannot release", () => {
     episode: baseEpisode({ initialLevel: 5, effectiveLevel: 5, initialSuddenOrSharpPain: false, initialNewFunctionalDifficulty: false }),
     latestReassessment: { suddenOrSharpPainResolved: null, newFunctionalDifficultyResolved: null, evaluatedByProfessional: false, clearedByProfessional: null },
     hasEverBeenProfessionallyHeld: false,
-    newerPrescriptionVersionExists: false,
+    requiresClinicianRelease: true,
   });
-  assertEqual(result, { eligible: false }, "Level 5 never self-releases");
+  assertEqual(result, { eligible: false, clinicianReleaseRequired: true }, "Level 5 never self-releases");
 });
 
-test("Level 5: clearance alone without updated prescription cannot release", () => {
+test("Level 5: patient-reported clearance cannot release", () => {
   const result = evaluateReleaseEligibility({
     episode: baseEpisode({ initialLevel: 5, effectiveLevel: 5 }),
     latestReassessment: { suddenOrSharpPainResolved: null, newFunctionalDifficultyResolved: null, evaluatedByProfessional: true, clearedByProfessional: true },
     hasEverBeenProfessionallyHeld: false,
-    newerPrescriptionVersionExists: false,
+    requiresClinicianRelease: true,
   });
-  assertEqual(result, { eligible: false }, "clearance alone insufficient for Level 5");
+  assertEqual(result, { eligible: false, clinicianReleaseRequired: true }, "clearance insufficient for Level 5");
 });
 
-test("Level 5: clearance + updated prescription allows release", () => {
+test("Level 5 (M1): clearance + updated prescription NO LONGER releases; clinician release required", () => {
   const result = evaluateReleaseEligibility({
     episode: baseEpisode({ initialLevel: 5, effectiveLevel: 5 }),
     latestReassessment: { suddenOrSharpPainResolved: null, newFunctionalDifficultyResolved: null, evaluatedByProfessional: true, clearedByProfessional: true },
     hasEverBeenProfessionallyHeld: false,
-    newerPrescriptionVersionExists: true,
+    requiresClinicianRelease: true,
   });
-  assertEqual(result, { eligible: true, releasePath: "professional_clearance_with_prescription" }, "Level 5 releases only with both");
+  assertEqual(result, { eligible: false, clinicianReleaseRequired: true }, "Level 5 releases only through a clinician");
 });
 
 test("no reassessment submitted yet -> never eligible", () => {
@@ -282,9 +282,20 @@ test("no reassessment submitted yet -> never eligible", () => {
     episode: baseEpisode(),
     latestReassessment: null,
     hasEverBeenProfessionallyHeld: false,
-    newerPrescriptionVersionExists: true,
+    requiresClinicianRelease: false,
   });
   assertEqual(result, { eligible: false }, "no reassessment at all -> brake stays");
+});
+
+// --- M1: the database verdict alone is sufficient to block the patient path ---
+test("M1: requiresClinicianRelease from the database blocks even an ordinary-looking Level 3 report", () => {
+  const result = evaluateReleaseEligibility({
+    episode: baseEpisode(),
+    latestReassessment: { suddenOrSharpPainResolved: true, newFunctionalDifficultyResolved: null, evaluatedByProfessional: false, clearedByProfessional: null },
+    hasEverBeenProfessionallyHeld: false,
+    requiresClinicianRelease: true,
+  });
+  assertEqual(result, { eligible: false, clinicianReleaseRequired: true }, "database verdict wins");
 });
 
 console.log(`\n${pass} passed, ${fail} failed`);

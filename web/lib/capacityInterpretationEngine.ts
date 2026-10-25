@@ -147,7 +147,9 @@ export async function buildAllCapacityExposuresForUser(
   // Base gate — same atomic unit as Stage 3B's response episode (session +
   // actual performance + finalized M4 response + tolerance evaluation).
   const baseSessions = sessions.filter(
-    (s) => s.status === "response_complete" && sessionsWithSetOutcomes.has(s.id) && finalizedMorningSessionIds.has(s.id) && toleranceBySession.has(s.id)
+    // Legacy rows only (status is NULL on C5 rows); the explicit shape check
+    // keeps a C5 object snapshot out even if that ever changed.
+    (s) => s.status === "response_complete" && Array.isArray(s.prescription_snapshot) && sessionsWithSetOutcomes.has(s.id) && finalizedMorningSessionIds.has(s.id) && toleranceBySession.has(s.id)
   );
 
   // Newest-first already (query order) — build every exposure per session.

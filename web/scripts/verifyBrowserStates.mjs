@@ -285,8 +285,8 @@ async function main() {
     check("E mobile shows 'Rehab on hold'", eMobile.includes("Rehab on hold"));
     await ctxE.close();
 
-    // === State G: Level 4, cleared but waiting for updated prescription ===
-    console.log("\n--- State G: Level 4 cleared, waiting for updated prescription ---");
+    // === State G: Level 4, patient reports cleared — M1: a clinician must release ===
+    console.log("\n--- State G: Level 4 cleared, awaiting clinician release (M1) ---");
     users.g = await makeUser("stateG");
     const vG = await insertVersion(users.g.userId);
     const confirmedAtG = new Date(Date.now() - 1000 * 60 * 60 * 60).toISOString(); // 60h ago -> >48h threshold -> effective level 4
@@ -297,8 +297,8 @@ async function main() {
     const ctxG = await browser.newContext();
     const { desktopText: gDesktop, mobileText: gMobile } = await screenshotBothViewports(ctxG, users.g.email, "State G", "state_g");
     check("G desktop shows 'Professional review recommended'", gDesktop.includes("Professional review recommended"), gDesktop.slice(0, 300));
-    check("G desktop shows the waiting-for-updated-prescription body", gDesktop.includes("waiting for an updated exercise prescription"));
-    check("G mobile shows the same Level 4 waiting-on-prescription state", gMobile.includes("Professional review recommended") && gMobile.includes("waiting for an updated exercise prescription"));
+    check("G desktop shows the awaiting-clinician-release body (M1)", gDesktop.includes("Your clinician will review this and release the hold"));
+    check("G mobile shows the same Level 4 awaiting-clinician-release state", gMobile.includes("Professional review recommended") && gMobile.includes("Your clinician will review this and release the hold"));
     // Founder-acceptance item 2: Level 4 must be visually distinguishable from Level 3 — orange, heavier border/weight
     const gLevel4Card = await ctxG.pages()[0]?.locator("h2", { hasText: "Professional review recommended" }).first();
     await ctxG.close();

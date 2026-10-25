@@ -37,6 +37,7 @@ import { getActiveBrakeStatus } from "./acuteSafetyServer";
 import { listLongitudinalInterpretationsForPatient, getInterpretationProvenance } from "./longitudinalInterpretationServer";
 import { deriveMorningResponseBadge, type RosterMorningResponseStatus } from "./clinicianRoster";
 import { mapPrescriptionVersionRow } from "./prescriptionVersionTypes";
+import { legacySnapshotExercises } from "./rehabSessionTypes";
 import type { LongitudinalInterpretationRecord } from "./longitudinalInterpretationTypes";
 import type { ComparableConstruct } from "./capacityTypes";
 import type { MoreDataNeededReason } from "./capacityClassifier";
@@ -194,7 +195,8 @@ async function resolveExerciseDisplayNamesForConstructs(
 
   const nameByExIdAndProfile = new Map<string, string>();
   for (const row of data ?? []) {
-    for (const ex of (row.prescription_snapshot as { ex_id: string; name: string; loading_profile: string | null }[]) ?? []) {
+    // Legacy array snapshots only; a C5 object snapshot is skipped.
+    for (const ex of legacySnapshotExercises(row.prescription_snapshot) ?? []) {
       nameByExIdAndProfile.set(`${ex.ex_id}::${ex.loading_profile ?? ""}`, ex.name);
     }
   }

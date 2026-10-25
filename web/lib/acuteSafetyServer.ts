@@ -129,7 +129,7 @@ export async function submitReassessmentAndMaybeRelease(params: {
   userId: string;
   episodeId: string;
   answers: ReassessmentAnswers;
-}): Promise<{ reassessment: AcuteSafetyReassessmentRecord; release: AcuteSafetyReleaseRecord | null }> {
+}): Promise<{ reassessment: AcuteSafetyReassessmentRecord; release: AcuteSafetyReleaseRecord | null; clinicianReleaseRequired: boolean }> {
   const supabase = createServiceRoleClient();
 
   const episode = await getEpisode(params.episodeId);
@@ -156,49 +156,35 @@ export async function submitReassessmentAndMaybeRelease(params: {
   // release for an episode that already has one.
   const { data: existingRelease } = await supabase.from("acute_safety_releases").select().eq("acute_safety_episode_id", params.episodeId).maybeSingle();
   if (existingRelease) {
-    return { reassessment, release: mapAcuteSafetyReleaseRow(existingRelease) };
+    return { reassessment, release: mapAcuteSafetyReleaseRow(existingRelease), clinicianReleaseRequired: false };
   }
 
   const history = await getReassessmentHistory(params.episodeId);
   const hasEverBeenProfessionallyHeld = history.some((r) => r.evaluatedByProfessional === true && r.clearedByProfessional === false);
 
-  const brakeStatus = await getActiveBrakeStatus(params.userId);
-  const effectiveLevel = brakeStatus?.episodeId === params.episodeId ? brakeStatus.effectiveLevel : episode.initialLevel === 5 ? 5 : 3;
-
-  const { count: newerVersionCount } = await supabase
-    .from("prescription_versions")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", params.userId)
-    .gt("created_at", episode.confirmedAt);
-  const newerPrescriptionVersionExists = (newerVersionCount ?? 0) > 0;
+  // M1 — the authoritative effective level / professional-review state of
+  // THIS episode, from the single database derivation (never re-derived
+  // here). Read after the reassessment above is persisted, so a report that
+  // enters professional hold counts immediately.
+  const { data: stateRows, error: stateError } = await supabase.rpc("acute_episode_review_state", { p_episode_id: params.episodeId });
+  if (stateError) throw new Error(`submitReassessmentAndMaybeRelease review state failed: ${stateError.message}`);
+  const state = (stateRows ?? [])[0] as { effective_level: number; requires_clinician_release: boolean } | undefined;
+  if (!state) throw new Error("REHAB_SESSION_NOT_FOUND");
 
   const eligibility = evaluateReleaseEligibility({
     episode: {
       initialLevel: episode.initialLevel,
       initialSuddenOrSharpPain: episode.initialSuddenOrSharpPain,
       initialNewFunctionalDifficulty: episode.initialNewFunctionalDifficulty,
-      effectiveLevel,
+      effectiveLevel: state.effective_level as 3 | 4 | 5,
     },
     latestReassessment: params.answers,
     hasEverBeenProfessionallyHeld,
-    newerPrescriptionVersionExists,
+    requiresClinicianRelease: state.requires_clinician_release,
   });
 
   if (!eligibility.eligible) {
-    return { reassessment, release: null };
-  }
-
-  let sourcePrescriptionVersionId: string | null = null;
-  if (eligibility.releasePath === "professional_clearance_with_prescription") {
-    const { data: latestVersion } = await supabase
-      .from("prescription_versions")
-      .select("id")
-      .eq("user_id", params.userId)
-      .gt("created_at", episode.confirmedAt)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    sourcePrescriptionVersionId = (latestVersion?.id as string | undefined) ?? null;
+    return { reassessment, release: null, clinicianReleaseRequired: eligibility.clinicianReleaseRequired === true };
   }
 
   const { data: releaseRow, error: releaseError } = await supabase
@@ -208,7 +194,6 @@ export async function submitReassessmentAndMaybeRelease(params: {
       user_id: params.userId,
       release_path: eligibility.releasePath,
       source_reassessment_id: reassessment.id,
-      source_prescription_version_id: sourcePrescriptionVersionId,
     })
     .select()
     .maybeSingle();
@@ -217,10 +202,15 @@ export async function submitReassessmentAndMaybeRelease(params: {
     // episode — idempotent-safe, fetch the winner.
     if (releaseError.code === "23505") {
       const { data: raced } = await supabase.from("acute_safety_releases").select().eq("acute_safety_episode_id", params.episodeId).maybeSingle();
-      return { reassessment, release: raced ? mapAcuteSafetyReleaseRow(raced) : null };
+      return { reassessment, release: raced ? mapAcuteSafetyReleaseRow(raced) : null, clinicianReleaseRequired: false };
+    }
+    // The database guard: the episode became a professional-review hold
+    // (e.g. crossed 48 h) between the read above and this insert.
+    if (releaseError.message.includes("ACUTE_RELEASE_REQUIRES_CLINICIAN")) {
+      return { reassessment, release: null, clinicianReleaseRequired: true };
     }
     throw new Error(`submitReassessmentAndMaybeRelease release insert failed: ${releaseError.message}`);
   }
 
-  return { reassessment, release: releaseRow ? mapAcuteSafetyReleaseRow(releaseRow) : null };
+  return { reassessment, release: releaseRow ? mapAcuteSafetyReleaseRow(releaseRow) : null, clinicianReleaseRequired: false };
 }

@@ -4,6 +4,7 @@ import { requireClinicianAuth, assertSupervises } from "@/lib/clinicianAuth";
 import { getClinicianPatientProgress } from "@/lib/clinicianPatientProgressServer";
 import { ACTIVE_ACUTE_REVIEW_CAVEAT } from "@/lib/clinicianPatientProgress";
 import { PatientNav } from "../components/PatientNav";
+import { isC5Patient } from "@/lib/clinicianC5Server";
 import { SymptomsSectionCard } from "./components/SymptomsSectionCard";
 import { CapacityConstructCard } from "./components/CapacityConstructCard";
 import { TrainingResponseSectionCard } from "./components/TrainingResponseSectionCard";
@@ -36,6 +37,8 @@ export default async function ClinicianPatientProgressPage({ params }: { params:
 
   const progress = await getClinicianPatientProgress(patientId);
   if (!progress) notFound();
+  // M1: a C5 patient reaches this legacy page only by URL (tab hidden, D3).
+  const c5 = await isC5Patient(patientId);
 
   const now = new Date();
 
@@ -51,8 +54,19 @@ export default async function ClinicianPatientProgressPage({ params }: { params:
       <main className="max-w-3xl mx-auto px-4 py-8 lg:py-10 space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 mb-3">{progress.displayName}</h1>
-          <PatientNav patientId={progress.patientId} active="progress" />
+          <PatientNav patientId={progress.patientId} active="progress" isC5={c5} />
         </div>
+
+        {c5 && (
+          <div className="bg-gray-100 border border-gray-200 rounded-xl p-4 text-sm text-gray-700" data-testid="legacy-interpretation-caveat">
+            Automated interpretation on this page is built only from sessions recorded by the previous training system. It does not include
+            current sessions, so the absence of a finding here says nothing about them. The current session record is under{" "}
+            <Link href={`/clinician/patients/${patientId}/sessions`} className="font-medium text-brand-600 underline">
+              Sessions
+            </Link>
+            .
+          </div>
+        )}
 
         {progress.acuteReviewActive && (
           <div className="bg-red-50 border border-red-100 rounded-xl p-4 text-sm text-red-800">{ACTIVE_ACUTE_REVIEW_CAVEAT}</div>

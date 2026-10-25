@@ -23,6 +23,8 @@ import { createServiceRoleClient } from "./supabase/server";
 import { getLatestPrescriptionVersion } from "./prescriptionVersionsServer";
 import { getActiveBrakeStatus } from "./acuteSafetyServer";
 import { compareRosterEntries, deriveMorningResponseBadge, type RosterMorningResponseStatus } from "./clinicianRoster";
+import { getC5PatientSet, getC5RosterFacts, getOpenEpisodeReleaseRequirement } from "./clinicianC5Server";
+import type { SafetyProcessState } from "./clinicianC5";
 
 const RECENT_ACTIVITY_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 
@@ -55,6 +57,17 @@ export type ClinicianRosterEntry = {
   // due/pending/null — see clinicianRoster.ts's deriveMorningResponseBadge
   // for the exact locked rules (UNKNOWN != ZERO; no "overdue" concept).
   morningResponseStatus: RosterMorningResponseStatus;
+  // M1 — C5 awareness. isC5: a C5 program or any C5 session (C5 patients
+  // never show a carried-forward legacy stage as a current assessment).
+  // Last/recent activity above also count CLOSED C5 sessions (an open
+  // Started session is never completed activity), and the morning badge
+  // includes unresolved C5 morning obligations. checkInPending: a closed C5
+  // session's immediate check-in is unresolved. safetyState: process
+  // language for the open episode(s) — "clinician_release_required" when
+  // any open episode requires it (authoritative review state).
+  isC5: boolean;
+  checkInPending: boolean;
+  safetyState: SafetyProcessState | null;
 };
 
 // The roster IS the active-supervision predicate, applied as a query
@@ -161,19 +174,43 @@ export async function getClinicianRoster(clinicianId: string): Promise<Clinician
   // (getActiveBrakeStatus -> get_patient_acute_brake_status()), one
   // parallel call per patient. Explicitly permitted by the founder brief
   // rather than introducing a new batch RPC/migration for C1B.
-  const acuteEntries = await Promise.all(patientIds.map(async (patientId) => [patientId, await getActiveBrakeStatus(patientId)] as const));
+  const [acuteEntries, c5Patients, c5Facts, releaseRequirement] = await Promise.all([
+    Promise.all(patientIds.map(async (patientId) => [patientId, await getActiveBrakeStatus(patientId)] as const)),
+    getC5PatientSet(patientIds),
+    getC5RosterFacts(patientIds),
+    getOpenEpisodeReleaseRequirement(patientIds),
+  ]);
   const acuteByPatient = new Map(acuteEntries);
+
+  // C5 closed sessions join the same last-session / 14-day facts.
+  for (const [patientId, starts] of c5Facts.closedSessionStarts) {
+    const latest = starts[0];
+    const current = lastSessionByPatient.get(patientId);
+    if (latest && (!current || new Date(latest) > new Date(current))) lastSessionByPatient.set(patientId, latest);
+    const recent = starts.filter((t) => new Date(t).getTime() >= recentCutoffMs).length;
+    if (recent) recentCountByPatient.set(patientId, (recentCountByPatient.get(patientId) ?? 0) + recent);
+  }
+  for (const [patientId, list] of c5Facts.morningOutstanding) {
+    outstandingByPatient.set(patientId, [...(outstandingByPatient.get(patientId) ?? []), ...list]);
+  }
 
   const entries: ClinicianRosterEntry[] = (profilesRes.data ?? []).map((profile) => {
     const patientId = profile.id as string;
     return {
       patientId,
       displayName: profile.name as string,
-      currentStage: stageByPatient.get(patientId) ?? null,
+      currentStage: c5Patients.has(patientId) ? null : (stageByPatient.get(patientId) ?? null),
       lastSessionAt: lastSessionByPatient.get(patientId) ?? null,
       recentSessionCount: recentCountByPatient.get(patientId) ?? 0,
       acuteReviewActive: acuteByPatient.get(patientId) != null,
       morningResponseStatus: deriveMorningResponseBadge(outstandingByPatient.get(patientId) ?? [], now),
+      isC5: c5Patients.has(patientId),
+      checkInPending: c5Facts.immediatePending.has(patientId),
+      safetyState: releaseRequirement.has(patientId)
+        ? releaseRequirement.get(patientId)
+          ? "clinician_release_required"
+          : "safety_check_in_pending"
+        : null,
     };
   });
 

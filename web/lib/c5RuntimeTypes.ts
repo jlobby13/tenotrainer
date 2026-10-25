@@ -242,7 +242,7 @@ export const C5_RESULT_MESSAGES: Record<string, string> = {
   no_active_prescription: "You don't have an active rehab program right now.",
   prescription_paused: "Your clinician has paused your program.",
   acute_safety_review_required: "A safety check-in is needed before more training.",
-  acute_safety_professional_review_required: "Training is on hold until you've been reviewed.",
+  acute_safety_professional_review_required: "Training is on hold until your clinician has reviewed it.",
   acute_safety_reconciliation_required: "We're checking your safety status. Please try again in a moment.",
   acute_resolution_required: "This session needs to be stopped for safety.",
   resume_existing_session: "You already have a session in progress.",
