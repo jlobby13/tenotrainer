@@ -303,6 +303,14 @@ async function layoutCheck(page, name) {
 }
 
 // ---------------------------------------------------------------- scenarios
+// PEC — the workout opens in a passive review; "Begin workout" (UI state
+// only, never a write) reveals the performance controls.
+async function beginIfReviewing(page) {
+  await page.waitForSelector("[data-c5-exercise], [data-c5-state-card], [data-c5-sequence-choice], [data-c5-recovery-guidance], [data-c5-closed]", { timeout: 15000 }).catch(() => {});
+  const begin = page.locator("[data-c5-begin]");
+  if ((await begin.count()) > 0) await begin.click();
+}
+
 async function main() {
   const probe = await fetch(`${ON}/api/patient/c5/state`);
   check("gate-on server reachable; unauthenticated C5 API is 401", probe.status === 401, `status ${probe.status}`);
@@ -332,6 +340,8 @@ async function main() {
       check("1. opening Today's Rehab creates no session", (await sessionsOf(A)).length === 0);
 
       await page.goto(`${ON}/patient/session`);
+
+      await beginIfReviewing(page);
       await page.waitForSelector("[data-c5-exercise]");
       check("2. opening the workout creates no session", (await sessionsOf(A)).length === 0);
       const s0 = await state(ctxA);
@@ -346,16 +356,18 @@ async function main() {
         await page.locator(`[data-c5-exercise="${ex}"]`).getByRole("button", { name: "Skip this exercise" }).click();
       }
       check("every unit shows skipped", (await page.locator('[data-c5-unit-state="skipped"]').count()) === 5);
-      await page.getByRole("button", { name: "Finish workout" }).click();
-      check("4. all-skipped Finish says 'No exercises have been completed yet.'", (await page.locator("[data-c5-notice]").textContent())?.trim() === "No exercises have been completed yet.");
+      // PEC: before the first performance there is no Finish control at all.
+      check("4. all-skipped (nothing performed): no Finish control is offered", (await page.getByRole("button", { name: /Finish/ }).count()) === 0);
       check("4. all-skipped workout created no session and wrote nothing", (await sessionsOf(A)).length === 0 && startCalls.length === 0);
 
       await page.reload();
       await page.waitForSelector("[data-c5-exercise]");
+      await beginIfReviewing(page);
       check("pre-session skips are ephemeral (gone after reload)", (await page.locator('[data-c5-unit-state="skipped"]').count()) === 0);
 
       // 6. first confirmed performance, with one pre-start skip.
       await unitRow(page, A.workouts[0].e1, 0).getByRole("button", { name: "Skip" }).click();
+      await beginIfReviewing(page);
       await unitRow(page, A.workouts[0].e1, 1).getByRole("button", { name: "Done" }).click();
       await waitFor(async () => (await sessionsOf(A)).length === 1);
       const sessions = await sessionsOf(A);
@@ -373,6 +385,7 @@ async function main() {
       await page.waitForSelector("[data-c5-progress]");
 
       // 8. subsequent performance
+      await beginIfReviewing(page);
       await unitRow(page, A.workouts[0].e1, 2).getByRole("button", { name: "Done" }).click();
       check("8. subsequent performance persists", await waitFor(async () => (await unitsOf(S.id)).some((u) => u.set_index === 2 && u.outcome === "completed")));
       check("8. UI reports the unit as saved", await waitFor(async () => (await unitRow(page, A.workouts[0].e1, 2).textContent())?.includes("Saved")));
@@ -416,7 +429,9 @@ async function main() {
       const sP = await state(ctxA);
       check("12. Started old-version session survives publish (state still resumes it on V1)", sP?.kind === "resume" && sP.session.id === S.id && sP.session.snapshot.versionId === A.versionId);
       await page.goto(`${ON}/patient/session`);
+      await beginIfReviewing(page);
       await page.waitForSelector("[data-c5-progress]");
+      await beginIfReviewing(page);
       await unitRow(page, A.workouts[0].e2, 0).getByRole("button", { name: "Done" }).click();
       check("12. performance keeps recording against the frozen old-version snapshot", await waitFor(async () => (await unitsOf(S.id)).some((u) => u.exercise_id === A.workouts[0].e2 && Number(u.actual_duration_seconds) === 30)));
       check("12. session version / snapshot unchanged", (await sessionsOf(A))[0].prescription_version_id === A.versionId);
@@ -501,7 +516,10 @@ async function main() {
       await admin.rpc("resume_prescription", { p_patient_prescription_id: C.ppId, p_clinician_id: CLINICIAN });
 
       await page.goto(`${ON}/patient/session`);
+
+      await beginIfReviewing(page);
       await page.waitForSelector("[data-c5-exercise]");
+      await beginIfReviewing(page);
       await unitRow(page, C.workouts[0].e1, 0).getByRole("button", { name: "Done" }).click();
       await waitFor(async () => (await sessionsOf(C)).length === 1);
       const sid = (await sessionsOf(C))[0].id;
@@ -512,6 +530,7 @@ async function main() {
       check("15. paused: Finish Current Session + Stop Today's Session offered", (await page.getByRole("button", { name: "Finish current session" }).count()) === 1 && (await page.getByRole("button", { name: "Stop today's session" }).count()) === 1);
       const sPS = await state(ctxC);
       check("15. state: resume (paused) with the same session", sPS?.kind === "resume" && sPS.paused === true && sPS.session.id === sid);
+      await beginIfReviewing(page);
       await unitRow(page, C.workouts[0].e1, 1).getByRole("button", { name: "Done" }).click();
       check("15. performance still records while paused", await waitFor(async () => (await unitsOf(sid)).length === 2));
       await page.setViewportSize(MOBILE);
@@ -534,6 +553,7 @@ async function main() {
       const page = await ctxD.newPage();
       await page.setViewportSize(MOBILE);
       await page.goto(`${ON}/patient/session`);
+      await beginIfReviewing(page);
       await page.waitForSelector("[data-testid=c5-paused-banner]");
       await page.getByRole("button", { name: "Stop today's session" }).click();
       await page.waitForSelector("[role=dialog]");
@@ -580,7 +600,9 @@ async function main() {
       check("fixture: after a Finished A the server offers the next workout (B)", W === F.workouts[1]);
       const page = await ctxF.newPage();
       await page.goto(`${ON}/patient/session`);
+      await beginIfReviewing(page);
       await page.waitForSelector("[data-c5-exercise]");
+      await beginIfReviewing(page);
       await unitRow(page, W.e1, 0).getByRole("button", { name: "Done" }).click();
       await waitFor(async () => (await todaysSessions(F)).length === 1);
       const S = (await todaysSessions(F))[0];
@@ -592,6 +614,7 @@ async function main() {
       await page.goto(`${ON}/patient/dashboard`);
       check("19. dashboard: not a Resume — 'Your session needs to be stopped'", (await page.locator("[data-c5-state-card]").textContent())?.includes("Your session needs to be stopped") && (await page.getByRole("link", { name: "Resume session" }).count()) === 0);
       await page.goto(`${ON}/patient/session`);
+      await beginIfReviewing(page);
       await page.waitForSelector("[data-testid=c5-acute-banner]");
       check("19. session page shows the existing session + its recorded work", (await page.locator('[data-c5-unit-state="completed"]').count()) === 1);
       check("20. no performance controls are offered", (await page.getByRole("button", { name: "Done" }).count()) === 0 && (await page.getByRole("button", { name: "Skip" }).count()) === 0 && (await page.getByRole("button", { name: "Edit" }).count()) === 0);
@@ -630,6 +653,7 @@ async function main() {
       const page = await ctxG.newPage();
       await page.setViewportSize(MOBILE);
       await page.goto(`${ON}/patient/session`);
+      await beginIfReviewing(page);
       await page.waitForSelector("[data-c5-sequence-choice]");
       check("24. Stopped Sequence session presents Repeat / Move to next", (await page.locator("[data-c5-choice]").count()) === 2 && (await page.getByText("Repeat previous workout").count()) === 1 && (await page.getByText("Move to next workout").count()) === 1);
       await layoutCheck(page, "mobile-sequence-choice");
@@ -641,8 +665,10 @@ async function main() {
       const s2 = await state(ctxG);
       check("25. leaving after choosing records nothing (choice still pending)", s2?.choiceRequired === true && (await todaysSessions(G)).length === 0);
       await page.goto(`${ON}/patient/session`);
+      await beginIfReviewing(page);
       await page.locator('[data-c5-choice="advance_next"]').click();
       await page.waitForSelector("[data-c5-exercise]");
+      await beginIfReviewing(page);
       await unitRow(page, G.workouts[1].e1, 0).getByRole("button", { name: "Done" }).click();
       await waitFor(async () => (await todaysSessions(G)).length === 1);
       const S = (await todaysSessions(G))[0];
@@ -661,6 +687,7 @@ async function main() {
       check("single workout: server resolves the choice (no choice required)", s?.kind === "available" && s.choiceRequired === false && s.options.length === 1 && s.options[0].key === "single");
       const page = await ctxH.newPage();
       await page.goto(`${ON}/patient/session`);
+      await beginIfReviewing(page);
       await page.waitForSelector("[data-c5-exercise]");
       check("single workout: no Repeat/Next choice screen", (await page.locator("[data-c5-sequence-choice]").count()) === 0);
       await page.close();
@@ -675,6 +702,7 @@ async function main() {
       check("26. Calendar: today's scheduled workout (B) from the server", s?.kind === "available" && s.options.length === 1 && s.options[0].key === "scheduled_today" && s.options[0].workoutId === I.workouts[1].id && s.options[0].calendarScheduledDate === localDate(0), JSON.stringify(s)?.slice(0, 200));
       const page = await ctxI.newPage();
       await page.goto(`${ON}/patient/session`);
+      await beginIfReviewing(page);
       await page.waitForSelector("[data-c5-exercise]");
       check("27. the earlier missed workout (A) is not offered once B is due", (await page.locator(`[data-c5-exercise="${I.workouts[0].e1}"]`).count()) === 0 && (await page.getByText("Today's scheduled workout").count()) === 1);
       const stale = await api(ctxI, "POST", "/api/patient/c5/start", startBody(I, { workoutId: I.workouts[0].id, performance: perf(I.workouts[0].e1, 0) }));
@@ -688,8 +716,10 @@ async function main() {
       check("26. Calendar make-up offered by the server for yesterday", sm?.kind === "available" && sm.options[0].key === "make_up" && sm.options[0].calendarScheduledDate === localDate(-1), JSON.stringify(sm)?.slice(0, 200));
       const pageM = await ctxM.newPage();
       await pageM.goto(`${ON}/patient/session`);
+      await beginIfReviewing(pageM);
       await pageM.waitForSelector("[data-c5-exercise]");
       check("make-up is labelled as a make-up", (await pageM.getByText(/Make-up for/).count()) === 1);
+      await beginIfReviewing(pageM);
       await unitRow(pageM, M.workouts[0].e1, 0).getByRole("button", { name: "Done" }).click();
       await waitFor(async () => (await sessionsOf(M)).length === 1);
       check("26. calendar_scheduled_date stays server-authoritative", (await sessionsOf(M))[0]?.calendar_scheduled_date === localDate(-1));

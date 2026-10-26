@@ -312,8 +312,9 @@ async function main() {
     await insertEpisode(users.i.userId, sI, eeI.id, 5, new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), { pop: true });
     const ctxI = await browser.newContext();
     const { desktopText: iDesktop, mobileText: iMobile } = await screenshotBothViewports(ctxI, users.i.email, "State I", "state_i");
-    check("I desktop shows 'Stop Loading'", iDesktop.includes("Stop Loading"), iDesktop.slice(0, 300));
-    check("I mobile shows 'Stop Loading'", iMobile.includes("Stop Loading"));
+    // PEC: the shared Level 5 hold title is now patient wording ("Stop Loading" retired).
+    check("I desktop shows 'Pause your rehab exercises'", iDesktop.includes("Pause your rehab exercises") && !iDesktop.includes("Stop Loading"), iDesktop.slice(0, 300));
+    check("I mobile shows 'Pause your rehab exercises'", iMobile.includes("Pause your rehab exercises") && !iMobile.includes("Stop Loading"));
     await ctxI.close();
   } finally {
     console.log("\nCleaning up...");

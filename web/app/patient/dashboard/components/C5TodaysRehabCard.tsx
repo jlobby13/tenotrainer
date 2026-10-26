@@ -65,6 +65,28 @@ export function C5PendingCheckInCard({ count }: { count: number }) {
   );
 }
 
+// PEC — an open safety hold while the program is paused: secondary to the
+// paused card, linking to the existing safety check-in. It never offers
+// training and never releases anything.
+export function C5SafetyHoldCard({ requiresClinicianRelease }: { requiresClinicianRelease: boolean }) {
+  return (
+    <section className="rounded-2xl border border-amber-400/30 bg-amber-400/5 p-5" data-c5-paused-safety-hold>
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-300">Safety</p>
+      <h2 className="mt-1.5 text-base font-semibold text-slate-50">{requiresClinicianRelease ? "Clinician release required" : "Safety check-in needed"}</h2>
+      <Body>
+        {requiresClinicianRelease
+          ? "Training is on hold until your clinician reviews your safety check-in and releases the hold."
+          : "A short safety check-in is still needed before you can train again."}
+      </Body>
+      <div className="mt-4">
+        <Link href="/patient/acute-safety" className={SECONDARY}>
+          Go to safety check-in
+        </Link>
+      </div>
+    </section>
+  );
+}
+
 export function C5TodaysRehabCard({ state }: { state: C5TrainingState }) {
   switch (state.kind) {
     case "available": {

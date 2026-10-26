@@ -16,8 +16,11 @@ import "server-only";
 
 import { createServerSupabaseClient, createServiceRoleClient } from "./supabase/server";
 import { mapDosageRowToInput } from "./dosageEditor";
+import { lastTimeKey, outcomeValue, unitEntry } from "./c5RuntimeTypes";
 import type {
   C5AcuteGate,
+  C5LastTimeMap,
+  C5PatientGuidance,
   C5RecoveryGuidance,
   C5WeeklyProgress,
   C5PerformancePayload,
@@ -103,18 +106,98 @@ export function mapSnapshot(raw: Json | null): C5Snapshot | null {
   const workout = (raw.workout ?? {}) as Json;
   const exercises = Array.isArray(raw.exercises) ? (raw.exercises as Json[]) : [];
   return {
+    snapshotVersion: raw.snapshot_version == null ? null : Number(raw.snapshot_version),
     versionId: raw.prescription_version_id as string,
     versionNumber: (raw.version_number as number | null) ?? null,
     schedulingMode: raw.scheduling_mode as C5Snapshot["schedulingMode"],
     workout: { id: workout.id as string, label: (workout.label as string | null) ?? null, orderIndex: (workout.order_index as number) ?? 0 },
     exercises: exercises.map((e) => ({
       exerciseId: e.exercise_id as string,
+      canonicalExerciseId: (e.canonical_exercise_id as string | null) ?? null,
       name: e.name as string,
       orderIndex: e.order_index as number,
       additionalInstructions: (e.additional_instructions as string | null) ?? null,
       dosage: mapDosageRowToInput(e.dosage as Json)!,
+      guidance: mapGuidance(e.patient_guidance),
     })),
   };
+}
+
+// PEC — only what the snapshot itself carries. A version-1 snapshot has no
+// patient_guidance and maps to null: the live library is never consulted.
+function mapGuidance(raw: unknown): C5PatientGuidance | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const g = raw as Json;
+  const text = (v: unknown) => (typeof v === "string" && v.trim() !== "" ? v.trim() : null);
+  const list = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && x.trim() !== "").map((x) => x.trim()) : []);
+  const media = text(g.media_url);
+  return {
+    explanation: text(g.explanation),
+    setup: text(g.setup),
+    cues: list(g.cues),
+    watchFor: list(g.watch_for),
+    // Only an absolute https URL is ever rendered as media.
+    mediaUrl: media && /^https:\/\//i.test(media) ? media : null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// PEC — "Last time" (factual context only; no comparison or advice).
+// Most recent CLOSED (Finished or Stopped) C5 session per library exercise
+// and primary quantity, with at least one COMPLETED unit; values are the
+// recorded (corrected) ones. Any prescription version qualifies.
+// ---------------------------------------------------------------------------
+const CLOSED_STATUSES = ["finished", "stopped_early", "stopped_pause", "stopped_acute"];
+const LAST_TIME_SESSION_WINDOW = 40;
+
+export async function getC5LastTime(patientId: string): Promise<C5LastTimeMap> {
+  const admin = createServiceRoleClient();
+  const { data: sessions } = await admin
+    .from("rehab_sessions")
+    .select("id, patient_local_date, started_at, prescription_snapshot")
+    .eq("user_id", patientId)
+    .in("training_status", CLOSED_STATUSES)
+    .order("started_at", { ascending: false })
+    .limit(LAST_TIME_SESSION_WINDOW);
+  const rows = sessions ?? [];
+  if (rows.length === 0) return {};
+  const { data: units } = await admin
+    .from("set_outcomes")
+    .select("rehab_session_id, exercise_id, set_index, outcome, actual_reps, actual_load, actual_load_unit, actual_duration_seconds, actual_distance_m")
+    .in("rehab_session_id", rows.map((r) => r.id as string))
+    .eq("outcome", "completed")
+    .order("set_index");
+  const bySessionExercise = new Map<string, Json[]>();
+  for (const u of (units ?? []) as Json[]) {
+    const k = `${u.rehab_session_id}|${u.exercise_id}`;
+    const list = bySessionExercise.get(k) ?? [];
+    list.push(u);
+    bySessionExercise.set(k, list);
+  }
+  const out: C5LastTimeMap = {};
+  for (const r of rows) {
+    const snapshot = mapSnapshot(r.prescription_snapshot as Json);
+    if (!snapshot) continue;
+    for (const e of snapshot.exercises) {
+      if (!e.canonicalExerciseId) continue;
+      const entry = unitEntry(e.dosage);
+      const key = lastTimeKey(e.canonicalExerciseId, entry.field);
+      if (out[key]) continue; // a more recent qualifying session already won
+      const completed = bySessionExercise.get(`${r.id}|${e.exerciseId}`) ?? [];
+      if (completed.length === 0) continue; // skipped-only history does not qualify
+      out[key] = {
+        sessionLocalDate: r.patient_local_date as string,
+        field: entry.field,
+        distanceUnit: entry.distanceUnit,
+        units: completed.map((u) => ({
+          value: outcomeValue(entry, { actualReps: num(u.actual_reps), actualDurationSeconds: num(u.actual_duration_seconds), actualDistanceM: num(u.actual_distance_m) }),
+          load: num(u.actual_load),
+          loadUnit: (u.actual_load_unit as "kg" | "lb" | null) ?? null,
+        })),
+      };
+    }
+  }
+  return out;
 }
 
 function num(v: unknown): number | null {
@@ -393,4 +476,22 @@ export async function recordRecoveryDecision(patientId: string, clientRequestId:
 
 export async function getSessionViewForPatient(patientId: string, sessionId: string): Promise<C5SessionView | null> {
   return loadSessionView(createServiceRoleClient(), patientId, sessionId);
+}
+
+// ---------------------------------------------------------------------------
+// PEC — an open safety hold while the program is paused. Eligibility
+// reports `prescription_paused` first (the authoritative order is
+// unchanged), which would hide the hold; this read lets the dashboard show
+// it as SECONDARY information linking to the existing safety check-in.
+// Presentation only: it permits nothing, releases nothing and never
+// changes eligibility.
+// ---------------------------------------------------------------------------
+export async function getC5OpenSafetyHold(patientId: string): Promise<{ requiresClinicianRelease: boolean } | null> {
+  const admin = createServiceRoleClient();
+  const { data: brake, error } = await admin.rpc("get_patient_acute_brake_status", { p_user_id: patientId });
+  const row = error ? null : ((brake ?? []) as Json[])[0];
+  if (!row?.episode_id) return null;
+  const { data: review } = await admin.rpc("acute_episode_review_state", { p_episode_id: row.episode_id as string });
+  const r = ((review ?? []) as Json[])[0];
+  return { requiresClinicianRelease: r?.requires_clinician_release === true };
 }

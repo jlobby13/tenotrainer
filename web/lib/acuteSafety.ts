@@ -172,7 +172,8 @@ export function describeActiveBrake(params: {
     const awaitingClinicianRelease = latestReassessment?.evaluatedByProfessional === true && latestReassessment.clearedByProfessional === true;
     return {
       kind: "level5",
-      title: "Stop Loading",
+      // PEC — patient wording for the Level 5 hold (state and algorithm unchanged).
+      title: "Pause your rehab exercises",
       body: awaitingClinicianRelease
         ? "You've reported that you were cleared to resume rehabilitation. Your clinician will review this and release the hold before your next rehab session."
         : "Do not continue your Achilles exercises. Protect and offload the affected leg. Seek prompt medical evaluation. Your clinician will review this before your rehab resumes.",

@@ -51,8 +51,11 @@ export async function getC5CheckIns(patientId: string): Promise<C5CheckIns> {
     admin.from("profiles").select("timezone").eq("id", patientId).maybeSingle(),
   ]);
   const now = Date.now();
+  const upcoming = (mornings ?? []).find((r) => r.scheduled_eligible_at && new Date(r.scheduled_eligible_at as string).getTime() > now);
   return {
     patientToday: localDate((profile?.timezone as string | null) ?? null),
+    patientTimezone: (profile?.timezone as string | null) ?? null,
+    upcomingMorning: upcoming ? { dueAt: upcoming.scheduled_eligible_at as string } : null,
     immediate: (immediates ?? []).map((r) => {
       const s = r.rehab_sessions as unknown as Json;
       const workout = ((s.prescription_snapshot as Json | null)?.workout ?? null) as Json | null;

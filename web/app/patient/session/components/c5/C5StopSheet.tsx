@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // C5.6D — Stop Today's Session, with an optional in-session safety report.
 // The browser never chooses the stop type: c5_stop_session classifies it
@@ -25,9 +25,52 @@ export function C5StopSheet({
 }) {
   const [report, setReport] = useState<C5AcuteReportInput>({});
   const anyReported = SAFETY_ITEMS.some((i) => report[i.key]);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const keepGoingRef = useRef<HTMLButtonElement>(null);
+  const pendingRef = useRef(pending);
+  const cancelRef = useRef(onCancel);
+  useEffect(() => {
+    pendingRef.current = pending;
+    cancelRef.current = onCancel;
+  }, [pending, onCancel]);
+
+  // PEC — dialog focus behaviour: focus starts on the safe choice ("Keep
+  // going"), Tab stays inside the sheet, Escape closes it (never while a
+  // Stop is in flight), and focus returns to whatever opened it.
+  useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    keepGoingRef.current?.focus();
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        if (!pendingRef.current) {
+          e.preventDefault();
+          cancelRef.current();
+        }
+        return;
+      }
+      if (e.key !== "Tab" || !panelRef.current) return;
+      const focusable = Array.from(panelRef.current.querySelectorAll<HTMLElement>("button:not([disabled]), input:not([disabled])"));
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && (document.activeElement === first || !panelRef.current.contains(document.activeElement))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (document.activeElement === last || !panelRef.current.contains(document.activeElement))) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      if (opener && document.contains(opener)) opener.focus();
+    };
+  }, []);
+
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-slate-950/70 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="c5-stop-title">
-      <div className="w-full max-w-md rounded-t-2xl border border-slate-800 bg-slate-900 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:rounded-2xl">
+    <div className="fixed inset-0 z-40 flex items-end justify-center bg-slate-950/70 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="c5-stop-title" data-c5-stop-sheet>
+      <div ref={panelRef} className="w-full max-w-md rounded-t-2xl border border-slate-800 bg-slate-900 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:rounded-2xl">
         <h2 id="c5-stop-title" className="text-lg font-semibold text-slate-50">
           Stop today&apos;s session?
         </h2>
@@ -58,7 +101,7 @@ export function C5StopSheet({
           >
             {pending ? "Stopping…" : "Stop today's session"}
           </button>
-          <button type="button" onClick={onCancel} disabled={pending} className="min-h-11 flex-1 rounded-xl border border-slate-700 px-4 text-sm font-medium text-slate-200">
+          <button ref={keepGoingRef} type="button" onClick={onCancel} disabled={pending} className="min-h-11 flex-1 rounded-xl border border-slate-700 px-4 text-sm font-medium text-slate-200">
             Keep going
           </button>
         </div>

@@ -15,9 +15,10 @@ import { TimezoneInitializer } from "./components/TimezoneInitializer";
 import { PreviousSessionSummary } from "./components/PreviousSessionSummary";
 import { SecondaryLinks } from "./components/SecondaryLinks";
 import { C5Dashboard } from "./components/C5Dashboard";
-import { getC5TrainingState, usesC5Runtime } from "@/lib/c5RuntimeServer";
+import { getC5OpenSafetyHold, getC5TrainingState, usesC5Runtime } from "@/lib/c5RuntimeServer";
 import { getC5CheckIns } from "@/lib/c5ResponseServer";
 import { getUnreadProgramNotices } from "@/lib/programNoticesServer";
+import { describeUpcomingMorning } from "@/lib/c5ResponseTypes";
 
 export const metadata = { title: "Dashboard — TenoTrainer" };
 
@@ -72,7 +73,11 @@ export default async function PatientDashboardPage() {
   // otherwise.
   if (await usesC5Runtime(authUser.id)) {
     const state = await getC5TrainingState(authUser.id);
-    const [checkIns, notices] = await Promise.all([getC5CheckIns(authUser.id), getUnreadProgramNotices(authUser.id)]);
+    const [checkIns, notices, pausedSafetyHold] = await Promise.all([
+      getC5CheckIns(authUser.id),
+      getUnreadProgramNotices(authUser.id),
+      state.kind === "prescription_paused" ? getC5OpenSafetyHold(authUser.id) : Promise.resolve(null),
+    ]);
     return (
       <C5Dashboard
         email={authUser.email ?? ""}
@@ -80,6 +85,8 @@ export default async function PatientDashboardPage() {
         state={state}
         pendingCheckIns={checkIns.immediate.length + checkIns.mornings.length}
         notices={notices}
+        pausedSafetyHold={pausedSafetyHold}
+        upcomingMorning={checkIns.mornings.length === 0 && checkIns.upcomingMorning ? describeUpcomingMorning(checkIns.upcomingMorning.dueAt, checkIns.patientTimezone) : null}
       />
     );
   }

@@ -19,17 +19,34 @@ export type C5AcuteGate =
   | "acute_safety_professional_review_required"
   | "acute_safety_reconciliation_required";
 
+// PEC — patient exercise guidance FROZEN into a version-2 session snapshot
+// at first confirmed performance (c5_build_session_snapshot,
+// 20261026000001). Before Start the preview carries the CURRENT library
+// guidance; after Start only the frozen copy is ever shown. A version-1
+// snapshot has none (null) — never filled in from the live library.
+export type C5PatientGuidance = {
+  explanation: string | null;
+  setup: string | null;
+  cues: string[];
+  watchFor: string[];
+  mediaUrl: string | null;
+};
+
 export type C5SnapshotExercise = {
   exerciseId: string;
+  // The library exercise this prescribed exercise uses (Last Time matching).
+  canonicalExerciseId: string | null;
   name: string;
   orderIndex: number;
   additionalInstructions: string | null;
   dosage: DosageInput;
+  guidance: C5PatientGuidance | null;
 };
 
 // The immutable session snapshot (c5_build_session_snapshot). Before Start
 // the same builder supplies a display-only preview of the eligible workout.
 export type C5Snapshot = {
+  snapshotVersion: number | null;
   versionId: string;
   versionNumber: number | null;
   schedulingMode: C5SchedulingMode;
@@ -58,6 +75,18 @@ export type C5SessionView = {
   startedAt: string;
   closedAt: string | null;
 };
+
+// PEC — "Last time": the most recent CLOSED (Finished or Stopped) C5 session
+// in which the same library exercise, recorded with the same primary
+// quantity, had at least one completed unit. Current (corrected) values,
+// completed units only. Factual context — never a recommendation.
+export type C5LastTimeUnit = { value: number | null; load: number | null; loadUnit: "kg" | "lb" | null };
+export type C5LastTime = { sessionLocalDate: string; field: C5UnitEntry["field"]; distanceUnit: string | null; units: C5LastTimeUnit[] };
+// Keyed by lastTimeKey(canonicalExerciseId, field).
+export type C5LastTimeMap = Record<string, C5LastTime>;
+export function lastTimeKey(canonicalExerciseId: string, field: C5UnitEntry["field"]): string {
+  return `${canonicalExerciseId}|${field}`;
+}
 
 // One workout the server says may be started now.
 export type C5WorkoutOption = {

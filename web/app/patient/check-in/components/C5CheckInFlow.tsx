@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { C5NetworkError, submitImmediate, submitMorning } from "@/lib/c5RuntimeClient";
-import { responseMessage, type C5CheckIns, type C5ImmediateResponseInput, type C5MorningResponseInput } from "@/lib/c5ResponseTypes";
+import { describeUpcomingMorning, responseMessage, type C5CheckIns, type C5ImmediateResponseInput, type C5MorningResponseInput } from "@/lib/c5ResponseTypes";
 import type { C5TrainingState } from "@/lib/c5RuntimeTypes";
 import { C5TodaysRehabCard } from "@/app/patient/dashboard/components/C5TodaysRehabCard";
 import { C5ImmediateForm } from "./C5ImmediateForm";
@@ -66,6 +66,11 @@ export function C5CheckInFlow({ initialCheckIns, initialState }: { initialCheckI
         <section className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 text-center">
           <h1 className="text-xl font-semibold text-slate-50">Check-in saved</h1>
           <p className="mt-1 text-sm text-slate-300">Thanks — your answers have been recorded.</p>
+          {more === 0 && saved.checkIns.upcomingMorning && (
+            <p className="mt-3 text-sm font-medium text-sky-100" data-c5-upcoming-morning>
+              {describeUpcomingMorning(saved.checkIns.upcomingMorning.dueAt, saved.checkIns.patientTimezone)}
+            </p>
+          )}
           {more > 0 && (
             <button
               type="button"

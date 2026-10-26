@@ -1,6 +1,6 @@
 # C5.6 — deferred items and launch constraints
 
-Recorded at C5.6D founder review (2026-10-15); updated through M2 (2026-10-25). Items are deferred unless a section marks them resolved.
+Recorded at C5.6D founder review (2026-10-15); updated through PEC (2026-10-26). Items are deferred unless a section marks them resolved.
 
 ## Launch constraint
 
@@ -14,9 +14,10 @@ Recorded at C5.6D founder review (2026-10-15); updated through M2 (2026-10-25). 
   explicit founder approval. M2 (2026-10-25) delivered native onboarding,
   Postgres assignment authority, the FastAPI/SQLite removal from
   authorization, clinician pause/resume and in-app program notices (see the M2
-  section). Outstanding dependencies: required clinician notification delivery
-  (alerts for Level 3/5 and effective >= 4 holds); patient-experience
-  completion (exercise guidance); production environment and release
+  section). PEC (2026-10-26) completed the native patient experience (see the
+  PEC section). Outstanding dependencies: required clinician notification
+  delivery (alerts for Level 3/5 and effective >= 4 holds); production
+  environment and release
   readiness (hosting, auth URLs, disabling public Supabase sign-ups, release
   gate, observability); and final cutover verification.
 
@@ -24,9 +25,9 @@ Recorded at C5.6D founder review (2026-10-15); updated through M2 (2026-10-25). 
 
 | Item | Priority | Constraint |
 |---|---|---|
-| Exercise guidance panel | Reconsider before production (higher priority usability) | Must not reuse legacy stage/irritability clinical-state logic |
-| Rest timer | Desirable | Same |
-| "Last time" figures | Wait for the design of historical C5 performance presentation | Same |
+| ~~Exercise guidance panel~~ | Resolved in PEC (frozen snapshot v2 guidance) | — |
+| Rest timer | Deferred (P2): optional patient-started countdown; PEC shows prescribed rest prominently, never enforced | Never alters session authority |
+| ~~"Last time" figures~~ | Resolved in PEC (factual context, see below) | — |
 | C5 dashboard: feedback cards / previous-session panel | Reconsider once the full C5 clinical data loop runs | Current scope: Today's Rehab, Progress, Settings |
 
 ## Data-provenance debt: erroneous performance units
@@ -230,3 +231,65 @@ Still deferred / new debt:
   leave `m5-stage4-*` users. Their teardowns need the same treatment as the
   M2 HttpLayer fix (delete notifications / prescription rows that block user
   deletion, and log teardown errors) in a dedicated test-infrastructure pass.
+
+## PEC — Patient Experience Completion (recorded 2026-10-26)
+
+Completed in PEC:
+
+- **Frozen patient exercise guidance** — session snapshot version 2
+  (`20261026000001`): per exercise `patient_guidance { explanation, setup,
+  cues, watch_for, media_url }` copied from the library when the snapshot is
+  built. The pre-start preview shows the current library; the snapshot frozen
+  at first confirmed performance is the only source afterwards. Version-1
+  snapshots are not backfilled and show no guidance (never a live fallback).
+  Clinician-only content (`contraindications_or_cautions`, `clinician_notes`)
+  is never copied. The clinician's own note is shown separately ("Note from
+  your clinician").
+- **Pre-start review → Begin workout** — the workout opens read-only; Begin
+  is UI state only (no write, no session, nothing persisted); the session
+  still Starts only at the first confirmed performance. No Finish control
+  exists before Start.
+- **Last time** — factual context only: the most recent closed (Finished or
+  Stopped) C5 session with at least one completed unit of the same library
+  exercise and the same primary quantity; any prescription version; current
+  (corrected) values; per-set listing whenever loads differ; nothing when
+  there is no compatible history. No comparison or advice.
+- **Rest** — prescribed rest shown prominently ("Rest 90 sec between sets",
+  and before the next set). No timer; never enforced.
+- **Patient dosage wording** — RPE / RIR / ROM / side shown in plain language
+  (display only; prescriptions unchanged). "Bout" retired.
+- **Progress** — "done · skipped · left" from server-recorded units only.
+- **Upcoming morning check-in** — "Morning check-in opens tomorrow at 7:00 AM."
+  from the authoritative `scheduled_eligible_at` (due semantics unchanged),
+  after the post-session check-in and on the dashboard while not yet due.
+- **Paused + safety hold** — while paused, an open safety hold is shown as a
+  secondary card ("Clinician release required" for professional review)
+  linking to the safety check-in. Presentation only; eligibility order
+  unchanged.
+- **Notices** below the primary state card.
+- **Accessibility** — meaningful accessible names for the 0–10 scales; Stop
+  sheet initial focus, focus containment, Escape and focus return.
+- **Safety wording** — the Level 5 hold title "Stop Loading" became "Pause
+  your rehab exercises" (state and algorithm unchanged; the legacy M3 copy
+  that still says "Stop Loading" is legacy-runtime only).
+
+Deferred:
+
+- Exercise media content and hosting (`media_url` is frozen; nothing renders
+  while it is null).
+- Optional patient-started rest countdown (P2).
+- **Distance actual-performance entry (P2).** A distance-primary
+  prescription (`dosage_type = 'distance'`) is recorded by the UI. A distance
+  dimension that is SECONDARY to another primary quantity (possible when a
+  time prescription keeps its earlier type after distance is added) is
+  displayed but cannot be recorded. No current prescription uses distance
+  (0 dosage rows); only 3 library exercises offer it (as interval-time +
+  distance, where distance takes precedence and is recordable).
+- Theme consistency (Settings and the shared safety check-in page use the
+  legacy light theme).
+- Production observability (M3).
+- M6 symptom/capacity/training-response interpretation for C5 data.
+- A separate patient Exercise Library (not needed for the daily workflow).
+- P2/P3 polish: arrow-key navigation inside 0–10 radio groups, a sticky
+  progress counter, "current session unaffected" wording on update notices,
+  no-program copy refinement.

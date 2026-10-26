@@ -14,6 +14,7 @@ import {
   type C5PerformancePayload,
   type C5SessionView,
   type C5Snapshot,
+  type C5LastTimeMap,
   type C5TrainingState,
   type C5TrainingStatus,
   type C5UnitKey,
@@ -49,6 +50,12 @@ import { c5OptionLabel, c5WorkoutTitle } from "./c5Display";
 // the server's recorded units are the record — the UI shows saving / saved /
 // retry / rejected per unit. Finish and Stop are explicit patient intent;
 // the server classifies the outcome.
+//
+// PEC — before Start the workout opens in a passive REVIEW mode (exercises,
+// dosage, guidance, clinician notes, no performance controls). "Begin
+// workout" only reveals the controls: it is ephemeral UI state — nothing is
+// written, nothing is stored, and a refresh returns to review. The session
+// still Starts only at the first confirmed performance.
 
 type UnitSync = { status: "saving" | "saved" | "retry" | "rejected"; payload: C5PerformancePayload; edit: boolean; message?: string };
 type StartAttempt = { key: C5UnitKey; payload: C5PerformancePayload; status: "saving" | "retry" | "rejected"; message?: string };
@@ -73,7 +80,7 @@ function newRequestId(): string {
   return crypto.randomUUID();
 }
 
-export function C5SessionRunner({ initialState }: { initialState: C5TrainingState }) {
+export function C5SessionRunner({ initialState, lastTime = {} }: { initialState: C5TrainingState; lastTime?: C5LastTimeMap }) {
   const [state, setState] = useState<C5TrainingState>(initialState);
   const [session, setSession] = useState<C5SessionView | null>(sessionFrom(initialState));
   const [optionKey, setOptionKey] = useState<C5WorkoutOption["key"] | null>(defaultOptionKey(initialState));
@@ -87,6 +94,8 @@ export function C5SessionRunner({ initialState }: { initialState: C5TrainingStat
   const [showStop, setShowStop] = useState(false);
   // C5.6F — set once Continue has been recorded on this page.
   const [continued, setContinued] = useState(false);
+  // PEC — pre-Start review vs controls revealed. Never persisted.
+  const [begun, setBegun] = useState(false);
 
   const sessionRef = useRef(session);
   useEffect(() => {
@@ -123,6 +132,8 @@ export function C5SessionRunner({ initialState }: { initialState: C5TrainingStat
       setOptionKey(defaultOptionKey(next));
       setPreSkips(new Set());
       requestIdRef.current = null;
+      // A different workout (or version) must be reviewed again.
+      setBegun(false);
     }
   }
 
@@ -313,11 +324,14 @@ export function C5SessionRunner({ initialState }: { initialState: C5TrainingStat
   }
 
   const unsaved = Object.values(sync).some((s) => s && (s.status === "saving" || s.status === "retry"));
+  // PEC — factual progress from the SERVER's recorded units only. Never used
+  // to decide that a session is finished; Finish stays explicit.
   const progress = useMemo(() => {
-    if (!snapshot) return { done: 0, total: 0 };
+    if (!snapshot) return { done: 0, skipped: 0, left: 0 };
     const total = snapshot.exercises.reduce((n, e) => n + unitCount(e.dosage), 0);
     const done = session ? session.outcomes.filter((o) => o.outcome === "completed").length : 0;
-    return { done, total };
+    const skipped = session ? session.outcomes.filter((o) => o.outcome === "skipped").length : 0;
+    return { done, skipped, left: Math.max(0, total - done - skipped) };
   }, [snapshot, session]);
 
   // ---- Finish / Stop ---------------------------------------------------------
@@ -371,8 +385,8 @@ export function C5SessionRunner({ initialState }: { initialState: C5TrainingStat
         ← Today&apos;s Rehab
       </Link>
       {session && !closed && (
-        <span className="text-xs font-medium text-slate-400" data-c5-progress>
-          {progress.done} of {progress.total} done
+        <span className="text-xs font-medium text-slate-400" data-c5-progress aria-live="polite">
+          {progress.done} done · {progress.skipped} skipped · {progress.left} left
         </span>
       )}
     </div>
@@ -449,6 +463,7 @@ export function C5SessionRunner({ initialState }: { initialState: C5TrainingStat
   // unknown) nothing else may be entered: a replayed Start returns the
   // session created by THAT attempt, so a second entry could be lost.
   const interactive = !acute && !closing && (startAttempt === null || startAttempt.status === "rejected");
+  const reviewOnly = !session && !begun;
   return (
     <Frame withBar>
       {header}
@@ -462,7 +477,13 @@ export function C5SessionRunner({ initialState }: { initialState: C5TrainingStat
             Choose a different workout
           </button>
         )}
-        {!session && <p className="mt-2 text-sm text-slate-400">Your session starts when you complete your first set.</p>}
+        {!session && (
+          <p className="mt-2 text-sm text-slate-400" data-c5-start-hint>
+            {reviewOnly
+              ? "Review your workout, then tap Begin workout when you're ready. Nothing is recorded until you complete your first set."
+              : "Your session starts when you complete your first set."}
+          </p>
+        )}
       </div>
 
       {banner && <Banner tone="info">{banner}</Banner>}
@@ -488,6 +509,8 @@ export function C5SessionRunner({ initialState }: { initialState: C5TrainingStat
             displayFor={displayFor}
             syncFor={syncFor}
             interactive={interactive}
+            reviewOnly={reviewOnly}
+            lastTime={lastTime}
             allowUndoSkip={!session}
             onComplete={(u, v, l) => handleComplete(e.exerciseId, u, v, l)}
             onSkip={(u) => handleSkip(e.exerciseId, u)}
@@ -519,15 +542,21 @@ export function C5SessionRunner({ initialState }: { initialState: C5TrainingStat
                   {unsaved ? "Saving…" : paused ? "Finish current session" : "Finish workout"}
                 </button>
               </>
-            ) : (
+            ) : reviewOnly ? (
               <>
                 <Link href="/patient/dashboard" className={`${BAR_SECONDARY} inline-flex items-center justify-center`}>
                   Leave
                 </Link>
-                <button type="button" onClick={handleFinish} className={BAR_PRIMARY}>
-                  Finish workout
+                <button type="button" onClick={() => setBegun(true)} className={BAR_PRIMARY} data-c5-begin>
+                  Begin workout
                 </button>
               </>
+            ) : (
+              // Before the first performance there is nothing to finish: no
+              // Finish control until the session has Started.
+              <Link href="/patient/dashboard" className={`${BAR_SECONDARY} inline-flex items-center justify-center`}>
+                Leave
+              </Link>
             )}
           </div>
         </div>

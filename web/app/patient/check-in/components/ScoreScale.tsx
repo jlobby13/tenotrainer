@@ -5,17 +5,20 @@
 // preselected: nothing is ever submitted unless the patient picks it.
 export function ScoreScale({
   name,
+  label,
   value,
   onChange,
   disabled = false,
 }: {
   name: string;
+  // PEC — the patient-facing accessible name of the whole scale.
+  label: string;
   value: number | null;
   onChange: (v: number) => void;
   disabled?: boolean;
 }) {
   return (
-    <div role="radiogroup" aria-label={name} className="grid grid-cols-6 gap-2 sm:grid-cols-11" data-score-scale={name}>
+    <div role="radiogroup" aria-label={label} className="grid grid-cols-6 gap-2 sm:grid-cols-11" data-score-scale={name}>
       {Array.from({ length: 11 }, (_, n) => (
         <button
           key={n}

@@ -58,7 +58,7 @@ export function C5MorningForm({
       <section className={SECTION}>
         <h2 className="text-base font-semibold text-slate-50">Pain {morning}</h2>
         <div className="mt-3">
-          <ScoreScale name="morning-pain" value={pain} onChange={setPain} />
+          <ScoreScale name="morning-pain" label={`Pain ${morning}, from 0 (no pain) to 10 (worst pain imaginable)`} value={pain} onChange={setPain} />
         </div>
         <p className="mt-2 text-xs text-slate-500">0 = no pain · 10 = worst pain imaginable</p>
       </section>
@@ -68,6 +68,7 @@ export function C5MorningForm({
         <div className="mt-3">
           <ScoreScale
             name="morning-stiffness"
+            label={`Stiffness ${morning}, from 0 (no stiffness) to 10 (extremely stiff)`}
             value={stiffness}
             onChange={(v) => {
               setStiffness(v);

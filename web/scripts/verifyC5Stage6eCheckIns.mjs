@@ -274,6 +274,14 @@ async function layoutCheck(page, name) {
 }
 
 // ---------------------------------------------------------------- scenarios
+// PEC — the workout opens in a passive review; "Begin workout" (UI state
+// only, never a write) reveals the performance controls.
+async function beginIfReviewing(page) {
+  await page.waitForSelector("[data-c5-exercise], [data-c5-state-card], [data-c5-sequence-choice], [data-c5-recovery-guidance], [data-c5-closed]", { timeout: 15000 }).catch(() => {});
+  const begin = page.locator("[data-c5-begin]");
+  if ((await begin.count()) > 0) await begin.click();
+}
+
 async function main() {
   const probe = await fetch(`${ON}/api/patient/c5/check-ins`);
   check("gate-on server reachable; unauthenticated check-in API is 401", probe.status === 401, `status ${probe.status}`);
@@ -292,6 +300,7 @@ async function main() {
       check("42. no exposure -> no check-in obligation", pre.body?.checkIns?.immediate?.length === 0 && pre.body.checkIns.mornings.length === 0);
       const page = await ctxA.newPage();
       await page.goto(`${ON}/patient/session`);
+      await beginIfReviewing(page);
       await page.waitForSelector("[data-c5-exercise]");
       await page.locator("[data-c5-unit]").first().getByRole("button", { name: "Done" }).click();
       await waitFor(async () => (await sessionsOf(A)).length === 1);
@@ -393,6 +402,7 @@ async function main() {
       const ctxC = await login(browser, C.email);
       const page = await ctxC.newPage();
       await page.goto(`${ON}/patient/session`);
+      await beginIfReviewing(page);
       await page.waitForSelector("[data-c5-exercise]");
       await page.locator("[data-c5-unit]").first().getByRole("button", { name: "Done" }).click();
       await page.waitForSelector("[data-c5-progress]");

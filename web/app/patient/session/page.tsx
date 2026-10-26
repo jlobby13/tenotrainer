@@ -8,7 +8,7 @@ import { SessionPlayer } from "./components/SessionPlayer";
 import { MorningCheckInRequired } from "./components/MorningCheckInRequired";
 import { SessionUnavailable } from "./components/SessionUnavailable";
 import { C5SessionRunner } from "./components/c5/C5SessionRunner";
-import { getC5TrainingState, usesC5Runtime } from "@/lib/c5RuntimeServer";
+import { getC5LastTime, getC5TrainingState, usesC5Runtime } from "@/lib/c5RuntimeServer";
 
 // A non-terminal rehab_sessions row means the patient already legitimately
 // started (or is mid-M3-response on) something real — that must never be
@@ -45,8 +45,8 @@ export default async function PatientSessionPage() {
   // workout preview) — no session is created until the first confirmed
   // performance inside C5SessionRunner.
   if (await usesC5Runtime(authUser.id)) {
-    const state = await getC5TrainingState(authUser.id);
-    return <C5SessionRunner initialState={state} />;
+    const [state, lastTime] = await Promise.all([getC5TrainingState(authUser.id), getC5LastTime(authUser.id)]);
+    return <C5SessionRunner initialState={state} lastTime={lastTime} />;
   }
 
   let summary;

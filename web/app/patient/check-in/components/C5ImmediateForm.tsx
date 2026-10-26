@@ -73,6 +73,7 @@ export function C5ImmediateForm({
         <div className="mt-3">
           <ScoreScale
             name="peak-pain"
+            label="Peak pain during the workout, from 0 (no pain) to 10 (worst pain imaginable)"
             value={painUnknown ? null : pain}
             disabled={painUnknown}
             onChange={(v) => setPain(v)}
@@ -86,7 +87,7 @@ export function C5ImmediateForm({
         <h2 className="text-base font-semibold text-slate-50">Rate of Perceived Exertion (RPE)</h2>
         <p className="mt-0.5 text-sm text-slate-300">Overall, how hard did today’s workout feel?</p>
         <div className="mt-3">
-          <ScoreScale name="rpe" value={rpeUnknown ? null : rpe} disabled={rpeUnknown} onChange={(v) => setRpe(v)} />
+          <ScoreScale name="rpe" label="Overall, how hard did today’s workout feel? From 0 to 10" value={rpeUnknown ? null : rpe} disabled={rpeUnknown} onChange={(v) => setRpe(v)} />
         </div>
         {/* Sparse orientation words only — not tied to particular numbers and never stored. */}
         <div className="mt-2 flex justify-between gap-2 text-xs text-slate-500" aria-hidden="true" data-rpe-anchors>

@@ -116,6 +116,7 @@ export function C5UnitRow({
   sync,
   interactive,
   allowUndoSkip,
+  restHint = null,
   onComplete,
   onSkip,
   onUndoSkip,
@@ -128,6 +129,9 @@ export function C5UnitRow({
   interactive: boolean;
   // Only before Start: a pre-session skip is ephemeral and can be undone.
   allowUndoSkip: boolean;
+  // PEC — prescribed rest, shown on the next set after one is done. Display
+  // only: never a timer, never enforced, never written anywhere.
+  restHint?: string | null;
   onComplete: (value: number, load: number | null) => void;
   onSkip: () => void;
   onUndoSkip: () => void;
@@ -231,6 +235,7 @@ export function C5UnitRow({
         <SyncBadge sync={sync} onRetry={onRetry} />
       </div>
       {message && <p className="mt-1 text-xs text-rose-300">{message}</p>}
+      {restHint && <p className="mt-1 text-xs font-medium text-sky-200" data-c5-rest-hint>{restHint} before this set</p>}
       {editing ? (
         <EntryForm
           entry={entry}

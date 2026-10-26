@@ -26,10 +26,47 @@ export type C5MorningCheckIn = {
 
 export type C5CheckIns = {
   patientToday: string | null;
+  // PEC — the patient's time zone, for formatting the upcoming time.
+  patientTimezone: string | null;
   immediate: C5ImmediateCheckIn[];
   // Due (and unresolved) morning responses only.
   mornings: C5MorningCheckIn[];
+  // PEC — the earliest morning check-in that exists but is NOT yet due
+  // (scheduled_eligible_at in the future). Informational only: due
+  // semantics are unchanged and it never gates or replaces a due action.
+  upcomingMorning: { dueAt: string } | null;
 };
+
+// PEC — "Morning check-in opens tomorrow at 7:00 AM", in the patient's own
+// time zone. Pure formatting of the authoritative scheduled_eligible_at.
+export function describeUpcomingMorning(dueAt: string, timezone: string | null, now: Date = new Date()): string {
+  const tz = timezone ?? undefined;
+  const due = new Date(dueAt);
+  let time: string;
+  let dayKey: (d: Date) => string;
+  try {
+    time = due.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz });
+    const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: tz });
+    dayKey = (d) => fmt.format(d);
+  } catch {
+    time = due.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    dayKey = (d) => d.toISOString().slice(0, 10);
+  }
+  const today = dayKey(now);
+  const tomorrow = dayKey(new Date(now.getTime() + 86400000));
+  const dueDay = dayKey(due);
+  let when: string;
+  if (dueDay === today) when = "today";
+  else if (dueDay === tomorrow) when = "tomorrow";
+  else {
+    try {
+      when = `on ${due.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: tz })}`;
+    } catch {
+      when = `on ${due.toDateString()}`;
+    }
+  }
+  return `Morning check-in opens ${when} at ${time}.`;
+}
 
 // snake_case = the RPC's own shape. A score is an integer 0-10; "unable to
 // recall" is an explicit flag/resolution with the score left absent (NULL).

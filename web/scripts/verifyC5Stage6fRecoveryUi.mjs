@@ -278,6 +278,14 @@ async function layoutCheck(page, name) {
 }
 
 // ---------------------------------------------------------------- scenarios
+// PEC — the workout opens in a passive review; "Begin workout" (UI state
+// only, never a write) reveals the performance controls.
+async function beginIfReviewing(page) {
+  await page.waitForSelector("[data-c5-exercise], [data-c5-state-card], [data-c5-sequence-choice], [data-c5-recovery-guidance], [data-c5-closed]", { timeout: 15000 }).catch(() => {});
+  const begin = page.locator("[data-c5-begin]");
+  if ((await begin.count()) > 0) await begin.click();
+}
+
 async function main() {
   const probe = await fetch(`${ON}/api/patient/c5/recovery-decision`, { method: "POST" });
   check("gate-on server reachable; unauthenticated decision API is 401", probe.status === 401, `status ${probe.status}`);
@@ -324,6 +332,7 @@ async function main() {
       const d2 = await decisionsOf(A);
       check("24. Continue recorded objectively; no wording of override/noncompliance", d2.length === 2 && d2[1].decision === "continue");
       check("22. Continue alone creates no session", (await sessionsOf(A)).length === 1);
+      await beginIfReviewing(page);
       await page.locator("[data-c5-unit]").first().getByRole("button", { name: "Done" }).click();
       check("23. first confirmed performance after Continue Starts normally", await waitFor(async () => (await sessionsOf(A)).length === 2));
       await page.close();
@@ -337,6 +346,7 @@ async function main() {
       const ctx = await login(browser, B.email);
       const page = await ctx.newPage();
       await page.goto(`${ON}/patient/session`);
+      await beginIfReviewing(page);
       await page.waitForSelector('[data-c5-recovery-guidance="offered"]');
       check("2 recovery days, trained 2 days ago: still inside the interval (1 rest day so far)", (await page.locator("[data-c5-recovery-message]").textContent()).includes("2 recovery days"));
       await layoutCheck(page, "desktop-recovery-guidance");
@@ -427,6 +437,7 @@ async function main() {
         await page.waitForSelector("[data-c5-exercise]");
         const d2 = await decisionsOf(D);
         check("28. Continue in the combined state is recorded and starts nothing", d2.length === 2 && d2[1].decision === "continue" && (await sessionsOf(D)).length === 1);
+        await beginIfReviewing(page);
         await page.locator("[data-c5-unit]").first().getByRole("button", { name: "Done" }).click();
         check("28. first confirmed performance after Continue Starts normally", await waitFor(async () => (await sessionsOf(D)).length === 2));
         await page.close();
