@@ -1,9 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getSessionInfo } from "@/lib/auth";
+import { getMode } from "@/lib/operatingMode";
 
 export async function GET(request: NextRequest) {
-  if (process.env.NODE_ENV !== "development") {
+  // M3.1 — development diagnostics only; TENOTRAINER_MODE (not NODE_ENV) decides.
+  if (getMode() !== "development") {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 

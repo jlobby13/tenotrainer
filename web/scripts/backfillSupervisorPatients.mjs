@@ -36,6 +36,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
+import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
 
 function loadEnv(path) {
   const env = {};
@@ -347,6 +348,10 @@ async function writeApprovedRelationships() {
 }
 
 async function main() {
+  // M3.1 — refuse unless TENOTRAINER_MODE=development and the target project is
+  // allow-listed. In main() (not at import) because the classification unit
+  // test imports this module's pure functions only.
+  assertDevTestTarget(env);
   console.log(`=== C1A Supervisor Assignment Backfill — ${WRITE_MODE ? "WRITE MODE" : "DRY RUN (read-only, zero writes)"} ===\n`);
   if (WRITE_MODE) {
     console.log("--write flag detected: SAFE_TO_MIGRATE relationships with no conflicting Postgres state WILL be written.\n");

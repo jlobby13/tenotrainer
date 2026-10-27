@@ -21,7 +21,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
 // PATCH — updateDraftMetadata. Editing-owner only (enforced inside).
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ draftId: string }> }) {
-  const auth = await requireClinicianForRoute();
+  const auth = await requireClinicianForRoute({ mutation: true });
   if ("response" in auth) return auth.response;
   const { draftId } = await params;
 
@@ -56,7 +56,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
 // DELETE — discardDraft. Editing-owner only (enforced inside).
 export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ draftId: string }> }) {
-  const auth = await requireClinicianForRoute();
+  const auth = await requireClinicianForRoute({ mutation: true });
   if ("response" in auth) return auth.response;
   const { draftId } = await params;
 

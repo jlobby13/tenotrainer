@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getSessionInfo } from "@/lib/auth";
 import { addAssignment, endAssignment } from "@/lib/assignmentAdminServer";
 import { withQuery } from "@/lib/safeRedirect";
+import { refuseActionInMaintenance } from "@/lib/modeActions";
 
 // M2 — admin assignment changes. The actor is always the session user; the
 // RPCs re-check that they are clinician_admin / super_user of the
@@ -20,6 +21,7 @@ function back(org: string, patient: string, params: Record<string, string>): nev
 }
 
 export async function addAssignmentAction(formData: FormData) {
+  refuseActionInMaintenance("/admin/assignments");
   const actor = await actorId();
   const org = String(formData.get("org") ?? "");
   const patient = String(formData.get("patient") ?? "");
@@ -29,6 +31,7 @@ export async function addAssignmentAction(formData: FormData) {
 }
 
 export async function endAssignmentAction(formData: FormData) {
+  refuseActionInMaintenance("/admin/assignments");
   const actor = await actorId();
   const org = String(formData.get("org") ?? "");
   const patient = String(formData.get("patient") ?? "");

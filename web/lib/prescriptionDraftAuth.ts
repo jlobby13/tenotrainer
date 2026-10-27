@@ -19,6 +19,7 @@ import "server-only";
 
 import { assertSupervises } from "./clinicianAuth";
 import { PrescriptionDraftError } from "./prescriptionDraftErrors";
+import { isPublishAllowedByMode } from "./operatingMode";
 
 export async function verifyHighConsequenceAuthorization(clinicianId: string, patientId: string): Promise<void> {
   if (!(await assertSupervises(clinicianId, patientId))) {
@@ -42,6 +43,8 @@ export function assertPublishEnabled(): void {
 // clinician publishing is unavailable instead of offering a button that
 // can only fail. Display only: assertPublishEnabled() above stays the
 // enforcement point inside publishDraft().
+// M3.1 — mode-aware: maintenance never permits publishing; production and
+// development honour the gate (production false = publication freeze).
 export function isPublishEnabled(): boolean {
-  return process.env.C5_PRESCRIPTION_PUBLISH_ENABLED === "true";
+  return isPublishAllowedByMode();
 }

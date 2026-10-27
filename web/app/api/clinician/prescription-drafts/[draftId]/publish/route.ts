@@ -17,7 +17,7 @@ import { publishDraft } from "@/lib/prescriptionDraftServer";
 // DRAFT_CHANGED if the draft no longer matches it. An empty body keeps the
 // original C5.3 contract.
 export async function POST(request: Request, { params }: { params: Promise<{ draftId: string }> }) {
-  const auth = await requireClinicianForRoute();
+  const auth = await requireClinicianForRoute({ mutation: true });
   if ("response" in auth) return auth.response;
   const { draftId } = await params;
 

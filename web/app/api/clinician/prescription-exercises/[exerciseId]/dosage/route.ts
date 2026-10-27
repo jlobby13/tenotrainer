@@ -15,7 +15,7 @@ import type { DosageInput } from "@/lib/prescriptionDraftTypes";
 // caller can reconcile its working-state "last saved" snapshot with exactly
 // what was persisted (never re-deriving it a second time client-side).
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ exerciseId: string }> }) {
-  const auth = await requireClinicianForRoute();
+  const auth = await requireClinicianForRoute({ mutation: true });
   if ("response" in auth) return auth.response;
   const { exerciseId } = await params;
 

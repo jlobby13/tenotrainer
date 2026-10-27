@@ -10,7 +10,7 @@ const VALID_SOURCES: DraftSource[] = ["empty", "clone_active", "clone_historical
 // POST — createDraft. High-consequence: Postgres assignment check
 // inside createDraft() itself (verifyHighConsequenceAuthorization).
 export async function POST(request: NextRequest, { params }: { params: Promise<{ patientId: string }> }) {
-  const auth = await requireClinicianForRoute();
+  const auth = await requireClinicianForRoute({ mutation: true });
   if ("response" in auth) return auth.response;
   const { patientId } = await params;
 

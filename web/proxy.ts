@@ -1,5 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { getServerConfig } from "./lib/env";
+import type { OperatingMode } from "./lib/envValidation";
 
 // Public paths that don't require authentication. "/api/internal" is the
 // server-to-server namespace (FastAPI -> Next.js, matching the existing
@@ -11,7 +13,61 @@ import { NextResponse, type NextRequest } from "next/server";
 // own auth check was correct but unreachable without this exemption).
 const PUBLIC_PATHS = ["/login", "/register", "/auth", "/invite", "/api/auth/validate-bridge", "/api/internal"];
 
+// M3.1 — operating-mode routing (the coarse first layer; route handlers,
+// server actions and the clinical libraries enforce the same rules again).
+// Legacy FastAPI-era / bridge routes exist only in development mode.
+const LEGACY_ROUTE_PREFIXES = [
+  "/api/patient/rehab-session",
+  "/api/patient/morning-response",
+  "/api/auth/launch-dashboard",
+  "/api/auth/validate-bridge",
+  "/api/internal/prescription-versions",
+  "/api/internal/supervisor-patients-sync",
+];
+// F9 — the tester/admin invitation workflow is development-only.
+const DEVELOPMENT_ONLY_PAGES = ["/admin/invitations", "/api/auth/debug"];
+// Maintenance: every patient-facing page shows the unavailable experience.
+const MAINTENANCE_PATIENT_PAGES = ["/patient", "/invite", "/setup"];
+// Maintenance: signing in and out still works (patients then see the
+// unavailable page; staff get read-only access).
+const MAINTENANCE_SESSION_PATHS = ["/login", "/logout", "/auth/"];
+
+const startsWithAny = (pathname: string, prefixes: string[]) =>
+  prefixes.some((p) => pathname === p || pathname.startsWith(p.endsWith("/") ? p : `${p}/`) || (p.endsWith("/") && pathname.startsWith(p)));
+
+function modeRefusal(mode: OperatingMode, request: NextRequest): NextResponse | null {
+  if (mode === "development") return null;
+  const { pathname } = request.nextUrl;
+  if (startsWithAny(pathname, LEGACY_ROUTE_PREFIXES)) {
+    return NextResponse.json({ error: "LEGACY_RETIRED" }, { status: 410 });
+  }
+  if (startsWithAny(pathname, DEVELOPMENT_ONLY_PAGES)) {
+    return new NextResponse("Not found", { status: 404 });
+  }
+  if (mode === "maintenance") {
+    if (pathname === "/api/patient" || pathname.startsWith("/api/patient/")) {
+      return NextResponse.json({ error: "MAINTENANCE" }, { status: 503 });
+    }
+    const readMethod = request.method === "GET" || request.method === "HEAD";
+    const serverAction = request.headers.has("next-action");
+    if ((!readMethod || serverAction) && !startsWithAny(pathname, MAINTENANCE_SESSION_PATHS)) {
+      return NextResponse.json({ error: "MAINTENANCE" }, { status: 503 });
+    }
+  }
+  return null;
+}
+
 export async function proxy(request: NextRequest) {
+  // Fail closed: an invalid configuration serves nothing.
+  let mode: OperatingMode;
+  try {
+    mode = getServerConfig().mode;
+  } catch {
+    return new NextResponse("Service unavailable", { status: 503 });
+  }
+  const refused = modeRefusal(mode, request);
+  if (refused) return refused;
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -60,6 +116,16 @@ export async function proxy(request: NextRequest) {
     url.pathname = "/dashboard";
     url.search = "";
     return NextResponse.redirect(url);
+  }
+
+  // M3.1 — maintenance: patient pages show the unavailable experience.
+  if (mode === "maintenance" && startsWithAny(pathname, MAINTENANCE_PATIENT_PAGES)) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/maintenance";
+    url.search = "";
+    const rewrite = NextResponse.rewrite(url);
+    for (const c of supabaseResponse.cookies.getAll()) rewrite.cookies.set(c);
+    return rewrite;
   }
 
   return supabaseResponse;

@@ -9,6 +9,7 @@ const ERROR_COPY: Record<string, string> = {
   already_assigned: "That patient is already assigned to you.",
   not_authorized: "You can't invite patients for this clinic.",
   error: "The invitation could not be created. Please try again.",
+  MAINTENANCE: "TenoTrainer is in maintenance — no changes can be made right now.",
 };
 
 function Result({ state }: { state: InviteFormState }) {

@@ -1,3 +1,8 @@
+// RETIRED (M3.1, 2026-10-26) — SUPERSEDED BY CURRENT C5 COVERAGE.
+// Depends on legacy patient database write authority / the legacy runtime,
+// retired by migration 20261026000002. Not part of the authoritative
+// regression list; do not restore grants to run it. Covered: the legacy SetTracker hold/rep logging UI; C5 equivalent: verifyC5Stage6dPatientRuntime (hold + rep units), verifyPecPatientJourney (hold dosage, patient dosage wording).
+//
 // Milestone 6, Stage 2 founder-acceptance patch — live-browser verification
 // of the prescribed-dosage semantic fix (getPrescribedSet / SetTracker).
 //
@@ -32,6 +37,7 @@ import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "node:fs";
 import { chromium } from "playwright";
 import Database from "node:sqlite";
+import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
 
 function loadEnv(path) {
   const env = {};
@@ -44,6 +50,8 @@ function loadEnv(path) {
   return env;
 }
 const env = loadEnv(".env.local");
+// M3.1 — refuse unless TENOTRAINER_MODE=development and the target project is allow-listed.
+assertDevTestTarget(env);
 const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 const BASE_URL = "http://localhost:3000";
 const REAL_ORG_ID = "07f342fd-075c-42b5-a885-30ca64953d46";

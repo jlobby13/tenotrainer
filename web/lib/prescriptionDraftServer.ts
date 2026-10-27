@@ -38,6 +38,7 @@ import type {
   DosageType,
   ValidationRuleResult,
 } from "./prescriptionDraftTypes";
+import { assertMutationAllowed } from "./operatingMode";
 
 type Supabase = ReturnType<typeof createServiceRoleClient>;
 
@@ -145,6 +146,8 @@ export async function createDraft(params: {
   sourceVersionId?: string | null;
   templateId?: string | null;
 }): Promise<{ draftId: string }> {
+  // M3.1 — clinical mutation: refused in maintenance mode (defense in depth).
+  assertMutationAllowed();
   await verifyHighConsequenceAuthorization(params.clinicianId, params.patientId);
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase.rpc("create_prescription_draft", {
@@ -214,6 +217,8 @@ export async function updateDraftMetadata(params: {
   recoveryDays?: number;
   performanceFocuses?: PerformanceFocus[];
 }): Promise<void> {
+  // M3.1 — clinical mutation: refused in maintenance mode (defense in depth).
+  assertMutationAllowed();
   const supabase = createServiceRoleClient();
   const draft = await loadEditableDraft(supabase, params.clinicianId, params.draftId);
 
@@ -287,6 +292,8 @@ export async function addWorkout(params: {
   orderIndex: number;
   daysOfWeek?: number[] | null;
 }): Promise<{ workoutId: string }> {
+  // M3.1 — clinical mutation: refused in maintenance mode (defense in depth).
+  assertMutationAllowed();
   const supabase = createServiceRoleClient();
   await loadEditableDraft(supabase, params.clinicianId, params.draftId);
   const { data, error } = await supabase
@@ -312,6 +319,8 @@ export async function updateWorkout(params: {
   label?: string | null;
   daysOfWeek?: number[] | null;
 }): Promise<{ id: string; label: string | null; daysOfWeek: number[] | null }> {
+  // M3.1 — clinical mutation: refused in maintenance mode (defense in depth).
+  assertMutationAllowed();
   const supabase = createServiceRoleClient();
   const { draftId, check } = await loadEditableDraftForWorkout(supabase, params.clinicianId, params.workoutId);
 
@@ -353,6 +362,8 @@ export async function updateWorkout(params: {
 }
 
 export async function removeWorkout(params: { clinicianId: string; workoutId: string }): Promise<void> {
+  // M3.1 — clinical mutation: refused in maintenance mode (defense in depth).
+  assertMutationAllowed();
   const supabase = createServiceRoleClient();
   const draftId = await resolveDraftIdForWorkout(supabase, params.workoutId);
   await loadEditableDraft(supabase, params.clinicianId, draftId);
@@ -361,6 +372,8 @@ export async function removeWorkout(params: { clinicianId: string; workoutId: st
 }
 
 export async function reorderWorkouts(params: { clinicianId: string; draftId: string; orderedWorkoutIds: string[] }): Promise<void> {
+  // M3.1 — clinical mutation: refused in maintenance mode (defense in depth).
+  assertMutationAllowed();
   const supabase = createServiceRoleClient();
   await loadEditableDraft(supabase, params.clinicianId, params.draftId);
   const { error } = await supabase.rpc("reorder_prescription_workouts", {
@@ -382,6 +395,8 @@ export async function addExercise(params: {
   orderIndex: number;
   additionalInstructions?: string | null;
 }): Promise<{ exerciseId: string }> {
+  // M3.1 — clinical mutation: refused in maintenance mode (defense in depth).
+  assertMutationAllowed();
   const supabase = createServiceRoleClient();
   const { check } = await loadEditableDraftForWorkout(supabase, params.clinicianId, params.workoutId);
 
@@ -416,6 +431,8 @@ export async function updateExercise(params: {
   status?: ExerciseStatus;
   additionalInstructions?: string | null;
 }): Promise<void> {
+  // M3.1 — clinical mutation: refused in maintenance mode (defense in depth).
+  assertMutationAllowed();
   const supabase = createServiceRoleClient();
   const workoutId = await resolveWorkoutIdForExercise(supabase, params.exerciseId);
   const draftId = await resolveDraftIdForWorkout(supabase, workoutId);
@@ -428,6 +445,8 @@ export async function updateExercise(params: {
 }
 
 export async function removeExercise(params: { clinicianId: string; exerciseId: string }): Promise<void> {
+  // M3.1 — clinical mutation: refused in maintenance mode (defense in depth).
+  assertMutationAllowed();
   const supabase = createServiceRoleClient();
   const workoutId = await resolveWorkoutIdForExercise(supabase, params.exerciseId);
   const draftId = await resolveDraftIdForWorkout(supabase, workoutId);
@@ -437,6 +456,8 @@ export async function removeExercise(params: { clinicianId: string; exerciseId: 
 }
 
 export async function reorderExercises(params: { clinicianId: string; workoutId: string; orderedExerciseIds: string[] }): Promise<void> {
+  // M3.1 — clinical mutation: refused in maintenance mode (defense in depth).
+  assertMutationAllowed();
   const supabase = createServiceRoleClient();
   const draftId = await resolveDraftIdForWorkout(supabase, params.workoutId);
   await loadEditableDraft(supabase, params.clinicianId, draftId);
@@ -461,6 +482,8 @@ export async function reorderExercises(params: { clinicianId: string; workoutId:
 // has no contiguity requirement, only the existing UNIQUE(workout, order)
 // constraint, which appending at the end of the target always satisfies.
 export async function moveExercise(params: { clinicianId: string; exerciseId: string; targetWorkoutId: string }): Promise<void> {
+  // M3.1 — clinical mutation: refused in maintenance mode (defense in depth).
+  assertMutationAllowed();
   const supabase = createServiceRoleClient();
   const sourceWorkoutId = await resolveWorkoutIdForExercise(supabase, params.exerciseId);
   const sourceDraftId = await resolveDraftIdForWorkout(supabase, sourceWorkoutId);
@@ -525,6 +548,8 @@ export async function moveExercise(params: { clinicianId: string; exerciseId: st
 // ---------------------------------------------------------------------------
 
 export async function updateDosage(params: { clinicianId: string; exerciseId: string; dosage: DosageInput }): Promise<DosageInput> {
+  // M3.1 — clinical mutation: refused in maintenance mode (defense in depth).
+  assertMutationAllowed();
   const supabase = createServiceRoleClient();
   // C5.4 Performance Pass — exercise → workout → draft (with patient) plus
   // the existing dosage_type in ONE embedded read, replacing four
@@ -610,6 +635,8 @@ export async function updateDosage(params: { clinicianId: string; exerciseId: st
 // ---------------------------------------------------------------------------
 
 export async function discardDraft(params: { clinicianId: string; draftId: string }): Promise<void> {
+  // M3.1 — clinical mutation: refused in maintenance mode (defense in depth).
+  assertMutationAllowed();
   const supabase = createServiceRoleClient();
   await loadEditableDraft(supabase, params.clinicianId, params.draftId);
   const { error } = await supabase
@@ -646,6 +673,8 @@ export async function publishDraft(params: {
   draftId: string;
   expectedFingerprint?: string | null;
 }): Promise<{ versionId: string; versionNumber: number | null }> {
+  // M3.1 — clinical mutation: refused in maintenance mode (defense in depth).
+  assertMutationAllowed();
   assertPublishEnabled();
 
   const supabase = createServiceRoleClient();
@@ -733,6 +762,8 @@ export async function getDraftPublicationOutcome(params: { clinicianId: string; 
 // ---------------------------------------------------------------------------
 
 export async function pausePrescription(params: { clinicianId: string; patientId: string }): Promise<void> {
+  // M3.1 — clinical mutation: refused in maintenance mode (defense in depth).
+  assertMutationAllowed();
   await verifyHighConsequenceAuthorization(params.clinicianId, params.patientId);
   const supabase = createServiceRoleClient();
   const { data: pp } = await supabase.from("patient_prescriptions").select("id").eq("patient_id", params.patientId).maybeSingle();
@@ -745,6 +776,8 @@ export async function pausePrescription(params: { clinicianId: string; patientId
 }
 
 export async function resumePrescription(params: { clinicianId: string; patientId: string }): Promise<void> {
+  // M3.1 — clinical mutation: refused in maintenance mode (defense in depth).
+  assertMutationAllowed();
   await verifyHighConsequenceAuthorization(params.clinicianId, params.patientId);
   const supabase = createServiceRoleClient();
   const { data: pp } = await supabase.from("patient_prescriptions").select("id").eq("patient_id", params.patientId).maybeSingle();

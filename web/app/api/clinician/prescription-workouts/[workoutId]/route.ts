@@ -6,7 +6,7 @@ import { updateWorkout, removeWorkout } from "@/lib/prescriptionDraftServer";
 
 // PATCH — updateWorkout. Editing-owner only (enforced inside).
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ workoutId: string }> }) {
-  const auth = await requireClinicianForRoute();
+  const auth = await requireClinicianForRoute({ mutation: true });
   if ("response" in auth) return auth.response;
   const { workoutId } = await params;
 
@@ -29,7 +29,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
 // DELETE — removeWorkout. Editing-owner only (enforced inside).
 export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ workoutId: string }> }) {
-  const auth = await requireClinicianForRoute();
+  const auth = await requireClinicianForRoute({ mutation: true });
   if ("response" in auth) return auth.response;
   const { workoutId } = await params;
 

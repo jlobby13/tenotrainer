@@ -27,6 +27,7 @@ import {
   type AcuteSafetyReleaseRecord,
   type Level4Reason,
 } from "./acuteSafetyTypes";
+import { assertMutationAllowed } from "./operatingMode";
 
 export async function getActiveBrakeStatus(userId: string): Promise<AcuteBrakeStatus> {
   const supabase = createServiceRoleClient();
@@ -130,6 +131,8 @@ export async function submitReassessmentAndMaybeRelease(params: {
   episodeId: string;
   answers: ReassessmentAnswers;
 }): Promise<{ reassessment: AcuteSafetyReassessmentRecord; release: AcuteSafetyReleaseRecord | null; clinicianReleaseRequired: boolean }> {
+  // M3.1 — clinical mutation: refused in maintenance mode (defense in depth).
+  assertMutationAllowed();
   const supabase = createServiceRoleClient();
 
   const episode = await getEpisode(params.episodeId);

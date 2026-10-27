@@ -1,0 +1,6 @@
+{
+  "_comment": "M3.1 \u2014 Supabase project refs that write-capable test/fixture/cleanup harnesses may target. Development/testing projects ONLY. A production project ref must never be added.",
+  "projects": [
+    "kpdxlzqtvueiytwjamiw"
+  ]
+}

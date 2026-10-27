@@ -12,6 +12,7 @@ import {
 import { generateCapacityInterpretations } from "@/lib/capacityInterpretationEngine";
 import { generateTrainingResponseInterpretation } from "@/lib/trainingResponseInterpretationEngine";
 import { isScheduledEligible } from "@/lib/morningEligibility";
+import { legacyRetiredResponse } from "@/lib/modeHttp";
 
 const NOTE_MAX_LENGTH = 500;
 
@@ -21,6 +22,9 @@ const NOTE_MAX_LENGTH = 500;
 // (a mismatched id resolves to zero affected rows, treated as 404 below),
 // rather than this route re-implementing an ownership check.
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  // M3.1 — legacy (FastAPI-era) route: exists only in development mode (410 LEGACY_RETIRED otherwise).
+  const modeRefusal = legacyRetiredResponse();
+  if (modeRefusal) return modeRefusal;
   const { id } = await params;
   const supabase = await createServerSupabaseClient();
   const {

@@ -1,8 +1,10 @@
-import { redirect } from "next/navigation";
+import { connection } from "next/server";
+import { notFound, redirect } from "next/navigation";
 import { getSessionInfo, hasRole } from "@/lib/auth";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { INVITATION_ROLE_MAP } from "@/lib/invitations";
 import { sendInvitationAction, cancelInvitationAction } from "./actions";
+import { isLegacyAllowed } from "@/lib/operatingMode";
 
 export const metadata = { title: "Invitations — TenoTrainer" };
 
@@ -29,6 +31,9 @@ type InvitationRow = {
 };
 
 export default async function InvitationsPage({ searchParams }: Props) {
+  // F9 — the tester/admin invitation workflow is development-only.
+  await connection();
+  if (!isLegacyAllowed()) notFound();
   const { error, sent, token, email: sentEmail, cancelled, emailed, email_warn } = await searchParams;
 
   const session = await getSessionInfo();

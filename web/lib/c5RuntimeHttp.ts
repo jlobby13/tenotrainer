@@ -7,6 +7,7 @@ import "server-only";
 
 import { NextResponse } from "next/server";
 import { C5SafetyCheckError, requireC5Patient } from "./c5RuntimeServer";
+import { MaintenanceError } from "./operatingMode";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function isUuid(v: unknown): v is string {
@@ -33,6 +34,9 @@ export async function withC5Patient(handler: (patientId: string) => Promise<Resp
   try {
     return await handler(auth.patientId);
   } catch (e) {
+    if (e instanceof MaintenanceError) {
+      return NextResponse.json({ code: "MAINTENANCE" }, { status: 503 });
+    }
     if (e instanceof C5SafetyCheckError) {
       return NextResponse.json({ code: "SAFETY_CHECK_FAILED", error: "We couldn't confirm your safety status. Please try again." }, { status: 503 });
     }

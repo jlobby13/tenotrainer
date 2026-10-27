@@ -8,6 +8,7 @@ import "server-only";
 // authenticated session's (requireC5Patient), never the request's.
 
 import { createServiceRoleClient } from "./supabase/server";
+import { assertMutationAllowed } from "./operatingMode";
 
 export type ProgramNoticeType = "prescription_paused" | "prescription_resumed" | "prescription_published" | "prescription_updated";
 
@@ -43,6 +44,8 @@ export async function getUnreadProgramNotices(patientId: string): Promise<Progra
 
 // Idempotent: an already-read (or someone else's) notice is left untouched.
 export async function dismissProgramNotice(patientId: string, noticeId: string): Promise<void> {
+  // M3.1 — clinical mutation: refused in maintenance mode (defense in depth).
+  assertMutationAllowed();
   if (!/^[0-9a-f-]{36}$/i.test(noticeId)) return;
   const admin = createServiceRoleClient();
   await admin.from("notifications").update({ read_at: new Date().toISOString() }).eq("id", noticeId).eq("patient_id", patientId).is("read_at", null);

@@ -1,3 +1,8 @@
+// RETIRED (M3.1, 2026-10-26) — SUPERSEDED BY CURRENT C5 COVERAGE.
+// Depends on legacy patient database write authority / the legacy runtime,
+// retired by migration 20261026000002. Not part of the authoritative
+// regression list; do not restore grants to run it. Covered: legacy rehab_days_of_week schedule eligibility; C5 equivalent: verifyC5Stage4cWorkoutScheduling.sql, verifyC5Stage6fFrequencyRecovery.sql/RecoveryUi, verifyC5Stage6dPatientRuntime (not_scheduled_today).
+//
 // Milestone 5, Stage 4 schedule-authority closure patch — founder-acceptance
 // verification for the states verifyStage4Loop.mjs could NOT exercise
 // before 20260909000003 existed (prescription_versions.rehab_days_of_week
@@ -27,6 +32,7 @@ import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "node:fs";
 import { chromium } from "playwright";
 import Database from "node:sqlite";
+import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
 
 function loadEnv(path) {
   const env = {};
@@ -39,6 +45,8 @@ function loadEnv(path) {
   return env;
 }
 const env = loadEnv(".env.local");
+// M3.1 — refuse unless TENOTRAINER_MODE=development and the target project is allow-listed.
+assertDevTestTarget(env);
 const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 const BASE_URL = "http://localhost:3000";
 const REAL_ORG_ID = "07f342fd-075c-42b5-a885-30ca64953d46";

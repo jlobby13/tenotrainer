@@ -7,6 +7,7 @@ import {
   resolveSupabaseUserIdByEmail,
 } from "@/lib/prescriptionVersionsServer";
 import type { Irritability, PrescriptionVersionSource } from "@/lib/prescriptionVersionTypes";
+import { legacyRetiredResponse } from "@/lib/modeHttp";
 
 // Milestone 5, Stage 1 — server-to-server only, mirrors the existing
 // FastAPI<->Next.js bridge-secret pattern used by
@@ -40,6 +41,9 @@ type Body = {
 };
 
 export async function POST(request: NextRequest) {
+  // M3.1 — legacy (FastAPI-era) route: exists only in development mode (410 LEGACY_RETIRED otherwise).
+  const modeRefusal = legacyRetiredResponse();
+  if (modeRefusal) return modeRefusal;
   const auth = request.headers.get("Authorization");
   if (!BRIDGE_SECRET || auth !== `Bearer ${BRIDGE_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

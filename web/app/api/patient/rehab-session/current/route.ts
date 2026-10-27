@@ -3,11 +3,15 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { mapRehabSessionRow } from "@/lib/rehabSessionTypes";
+import { legacyRetiredResponse } from "@/lib/modeHttp";
 
 // Most recent non-terminal session for the authenticated patient — drives
 // dashboard state and resume/idempotency checks. Returns null, not an error,
 // when none exists.
 export async function GET() {
+  // M3.1 — legacy (FastAPI-era) route: exists only in development mode (410 LEGACY_RETIRED otherwise).
+  const modeRefusal = legacyRetiredResponse();
+  if (modeRefusal) return modeRefusal;
   const supabase = await createServerSupabaseClient();
   const {
     data: { user },

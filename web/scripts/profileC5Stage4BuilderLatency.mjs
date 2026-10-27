@@ -15,6 +15,7 @@ import { createClient } from "@supabase/supabase-js";
 import { readFileSync, writeFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { chromium } from "playwright";
+import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
 
 const BASE_URL = process.argv[2] ?? "http://localhost:3000";
 const LABEL = process.argv[3] ?? "run";
@@ -34,6 +35,8 @@ function loadEnv(path) {
   return env;
 }
 const env = loadEnv(".env.local");
+// M3.1 — refuse unless TENOTRAINER_MODE=development and the target project is allow-listed.
+assertDevTestTarget(env);
 const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
 // Installed before any page script: a fetch log and a React commit hook that

@@ -7,6 +7,7 @@ import { INVITATION_ROLE_MAP, generateInvitationToken, hashInvitationToken, invi
 import { safeInternalPath, withQuery } from "@/lib/safeRedirect";
 import { getSessionInfo, hasRole } from "@/lib/auth";
 import { sendInvitationEmail } from "@/lib/email";
+import { refuseActionOutsideDevelopment } from "@/lib/modeActions";
 
 async function getAdminContext() {
   const session = await getSessionInfo();
@@ -24,6 +25,7 @@ async function getAdminContext() {
 }
 
 export async function sendInvitationAction(formData: FormData) {
+  refuseActionOutsideDevelopment("/dashboard"); // F9: development-only workflow
   const { userId, orgId, orgName } = await getAdminContext();
 
   const email = (formData.get("email") as string).trim().toLowerCase();
@@ -79,6 +81,7 @@ export async function sendInvitationAction(formData: FormData) {
 }
 
 export async function cancelInvitationAction(formData: FormData) {
+  refuseActionOutsideDevelopment("/dashboard"); // F9: development-only workflow
   const { orgId } = await getAdminContext();
 
   const invitationId = formData.get("invitation_id") as string;

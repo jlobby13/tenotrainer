@@ -21,6 +21,7 @@ import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { chromium } from "playwright";
+import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
 
 const ON = process.argv[2] ?? "http://localhost:3001";
 const OFF = process.argv[3] ?? "http://localhost:3000";
@@ -44,6 +45,8 @@ function loadEnv(path) {
   return env;
 }
 const env = loadEnv(".env.local");
+// M3.1 — refuse unless TENOTRAINER_MODE=development and the target project is allow-listed.
+assertDevTestTarget(env);
 const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 const WORK = mkdtempSync(join(tmpdir(), "m1-"));
 if (SHOTS) mkdirSync(SHOTS, { recursive: true });

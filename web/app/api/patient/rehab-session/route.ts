@@ -5,6 +5,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { mapRehabSessionRow } from "@/lib/rehabSessionTypes";
 import { getOldestOutstandingMorningResponse } from "@/lib/morningResponseServer";
 import { usesC5Runtime } from "@/lib/c5RuntimeServer";
+import { legacyRetiredResponse } from "@/lib/modeHttp";
 
 // M4 Stage 3: creates (or idempotently recovers) the durable rehab_sessions
 // row through the atomic create_rehab_session_if_allowed() RPC — see
@@ -16,6 +17,9 @@ import { usesC5Runtime } from "@/lib/c5RuntimeServer";
 // SessionPlayer.handleBegin calls this and WAITS for the result before
 // starting Active Rehab; it is no longer fire-and-forget.
 export async function POST(request: NextRequest) {
+  // M3.1 — legacy (FastAPI-era) route: exists only in development mode (410 LEGACY_RETIRED otherwise).
+  const modeRefusal = legacyRetiredResponse();
+  if (modeRefusal) return modeRefusal;
   const supabase = await createServerSupabaseClient();
   const {
     data: { user },

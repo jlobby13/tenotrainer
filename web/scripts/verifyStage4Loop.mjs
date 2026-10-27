@@ -1,3 +1,8 @@
+// RETIRED (M3.1, 2026-10-26) — SUPERSEDED BY CURRENT C5 COVERAGE.
+// Depends on legacy patient database write authority / the legacy runtime,
+// retired by migration 20261026000002. Not part of the authoritative
+// regression list; do not restore grants to run it. Covered: the legacy prescription -> session -> response loop; C5 equivalent: verifyPecPatientJourney, verifyC5Stage6cLifecycle(.sql/Races), verifyC5Stage6dPatientRuntime, verifyC5Stage6eCheckIns/Responses. Legacy-only parts (tolerance evaluation, Today's Rehab feedback) have no C5 wiring.
+//
 // M5 Stage 4 — End-to-End Feedback Loop & Founder Acceptance. Regression
 // coverage for the FULL loop (prescription -> session -> M3 -> M4 ->
 // tolerance evaluation -> Today's Rehab feedback -> next session handoff)
@@ -24,6 +29,7 @@ import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "node:fs";
 import { chromium } from "playwright";
 import Database from "node:sqlite";
+import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
 
 function loadEnv(path) {
   const env = {};
@@ -36,6 +42,8 @@ function loadEnv(path) {
   return env;
 }
 const env = loadEnv(".env.local");
+// M3.1 — refuse unless TENOTRAINER_MODE=development and the target project is allow-listed.
+assertDevTestTarget(env);
 const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 const BASE_URL = "http://localhost:3000";
 const REAL_ORG_ID = "07f342fd-075c-42b5-a885-30ca64953d46"; // founder's existing org — throwaway membership rows added+removed, founder's own rows untouched

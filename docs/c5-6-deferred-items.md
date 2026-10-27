@@ -293,3 +293,26 @@ Deferred:
 - P2/P3 polish: arrow-key navigation inside 0–10 radio groups, a sticky
   progress counter, "current session unaffected" wording on update notices,
   no-program copy refinement.
+
+## M3.1 Phase A — production authority boundary (recorded 2026-10-26)
+
+See `docs/m3-operating-modes.md`. Deferred / open for Phase B and later:
+
+- **Phase B (applied 2026-10-26):** migration 20261026000002 retired legacy
+  patient database write authority in development too (D1). Six legacy
+  suites are RETIRED (see `docs/m3-operating-modes.md`); the
+  verifyReconciliation-only invariant is now covered by
+  `verifyM31ReconciliationAnchor.mjs`. The only remaining authenticated
+  DELETE is `exercise_reference_dosage` (C5.3D super_user).
+- **M6 catalog direct authoring** (authenticated INSERT/UPDATE + six
+  clinician_admin/super_user policies) is preserved as current authority;
+  its long-term model is to be reconsidered when M6 work resumes.
+- **The original working tree is now behind the database**: until the M3.1
+  branch is committed/merged, the original tree shows 60 local / 61 remote,
+  and the running `:3000` gate-off legacy patient flows cannot write
+  (accepted D1 consequence). FastAPI code remains for later retirement.
+- M6 longitudinal interpretation generators are wired only into the legacy
+  morning finalize route; C5 morning responses generate none (pre-existing;
+  see "M6 symptom/capacity/training-response interpretation for C5 data").
+- The operating-mode and adversarial suites each carry their own small
+  isolated-server helper (could share one module).

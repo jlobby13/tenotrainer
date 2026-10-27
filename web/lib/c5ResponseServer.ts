@@ -18,6 +18,7 @@ import { createServiceRoleClient } from "./supabase/server";
 import { getC5TrainingState } from "./c5RuntimeServer";
 import type { C5TrainingState } from "./c5RuntimeTypes";
 import type { C5CheckIns, C5ImmediateResponseInput, C5MorningResponseInput, C5SubmitResult } from "./c5ResponseTypes";
+import { assertMutationAllowed } from "./operatingMode";
 
 type Json = Record<string, unknown>;
 
@@ -125,9 +126,13 @@ async function submit(patientId: string, rpc: string, sessionId: string, respons
 }
 
 export function submitImmediateResponse(patientId: string, sessionId: string, response: C5ImmediateResponseInput) {
+  // M3.1 — clinical mutation: refused in maintenance mode (defense in depth).
+  assertMutationAllowed();
   return submit(patientId, "c5_submit_immediate_response", sessionId, response as Json);
 }
 
 export function submitMorningResponse(patientId: string, sessionId: string, response: C5MorningResponseInput) {
+  // M3.1 — clinical mutation: refused in maintenance mode (defense in depth).
+  assertMutationAllowed();
   return submit(patientId, "c5_submit_morning_response", sessionId, response as Json);
 }

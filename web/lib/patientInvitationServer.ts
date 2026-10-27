@@ -11,6 +11,7 @@ import "server-only";
 import { createServiceRoleClient } from "./supabase/server";
 import { generateInvitationToken, hashInvitationToken, invitationUrl, validateInvitationToken, type InvitationValidation } from "./invitations";
 import { sendPatientInvitationEmail } from "./email";
+import { assertMutationAllowed } from "./operatingMode";
 
 type Json = Record<string, unknown>;
 
@@ -44,6 +45,8 @@ export async function createPatientInvitation(params: {
   organizationId: string;
   email: string;
 }): Promise<CreatePatientInvitationResult> {
+  // M3.1 — clinical mutation: refused in maintenance mode (defense in depth).
+  assertMutationAllowed();
   const admin = createServiceRoleClient();
   const token = generateInvitationToken();
   const { data, error } = await admin.rpc("create_patient_invitation", {
@@ -80,6 +83,8 @@ export async function createPatientInvitation(params: {
 }
 
 export async function cancelPatientInvitation(actorId: string, invitationId: string): Promise<"cancelled" | "not_found" | "not_pending" | "error"> {
+  // M3.1 — clinical mutation: refused in maintenance mode (defense in depth).
+  assertMutationAllowed();
   if (!/^[0-9a-f-]{36}$/i.test(invitationId)) return "not_found";
   const admin = createServiceRoleClient();
   const { data, error } = await admin.rpc("cancel_patient_invitation", { p_actor_id: actorId, p_invitation_id: invitationId });
@@ -153,6 +158,8 @@ export type AcceptPatientInvitationResult =
   | "error";
 
 export async function acceptPatientInvitation(token: string, userId: string): Promise<AcceptPatientInvitationResult> {
+  // M3.1 — clinical mutation: refused in maintenance mode (defense in depth).
+  assertMutationAllowed();
   if (!/^[0-9a-f]{64}$/.test(token)) return "invalid";
   const admin = createServiceRoleClient();
   const { data, error } = await admin.rpc("accept_patient_invitation", {

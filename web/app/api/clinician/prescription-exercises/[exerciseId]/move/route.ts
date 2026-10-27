@@ -10,7 +10,7 @@ import { moveExercise } from "@/lib/prescriptionDraftServer";
 // its dosage row, never merges dosage on a duplicate-canonical collision
 // (rejected instead, see moveExercise's own comment).
 export async function POST(request: NextRequest, { params }: { params: Promise<{ exerciseId: string }> }) {
-  const auth = await requireClinicianForRoute();
+  const auth = await requireClinicianForRoute({ mutation: true });
   if ("response" in auth) return auth.response;
   const { exerciseId } = await params;
 

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { redirect, notFound } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getSessionInfo } from "@/lib/auth";
 import { getPatientSummary, BackendUnavailableError, type PatientSummary } from "@/lib/fastapi";
@@ -19,6 +19,7 @@ import { getC5OpenSafetyHold, getC5TrainingState, usesC5Runtime } from "@/lib/c5
 import { getC5CheckIns } from "@/lib/c5ResponseServer";
 import { getUnreadProgramNotices } from "@/lib/programNoticesServer";
 import { describeUpcomingMorning } from "@/lib/c5ResponseTypes";
+import { isLegacyAllowed } from "@/lib/operatingMode";
 
 export const metadata = { title: "Dashboard — TenoTrainer" };
 
@@ -90,6 +91,9 @@ export default async function PatientDashboardPage() {
       />
     );
   }
+
+  // M3.1 — legacy branch below: development mode only (never in production/maintenance).
+  if (!isLegacyAllowed()) notFound();
 
   const hasOrgMembership = session.memberships.length > 0;
 

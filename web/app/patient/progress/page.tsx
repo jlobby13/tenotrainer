@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { redirect, notFound } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getSessionInfo } from "@/lib/auth";
 import { getProgressData } from "@/lib/progressServer";
@@ -15,6 +15,7 @@ import { TrainingResponseCard } from "./components/TrainingResponseCard";
 import { C5ProgressHistory } from "./components/C5ProgressHistory";
 import { usesC5Runtime } from "@/lib/c5RuntimeServer";
 import { listC5Sessions } from "@/lib/clinicianC5Server";
+import { isLegacyAllowed } from "@/lib/operatingMode";
 
 export const metadata = { title: "Progress — TenoTrainer" };
 
@@ -50,6 +51,9 @@ export default async function PatientProgressPage() {
     const { sessions } = await listC5Sessions(authUser.id, 0);
     return <C5ProgressHistory sessions={sessions} />;
   }
+
+  // M3.1 — legacy branch: development mode only.
+  if (!isLegacyAllowed()) notFound();
 
   const hasOrgMembership = session.memberships.length > 0;
   const [data, interpretationData] = hasOrgMembership

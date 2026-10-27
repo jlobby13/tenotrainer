@@ -12,8 +12,10 @@ import { requireClinicianAuth } from "@/lib/clinicianAuth";
 import { createDraft, pausePrescription, resumePrescription } from "@/lib/prescriptionDraftServer";
 import { PrescriptionDraftError } from "@/lib/prescriptionDraftErrors";
 import type { DraftSource } from "@/lib/prescriptionDraftTypes";
+import { refuseActionInMaintenance } from "@/lib/modeActions";
 
 export async function createDraftAction(formData: FormData) {
+  refuseActionInMaintenance("/clinician/dashboard");
   const patientId = formData.get("patientId") as string;
   const source = formData.get("source") as DraftSource;
   const sourceVersionId = (formData.get("sourceVersionId") as string | null) || null;
@@ -37,6 +39,7 @@ export async function createDraftAction(formData: FormData) {
 // always the session's; the patient id only selects the target and is
 // authorized server-side.
 export async function pauseProgramAction(formData: FormData) {
+  refuseActionInMaintenance("/clinician/dashboard");
   const patientId = String(formData.get("patientId") ?? "");
   const { clinicianId } = await requireClinicianAuth();
   let notice = "paused";
@@ -49,6 +52,7 @@ export async function pauseProgramAction(formData: FormData) {
 }
 
 export async function resumeProgramAction(formData: FormData) {
+  refuseActionInMaintenance("/clinician/dashboard");
   const patientId = String(formData.get("patientId") ?? "");
   const { clinicianId } = await requireClinicianAuth();
   let notice = "resumed";

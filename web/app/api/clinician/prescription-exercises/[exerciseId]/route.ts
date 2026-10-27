@@ -9,7 +9,7 @@ import type { ExerciseStatus } from "@/lib/prescriptionDraftTypes";
 // content — immutable once published, editable only here). Editing-owner
 // only (enforced inside).
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ exerciseId: string }> }) {
-  const auth = await requireClinicianForRoute();
+  const auth = await requireClinicianForRoute({ mutation: true });
   if ("response" in auth) return auth.response;
   const { exerciseId } = await params;
 
@@ -35,7 +35,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
 // DELETE — removeExercise. Editing-owner only (enforced inside).
 export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ exerciseId: string }> }) {
-  const auth = await requireClinicianForRoute();
+  const auth = await requireClinicianForRoute({ mutation: true });
   if ("response" in auth) return auth.response;
   const { exerciseId } = await params;
 

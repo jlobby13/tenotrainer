@@ -6,7 +6,7 @@ import { addWorkout } from "@/lib/prescriptionDraftServer";
 
 // POST — addWorkout. Editing-owner only (enforced inside).
 export async function POST(request: NextRequest, { params }: { params: Promise<{ draftId: string }> }) {
-  const auth = await requireClinicianForRoute();
+  const auth = await requireClinicianForRoute({ mutation: true });
   if ("response" in auth) return auth.response;
   const { draftId } = await params;
 

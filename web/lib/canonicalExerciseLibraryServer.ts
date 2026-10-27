@@ -17,6 +17,7 @@ import "server-only";
 // infrastructure to justify a more elaborate query shape.
 
 import { createServiceRoleClient } from "./supabase/server";
+import { assertMutationAllowed } from "./operatingMode";
 
 export type CanonicalExerciseRecord = {
   id: string;
@@ -216,6 +217,8 @@ export async function getCanonicalExerciseNamesByIds(exerciseIds: string[]): Pro
 // this feature area for consistency, rather than mixing two different
 // authorization mechanisms within one feature.
 export async function setExerciseFavorite(params: { clinicianId: string; exerciseId: string; favorite: boolean }): Promise<void> {
+  // M3.1 — clinical mutation: refused in maintenance mode (defense in depth).
+  assertMutationAllowed();
   await assertExerciseAccessible(params.clinicianId, params.exerciseId);
   const supabase = createServiceRoleClient();
   if (params.favorite) {

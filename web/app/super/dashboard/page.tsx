@@ -4,6 +4,7 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { INVITATION_ROLE_MAP } from "@/lib/invitations";
 import { sendInvitationAction, cancelInvitationAction } from "@/app/admin/invitations/actions";
 import { getSuperOverview } from "@/lib/fastapi";
+import { isLegacyAllowed } from "@/lib/operatingMode";
 
 export const metadata = { title: "Admin Overview — TenoTrainer" };
 
@@ -43,6 +44,9 @@ type Props = {
 async function fetchClinicianData(members: { user_id: string; role: string; joined_at: string }[]): Promise<OrgMember[]> {
   let sqliteSupervisors: Record<string, { active_patients: number; total_patients: number }> = {};
   try {
+    // M3.1 — the FastAPI overview exists only in development (FastAPI is
+    // not deployed in production; its configuration is forbidden there).
+    if (!isLegacyAllowed()) throw new Error("legacy overview unavailable outside development");
     const data = await getSuperOverview();
     for (const s of data.supervisors ?? []) {
       if (s.supabase_id) {
@@ -175,7 +179,8 @@ export default async function SuperDashboardPage({ searchParams }: Props) {
         <div className="flex gap-1 border-b border-gray-200">
           {[
             { id: "overview", label: "Clinicians" },
-            { id: "invitations", label: `Invitations${pendingInvites > 0 ? ` (${pendingInvites})` : ""}` },
+            // F9 — the tester/admin invitation workflow is development-only.
+            ...(isLegacyAllowed() ? [{ id: "invitations", label: `Invitations${pendingInvites > 0 ? ` (${pendingInvites})` : ""}` }] : []),
           ].map(({ id, label }) => (
             <a
               key={id}
@@ -236,7 +241,7 @@ export default async function SuperDashboardPage({ searchParams }: Props) {
         )}
 
         {/* ── Invitations tab ── */}
-        {tab === "invitations" && (
+        {tab === "invitations" && isLegacyAllowed() && (
           <div className="space-y-6">
             {/* Alerts */}
             {error && (

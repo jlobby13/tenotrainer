@@ -9,6 +9,7 @@ import "server-only";
 // cross-organization transfer here (not defined as product policy yet).
 
 import { createServiceRoleClient } from "./supabase/server";
+import { assertMutationAllowed } from "./operatingMode";
 
 type Admin = ReturnType<typeof createServiceRoleClient>;
 
@@ -108,6 +109,8 @@ export async function getPatientAssignments(orgId: string, patientId: string): P
 export type AssignmentChangeResult = string;
 
 export async function addAssignment(actorId: string, orgId: string, clinicianId: string, patientId: string): Promise<AssignmentChangeResult> {
+  // M3.1 — clinical mutation: refused in maintenance mode (defense in depth).
+  assertMutationAllowed();
   const admin = createServiceRoleClient();
   const { data, error } = await admin.rpc("admin_add_assignment", {
     p_actor_id: actorId,
@@ -120,6 +123,8 @@ export async function addAssignment(actorId: string, orgId: string, clinicianId:
 }
 
 export async function endAssignment(actorId: string, assignmentId: string, reason: string): Promise<AssignmentChangeResult> {
+  // M3.1 — clinical mutation: refused in maintenance mode (defense in depth).
+  assertMutationAllowed();
   const admin = createServiceRoleClient();
   const { data, error } = await admin.rpc("end_assignment", { p_actor_id: actorId, p_assignment_id: assignmentId, p_reason: reason });
   if (error) return "error";

@@ -3,6 +3,7 @@ import "server-only";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { submitReassessmentAndMaybeRelease } from "@/lib/acuteSafetyServer";
+import { maintenanceResponse } from "@/lib/modeHttp";
 
 // The Section 5 "critical conditional UI rule" is enforced HERE
 // server-side (never just in the client form): if evaluatedByProfessional
@@ -12,6 +13,9 @@ import { submitReassessmentAndMaybeRelease } from "@/lib/acuteSafetyServer";
 // constraint (acute_safety_reassessments_clearance_requires_evaluation)
 // backs this up independently.
 export async function POST(request: NextRequest) {
+  // M3.1 — patient API: unavailable in maintenance mode (503 MAINTENANCE).
+  const modeRefusal = maintenanceResponse();
+  if (modeRefusal) return modeRefusal;
   const supabase = await createServerSupabaseClient();
   const {
     data: { user },

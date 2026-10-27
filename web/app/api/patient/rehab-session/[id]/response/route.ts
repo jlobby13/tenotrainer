@@ -7,6 +7,7 @@ import { acuteAssessmentRequired, mapRehabSessionRow } from "@/lib/rehabSessionT
 import { ensureMorningResponseExists } from "@/lib/morningResponseServer";
 import { confirmAcuteSafetyEpisode } from "@/lib/acuteSafetyServer";
 import { EXTERNAL_LOAD_CATEGORIES, M3_TIMING_OPTIONS, type ExternalLoadCategory } from "@/lib/sessionLoadObservations";
+import { legacyRetiredResponse } from "@/lib/modeHttp";
 
 // Raw fields the patient may progressively submit. Deliberately excludes
 // escalation_level/escalation_reason/rule_version — those are never accepted
@@ -35,6 +36,9 @@ const RAW_FIELD_COLUMN: Record<(typeof RAW_FIELD_KEYS)[number], string> = {
 };
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  // M3.1 — legacy (FastAPI-era) route: exists only in development mode (410 LEGACY_RETIRED otherwise).
+  const modeRefusal = legacyRetiredResponse();
+  if (modeRefusal) return modeRefusal;
   const { id } = await params;
   const supabase = await createServerSupabaseClient();
   const {

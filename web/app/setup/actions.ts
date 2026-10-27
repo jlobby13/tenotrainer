@@ -3,8 +3,10 @@
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { refuseActionInMaintenance } from "@/lib/modeActions";
 
 export async function createOrgAction(formData: FormData) {
+  refuseActionInMaintenance("/login");
   const name = (formData.get("name") as string).trim();
   const slug = (formData.get("slug") as string).trim().toLowerCase();
 

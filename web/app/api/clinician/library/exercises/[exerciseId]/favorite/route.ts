@@ -7,7 +7,7 @@ import { setExerciseFavorite } from "@/lib/canonicalExerciseLibraryServer";
 // POST — favorite. Clinician-specific (C5.4A §10); clinicianId always comes
 // from the server-derived session, never the request body.
 export async function POST(_request: NextRequest, { params }: { params: Promise<{ exerciseId: string }> }) {
-  const auth = await requireClinicianForRoute();
+  const auth = await requireClinicianForRoute({ mutation: true });
   if ("response" in auth) return auth.response;
   const { exerciseId } = await params;
 
@@ -23,7 +23,7 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
 
 // DELETE — unfavorite.
 export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ exerciseId: string }> }) {
-  const auth = await requireClinicianForRoute();
+  const auth = await requireClinicianForRoute({ mutation: true });
   if ("response" in auth) return auth.response;
   const { exerciseId } = await params;
 

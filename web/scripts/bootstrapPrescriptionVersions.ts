@@ -35,6 +35,7 @@
 // going through the `server-only`-guarded wrapper.
 
 import { createClient } from "@supabase/supabase-js";
+import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -57,6 +58,8 @@ function loadEnvLocal(): void {
 }
 
 loadEnvLocal();
+// M3.1 — legacy bootstrap writes to the database: development + allow-listed project only.
+assertDevTestTarget(process.env);
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;

@@ -3,6 +3,7 @@ import "server-only";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { isValidIanaTimezone } from "@/lib/morningEligibility";
+import { maintenanceResponse } from "@/lib/modeHttp";
 
 // Milestone 4, Stage 1 — timezone INITIALIZATION only, not a general
 // "change my timezone" endpoint. Writes profiles.timezone only when it is
@@ -10,6 +11,9 @@ import { isValidIanaTimezone } from "@/lib/morningEligibility";
 // browser reports a different one (e.g. travel). Intentional timezone
 // editing is deferred to a later stage.
 export async function POST(request: NextRequest) {
+  // M3.1 — patient API: unavailable in maintenance mode (503 MAINTENANCE).
+  const modeRefusal = maintenanceResponse();
+  if (modeRefusal) return modeRefusal;
   const supabase = await createServerSupabaseClient();
   const {
     data: { user },

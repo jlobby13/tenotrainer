@@ -1,3 +1,8 @@
+// RETIRED (M3.1, 2026-10-26) — SUPERSEDED BY CURRENT C5 COVERAGE.
+// Depends on legacy patient database write authority / the legacy runtime,
+// retired by migration 20261026000002. Not part of the authoritative
+// regression list; do not restore grants to run it. Covered: reconciliation through create_rehab_session_if_allowed (legacy, EXECUTE revoked); C5 equivalent: verifyM31ReconciliationAnchor.mjs (confirmed_at == evaluated_at), verifyC5Stage6cLifecycle.sql, verifyC5Stage6eResponses.sql, verifyM1ClinicianReview.sql.
+//
 // Acute Safety Gate founder-acceptance patch — regression coverage for the
 // missed-episode reconciliation fail-safe (supabase/migrations/
 // 20260911000004 and 20260911000005). Verifies against the LIVE LINKED
@@ -21,6 +26,7 @@
 //   node scripts/verifyReconciliation.mjs
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "node:fs";
+import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
 
 function loadEnv(path) {
   const env = {};
@@ -33,6 +39,8 @@ function loadEnv(path) {
   return env;
 }
 const env = loadEnv(".env.local");
+// M3.1 — refuse unless TENOTRAINER_MODE=development and the target project is allow-listed.
+assertDevTestTarget(env);
 const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
 let pass = 0, fail = 0;

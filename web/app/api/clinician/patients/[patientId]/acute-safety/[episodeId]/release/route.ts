@@ -11,7 +11,7 @@ import { releaseAcuteEpisodeAsClinician } from "@/lib/clinicianSafetyServer";
 // belong to that patient, and the clinician must pass the high-consequence
 // authorization for that patient). The patient id is never trusted alone.
 export async function POST(request: Request, { params }: { params: Promise<{ patientId: string; episodeId: string }> }) {
-  const auth = await requireClinicianForRoute();
+  const auth = await requireClinicianForRoute({ mutation: true });
   if ("response" in auth) return auth.response;
   const { patientId, episodeId } = await params;
 

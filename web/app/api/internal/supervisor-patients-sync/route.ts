@@ -1,6 +1,7 @@
 import "server-only";
 
 import { NextResponse, type NextRequest } from "next/server";
+import { legacyRetiredResponse } from "@/lib/modeHttp";
 
 // RETIRED in M2. This was the C1A forward-sync write path from the legacy
 // SQLite dismiss/reinstate lifecycle (app/supervisor.py) into Postgres
@@ -16,6 +17,9 @@ import { NextResponse, type NextRequest } from "next/server";
 const BRIDGE_SECRET = process.env.BRIDGE_SECRET;
 
 export async function POST(request: NextRequest) {
+  // M3.1 — legacy (FastAPI-era) route: exists only in development mode (410 LEGACY_RETIRED otherwise).
+  const modeRefusal = legacyRetiredResponse();
+  if (modeRefusal) return modeRefusal;
   const auth = request.headers.get("Authorization");
   if (!BRIDGE_SECRET || auth !== `Bearer ${BRIDGE_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

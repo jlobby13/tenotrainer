@@ -3,6 +3,7 @@ import "server-only";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { isValidMorningReminderTime, normalizeMorningReminderTime } from "@/lib/morningEligibility";
+import { maintenanceResponse } from "@/lib/modeHttp";
 
 // Changing this preference affects FUTURE morning-response obligations
 // only — ensureMorningResponseExists() computes and freezes
@@ -11,6 +12,9 @@ import { isValidMorningReminderTime, normalizeMorningReminderTime } from "@/lib/
 // handling is needed here to preserve that; it's guaranteed by how the
 // obligation lifecycle is built (see morningResponseServer.ts).
 export async function PATCH(request: NextRequest) {
+  // M3.1 — patient API: unavailable in maintenance mode (503 MAINTENANCE).
+  const modeRefusal = maintenanceResponse();
+  if (modeRefusal) return modeRefusal;
   const supabase = await createServerSupabaseClient();
   const {
     data: { user },

@@ -5,6 +5,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { hashInvitationToken, validateInvitationToken } from "@/lib/invitations";
 import { acceptPatientInvitation } from "@/lib/patientInvitationServer";
+import { refuseActionInMaintenance, refuseActionOutsideDevelopment } from "@/lib/modeActions";
 
 // M2 — every acceptance lands in native Next.js (never the FastAPI bridge).
 const PATIENT_HOME = "/patient/dashboard";
@@ -35,6 +36,7 @@ async function finishPatientAcceptance(token: string, userId: string): Promise<n
 }
 
 export async function acceptPatientInvitationNewUserAction(formData: FormData) {
+  refuseActionInMaintenance("/invite/accept");
   const token = readToken(formData);
   const name = String(formData.get("name") ?? "").trim();
   const password = String(formData.get("password") ?? "");
@@ -67,6 +69,7 @@ export async function acceptPatientInvitationNewUserAction(formData: FormData) {
 }
 
 export async function acceptPatientInvitationExistingUserAction(formData: FormData) {
+  refuseActionInMaintenance("/invite/accept");
   const token = readToken(formData);
   if (!token) redirect("/invite/accept");
 
@@ -111,6 +114,7 @@ async function ensureMembership(orgId: string, userId: string, role: string): Pr
 }
 
 export async function acceptInvitationNewUserAction(formData: FormData) {
+  refuseActionOutsideDevelopment("/invite/accept"); // F9: tester/admin invitations are development-only
   const token = readToken(formData);
   const name = String(formData.get("name") ?? "").trim();
   const password = String(formData.get("password") ?? "");
@@ -150,6 +154,7 @@ export async function acceptInvitationNewUserAction(formData: FormData) {
 }
 
 export async function acceptInvitationExistingUserAction(formData: FormData) {
+  refuseActionOutsideDevelopment("/invite/accept"); // F9
   const token = readToken(formData);
   if (!token) redirect("/invite/accept");
 

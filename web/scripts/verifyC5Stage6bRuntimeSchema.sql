@@ -66,6 +66,7 @@ DECLARE
   v_s10 UUID := gen_random_uuid();
   v_legacy UUID := gen_random_uuid();
   v_r TEXT;
+  v_t TEXT;
   v_n INT;
   v_pass INT; v_fail INT;
 BEGIN
@@ -381,13 +382,15 @@ BEGIN
     NOT has_column_privilege('authenticated', 'set_outcomes', 'actual_load_unit', 'INSERT')
     AND NOT has_column_privilege('authenticated', 'set_outcomes', 'actual_duration_seconds', 'UPDATE')
     AND NOT has_column_privilege('authenticated', 'set_outcomes', 'actual_distance_m', 'INSERT'));
-  PERFORM pg_temp.chk('legacy set_outcomes column grants preserved',
-    has_column_privilege('authenticated', 'set_outcomes', 'actual_reps', 'INSERT')
-    AND has_column_privilege('authenticated', 'set_outcomes', 'actual_load', 'UPDATE')
-    AND has_column_privilege('authenticated', 'set_outcomes', 'was_edited', 'UPDATE'));
-  PERFORM pg_temp.chk('legacy rehab_sessions column grants preserved',
-    has_column_privilege('authenticated', 'rehab_sessions', 'status', 'UPDATE')
-    AND has_column_privilege('authenticated', 'rehab_sessions', 'prescription_snapshot', 'INSERT'));
+  -- M3.1 (migration 20261026000002): legacy patient write authority is
+  -- retired — these column grants are now intentionally revoked.
+  PERFORM pg_temp.chk('legacy set_outcomes column grants revoked (M3.1)',
+    NOT has_column_privilege('authenticated', 'set_outcomes', 'actual_reps', 'INSERT')
+    AND NOT has_column_privilege('authenticated', 'set_outcomes', 'actual_load', 'UPDATE')
+    AND NOT has_column_privilege('authenticated', 'set_outcomes', 'was_edited', 'UPDATE'));
+  PERFORM pg_temp.chk('legacy rehab_sessions column grants revoked (M3.1)',
+    NOT has_column_privilege('authenticated', 'rehab_sessions', 'status', 'UPDATE')
+    AND NOT has_column_privilege('authenticated', 'rehab_sessions', 'prescription_snapshot', 'INSERT'));
   PERFORM pg_temp.chk('authenticated cannot write morning_responses.resolution',
     NOT has_column_privilege('authenticated', 'morning_responses', 'resolution', 'UPDATE')
     AND NOT has_column_privilege('authenticated', 'morning_responses', 'resolution', 'INSERT'));
@@ -414,11 +417,11 @@ BEGIN
   PERFORM set_config('request.jwt.claim.sub', v_patient::text, true);
   SET LOCAL ROLE authenticated;
 
-  UPDATE rehab_sessions SET status = 'response_complete' WHERE id = v_s8;
-  GET DIAGNOSTICS v_n = ROW_COUNT;
+  -- M3.1: refused by privilege now (was: matched 0 rows under RLS).
+  v_t := pg_temp.try(format('UPDATE rehab_sessions SET status = %L WHERE id = %L', 'response_complete', v_s8));
   v_r := pg_temp.try(format('UPDATE rehab_sessions SET training_status = %L WHERE id = %L', 'finished', v_s2));
   RESET ROLE;
-  PERFORM pg_temp.chk('patient direct UPDATE of a C5 session matches 0 rows (RLS)', v_n = 0, v_n::text);
+  PERFORM pg_temp.chk('patient direct UPDATE of a C5 session refused (42501, M3.1)', v_t LIKE '42501%', v_t);
   PERFORM pg_temp.chk('patient direct UPDATE of training_status denied (column grant)', v_r LIKE '42501%', v_r);
 
   -- A STARTED C5 session (the trigger would otherwise reject a terminal one first).
@@ -429,10 +432,9 @@ BEGIN
   PERFORM pg_temp.chk('patient direct INSERT of performance into a STARTED C5 session denied (RLS)', v_r LIKE '42501%', v_r);
   SET LOCAL ROLE authenticated;
   v_r := pg_temp.try(format('UPDATE rehab_sessions SET status = %L WHERE id = %L', 'response_complete', v_s10));
-  UPDATE rehab_sessions SET updated_at = now() WHERE id = v_s10;
-  GET DIAGNOSTICS v_n = ROW_COUNT;
+  v_t := pg_temp.try(format('UPDATE rehab_sessions SET updated_at = now() WHERE id = %L', v_s10));
   RESET ROLE;
-  PERFORM pg_temp.chk('patient direct UPDATE of a STARTED C5 session matches 0 rows (RLS)', v_r = 'OK' AND v_n = 0, v_r || '/' || v_n::text);
+  PERFORM pg_temp.chk('patient direct UPDATE of a STARTED C5 session refused (42501, M3.1)', v_r LIKE '42501%' AND v_t LIKE '42501%', v_r || '/' || v_t);
 
   SET LOCAL ROLE authenticated;
   v_r := pg_temp.try(format('INSERT INTO session_immediate_responses (rehab_session_id, user_id) VALUES (%L, %L)', v_s8, v_patient));
@@ -455,17 +457,17 @@ BEGIN
   v_r := pg_temp.try(format(
     'INSERT INTO rehab_sessions (id, user_id, prescription_instance_id, patient_local_date, prescription_snapshot) VALUES (%L, %L, %L, %L, %L)',
     gen_random_uuid(), v_patient, 'legacy:' || gen_random_uuid()::text, '2026-04-01', '[]'));
-  UPDATE rehab_sessions SET status = 'response_complete' WHERE id = v_legacy;
-  GET DIAGNOSTICS v_n = ROW_COUNT;
+  v_t := pg_temp.try(format('UPDATE rehab_sessions SET status = %L WHERE id = %L', 'response_complete', v_legacy));
   RESET ROLE;
-  PERFORM pg_temp.chk('legacy patient direct INSERT of a legacy session still works', v_r = 'OK', v_r);
-  PERFORM pg_temp.chk('legacy patient direct UPDATE of a legacy session still works', v_n = 1, v_n::text);
+  -- M3.1: legacy patient write authority retired (was: "still works").
+  PERFORM pg_temp.chk('legacy patient direct INSERT of a legacy session refused (42501, M3.1)', v_r LIKE '42501%', v_r);
+  PERFORM pg_temp.chk('legacy patient direct UPDATE of a legacy session refused (42501, M3.1)', v_t LIKE '42501%', v_t);
 
   SET LOCAL ROLE authenticated;
   v_r := pg_temp.try(format('INSERT INTO set_outcomes (rehab_session_id, exercise_id, exercise_order_index, set_index, outcome, actual_reps, actual_load, occurred_at) VALUES (%L, %L, 0, 0, %L, 8, 20, now())', v_legacy, 'ex-l', 'completed'));
   SELECT count(*) INTO v_n FROM session_immediate_responses WHERE rehab_session_id = v_s9;
   RESET ROLE;
-  PERFORM pg_temp.chk('legacy patient direct INSERT of set_outcomes still works', v_r = 'OK', v_r);
+  PERFORM pg_temp.chk('legacy patient direct INSERT of set_outcomes refused (42501, M3.1)', v_r LIKE '42501%', v_r);
   PERFORM pg_temp.chk('patient can read own immediate response', v_n = 1, v_n::text);
 
   -- ================= RESULT =================

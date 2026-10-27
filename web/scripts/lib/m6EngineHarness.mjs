@@ -13,6 +13,9 @@ import { readFileSync } from "node:fs";
 
 register("./tsServerModuleHooks.mjs", import.meta.url);
 
+// M3.1 — the engines write to the database: development + allow-listed project only.
+import { assertDevTestTarget } from "./devProjectGuard.mjs";
+
 // The engines read Supabase credentials from process.env, as under Next.
 for (const line of readFileSync(new URL("../../.env.local", import.meta.url), "utf8").split("\n")) {
   const t = line.trim();
@@ -21,6 +24,7 @@ for (const line of readFileSync(new URL("../../.env.local", import.meta.url), "u
   const key = t.slice(0, eq).trim();
   if (process.env[key] === undefined) process.env[key] = t.slice(eq + 1).trim();
 }
+assertDevTestTarget(process.env);
 
 const { generateShortWindowSymptomInterpretation } = await import("../../lib/longitudinalInterpretationEngine.ts");
 const { generateCapacityInterpretations } = await import("../../lib/capacityInterpretationEngine.ts");

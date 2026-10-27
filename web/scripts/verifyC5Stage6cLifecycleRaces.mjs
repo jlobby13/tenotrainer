@@ -15,6 +15,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
 
 const REPO_ROOT = "..";
 const CLINICIAN = "44197ef7-7421-47ed-a164-75d2765fc019";
@@ -51,6 +52,8 @@ function loadEnv(path) {
   return env;
 }
 const env = loadEnv(".env.local");
+// M3.1 — refuse unless TENOTRAINER_MODE=development and the target project is allow-listed.
+assertDevTestTarget(env);
 const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 const WORK = mkdtempSync(join(tmpdir(), "c56c-races-"));
 

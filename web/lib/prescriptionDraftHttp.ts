@@ -3,6 +3,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { requireClinicianAuthForRoute } from "./clinicianAuth";
 import { PrescriptionDraftError } from "./prescriptionDraftErrors";
+import { isMutationAllowed, MaintenanceError } from "./operatingMode";
 
 const STATUS_BY_CODE: Record<string, number> = {
   UNAUTHENTICATED: 401,
@@ -25,6 +26,7 @@ const STATUS_BY_CODE: Record<string, number> = {
 // Never surfaces raw SQL/internal error text — every route in
 // web/app/api/clinician/prescription* funnels its catch block through this.
 export function prescriptionDraftErrorResponse(err: unknown): NextResponse {
+  if (err instanceof MaintenanceError) return NextResponse.json({ error: "MAINTENANCE" }, { status: 503 });
   if (err instanceof PrescriptionDraftError) {
     // `details` is only ever OUR OWN structured validation output (e.g.
     // C5.4B's dosage fieldErrors) — never a raw SQL/Postgres/RPC message.
@@ -38,7 +40,12 @@ export function prescriptionDraftErrorResponse(err: unknown): NextResponse {
 // Every route below calls this first. Never trusts a client-supplied
 // clinician id — the only identity a route ever uses is the one this
 // returns.
-export async function requireClinicianForRoute(): Promise<{ clinicianId: string } | { response: NextResponse }> {
+// M3.1 — `mutation: true` (every POST/PATCH/PUT/DELETE handler) refuses the
+// request in maintenance mode before anything else. Reads stay available.
+export async function requireClinicianForRoute(opts: { mutation?: boolean } = {}): Promise<{ clinicianId: string } | { response: NextResponse }> {
+  if (opts.mutation && !isMutationAllowed()) {
+    return { response: NextResponse.json({ error: "MAINTENANCE" }, { status: 503 }) };
+  }
   const auth = await requireClinicianAuthForRoute();
   if (!auth.ok) {
     const status = auth.reason === "UNAUTHENTICATED" ? 401 : 403;

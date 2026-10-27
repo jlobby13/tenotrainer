@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { mapRehabSessionRow } from "@/lib/rehabSessionTypes";
 import { getOldestOutstandingMorningResponse } from "@/lib/morningResponseServer";
+import { legacyRetiredResponse } from "@/lib/modeHttp";
 
 // Date-independent by design, and — as of M4 Stage 1 — oldest-outstanding-
 // first: querying "most recent awaiting_morning_response session" alone
@@ -17,6 +18,9 @@ import { getOldestOutstandingMorningResponse } from "@/lib/morningResponseServer
 // derive the pending/scheduled_ready state from scheduled_eligible_at
 // without a second round-trip.
 export async function GET() {
+  // M3.1 — legacy (FastAPI-era) route: exists only in development mode (410 LEGACY_RETIRED otherwise).
+  const modeRefusal = legacyRetiredResponse();
+  if (modeRefusal) return modeRefusal;
   const supabase = await createServerSupabaseClient();
   const {
     data: { user },

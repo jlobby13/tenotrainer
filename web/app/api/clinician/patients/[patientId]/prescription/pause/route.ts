@@ -6,7 +6,7 @@ import { pausePrescription } from "@/lib/prescriptionDraftServer";
 
 // POST — pausePrescription. High-consequence: Postgres assignment check.
 export async function POST(_request: Request, { params }: { params: Promise<{ patientId: string }> }) {
-  const auth = await requireClinicianForRoute();
+  const auth = await requireClinicianForRoute({ mutation: true });
   if ("response" in auth) return auth.response;
   const { patientId } = await params;
 

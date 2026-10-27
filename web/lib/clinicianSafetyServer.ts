@@ -15,6 +15,7 @@ import "server-only";
 import { createServiceRoleClient } from "./supabase/server";
 import { verifyHighConsequenceAuthorization } from "./prescriptionDraftAuth";
 import { PrescriptionDraftError } from "./prescriptionDraftErrors";
+import { assertMutationAllowed } from "./operatingMode";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -26,6 +27,8 @@ export async function releaseAcuteEpisodeAsClinician(params: {
   episodeId: string;
   note: string;
 }): Promise<ClinicianReleaseResult> {
+  // M3.1 — clinical mutation: refused in maintenance mode (defense in depth).
+  assertMutationAllowed();
   const { clinicianId, patientId, episodeId } = params;
   if (!UUID_RE.test(patientId) || !UUID_RE.test(episodeId)) return { status: 404, body: { result: "episode_not_found" } };
 

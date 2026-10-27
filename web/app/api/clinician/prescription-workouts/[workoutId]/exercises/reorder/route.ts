@@ -6,7 +6,7 @@ import { reorderExercises } from "@/lib/prescriptionDraftServer";
 
 // POST — reorderExercises. Transaction-safe two-phase reindex RPC.
 export async function POST(request: NextRequest, { params }: { params: Promise<{ workoutId: string }> }) {
-  const auth = await requireClinicianForRoute();
+  const auth = await requireClinicianForRoute({ mutation: true });
   if ("response" in auth) return auth.response;
   const { workoutId } = await params;
 

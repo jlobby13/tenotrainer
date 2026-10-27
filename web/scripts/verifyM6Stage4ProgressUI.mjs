@@ -1,3 +1,8 @@
+// RETIRED (M3.1, 2026-10-26) — LEGACY-ONLY FEATURE WITH NO C5 WIRING.
+// Depends on legacy patient database write authority / the legacy runtime,
+// retired by migration 20261026000002. Not part of the authoritative
+// regression list; do not restore grants to run it. Covered: the legacy /patient/progress interpretation sections (development legacy branch only); C5 patients get C5ProgressHistory (verifyM1ClinicianReviewUi, verifyPecPatientJourney). The M6 catalog is NOT retired.
+//
 // Milestone 6, Stage 4 — visual/hierarchy smoke check for /patient/progress.
 // Seeds a small amount of Stage 2 factual history PLUS one real finalize
 // call through the actual production route (so real, persisted
@@ -17,6 +22,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "node:fs";
 import { chromium } from "playwright";
+import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
 
 function loadEnv(path) {
   const env = {};
@@ -29,6 +35,8 @@ function loadEnv(path) {
   return env;
 }
 const env = loadEnv(".env.local");
+// M3.1 — refuse unless TENOTRAINER_MODE=development and the target project is allow-listed.
+assertDevTestTarget(env);
 const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 const BASE_URL = "http://localhost:3000";
 const REAL_ORG_ID = "07f342fd-075c-42b5-a885-30ca64953d46";

@@ -31,6 +31,7 @@ import type {
   C5UnitOutcome,
   C5WorkoutOption,
 } from "./c5RuntimeTypes";
+import { assertMutationAllowed, isC5RuntimeAuthoritative, isMutationAllowed } from "./operatingMode";
 
 type Admin = ReturnType<typeof createServiceRoleClient>;
 type Json = Record<string, unknown>;
@@ -39,10 +40,12 @@ type Json = Record<string, unknown>;
 // Feature gate + routing
 // ---------------------------------------------------------------------------
 
-// OFF unless explicitly enabled for this server process. Legacy stays the
-// default runtime until cutover.
+// M3.1 — operating-mode aware. In production and maintenance C5 is ALWAYS
+// the patient runtime (the runtime gate can never select legacy there; a
+// gate value other than "true" is rejected at startup). Only development
+// may still select legacy via C5_PATIENT_RUNTIME_ENABLED.
 export function isC5PatientRuntimeEnabled(): boolean {
-  return process.env.C5_PATIENT_RUNTIME_ENABLED === "true";
+  return isC5RuntimeAuthoritative();
 }
 
 // Cutover routing, not a lifecycle decision. M2 (founder-approved): with
@@ -60,10 +63,12 @@ const NON_PATIENT_ROLES = new Set(["super_user", "clinician", "clinician_admin"]
 
 export type C5PatientAuth =
   | { ok: true; patientId: string }
-  | { ok: false; status: 401 | 403 | 404; code: "UNAUTHORIZED" | "NOT_A_PATIENT" | "C5_RUNTIME_DISABLED" };
+  | { ok: false; status: 401 | 403 | 404 | 503; code: "UNAUTHORIZED" | "NOT_A_PATIENT" | "C5_RUNTIME_DISABLED" | "MAINTENANCE" };
 
-// Identity from the authenticated session only.
+// Identity from the authenticated session only. M3.1 — in maintenance mode
+// every patient API is unavailable (reads included), before any lookup.
 export async function requireC5Patient(): Promise<C5PatientAuth> {
+  if (!isMutationAllowed()) return { ok: false, status: 503, code: "MAINTENANCE" };
   if (!isC5PatientRuntimeEnabled()) return { ok: false, status: 404, code: "C5_RUNTIME_DISABLED" };
   const supabase = await createServerSupabaseClient();
   const {
@@ -356,6 +361,9 @@ export async function readC5TrainingStateForClinician(patientId: string): Promis
 
 // THE patient-facing training-state path (dashboard + session page + API).
 export async function getC5TrainingState(patientId: string): Promise<C5TrainingState> {
+  // M3.1 — maintenance: no reconciliation write; patient routes never get
+  // here (they are unavailable), this is defense in depth.
+  if (!isMutationAllowed()) return { kind: "unavailable", reason: "unexpected" };
   const admin = createServiceRoleClient();
   try {
     await reconcileAcute(admin, patientId);
@@ -405,6 +413,8 @@ export type C5StartResponse =
   | { result: string; detail?: string; state: C5TrainingState };
 
 export async function recordFirstPerformance(patientId: string, req: C5StartRequest): Promise<C5StartResponse> {
+  // M3.1 — clinical mutation: refused in maintenance mode (defense in depth).
+  assertMutationAllowed();
   const admin = createServiceRoleClient();
   await reconcileAcute(admin, patientId);
   const r = await callRpc(admin, "c5_record_first_performance", {
@@ -428,6 +438,8 @@ export async function recordFirstPerformance(patientId: string, req: C5StartRequ
 export type C5UnitWriteResponse = { result: string; detail?: string; replayed?: boolean };
 
 export async function writePerformance(patientId: string, sessionId: string, performance: C5PerformancePayload, edit: boolean): Promise<C5UnitWriteResponse> {
+  // M3.1 — clinical mutation: refused in maintenance mode (defense in depth).
+  assertMutationAllowed();
   const admin = createServiceRoleClient();
   await reconcileAcute(admin, patientId);
   const r = await callRpc(admin, edit ? "c5_edit_performance" : "c5_record_performance", {
@@ -443,6 +455,8 @@ export type C5CloseResponse = { result: string; trainingStatus?: C5TrainingStatu
 export type C5AcuteReport = { sudden_or_sharp_pain?: boolean; pop_felt_or_heard?: boolean; new_functional_difficulty?: boolean };
 
 export async function closeSession(patientId: string, sessionId: string, intent: "finish" | "stop", acuteReport: C5AcuteReport | null): Promise<C5CloseResponse> {
+  // M3.1 — clinical mutation: refused in maintenance mode (defense in depth).
+  assertMutationAllowed();
   const admin = createServiceRoleClient();
   await reconcileAcute(admin, patientId);
   const r =
@@ -463,6 +477,8 @@ export async function closeSession(patientId: string, sessionId: string, intent:
 export type C5RecoveryDecisionResponse = { result: string; replayed?: boolean; decision?: string; state: C5TrainingState };
 
 export async function recordRecoveryDecision(patientId: string, clientRequestId: string, decision: "take_recovery_day" | "continue"): Promise<C5RecoveryDecisionResponse> {
+  // M3.1 — clinical mutation: refused in maintenance mode (defense in depth).
+  assertMutationAllowed();
   const admin = createServiceRoleClient();
   await reconcileAcute(admin, patientId);
   const r = await callRpc(admin, "c5_record_recovery_decision", { p_patient_id: patientId, p_client_request_id: clientRequestId, p_decision: decision });

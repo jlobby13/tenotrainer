@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { redirect, notFound } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getSessionInfo } from "@/lib/auth";
 import { getPatientSummary, BackendUnavailableError } from "@/lib/fastapi";
@@ -9,6 +9,7 @@ import { MorningCheckInRequired } from "./components/MorningCheckInRequired";
 import { SessionUnavailable } from "./components/SessionUnavailable";
 import { C5SessionRunner } from "./components/c5/C5SessionRunner";
 import { getC5LastTime, getC5TrainingState, usesC5Runtime } from "@/lib/c5RuntimeServer";
+import { isLegacyAllowed } from "@/lib/operatingMode";
 
 // A non-terminal rehab_sessions row means the patient already legitimately
 // started (or is mid-M3-response on) something real — that must never be
@@ -48,6 +49,9 @@ export default async function PatientSessionPage() {
     const [state, lastTime] = await Promise.all([getC5TrainingState(authUser.id), getC5LastTime(authUser.id)]);
     return <C5SessionRunner initialState={state} lastTime={lastTime} />;
   }
+
+  // M3.1 — legacy branch below: development mode only (never in production/maintenance).
+  if (!isLegacyAllowed()) notFound();
 
   let summary;
   try {

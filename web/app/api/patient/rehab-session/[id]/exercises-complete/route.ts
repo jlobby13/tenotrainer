@@ -3,8 +3,12 @@ import "server-only";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { mapRehabSessionRow } from "@/lib/rehabSessionTypes";
+import { legacyRetiredResponse } from "@/lib/modeHttp";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  // M3.1 — legacy (FastAPI-era) route: exists only in development mode (410 LEGACY_RETIRED otherwise).
+  const modeRefusal = legacyRetiredResponse();
+  if (modeRefusal) return modeRefusal;
   const { id } = await params;
   const supabase = await createServerSupabaseClient();
   const {
