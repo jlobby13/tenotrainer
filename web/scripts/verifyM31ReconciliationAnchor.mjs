@@ -26,6 +26,8 @@ import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { chromium } from "playwright";
 import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
+import { guardedFixtureTeardown } from "./lib/safetyFixturePurge.mjs";
+import { guardedSql } from "./lib/m32Fixtures.mjs";
 
 const ON = process.argv[2] ?? "http://localhost:3101";
 const REAL_ORG_ID = "07f342fd-075c-42b5-a885-30ca64953d46";
@@ -63,6 +65,7 @@ function check(name, cond, detail) {
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+const RUN_STARTED_AT = new Date(Date.now() - 60_000).toISOString();
 const createdUsers = [];
 const exerciseIds = [];
 
@@ -93,24 +96,9 @@ async function makePatient(label, clinician, exerciseId) {
 }
 
 async function teardown() {
-  const ids = createdUsers.length ? createdUsers : [randomUUID()];
-  for (const userId of createdUsers) {
-    await admin.from("acute_safety_episodes").delete().eq("user_id", userId);
-    await admin.from("rehab_sessions").delete().eq("user_id", userId);
-    await admin.from("notifications").delete().eq("patient_id", userId);
-    const { data: pp } = await admin.from("patient_prescriptions").select("id").eq("patient_id", userId).maybeSingle();
-    if (pp) await admin.from("patient_prescriptions").update({ current_prescription_version_id: null }).eq("id", pp.id);
-    await admin.from("prescription_versions").delete().eq("user_id", userId);
-    if (pp) await admin.from("patient_prescriptions").delete().eq("id", pp.id);
-  }
-  await admin.from("supervisor_patients").delete().in("patient_id", ids);
-  await admin.from("supervisor_patients").delete().in("supervisor_id", ids);
-  await admin.from("organization_members").delete().in("user_id", ids);
-  await admin.from("profiles").delete().in("id", ids);
-  for (const id of createdUsers) await admin.auth.admin.deleteUser(id);
-  for (const id of exerciseIds) await admin.from("canonical_exercises").delete().eq("id", id);
-  const { data: left } = await admin.from("rehab_sessions").select("id").in("user_id", ids);
-  console.log(`\nteardown: ${createdUsers.length} users, ${exerciseIds.length} exercises removed; remaining sessions: ${left?.length ?? "?"}`);
+  // M3.2 — the guarded exact-id purge (safety-notification history is
+  // immutable, so ordinary deletes can no longer remove these fixtures).
+  guardedFixtureTeardown(env, { userIds: createdUsers, exerciseIds, runStartedAt: RUN_STARTED_AT });
 }
 
 async function login(browser, email) {
@@ -178,7 +166,10 @@ async function main() {
       check("A: exactly one Level 5 escalation evaluation", evals.length === 1 && Boolean(ev), JSON.stringify(evals));
       check("A: not yet reconciled (no episode before the reconciliation step)", (await episodesOf(sid)).length === 0);
       await sleep(GAP_MS);
-      const before = Date.now();
+      // Database-authoritative instant taken just before the reconciliation
+      // request (comparing a database timestamp with this machine's clock was
+      // sensitive to clock skew; both sides are now database time).
+      const before = new Date(guardedSql(env, "SELECT clock_timestamp() AS t")[0].t).getTime();
       // The authoritative reconciliation trigger: the patient's state read
       // (getC5TrainingState -> reconcileAcute -> reconcile_missing_acute_episodes).
       const st = await api(ctx, "GET", "/api/patient/c5/state");
@@ -218,7 +209,12 @@ main()
     fail++;
   })
   .finally(async () => {
-    await teardown().catch((e) => console.error("teardown error", e));
+    try {
+      await teardown();
+    } catch (e) {
+      fail++;
+      console.log(`FAIL  teardown: ${e.message}`);
+    }
     console.log(`\n${pass} passed, ${fail} failed`);
     process.exit(fail === 0 ? 0 : 1);
   });

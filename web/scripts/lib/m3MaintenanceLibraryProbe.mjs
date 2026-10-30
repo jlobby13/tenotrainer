@@ -21,6 +21,12 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = "probe-service";
 process.env.NEXT_PUBLIC_APP_URL = "https://app.tenotrainer.test";
 delete process.env.FASTAPI_URL;
 delete process.env.BRIDGE_SECRET;
+// M3.2 — production / maintenance also require the safety email
+// configuration (unreachable placeholders; nothing is ever sent here).
+process.env.SAFETY_EMAIL_PROVIDER = "resend";
+process.env.SAFETY_DISPATCH_SECRET = "m32-probe-dispatch-secret-0123456789abcdef";
+process.env.RESEND_API_KEY = "re_probe_never_called";
+process.env.RESEND_FROM = "TenoTrainer <safety@tenotrainer.test>";
 
 const TARGETS = {
   "@/lib/prescriptionDraftServer": [

@@ -28,6 +28,7 @@ import { randomUUID, createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { chromium } from "playwright";
 import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
+import { guardedFixtureTeardown } from "./lib/safetyFixturePurge.mjs";
 
 const ON = process.argv[2] ?? "http://localhost:3001";
 const DEAD_FASTAPI = process.argv[3] ?? "http://127.0.0.1:59999";
@@ -76,6 +77,7 @@ function sqlExec(sql) {
 const sha256 = (s) => createHash("sha256").update(s, "utf8").digest("hex");
 
 // ---------------------------------------------------------------- fixtures
+const RUN_STARTED_AT = new Date(Date.now() - 60_000).toISOString();
 const createdUsers = [];
 const createdOrgs = [];
 const legacyUserIds = [];
@@ -114,48 +116,17 @@ function legacy(fn) {
 }
 
 async function teardown() {
-  const ids = createdUsers.length ? createdUsers : [randomUUID()];
-  for (const userId of createdUsers) {
-    const { data: episodes } = await admin.from("acute_safety_episodes").select("id").eq("user_id", userId);
-    const episodeIds = (episodes ?? []).map((e) => e.id);
-    if (episodeIds.length) {
-      await admin.from("cautious_return_contexts").delete().in("acute_safety_episode_id", episodeIds);
-      await admin.from("blocked_loading_opportunities").delete().in("acute_safety_episode_id", episodeIds);
-      await admin.from("acute_safety_releases").delete().in("acute_safety_episode_id", episodeIds);
-      await admin.from("acute_safety_reassessments").delete().in("acute_safety_episode_id", episodeIds);
-    }
-    await admin.from("acute_safety_episodes").delete().eq("user_id", userId);
-    await admin.from("c5_recovery_decisions").delete().eq("user_id", userId);
-    await admin.from("rehab_sessions").delete().eq("user_id", userId).not("resolves_stopped_session_id", "is", null);
-    await admin.from("rehab_sessions").delete().eq("user_id", userId);
-    const { data: pp } = await admin.from("patient_prescriptions").select("id").eq("patient_id", userId).maybeSingle();
-    if (pp) {
-      await admin.from("patient_prescriptions").update({ current_prescription_version_id: null }).eq("id", pp.id);
-      await admin.from("prescription_drafts").delete().eq("patient_prescription_id", pp.id);
-      await admin.from("prescription_pause_periods").delete().eq("patient_prescription_id", pp.id);
-    }
-    await admin.from("notifications").delete().eq("patient_id", userId);
-    await admin.from("prescription_versions").delete().eq("user_id", userId);
-    if (pp) await admin.from("patient_prescriptions").delete().eq("id", pp.id);
-  }
-  // Assignments first: a clinician membership with active assignments is
-  // protected by the M2 membership guard.
-  await admin.from("supervisor_patients").delete().in("patient_id", ids);
-  await admin.from("supervisor_patients").delete().in("supervisor_id", ids);
-  await admin.from("invitations").delete().in("invited_by", ids);
-  await admin.from("invitations").delete().like("email", `m2-%-${RUN}@example.invalid`);
-  await admin.from("organization_members").delete().in("user_id", ids);
-  await admin.from("profiles").delete().in("id", ids);
-  for (const id of createdUsers) await admin.auth.admin.deleteUser(id);
-  for (const id of createdOrgs) await admin.from("organizations").delete().eq("id", id);
-  if (exerciseIds.length) await admin.from("canonical_exercises").delete().in("id", exerciseIds);
+  // M3.2 — the guarded exact-id purge (safety-notification history is
+  // immutable, so ordinary deletes can no longer remove these fixtures).
+  // Pending invitations to this run's (never-registered) addresses are
+  // scoped by the unique run token.
+  guardedFixtureTeardown(env, { userIds: createdUsers, organizationIds: createdOrgs, exerciseIds, runStartedAt: RUN_STARTED_AT });
+  const { error: invError } = await admin.from("invitations").delete().like("email", `m2-%-${RUN}@example.invalid`);
+  if (invError) throw new Error(`invitation cleanup failed: ${invError.message}`);
   legacy((db) => {
     for (const id of legacyLinkIds) db.prepare("DELETE FROM supervisor_patients WHERE id = ?").run(id);
     for (const id of legacyUserIds) db.prepare("DELETE FROM users WHERE id = ?").run(id);
   });
-  const { data: leftSp } = await admin.from("supervisor_patients").select("id").in("patient_id", ids);
-  const { data: leftInv } = await admin.from("invitations").select("id").like("email", `%-${RUN}@example.invalid`);
-  console.log(`\nteardown: ${createdUsers.length} users, ${createdOrgs.length} orgs removed; remaining assignments ${leftSp?.length ?? "?"}, invitations ${leftInv?.length ?? "?"}`);
 }
 
 // ---------------------------------------------------------------- browser / API
@@ -728,7 +699,12 @@ try {
   fail++;
   console.error("ERROR", err);
 } finally {
-  await teardown().catch((e) => console.error("teardown error", e));
+  try {
+    await teardown();
+  } catch (e) {
+    fail++;
+    console.log(`FAIL  teardown: ${e.message}`);
+  }
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail === 0 ? 0 : 1);
 }

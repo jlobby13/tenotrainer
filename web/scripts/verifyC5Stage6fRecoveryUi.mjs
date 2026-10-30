@@ -19,6 +19,8 @@ import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { chromium } from "playwright";
 import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
+import { fixtureClinicianMembership } from "./lib/fixtureClinicianMembership.mjs";
+import { guardedFixtureTeardown } from "./lib/safetyFixturePurge.mjs";
 
 const ON = process.argv[2] ?? "http://localhost:3001";
 const OFF = process.argv[3] ?? "http://localhost:3000";
@@ -30,20 +32,9 @@ const CLINICIAN = "44197ef7-7421-47ed-a164-75d2765fc019";
 // its organization. This shared fixture clinician has none, so the suite
 // grants one for the run and removes it in teardown (only if it added it).
 const M2_FIXTURE_ORG_ID = "07f342fd-075c-42b5-a885-30ca64953d46";
-let fixtureClinicianMembershipAdded = false;
-async function ensureFixtureClinicianMembership() {
-  if (fixtureClinicianMembershipAdded) return;
-  const { data } = await admin.from("organization_members").select("id").eq("user_id", CLINICIAN).eq("organization_id", M2_FIXTURE_ORG_ID).maybeSingle();
-  if (data) return;
-  const { error } = await admin.from("organization_members").insert({ organization_id: M2_FIXTURE_ORG_ID, user_id: CLINICIAN, role: "clinician" });
-  if (error) throw error;
-  fixtureClinicianMembershipAdded = true;
-}
-async function removeFixtureClinicianMembership() {
-  if (!fixtureClinicianMembershipAdded) return;
-  await admin.from("supervisor_patients").delete().eq("supervisor_id", CLINICIAN);
-  await admin.from("organization_members").delete().eq("user_id", CLINICIAN).eq("organization_id", M2_FIXTURE_ORG_ID);
-}
+// M3.2 — exact-id fixture membership / assignments (never by clinician id).
+let fixtureClinician = null;
+const fc = () => (fixtureClinician ??= fixtureClinicianMembership(admin, { clinicianId: CLINICIAN, organizationId: M2_FIXTURE_ORG_ID }));
 const REAL_ORG_ID = "07f342fd-075c-42b5-a885-30ca64953d46";
 const TZ = "America/New_York";
 const PASSWORD = "throwaway-verification-1!";
@@ -136,6 +127,7 @@ async function waitFor(fn, timeoutMs = 15000, intervalMs = 150) {
 }
 
 // ---------------------------------------------------------------- fixtures
+const RUN_STARTED_AT = new Date(Date.now() - 60_000).toISOString();
 const createdUsers = [];
 let exerciseId = null;
 
@@ -151,8 +143,8 @@ async function makeUser(label, tz = TZ) {
 // Two-workout program. mode 'sequence' (target, recovery) or 'calendar' (days, recovery).
 async function makeFixture(label, { mode = "sequence", target = 2, recovery = 1, days = [null, null], tz = TZ } = {}) {
   const patient = await makeUser(label, tz);
-  await ensureFixtureClinicianMembership();
-  await admin.from("supervisor_patients").insert({ supervisor_id: CLINICIAN, patient_id: patient.userId, status: "active" });
+  await fc().ensureMembership();
+  await fc().assign(patient.userId);
   const { data: pp } = await admin.from("patient_prescriptions").insert({ patient_id: patient.userId }).select("id").single();
   const { data: v, error } = await admin
     .from("prescription_versions")
@@ -212,30 +204,10 @@ async function decisionsOf(f) {
 }
 
 async function teardown() {
-  for (const userId of createdUsers) {
-    await admin.from("c5_recovery_decisions").delete().eq("user_id", userId);
-    await admin.from("rehab_sessions").delete().eq("user_id", userId).not("resolves_stopped_session_id", "is", null);
-    await admin.from("rehab_sessions").delete().eq("user_id", userId);
-    const { data: pp } = await admin.from("patient_prescriptions").select("id").eq("patient_id", userId).maybeSingle();
-    if (pp) {
-      await admin.from("patient_prescriptions").update({ current_prescription_version_id: null }).eq("id", pp.id);
-      await admin.from("prescription_drafts").delete().eq("patient_prescription_id", pp.id);
-      await admin.from("prescription_pause_periods").delete().eq("patient_prescription_id", pp.id);
-    }
-    await admin.from("notifications").delete().eq("patient_id", userId);
-    await admin.from("prescription_versions").delete().eq("user_id", userId);
-    if (pp) await admin.from("patient_prescriptions").delete().eq("id", pp.id);
-  }
-  const ids = createdUsers.length ? createdUsers : [randomUUID()];
-  await admin.from("organization_members").delete().in("user_id", ids);
-  await admin.from("supervisor_patients").delete().in("patient_id", ids);
-  await admin.from("supervisor_patients").delete().in("supervisor_id", ids);
-  await admin.from("profiles").delete().in("id", ids);
-  for (const id of createdUsers) await admin.auth.admin.deleteUser(id);
-  if (exerciseId) await admin.from("canonical_exercises").delete().eq("id", exerciseId);
-  const { data: left } = await admin.from("rehab_sessions").select("id").in("user_id", ids);
-  console.log(`\nteardown: ${createdUsers.length} fixture users removed; remaining fixture sessions: ${left?.length ?? "?"}`);
-  await removeFixtureClinicianMembership();
+  // M3.2 — the guarded exact-id purge, then the exact-id fixture clinician
+  // membership / assignments (unrelated assignments must be unchanged).
+  guardedFixtureTeardown(env, { userIds: createdUsers, exerciseIds: exerciseId ? [exerciseId] : [], runStartedAt: RUN_STARTED_AT });
+  await fc().teardown();
 }
 
 // ---------------------------------------------------------------- browser / API
@@ -593,7 +565,12 @@ try {
   fail++;
   console.log(`FAIL  unexpected error: ${e?.stack ?? e}`);
 } finally {
-  await teardown();
+  try {
+    await teardown();
+  } catch (e) {
+    fail++;
+    console.log(`FAIL  teardown: ${e.message}`);
+  }
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail === 0 ? 0 : 1);
 }

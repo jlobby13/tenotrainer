@@ -157,7 +157,10 @@ async function startProductionServer() {
   const e = { ...process.env };
   for (const k of ["TENOTRAINER_MODE", "C5_PATIENT_RUNTIME_ENABLED", "C5_PRESCRIPTION_PUBLISH_ENABLED"]) delete e[k];
   const proc = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-p", String(PORT)], {
-    env: { ...e, TENOTRAINER_MODE: "production", FASTAPI_URL: "", BRIDGE_SECRET: "", RESEND_API_KEY: "", NEXT_PUBLIC_APP_URL: "https://app.tenotrainer.test" },
+    // M3.2: production also requires the safety email configuration (the
+    // dummy Resend key is never used — this suite sends no email).
+    env: { ...e, TENOTRAINER_MODE: "production", FASTAPI_URL: "", BRIDGE_SECRET: "", NEXT_PUBLIC_APP_URL: "https://app.tenotrainer.test",
+      SAFETY_EMAIL_PROVIDER: "resend", SAFETY_DISPATCH_SECRET: `m31-adv-${randomUUID()}-${randomUUID()}`, RESEND_API_KEY: "re_isolated_never_called", RESEND_FROM: "TenoTrainer <safety@tenotrainer.test>" },
     detached: true, stdio: ["ignore", "pipe", "pipe"],
   });
   server = { proc, pid: proc.pid, log: "", exited: null };

@@ -31,6 +31,10 @@ const MAINTENANCE_PATIENT_PAGES = ["/patient", "/invite", "/setup"];
 // Maintenance: signing in and out still works (patients then see the
 // unavailable page; staff get read-only access).
 const MAINTENANCE_SESSION_PATHS = ["/login", "/logout", "/auth/"];
+// M3.2 (founder D1) — the narrow operational exception: safety email
+// dispatch keeps running during maintenance. It authenticates with its own
+// secret and performs no clinical mutation. Exactly this path, nothing else.
+const MAINTENANCE_OPERATIONAL_PATHS = ["/api/internal/safety-notifications/dispatch"];
 
 const startsWithAny = (pathname: string, prefixes: string[]) =>
   prefixes.some((p) => pathname === p || pathname.startsWith(p.endsWith("/") ? p : `${p}/`) || (p.endsWith("/") && pathname.startsWith(p)));
@@ -50,7 +54,8 @@ function modeRefusal(mode: OperatingMode, request: NextRequest): NextResponse | 
     }
     const readMethod = request.method === "GET" || request.method === "HEAD";
     const serverAction = request.headers.has("next-action");
-    if ((!readMethod || serverAction) && !startsWithAny(pathname, MAINTENANCE_SESSION_PATHS)) {
+    const operational = MAINTENANCE_OPERATIONAL_PATHS.includes(pathname) && request.method === "POST" && !serverAction;
+    if ((!readMethod || serverAction) && !operational && !startsWithAny(pathname, MAINTENANCE_SESSION_PATHS)) {
       return NextResponse.json({ error: "MAINTENANCE" }, { status: 503 });
     }
   }

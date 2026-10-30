@@ -14,13 +14,19 @@ There is no database maintenance flag.
 
 `TENOTRAINER_MODE` is **required** and has **no default**: not from
 `NODE_ENV`, not from `next dev`. Every server, test run and isolated
-verification server sets it explicitly. `.env.local` does not set it.
+verification server sets it explicitly. Since the M3.1 normal-development
+transition the developer `.env.local` sets `TENOTRAINER_MODE=development`
+(and `C5_PATIENT_RUNTIME_ENABLED=true`); isolated servers that need a
+different or missing mode override it with an explicit (possibly empty)
+value, because Next never lets `.env.local` replace an existing variable.
 
 ## Startup validation (fail closed)
 
 `web/lib/envValidation.ts` is the one validation boundary (pure; used by
 `instrumentation.ts`, the proxy and unit tests). `web/instrumentation.ts`
-runs it once before the server handles any request; an invalid
+runs it once before the server handles any request (since M3.2 through
+`instrumentation-node.ts`, imported only for the Node.js runtime, so the
+Edge bundle never contains `process.exit`); an invalid
 configuration logs the problems (variable names only, never values) and
 **exits the process**. The proxy re-validates per request and answers 503
 if configuration is invalid.
@@ -33,6 +39,9 @@ if configuration is invalid.
 | `FASTAPI_URL`, `BRIDGE_SECRET` (legacy bridge) | allowed | **forbidden** |
 | `C5_PATIENT_RUNTIME_ENABLED` | `true` selects C5, otherwise legacy | unset or `"true"` only; `"false"` is rejected (it can never select legacy) |
 | `C5_PRESCRIPTION_PUBLISH_ENABLED` | `true` enables publish | `"true"` / `"false"` / unset; `false` or unset = publication freeze |
+| `SAFETY_EMAIL_PROVIDER` (M3.2) | unset = safety email dispatch disabled; `fake` (test double) or `resend` (explicit) | **required `resend`**; `fake` is refused |
+| `SAFETY_DISPATCH_SECRET` (M3.2) | optional; if set, ≥ 32 characters | **required**, ≥ 32 characters |
+| `RESEND_API_KEY`, `RESEND_FROM` (M3.2) | required only with `SAFETY_EMAIL_PROVIDER=resend` | **required** (clinician safety email) |
 
 Interpretation lives in `web/lib/operatingMode.ts`:
 
@@ -61,6 +70,16 @@ Outside development:
 - FastAPI is neither configured nor reachable; no C5 path depends on it.
 
 ## Maintenance enforcement (defense in depth)
+
+**M3.2 operational exception (founder D1).** Exactly one path is exempt
+from the maintenance mutation block: `POST
+/api/internal/safety-notifications/dispatch` (secret-authenticated safety
+email dispatch). The database sweep (pg_cron) is mode-unaware by design and
+keeps deriving notification events, repairing orphan safety facts through
+the existing reconcile function, and maintaining outbox / delivery state.
+No clinical, prescription, assignment or release mutation is allowed, and
+opening a notification in maintenance never records `read_at`. This is not
+a general maintenance mutation exception.
 
 Authorization logic is never duplicated: each layer only asks the mode.
 

@@ -21,7 +21,7 @@ export const metadata = { title: "Safety — TenoTrainer" };
 function EpisodeCard({ e, patientId, tz }: { e: C5SafetyEpisode; patientId: string; tz: string | null }) {
   const reported = (Object.keys(SAFETY_FACT_LABELS) as (keyof typeof SAFETY_FACT_LABELS)[]).filter((k) => e.initialFacts[k]).map((k) => SAFETY_FACT_LABELS[k]);
   return (
-    <div className="border-t border-gray-100 pt-4 first:border-0 first:pt-0" data-c5-episode={e.episodeId} data-c5-episode-state={e.processState}>
+    <div id={`episode-${e.episodeId}`} className="scroll-mt-4 border-t border-gray-100 pt-4 first:border-0 first:pt-0" data-c5-episode={e.episodeId} data-c5-episode-state={e.processState}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-sm font-semibold text-gray-900">{safetyProcessLabel(e.processState)}</p>
         <p className="text-xs text-gray-500">Raised {formatPatientDateTime(e.confirmedAt, tz)}</p>

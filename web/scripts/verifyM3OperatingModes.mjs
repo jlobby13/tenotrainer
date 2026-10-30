@@ -68,12 +68,22 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // The server environment: the developer .env.local is still loaded by Next
 // itself, so every mode-relevant key is set EXPLICITLY here (an empty
 // string counts as unset for validation and overrides .env.local).
+// The mode and gate keys are blanked, not deleted: the normal development
+// .env.local sets them since the M3.1 transition, and a deleted key would be
+// filled from it. The bridge / app-URL keys are deleted so .env.local's
+// developer values still apply where a case relies on them.
 function serverEnv(overrides) {
   const base = { ...process.env };
-  for (const k of ["TENOTRAINER_MODE", "C5_PATIENT_RUNTIME_ENABLED", "C5_PRESCRIPTION_PUBLISH_ENABLED", "FASTAPI_URL", "BRIDGE_SECRET", "NEXT_PUBLIC_APP_URL"]) delete base[k];
+  for (const k of ["FASTAPI_URL", "BRIDGE_SECRET", "NEXT_PUBLIC_APP_URL"]) delete base[k];
+  for (const k of ["TENOTRAINER_MODE", "C5_PATIENT_RUNTIME_ENABLED", "C5_PRESCRIPTION_PUBLISH_ENABLED"]) base[k] = "";
   return { ...base, RESEND_API_KEY: "", ...overrides };
 }
-const PROD_ENV = { FASTAPI_URL: "", BRIDGE_SECRET: "", NEXT_PUBLIC_APP_URL: "https://app.tenotrainer.test" };
+// M3.2: production / maintenance also require the safety email
+// configuration; the dummy Resend key is never used (this suite sends no
+// safety email and never calls the dispatch endpoint).
+const PROD_ENV = { FASTAPI_URL: "", BRIDGE_SECRET: "", NEXT_PUBLIC_APP_URL: "https://app.tenotrainer.test",
+  SAFETY_EMAIL_PROVIDER: "resend", SAFETY_DISPATCH_SECRET: `m31-modes-${randomUUID()}-${randomUUID()}`,
+  RESEND_API_KEY: "re_isolated_never_called", RESEND_FROM: "TenoTrainer <safety@tenotrainer.test>" };
 const started = [];
 
 function spawnServer(port, overrides) {

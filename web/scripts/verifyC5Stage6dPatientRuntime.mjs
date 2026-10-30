@@ -24,6 +24,8 @@ import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { chromium } from "playwright";
 import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
+import { fixtureClinicianMembership } from "./lib/fixtureClinicianMembership.mjs";
+import { guardedFixtureTeardown } from "./lib/safetyFixturePurge.mjs";
 
 const ON = process.argv[2] ?? "http://localhost:3001";
 const OFF = process.argv[3] ?? "http://localhost:3000";
@@ -35,20 +37,9 @@ const CLINICIAN = "44197ef7-7421-47ed-a164-75d2765fc019";
 // its organization. This shared fixture clinician has none, so the suite
 // grants one for the run and removes it in teardown (only if it added it).
 const M2_FIXTURE_ORG_ID = "07f342fd-075c-42b5-a885-30ca64953d46";
-let fixtureClinicianMembershipAdded = false;
-async function ensureFixtureClinicianMembership() {
-  if (fixtureClinicianMembershipAdded) return;
-  const { data } = await admin.from("organization_members").select("id").eq("user_id", CLINICIAN).eq("organization_id", M2_FIXTURE_ORG_ID).maybeSingle();
-  if (data) return;
-  const { error } = await admin.from("organization_members").insert({ organization_id: M2_FIXTURE_ORG_ID, user_id: CLINICIAN, role: "clinician" });
-  if (error) throw error;
-  fixtureClinicianMembershipAdded = true;
-}
-async function removeFixtureClinicianMembership() {
-  if (!fixtureClinicianMembershipAdded) return;
-  await admin.from("supervisor_patients").delete().eq("supervisor_id", CLINICIAN);
-  await admin.from("organization_members").delete().eq("user_id", CLINICIAN).eq("organization_id", M2_FIXTURE_ORG_ID);
-}
+// M3.2 — exact-id fixture membership / assignments (never by clinician id).
+let fixtureClinician = null;
+const fc = () => (fixtureClinician ??= fixtureClinicianMembership(admin, { clinicianId: CLINICIAN, organizationId: M2_FIXTURE_ORG_ID }));
 const TZ = "America/New_York";
 const PASSWORD = "throwaway-verification-1!";
 const DESKTOP = { width: 1280, height: 900 };
@@ -110,6 +101,7 @@ async function waitFor(fn, timeoutMs = 15000, intervalMs = 150) {
 }
 
 // ---------------------------------------------------------------- fixtures
+const RUN_STARTED_AT = new Date(Date.now() - 60_000).toISOString();
 const createdUsers = [];
 let exerciseIds = [];
 
@@ -119,8 +111,8 @@ async function makePatient(label) {
   if (error) throw error;
   createdUsers.push(data.user.id);
   await admin.from("profiles").upsert({ id: data.user.id, name: `C5.6D ${label}`, timezone: TZ });
-  await ensureFixtureClinicianMembership();
-  await admin.from("supervisor_patients").insert({ supervisor_id: CLINICIAN, patient_id: data.user.id, status: "active" });
+  await fc().ensureMembership();
+  await fc().assign(data.user.id);
   return { userId: data.user.id, email };
 }
 
@@ -212,38 +204,10 @@ async function unitsOf(sessionId) {
 }
 
 async function teardown() {
-  for (const userId of createdUsers) {
-    const { data: sessions } = await admin.from("rehab_sessions").select("id").eq("user_id", userId);
-    const sessionIds = (sessions ?? []).map((s) => s.id);
-    const { data: episodes } = await admin.from("acute_safety_episodes").select("id").eq("user_id", userId);
-    const episodeIds = (episodes ?? []).map((e) => e.id);
-    if (episodeIds.length > 0) {
-      await admin.from("cautious_return_contexts").delete().in("acute_safety_episode_id", episodeIds);
-      await admin.from("blocked_loading_opportunities").delete().in("acute_safety_episode_id", episodeIds);
-      await admin.from("acute_safety_releases").delete().in("acute_safety_episode_id", episodeIds);
-      await admin.from("acute_safety_reassessments").delete().in("acute_safety_episode_id", episodeIds);
-    }
-    await admin.from("acute_safety_episodes").delete().eq("user_id", userId);
-    if (sessionIds.length > 0) await admin.from("session_guidance_contexts").delete().in("rehab_session_id", sessionIds);
-    await admin.from("rehab_sessions").delete().eq("user_id", userId).not("resolves_stopped_session_id", "is", null);
-    await admin.from("rehab_sessions").delete().eq("user_id", userId);
-    const { data: pp } = await admin.from("patient_prescriptions").select("id").eq("patient_id", userId).maybeSingle();
-    if (pp) {
-      await admin.from("patient_prescriptions").update({ current_prescription_version_id: null }).eq("id", pp.id);
-      await admin.from("prescription_drafts").delete().eq("patient_prescription_id", pp.id);
-      await admin.from("prescription_pause_periods").delete().eq("patient_prescription_id", pp.id);
-    }
-    await admin.from("notifications").delete().eq("patient_id", userId);
-    await admin.from("prescription_versions").delete().eq("user_id", userId);
-    if (pp) await admin.from("patient_prescriptions").delete().eq("id", pp.id);
-  }
-  await admin.from("supervisor_patients").delete().in("patient_id", createdUsers.length ? createdUsers : [randomUUID()]);
-  await admin.from("profiles").delete().in("id", createdUsers.length ? createdUsers : [randomUUID()]);
-  for (const id of createdUsers) await admin.auth.admin.deleteUser(id);
-  for (const id of exerciseIds) await admin.from("canonical_exercises").delete().eq("id", id);
-  const { data: left } = await admin.from("rehab_sessions").select("id").in("user_id", createdUsers.length ? createdUsers : [randomUUID()]);
-  console.log(`\nteardown: ${createdUsers.length} fixture users removed; remaining fixture sessions: ${left?.length ?? "?"}`);
-  await removeFixtureClinicianMembership();
+  // M3.2 — the guarded exact-id purge (safety-notification history is
+  // immutable, so ordinary deletes can no longer remove these fixtures).
+  guardedFixtureTeardown(env, { userIds: createdUsers, exerciseIds, runStartedAt: RUN_STARTED_AT });
+  await fc().teardown();
 }
 
 // ---------------------------------------------------------------- browser / API
@@ -822,7 +786,12 @@ try {
   fail++;
   console.log(`FAIL  unexpected error: ${e?.stack ?? e}`);
 } finally {
-  await teardown();
+  try {
+    await teardown();
+  } catch (e) {
+    fail++;
+    console.log(`FAIL  teardown: ${e.message}`);
+  }
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail === 0 ? 0 : 1);
 }

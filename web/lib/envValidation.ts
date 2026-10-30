@@ -10,12 +10,23 @@
 export type OperatingMode = "development" | "production" | "maintenance";
 export const OPERATING_MODES: readonly OperatingMode[] = ["development", "production", "maintenance"];
 
+// M3.2 — safety email delivery provider. null = dispatch disabled (the
+// development default: nothing is ever sent unless a provider is chosen
+// explicitly). "fake" is a development-only test double.
+export type SafetyEmailProviderName = "resend" | "fake";
+
 export type ServerConfig = {
   mode: OperatingMode;
   // Raw gate intent (interpreted per mode by operatingMode.ts).
   runtimeGate: boolean;
   publishGate: boolean;
+  safetyEmailProvider: SafetyEmailProviderName | null;
+  // Whether the internal dispatch endpoint can authenticate at all (never the value).
+  safetyDispatchConfigured: boolean;
 };
+
+// M3.2 — the internal dispatch credential must be long and random.
+export const SAFETY_DISPATCH_SECRET_MIN_LENGTH = 32;
 
 export class ConfigError extends Error {
   readonly problems: string[];
@@ -73,6 +84,36 @@ export function validateServerEnv(env: Env): ServerConfig {
     }
   }
 
+  // M3.2 — safety email delivery. Production and maintenance must be able
+  // to deliver clinician safety email (fail closed otherwise); the fake
+  // provider exists only in development.
+  const providerRaw = env.SAFETY_EMAIL_PROVIDER;
+  const secretRaw = env.SAFETY_DISPATCH_SECRET;
+  let safetyEmailProvider: SafetyEmailProviderName | null = null;
+  if (present(providerRaw)) {
+    if (providerRaw === "resend" || providerRaw === "fake") safetyEmailProvider = providerRaw;
+    else problems.push('SAFETY_EMAIL_PROVIDER must be "resend" or "fake"');
+  }
+  if (present(secretRaw) && secretRaw!.trim().length < SAFETY_DISPATCH_SECRET_MIN_LENGTH) {
+    problems.push(`SAFETY_DISPATCH_SECRET must be at least ${SAFETY_DISPATCH_SECRET_MIN_LENGTH} characters`);
+  }
+  if (mode === "production" || mode === "maintenance") {
+    if (providerRaw === "fake") problems.push(`SAFETY_EMAIL_PROVIDER "fake" is forbidden in ${mode} mode`);
+    else if (providerRaw !== "resend") problems.push(`SAFETY_EMAIL_PROVIDER must be "resend" in ${mode} mode`);
+    if (!present(secretRaw)) problems.push(`SAFETY_DISPATCH_SECRET is required in ${mode} mode`);
+  }
+  if (providerRaw === "resend" || mode === "production" || mode === "maintenance") {
+    for (const key of ["RESEND_API_KEY", "RESEND_FROM"]) {
+      if (!present(env[key])) problems.push(`${key} is required for clinician safety email`);
+    }
+  }
+
   if (problems.length > 0 || !mode) throw new ConfigError(problems);
-  return { mode, runtimeGate: runtimeRaw === "true", publishGate: publishRaw === "true" };
+  return {
+    mode,
+    runtimeGate: runtimeRaw === "true",
+    publishGate: publishRaw === "true",
+    safetyEmailProvider,
+    safetyDispatchConfigured: present(secretRaw),
+  };
 }

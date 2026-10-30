@@ -26,6 +26,8 @@ import { readFileSync } from "node:fs";
 import { chromium } from "playwright";
 import Database from "node:sqlite";
 import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
+import { guardedFixtureTeardown } from "./lib/safetyFixturePurge.mjs";
+import { guardedSql, q } from "./lib/m32Fixtures.mjs";
 
 function loadEnv(path) {
   const env = {};
@@ -38,6 +40,7 @@ function loadEnv(path) {
   return env;
 }
 const env = loadEnv(".env.local");
+const RUN_STARTED_AT = new Date(Date.now() - 60_000).toISOString();
 // M3.1 — refuse unless TENOTRAINER_MODE=development and the target project is allow-listed.
 assertDevTestTarget(env);
 const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
@@ -104,39 +107,29 @@ async function insertSession(userId, versionId, startedAt, findings = {}) {
   return id;
 }
 
-async function insertEscalation(sessionId, level, evaluatedAt) {
-  const { data } = await admin
-    .from("escalation_evaluations")
-    .insert({ rehab_session_id: sessionId, escalation_level: level, escalation_reason: "test", rule_version: "v1", inputs_snapshot: {}, evaluated_at: evaluatedAt })
-    .select()
-    .maybeSingle();
-  return data;
+// M3.2 — the escalation evaluation and its episode are created in ONE SQL
+// statement (one transaction) through the guarded test harness, so the
+// production sweep (pg_cron, every minute) can never observe the
+// intermediate "orphan" evaluation and legitimately reconcile it first.
+// Test fixture construction only; no product function, no lock, no pause.
+function insertEscalationAndEpisode(userId, sessionId, level, at, findings) {
+  if (![3, 5].includes(level)) throw new Error("fixture level must be 3 or 5");
+  const iso = new Date(at).toISOString();
+  const b = (v) => (v ? "true" : "false");
+  const row = guardedSql(env, `WITH ee AS (
+      INSERT INTO escalation_evaluations (rehab_session_id, escalation_level, escalation_reason, rule_version, inputs_snapshot, evaluated_at)
+      VALUES (${q(sessionId)}, ${level}, 'test', 'v1', '{}'::jsonb, '${iso}'::timestamptz) RETURNING id
+    ), ep AS (
+      INSERT INTO acute_safety_episodes (user_id, source_rehab_session_id, source_escalation_evaluation_id, initial_level,
+        initial_sudden_or_sharp_pain, initial_new_functional_difficulty, initial_pop_felt_or_heard,
+        recurrence_window_anchor_id, recurrence_sequence_in_window, level4_recurrent, confirmed_at)
+      SELECT ${q(userId)}, ${q(sessionId)}, ee.id, ${level}, ${b(findings.sudden)}, ${b(findings.functional)}, ${b(findings.pop)},
+        NULL, 1, false, '${iso}'::timestamptz FROM ee RETURNING id
+    ) SELECT (SELECT id FROM ee) AS escalation_id, (SELECT id FROM ep) AS episode_id`)[0];
+  if (!row?.escalation_id || !row?.episode_id) throw new Error("atomic fixture escalation + episode failed");
+  return { ee: { id: row.escalation_id }, ep: { id: row.episode_id } };
 }
 
-// Directly confirms an episode (bypassing the app's own confirmAcuteSafetyEpisode
-// helper, which is already covered by acuteSafety.test.ts / verify_reconciliation.mjs)
-// — here we just need durable acute_safety_episodes rows to exist so the READ path
-// (get_patient_acute_brake_status -> dashboard) can be exercised in the browser.
-async function insertEpisode(userId, sessionId, escalationId, level, confirmedAt, findings) {
-  const { data } = await admin
-    .from("acute_safety_episodes")
-    .insert({
-      user_id: userId,
-      source_rehab_session_id: sessionId,
-      source_escalation_evaluation_id: escalationId,
-      initial_level: level,
-      initial_sudden_or_sharp_pain: findings.sudden ?? false,
-      initial_new_functional_difficulty: findings.functional ?? false,
-      initial_pop_felt_or_heard: findings.pop ?? false,
-      recurrence_window_anchor_id: null,
-      recurrence_sequence_in_window: 1,
-      level4_recurrent: false,
-      confirmed_at: confirmedAt,
-    })
-    .select()
-    .maybeSingle();
-  return data;
-}
 
 async function insertReassessment(userId, episodeId, { suddenResolved = null, functionalResolved = null, evaluated, cleared = null }) {
   await admin.from("acute_safety_reassessments").insert({
@@ -179,22 +172,9 @@ async function screenshotBothViewports(context, email, label, screenshotPrefix) 
   return { desktopText, mobileText };
 }
 
-async function cleanupUser(userId, legacyUserId) {
-  const sessionIds = (await admin.from("rehab_sessions").select("id").eq("user_id", userId)).data?.map((r) => r.id) ?? [];
-  const episodeIds = (await admin.from("acute_safety_episodes").select("id").eq("user_id", userId)).data?.map((r) => r.id) ?? [];
-  if (sessionIds.length > 0) await admin.from("session_guidance_contexts").delete().in("rehab_session_id", sessionIds);
-  if (episodeIds.length > 0) {
-    await admin.from("cautious_return_contexts").delete().in("acute_safety_episode_id", episodeIds);
-    await admin.from("blocked_loading_opportunities").delete().in("acute_safety_episode_id", episodeIds);
-    await admin.from("acute_safety_releases").delete().in("acute_safety_episode_id", episodeIds);
-    await admin.from("acute_safety_reassessments").delete().in("acute_safety_episode_id", episodeIds);
-  }
-  await admin.from("acute_safety_episodes").delete().eq("user_id", userId);
-  await admin.from("rehab_sessions").delete().eq("user_id", userId);
-  await admin.from("prescription_versions").delete().eq("user_id", userId);
-  await admin.from("organization_members").delete().eq("user_id", userId);
-  await admin.from("profiles").delete().eq("id", userId);
-  await admin.auth.admin.deleteUser(userId);
+// M3.2 — Postgres fixtures are removed by the guarded exact-id purge (in the
+// finally block); only the legacy SQLite rows are cleaned here.
+function cleanupLegacyUser(legacyUserId) {
   if (legacyUserId != null) {
     legacyDb.prepare("DELETE FROM rehab_plans WHERE user_id = ?").run(legacyUserId);
     legacyDb.prepare("DELETE FROM users WHERE id = ?").run(legacyUserId);
@@ -222,8 +202,7 @@ async function main() {
     users.b = await makeUser("stateB");
     const vB = await insertVersion(users.b.userId);
     const sB = await insertSession(users.b.userId, vB.id, new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(), { sudden_or_sharp_pain: true });
-    const eeB = await insertEscalation(sB, 3, new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString());
-    await insertEpisode(users.b.userId, sB, eeB.id, 3, new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(), { sudden: true });
+    const { ee: eeB } = insertEscalationAndEpisode(users.b.userId, sB, 3, new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(), { sudden: true });
     const ctxB = await browser.newContext();
     const { desktopText: bDesktop, mobileText: bMobile } = await screenshotBothViewports(ctxB, users.b.email, "State B", "state_b");
     check("B desktop shows 'A quick follow-up is needed'", bDesktop.includes("A quick follow-up is needed"), bDesktop.slice(0, 300));
@@ -236,8 +215,7 @@ async function main() {
     users.c = await makeUser("stateC");
     const vC = await insertVersion(users.c.userId);
     const sC = await insertSession(users.c.userId, vC.id, new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(), { sudden_or_sharp_pain: true });
-    const eeC = await insertEscalation(sC, 3, new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString());
-    await insertEpisode(users.c.userId, sC, eeC.id, 3, new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(), { sudden: true });
+    const { ee: eeC } = insertEscalationAndEpisode(users.c.userId, sC, 3, new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(), { sudden: true });
     const ctxC = await browser.newContext();
     const pageC = await loginBrowser(ctxC, users.c.email);
     await pageC.goto(`${BASE_URL}/patient/acute-safety`);
@@ -280,8 +258,7 @@ async function main() {
     users.e = await makeUser("stateE");
     const vE = await insertVersion(users.e.userId);
     const sE = await insertSession(users.e.userId, vE.id, new Date(Date.now() - 1000 * 60 * 60 * 30).toISOString(), { new_functional_difficulty: true });
-    const eeE = await insertEscalation(sE, 3, new Date(Date.now() - 1000 * 60 * 60 * 30).toISOString());
-    const epE = await insertEpisode(users.e.userId, sE, eeE.id, 3, new Date(Date.now() - 1000 * 60 * 60 * 30).toISOString(), { functional: true });
+    const { ee: eeE, ep: epE } = insertEscalationAndEpisode(users.e.userId, sE, 3, new Date(Date.now() - 1000 * 60 * 60 * 30).toISOString(), { functional: true });
     await insertReassessment(users.e.userId, epE.id, { functionalResolved: false, evaluated: true, cleared: false });
     const ctxE = await browser.newContext();
     const { desktopText: eDesktop, mobileText: eMobile } = await screenshotBothViewports(ctxE, users.e.email, "State E", "state_e");
@@ -295,8 +272,7 @@ async function main() {
     const vG = await insertVersion(users.g.userId);
     const confirmedAtG = new Date(Date.now() - 1000 * 60 * 60 * 60).toISOString(); // 60h ago -> >48h threshold -> effective level 4
     const sG = await insertSession(users.g.userId, vG.id, confirmedAtG, { sudden_or_sharp_pain: true });
-    const eeG = await insertEscalation(sG, 3, confirmedAtG);
-    const epG = await insertEpisode(users.g.userId, sG, eeG.id, 3, confirmedAtG, { sudden: true });
+    const { ee: eeG, ep: epG } = insertEscalationAndEpisode(users.g.userId, sG, 3, confirmedAtG, { sudden: true });
     await insertReassessment(users.g.userId, epG.id, { suddenResolved: true, evaluated: true, cleared: true });
     const ctxG = await browser.newContext();
     const { desktopText: gDesktop, mobileText: gMobile } = await screenshotBothViewports(ctxG, users.g.email, "State G", "state_g");
@@ -312,8 +288,7 @@ async function main() {
     users.i = await makeUser("stateI");
     const vI = await insertVersion(users.i.userId);
     const sI = await insertSession(users.i.userId, vI.id, new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), { pop_felt_or_heard: true });
-    const eeI = await insertEscalation(sI, 5, new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString());
-    await insertEpisode(users.i.userId, sI, eeI.id, 5, new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), { pop: true });
+    const { ee: eeI } = insertEscalationAndEpisode(users.i.userId, sI, 5, new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), { pop: true });
     const ctxI = await browser.newContext();
     const { desktopText: iDesktop, mobileText: iMobile } = await screenshotBothViewports(ctxI, users.i.email, "State I", "state_i");
     // PEC: the shared Level 5 hold title is now patient wording ("Stop Loading" retired).
@@ -322,9 +297,13 @@ async function main() {
     await ctxI.close();
   } finally {
     console.log("\nCleaning up...");
-    for (const key of Object.keys(users)) {
-      await cleanupUser(users[key].userId, users[key].legacyUserId);
+    try {
+      guardedFixtureTeardown(env, { userIds: Object.values(users).map((u) => u.userId), runStartedAt: RUN_STARTED_AT });
+    } catch (e) {
+      fail++;
+      console.log(`FAIL  teardown: ${e.message}`);
     }
+    for (const key of Object.keys(users)) cleanupLegacyUser(users[key].legacyUserId);
     legacyDb.close();
     await browser.close();
     console.log("Cleanup complete.");
