@@ -17,6 +17,12 @@ export const metadata: Metadata = {
   description: "Achilles tendinopathy rehabilitation — personalised rehab plans powered by clinical rule engine",
 };
 
+// M3.3 S2 — every page renders per request: the CSP nonce is per request
+// (a prerendered page cannot carry one), and authenticated / clinical HTML
+// must never be a reusable cached artifact. (Segment config: this app does
+// not enable Cache Components, so `dynamic` is still supported.)
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html

@@ -466,7 +466,12 @@ async function main() {
       check("33. patient sees the resumed notice", types2.includes("prescription_resumed") && dash2.body.includes("Your clinician has resumed your program"), types2.join(","));
       const pausedNotice = dash2.page.locator('[data-testid="program-notice"][data-type="prescription_paused"]');
       await pausedNotice.getByTestId("dismiss-notice").click();
-      await dash2.page.waitForLoadState("networkidle");
+      // M3.3 S2 — wait for the outcome itself, not "networkidle": API
+      // responses are now no-store, and the dashboard's fire-and-forget
+      // timezone POST never reads its body, which Chromium then reports as
+      // still in flight forever (no connection is held; the user-visible
+      // update lands in ~1.3s). A timeout falls through to the assertion.
+      await pausedNotice.waitFor({ state: "detached", timeout: 20000 }).catch(() => {});
       const { data: n } = await admin.from("notifications").select("type, read_at").eq("patient_id", patient.userId);
       const pausedRow = n.find((x) => x.type === "prescription_paused");
       check("35. dismissing sets read_at (authoritative) and the notice disappears; others stay unread",
