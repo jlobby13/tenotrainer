@@ -20,6 +20,7 @@ import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { chromium } from "playwright";
 import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
+import { localDateOffset, localDowOffset, sqlLocalDate, sqlLocalInstant } from "./lib/patientLocalDate.mjs";
 import { guardedFixtureTeardown } from "./lib/safetyFixturePurge.mjs";
 
 const ON = process.argv[2] ?? "http://localhost:3001";
@@ -71,12 +72,12 @@ function sqlQuery(sql) {
   writeFileSync(path, sql);
   execFileSync("supabase", ["db", "query", "--linked", "--file", path], { cwd: REPO_ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 }
+// Patient-local calendar arithmetic (never elapsed time: see lib/patientLocalDate.mjs).
 function localDate(offsetDays = 0) {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date(Date.now() + offsetDays * 86400000));
+  return localDateOffset(TZ, offsetDays);
 }
 function localDow(offsetDays = 0) {
-  const short = new Intl.DateTimeFormat("en-US", { timeZone: TZ, weekday: "short" }).format(new Date(Date.now() + offsetDays * 86400000));
-  return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(short);
+  return localDowOffset(TZ, offsetDays);
 }
 function shortMonthDay(iso) {
   const [y, m, d] = iso.split("-").map(Number);
@@ -170,10 +171,12 @@ async function makePatient(label, opts = {}) {
 // units: [{ exKey, idx, outcome, reps, dur, load }]
 function priorSession(p, { versionId, workout, units, daysAgo = 1, status = "finished", morning = "resolved", immediate = "resolved", escalation = null }) {
   const sid = randomUUID();
-  const started = `(now() - interval '${daysAgo} days')`;
+  const started = sqlLocalInstant(TZ, -daysAgo);
+  const due = sqlLocalInstant(TZ, 1 - daysAgo);
+  const dueDate = sqlLocalDate(TZ, 1 - daysAgo);
   const lines = [`INSERT INTO rehab_sessions (id, user_id, prescription_instance_id, patient_local_date, status, training_status, started_at,
   prescription_snapshot, prescription_version_id, prescription_workout_id, patient_timezone, client_request_id)
-VALUES ('${sid}', '${p.userId}', 'c5:${sid}', (${started} AT TIME ZONE '${TZ}')::date, NULL, 'started', ${started},
+VALUES ('${sid}', '${p.userId}', 'c5:${sid}', ${sqlLocalDate(TZ, -daysAgo)}, NULL, 'started', ${started},
   c5_build_session_snapshot('${versionId}', '${workout.id}'), '${versionId}', '${workout.id}', '${TZ}', gen_random_uuid());`];
   for (const u of units) {
     const order = Object.keys(workout.ex).indexOf(u.exKey);
@@ -188,10 +191,10 @@ VALUES ('${sid}', '${p.userId}', 2, 5, false, ${escalation ? "true" : "false"}, 
     }
     if (morning === "resolved") {
       lines.push(`INSERT INTO morning_responses (rehab_session_id, user_id, scheduled_eligible_at, reference_local_date, resolution, submitted_at)
-VALUES ('${sid}', '${p.userId}', ${started} + interval '1 day', ((${started} + interval '1 day') AT TIME ZONE '${TZ}')::date, 'unable_to_recall', ${started} + interval '1 day 1 hour');`);
+VALUES ('${sid}', '${p.userId}', ${due}, ${dueDate}, 'unable_to_recall', ${due} + interval '1 hour');`);
     } else if (morning === "due") {
       lines.push(`INSERT INTO morning_responses (rehab_session_id, user_id, scheduled_eligible_at, reference_local_date)
-VALUES ('${sid}', '${p.userId}', ${started} + interval '1 day', ((${started} + interval '1 day') AT TIME ZONE '${TZ}')::date);`);
+VALUES ('${sid}', '${p.userId}', ${due}, ${dueDate});`);
     }
     if (escalation) {
       lines.push(`INSERT INTO escalation_evaluations (rehab_session_id, escalation_level, escalation_reason, rule_version, inputs_snapshot, evaluated_at)

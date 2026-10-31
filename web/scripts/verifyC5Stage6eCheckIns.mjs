@@ -23,6 +23,7 @@ import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { chromium } from "playwright";
 import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
+import { localDateOffset, sqlLocalDate, sqlLocalInstant } from "./lib/patientLocalDate.mjs";
 import { fixtureClinicianMembership } from "./lib/fixtureClinicianMembership.mjs";
 import { guardedFixtureTeardown } from "./lib/safetyFixturePurge.mjs";
 
@@ -81,8 +82,9 @@ function sqlQuery(sql) {
   writeFileSync(path, sql);
   execFileSync("supabase", ["db", "query", "--linked", "--file", path], { cwd: REPO_ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 }
+// Patient-local calendar arithmetic (never elapsed time: see lib/patientLocalDate.mjs).
 function localDate(offsetDays = 0) {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date(Date.now() + offsetDays * 86400000));
+  return localDateOffset(TZ, offsetDays);
 }
 async function waitFor(fn, timeoutMs = 15000, intervalMs = 150) {
   const start = Date.now();
@@ -132,11 +134,11 @@ async function makeFixture(label) {
 function priorSessionMorningDue(f, refOffsetDays = 0) {
   const sid = randomUUID();
   const sessionDaysAgo = 1 - refOffsetDays;
-  const started = `(now() - interval '${sessionDaysAgo} days')`;
+  const started = sqlLocalInstant(TZ, -sessionDaysAgo);
   sqlQuery(`BEGIN;
 INSERT INTO rehab_sessions (id, user_id, prescription_instance_id, patient_local_date, status, training_status, started_at,
   prescription_snapshot, prescription_version_id, prescription_workout_id, patient_timezone, client_request_id)
-VALUES ('${sid}', '${f.userId}', 'c5:${sid}', (${started} AT TIME ZONE '${TZ}')::date, NULL, 'started', ${started},
+VALUES ('${sid}', '${f.userId}', 'c5:${sid}', ${sqlLocalDate(TZ, -sessionDaysAgo)}, NULL, 'started', ${started},
   c5_build_session_snapshot('${f.versionId}', '${f.workoutId}'), '${f.versionId}', '${f.workoutId}', '${TZ}', gen_random_uuid());
 INSERT INTO set_outcomes (rehab_session_id, exercise_id, exercise_order_index, set_index, outcome, actual_reps, occurred_at)
 VALUES ('${sid}', '${f.exerciseId}', 0, 0, 'completed', 8, ${started});
@@ -144,7 +146,7 @@ UPDATE rehab_sessions SET training_status = 'finished', training_closed_at = ${s
 INSERT INTO session_immediate_responses (rehab_session_id, user_id, peak_session_pain, overall_session_rpe, sudden_or_sharp_pain, pop_felt_or_heard, new_functional_difficulty, resolved_at)
 VALUES ('${sid}', '${f.userId}', 2, 5, false, false, false, now());
 INSERT INTO morning_responses (rehab_session_id, user_id, scheduled_eligible_at, reference_local_date)
-VALUES ('${sid}', '${f.userId}', now() + interval '${refOffsetDays} days' - interval '1 hour', ((now() + interval '${refOffsetDays} days') AT TIME ZONE '${TZ}')::date);
+VALUES ('${sid}', '${f.userId}', ${sqlLocalInstant(TZ, refOffsetDays, { minutesBefore: 60 })}, ${sqlLocalDate(TZ, refOffsetDays)});
 COMMIT;`);
   return sid;
 }

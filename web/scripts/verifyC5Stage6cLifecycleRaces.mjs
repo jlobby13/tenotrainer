@@ -16,6 +16,7 @@ import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
+import { sqlLocalDate, sqlLocalInstant } from "./lib/patientLocalDate.mjs";
 
 const REPO_ROOT = "..";
 const CLINICIAN = "44197ef7-7421-47ed-a164-75d2765fc019";
@@ -346,11 +347,11 @@ async function main() {
     sqlQuery(`BEGIN;
 INSERT INTO rehab_sessions (id, user_id, prescription_instance_id, patient_local_date, status, training_status, started_at,
   prescription_snapshot, prescription_version_id, prescription_workout_id, patient_timezone, client_request_id)
-VALUES ('${yesterday}', '${f.patientId}', 'c5:${yesterday}', ((now() - interval '1 day') AT TIME ZONE '${TZ}')::date, NULL, 'started', now() - interval '1 day',
+VALUES ('${yesterday}', '${f.patientId}', 'c5:${yesterday}', ${sqlLocalDate(TZ, -1)}, NULL, 'started', ${sqlLocalInstant(TZ, -1)},
   c5_build_session_snapshot('${f.versionId}', '${f.workouts[1].id}'), '${f.versionId}', '${f.workouts[1].id}', '${TZ}', gen_random_uuid());
 INSERT INTO set_outcomes (rehab_session_id, exercise_id, exercise_order_index, set_index, outcome, actual_reps, occurred_at)
-VALUES ('${yesterday}', '${f.workouts[1].exerciseId}', 0, 0, 'completed', 8, now() - interval '1 day');
-UPDATE rehab_sessions SET training_status = 'stopped_early', training_closed_at = now() - interval '1 day' + interval '5 minutes' WHERE id = '${yesterday}';
+VALUES ('${yesterday}', '${f.workouts[1].exerciseId}', 0, 0, 'completed', 8, ${sqlLocalInstant(TZ, -1)});
+UPDATE rehab_sessions SET training_status = 'stopped_early', training_closed_at = ${sqlLocalInstant(TZ, -1)} + interval '5 minutes' WHERE id = '${yesterday}';
 INSERT INTO session_immediate_responses (rehab_session_id, user_id, peak_session_pain, overall_session_rpe, sudden_or_sharp_pain, pop_felt_or_heard, new_functional_difficulty, resolved_at)
 VALUES ('${yesterday}', '${f.patientId}', 1, 4, false, false, false, now());
 INSERT INTO morning_responses (rehab_session_id, user_id, scheduled_eligible_at, reference_local_date, next_morning_pain, next_morning_stiffness, resolution, submitted_at)
@@ -376,11 +377,11 @@ COMMIT;`);
     sqlQuery(`BEGIN;
 INSERT INTO rehab_sessions (id, user_id, prescription_instance_id, patient_local_date, status, training_status, started_at,
   prescription_snapshot, prescription_version_id, prescription_workout_id, patient_timezone, client_request_id)
-VALUES ('${stopped}', '${g.patientId}', 'c5:${stopped}', ((now() - interval '1 day') AT TIME ZONE '${TZ}')::date, NULL, 'started', now() - interval '1 day',
+VALUES ('${stopped}', '${g.patientId}', 'c5:${stopped}', ${sqlLocalDate(TZ, -1)}, NULL, 'started', ${sqlLocalInstant(TZ, -1)},
   c5_build_session_snapshot('${g.versionId}', '${g.workouts[1].id}'), '${g.versionId}', '${g.workouts[1].id}', '${TZ}', gen_random_uuid());
 INSERT INTO set_outcomes (rehab_session_id, exercise_id, exercise_order_index, set_index, outcome, actual_reps, occurred_at)
-VALUES ('${stopped}', '${g.workouts[1].exerciseId}', 0, 0, 'completed', 8, now() - interval '1 day');
-UPDATE rehab_sessions SET training_status = 'stopped_early', training_closed_at = now() - interval '1 day' + interval '5 minutes' WHERE id = '${stopped}';
+VALUES ('${stopped}', '${g.workouts[1].exerciseId}', 0, 0, 'completed', 8, ${sqlLocalInstant(TZ, -1)});
+UPDATE rehab_sessions SET training_status = 'stopped_early', training_closed_at = ${sqlLocalInstant(TZ, -1)} + interval '5 minutes' WHERE id = '${stopped}';
 INSERT INTO session_immediate_responses (rehab_session_id, user_id, peak_session_pain, overall_session_rpe, sudden_or_sharp_pain, pop_felt_or_heard, new_functional_difficulty, resolved_at)
 VALUES ('${stopped}', '${g.patientId}', 1, 4, false, false, false, now());
 INSERT INTO morning_responses (rehab_session_id, user_id, scheduled_eligible_at, reference_local_date, resolution, submitted_at)

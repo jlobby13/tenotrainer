@@ -28,6 +28,7 @@ import { randomUUID, createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { chromium } from "playwright";
 import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
+import { sqlLocalDate, sqlLocalInstant } from "./lib/patientLocalDate.mjs";
 import { guardedFixtureTeardown } from "./lib/safetyFixturePurge.mjs";
 
 const ON = process.argv[2] ?? "http://localhost:3001";
@@ -529,11 +530,13 @@ async function main() {
     section("26/29. Professional-review release with FastAPI unreachable (by the added clinician)");
     {
       const sid = randomUUID();
-      const started = `(now() - interval '1 day' - interval '2 hours')`;
+      // Yesterday (patient-local calendar date), 2 h before now's local clock.
+      const started = sqlLocalInstant(TZ, -1, { minutesBefore: 120 });
+      const due = sqlLocalInstant(TZ, 0, { minutesBefore: 120 });
       sqlExec(`
 INSERT INTO rehab_sessions (id, user_id, prescription_instance_id, patient_local_date, status, training_status, started_at,
   prescription_snapshot, prescription_version_id, prescription_workout_id, patient_timezone, client_request_id)
-VALUES ('${sid}', '${patient.userId}', 'c5:${sid}', (${started} AT TIME ZONE '${TZ}')::date, NULL, 'started', ${started},
+VALUES ('${sid}', '${patient.userId}', 'c5:${sid}', ${sqlLocalDate(TZ, -1)}, NULL, 'started', ${started},
   c5_build_session_snapshot('${versionId}', '${workout.id}'), '${versionId}', '${workout.id}', '${TZ}', gen_random_uuid());
 INSERT INTO set_outcomes (rehab_session_id, exercise_id, exercise_order_index, set_index, outcome, actual_reps, occurred_at)
 VALUES ('${sid}', '${workout.exerciseId}', 0, 0, 'completed', 8, ${started} + interval '5 minutes');
@@ -541,7 +544,7 @@ UPDATE rehab_sessions SET training_status = 'finished', training_closed_at = ${s
 INSERT INTO session_immediate_responses (rehab_session_id, user_id, peak_session_pain, overall_session_rpe, sudden_or_sharp_pain, pop_felt_or_heard, new_functional_difficulty, resolved_at, created_at)
 VALUES ('${sid}', '${patient.userId}', 6, 7, false, true, false, ${started} + interval '40 minutes', ${started} + interval '30 minutes');
 INSERT INTO morning_responses (rehab_session_id, user_id, scheduled_eligible_at, reference_local_date, resolution, submitted_at)
-VALUES ('${sid}', '${patient.userId}', ${started} + interval '1 day', ((${started} + interval '1 day') AT TIME ZONE '${TZ}')::date, 'unable_to_recall', ${started} + interval '1 day 1 hour');
+VALUES ('${sid}', '${patient.userId}', ${due}, ${sqlLocalDate(TZ, 0)}, 'unable_to_recall', ${due} + interval '1 hour');
 INSERT INTO escalation_evaluations (rehab_session_id, escalation_level, escalation_reason, rule_version, inputs_snapshot, evaluated_at)
 VALUES ('${sid}', 5, 'pop_felt_or_heard', 'v1', '{"source":"c5_immediate_response"}'::jsonb, now() - interval '20 hours');`);
       const { error: recErr } = await admin.rpc("reconcile_missing_acute_episodes", { p_user_id: patient.userId });

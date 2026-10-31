@@ -22,6 +22,7 @@ import { randomUUID } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { chromium } from "playwright";
 import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
+import { localDateOffset, localDowOffset, sqlLocalDate, sqlLocalInstant } from "./lib/patientLocalDate.mjs";
 import { guardedFixtureTeardown } from "./lib/safetyFixturePurge.mjs";
 
 const ON = process.argv[2] ?? "http://localhost:3001";
@@ -71,12 +72,12 @@ function sqlQuery(sql) {
   writeFileSync(path, sql);
   execFileSync("supabase", ["db", "query", "--linked", "--file", path], { cwd: REPO_ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 }
+// Patient-local calendar arithmetic (never elapsed time: see lib/patientLocalDate.mjs).
 function localDate(offsetDays = 0) {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date(Date.now() + offsetDays * 86400000));
+  return localDateOffset(TZ, offsetDays);
 }
 function localDow(offsetDays = 0) {
-  const short = new Intl.DateTimeFormat("en-US", { timeZone: TZ, weekday: "short" }).format(new Date(Date.now() + offsetDays * 86400000));
-  return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(short);
+  return localDowOffset(TZ, offsetDays);
 }
 function fmtLocal(iso) {
   const [y, m, d] = iso.split("-").map(Number);
@@ -174,18 +175,19 @@ async function makeProgram(patient, clinicianId, { mode = "sequence", target = 3
 
 const q = (v) => (v == null ? "NULL" : typeof v === "number" || typeof v === "boolean" ? String(v) : `'${String(v).replace(/'/g, "''")}'`);
 
-// SQL for one closed C5 session started `daysAgo` days ago (2 h before now's
-// clock time). units: [{ ex, si, outcome, reps, load, unit, dur }].
+// SQL for one closed C5 session started `daysAgo` patient-local calendar days
+// ago, at 2 h before now's local clock time (kept on that date: see
+// sqlLocalClock); its morning is due the next local date at the same time. units: [{ ex, si, outcome, reps, load, unit, dur }].
 // immediate: { pain, painUtr, rpe, rpeUtr, sudden, pop, nfd } | "pending".
 // morning: { kind: "answered", pain, stiff, dur, note, lateDays } | { kind: "utr" } | "open".
 // escalation: { level, hoursAgo } | null.
 function closedSessionSql(patient, program, { sid = randomUUID(), daysAgo, status, wi, units, immediate, morning, escalation = null, calendarDate = null, sequenceChoice = null, resolves = null }) {
   const w = program.workouts[wi];
-  const started = `(now() - interval '${daysAgo} days' - interval '2 hours')`;
+  const started = sqlLocalInstant(TZ, -daysAgo, { minutesBefore: 120 });
   const lines = [];
   lines.push(`INSERT INTO rehab_sessions (id, user_id, prescription_instance_id, patient_local_date, status, training_status, started_at,
   prescription_snapshot, prescription_version_id, prescription_workout_id, patient_timezone, client_request_id, calendar_scheduled_date, sequence_choice, resolves_stopped_session_id)
-VALUES ('${sid}', '${patient.userId}', 'c5:${sid}', (${started} AT TIME ZONE '${TZ}')::date, NULL, 'started', ${started},
+VALUES ('${sid}', '${patient.userId}', 'c5:${sid}', ${sqlLocalDate(TZ, -daysAgo)}, NULL, 'started', ${started},
   c5_build_session_snapshot('${program.versionId}', '${w.id}'), '${program.versionId}', '${w.id}', '${TZ}', gen_random_uuid(), ${calendarDate ? `${q(calendarDate)}::date` : "NULL"}, ${q(sequenceChoice)}, ${resolves ? q(resolves) : "NULL"});`);
   for (const u of units) {
     lines.push(`INSERT INTO set_outcomes (rehab_session_id, exercise_id, exercise_order_index, set_index, outcome, actual_reps, actual_load, actual_load_unit, actual_duration_seconds, occurred_at)
@@ -198,7 +200,7 @@ VALUES ('${sid}', '${w.exercises[u.ex]}', ${u.ex}, ${u.si}, '${u.outcome}', ${q(
     lines.push(`INSERT INTO session_immediate_responses (rehab_session_id, user_id, peak_session_pain, peak_pain_unable_to_recall, overall_session_rpe, rpe_unable_to_recall, sudden_or_sharp_pain, pop_felt_or_heard, new_functional_difficulty, resolved_at, created_at)
 VALUES ('${sid}', '${patient.userId}', ${q(immediate.painUtr ? null : immediate.pain)}, ${!!immediate.painUtr}, ${q(immediate.rpeUtr ? null : immediate.rpe)}, ${!!immediate.rpeUtr}, ${!!immediate.sudden}, ${!!immediate.pop}, ${!!immediate.nfd}, ${started} + interval '40 minutes', ${started} + interval '30 minutes');`);
   }
-  const due = `(${started} + interval '1 day')`;
+  const due = sqlLocalInstant(TZ, 1 - daysAgo, { minutesBefore: 120 });
   if (morning === "open") {
     lines.push(`INSERT INTO morning_responses (rehab_session_id, user_id, scheduled_eligible_at, reference_local_date) VALUES ('${sid}', '${patient.userId}', ${due}, (${due} AT TIME ZONE '${TZ}')::date);`);
   } else if (morning.kind === "utr") {
@@ -337,7 +339,7 @@ async function main() {
   const m7 = closedSessionSql(P7, progs[P7.label], { daysAgo: 1, status: "finished", wi: 0, units: [{ ex: 0, si: 0, outcome: "completed", reps: 8, load: 20, unit: "kg" }], immediate: { pain: 2, rpe: 4 }, morning: { kind: "answered", pain: 1, stiff: 0 } });
   const legacySid = randomUUID();
   const legacyRow = `INSERT INTO rehab_sessions (id, user_id, prescription_instance_id, patient_local_date, status, started_at, prescription_snapshot)
-VALUES ('${legacySid}', '${P7.userId}', 'legacy-${legacySid}', (now() AT TIME ZONE '${TZ}')::date - 10, 'in_progress', now() - interval '10 days',
+VALUES ('${legacySid}', '${P7.userId}', 'legacy-${legacySid}', ${sqlLocalDate(TZ, -10)}, 'in_progress', ${sqlLocalInstant(TZ, -10)},
   '[{"ex_id":"legacy_heel_raise","name":"Legacy heel raise","category":"strength","loading_profile":null,"order_index":0,"dosage":{"sets":3,"reps_or_hold_time":8}}]'::jsonb);`;
   sqlQuery(["BEGIN;", s6.sql, s4.sql, s3.sql, s1.sql, a2.sql, a3.sql, a4.sql, a5old.sql, a5new.sql, c6.sql, m7.sql, legacyRow, "COMMIT;"].join("\n"));
   for (const p of [P2, P3, P4, P5]) await reconcile(p);
