@@ -15,6 +15,9 @@ import { checkMutationOrigin } from "./lib/mutationOrigin";
 // (found via M5 Stage 1 founder-acceptance live verification: the route's
 // own auth check was correct but unreachable without this exemption).
 const PUBLIC_PATHS = ["/login", "/register", "/auth", "/invite", "/api/auth/validate-bridge", "/api/internal"];
+// M3.3 S3d — the public readiness endpoint (exact path; canonical-host,
+// mode and cross-origin rules still apply before it).
+const READINESS_PATH = "/api/ready";
 
 // M3.1 — operating-mode routing (the coarse first layer; route handlers,
 // server actions and the clinical libraries enforce the same rules again).
@@ -121,7 +124,11 @@ export async function proxy(request: NextRequest) {
   try {
     config = getConfig();
   } catch {
-    return secured(new NextResponse("Service unavailable", { status: 503 }), createSecurityContext(null, false));
+    // M3.3 S3d — readiness answers with its fixed public contract.
+    const unavailable = request.nextUrl.pathname === READINESS_PATH
+      ? (request.method === "HEAD" ? new NextResponse(null, { status: 503, headers: { "Content-Type": "application/json" } }) : NextResponse.json({ status: "unavailable" }, { status: 503 }))
+      : new NextResponse("Service unavailable", { status: 503 });
+    return secured(unavailable, createSecurityContext(null, false));
   }
   // One nonce per request (M3.3 S2). `next dev` is the only place React
   // needs eval; it is honoured in development mode only.
@@ -168,7 +175,7 @@ async function route(request: NextRequest, config: AppConfig, security: Security
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
-  const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+  const isPublic = pathname === READINESS_PATH || PUBLIC_PATHS.some((p) => pathname.startsWith(p));
 
   if (!user && !isPublic) {
     // API routes get a 401 JSON response; page routes get a login redirect

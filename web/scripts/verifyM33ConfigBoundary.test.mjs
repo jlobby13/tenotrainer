@@ -115,8 +115,9 @@ for (const entry of ["proxy.ts", "instrumentation.ts", "instrumentation-node.ts"
 const clientFiles = [...src].filter(([, t]) => /^\s*["']use client["'];?/.test(t)).map(([f]) => f);
 const clientReach = clientFiles.filter((f) => reaches(f, SECRETS, { client: true }));
 check(`no "use client" module reaches the secret boundary (${clientFiles.length} client modules)`, clientReach.length === 0, clientReach.join(", "));
-const readiness = [...src.keys()].filter((f) => /app\/api\/ready\//.test(f));
-check("readiness (when present) cannot reach the secret boundary", readiness.every((f) => !reaches(f, SECRETS)));
+const readiness = [...src.keys()].filter((f) => /app\/api\/ready\//.test(f) || f === "lib/readiness.ts");
+check("readiness (route + lib/readiness.ts, M3.3 S3d) exists and cannot reach the secret boundary", readiness.length === 2 && readiness.every((f) => !reaches(f, SECRETS)), readiness.join(", "));
+check("readiness never creates a service-role client", readiness.every((f) => !/createServiceRoleClient|getServiceRoleKey|SERVICE_ROLE/.test(src.get(f) ?? "")));
 
 // 4. Raw reveal and the internal store accessor stay inside the boundary.
 const revealOffenders = [...src].filter(([f, t]) => /\.reveal\s*\(/.test(t) && f !== SECRETS).map(([f]) => f);
