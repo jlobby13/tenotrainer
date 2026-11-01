@@ -1,3 +1,9 @@
+# LOCAL Supabase CLI stack configuration ONLY (`supabase start`).
+# Never run `supabase config push` against a hosted project: its settings
+# (e.g. enable_signup = true, a loopback site_url) are development defaults.
+# Hosted project Auth / SMTP settings are managed explicitly (M3.4); see
+# docs/m3-configuration-contract.md.
+
 # For detailed configuration reference documentation, visit:
 # https://supabase.com/docs/guides/local-development/cli/config
 # A string used to distinguish different Supabase projects on the same host. Defaults to the

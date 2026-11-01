@@ -22,26 +22,31 @@ value, because Next never lets `.env.local` replace an existing variable.
 
 ## Startup validation (fail closed)
 
-`web/lib/envValidation.ts` is the one validation boundary (pure; used by
-`instrumentation.ts`, the proxy and unit tests). `web/instrumentation.ts`
-runs it once before the server handles any request (since M3.2 through
-`instrumentation-node.ts`, imported only for the Node.js runtime, so the
-Edge bundle never contains `process.exit`); an invalid
-configuration logs the problems (variable names only, never values) and
-**exits the process**. The proxy re-validates per request and answers 503
-if configuration is invalid.
+Since M3.3 S3 the validation boundary is the centralized configuration
+contract in `web/lib/config/` — **see [m3-configuration-contract.md](m3-configuration-contract.md)
+for every variable and rule** (the M3.1 `envValidation.ts` / `env.ts` were
+replaced). `web/instrumentation.ts` validates once before the server handles
+any request (through `instrumentation-node.ts`, imported only for the
+Node.js runtime, so the Edge bundle never contains `process.exit`); an
+invalid configuration logs the problems (variable names and rules only,
+never values) and **exits the process**. The proxy re-validates per request
+and answers 503 if configuration is invalid.
+
+Mode-relevant rules in summary (full matrix in the contract):
 
 | Rule | development | production / maintenance |
 |---|---|---|
 | `TENOTRAINER_MODE` present and exactly one of the three values | required | required |
-| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | — | required |
-| `NEXT_PUBLIC_APP_URL` | — | required; non-local `https` origin |
+| `NODE_ENV` / `VERCEL_ENV` (consistency only, never a mode source) | any / not `production` | `production` / `production` when set |
+| `TENOTRAINER_APP_ORIGIN` | required (exact origin; loopback allowed) | required; exact non-loopback `https` origin |
+| `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | required (registered development project or local) | required (pinned by `TENOTRAINER_SUPABASE_PROJECT_REF`) |
 | `FASTAPI_URL`, `BRIDGE_SECRET` (legacy bridge) | allowed | **forbidden** |
-| `C5_PATIENT_RUNTIME_ENABLED` | `true` selects C5, otherwise legacy | unset or `"true"` only; `"false"` is rejected (it can never select legacy) |
-| `C5_PRESCRIPTION_PUBLISH_ENABLED` | `true` enables publish | `"true"` / `"false"` / unset; `false` or unset = publication freeze |
-| `SAFETY_EMAIL_PROVIDER` (M3.2) | unset = safety email dispatch disabled; `fake` (test double) or `resend` (explicit) | **required `resend`**; `fake` is refused |
+| `C5_PATIENT_RUNTIME_ENABLED` | `"true"` selects C5, `"false"` legacy | unset or `"true"` only; `"false"` is rejected (it can never select legacy) |
+| `C5_PRESCRIPTION_PUBLISH_ENABLED` | `"true"` enables publish | `"true"` / `"false"` / unset; `false` or unset = publication freeze (maintenance: always frozen) |
+| `TENOTRAINER_EMAIL_PROVIDER` (S3c) | unset = `disabled`; `fake` (test double) or `resend` (contained) | **required `resend`**; `fake` / `disabled` refused |
 | `SAFETY_DISPATCH_SECRET` (M3.2) | optional; if set, ≥ 32 characters | **required**, ≥ 32 characters |
-| `RESEND_API_KEY`, `RESEND_FROM` (M3.2) | required only with `SAFETY_EMAIL_PROVIDER=resend` | **required** (clinician safety email) |
+| `RESEND_API_KEY`, `TENOTRAINER_NOTIFICATION_EMAIL_FROM` | required only with `resend` | **required** |
+| Retired `NEXT_PUBLIC_*`, `RESEND_FROM` / `SAFETY_EMAIL_PROVIDER` | ignored with a warning / refused | **refused** |
 
 Interpretation lives in `web/lib/operatingMode.ts`:
 
@@ -122,10 +127,13 @@ key or run SQL, `scripts/lib/m6EngineHarness.mjs`,
 `scripts/bootstrapPrescriptionVersions.ts`) calls
 `assertDevTestTarget()` from `scripts/lib/devProjectGuard.mjs`. It refuses
 unless **both** `TENOTRAINER_MODE === "development"` **and** the target
-project ref (from `NEXT_PUBLIC_SUPABASE_URL`, and the linked CLI project) is
-in the non-empty `scripts/lib/allowedTestProjects.json`. Missing mode,
-production/maintenance, missing/empty allow-list or an unknown project all
-refuse. A production project ref must never be added to the allow-list.
+project ref (from `SUPABASE_URL`, and the linked CLI project) is in the
+non-empty `developmentSupabaseProjects` list of `web/config/resourceIdentity.json`
+(M3.3 S3; formerly `scripts/lib/allowedTestProjects.json`). Missing mode,
+production/maintenance, missing/empty list or an unknown project all
+refuse. A production project ref must never be added to that list.
+Harnesses read `.env.local` through `scripts/lib/harnessEnv.mjs`, and every
+harness-spawned server passes through its real-email kill switch (S3c).
 
 SQL suites run through the guarded runner:
 
@@ -135,16 +143,17 @@ TENOTRAINER_MODE=development node scripts/runSqlSuite.mjs scripts/<suite>.sql
 
 ## Running isolated servers
 
-```
-npx next build
-TENOTRAINER_MODE=production FASTAPI_URL= BRIDGE_SECRET= \
-  NEXT_PUBLIC_APP_URL=https://app.tenotrainer.test RESEND_API_KEY= \
-  npx next start -p <port>
-```
-
-`.env.local` is still loaded by Next, so in production / maintenance the
-bridge variables must be overridden to empty. Development verification
-servers set `TENOTRAINER_MODE=development` explicitly.
+Use the suites' spawn helpers rather than hand-built commands: production /
+maintenance verification servers run under the **isolated test profile**
+(test infrastructure only — reserved `.test` origin such as
+`https://app.tenotrainer.test`, the registered development project, no
+`VERCEL*` variables; see the contract), are reached at that canonical origin
+through `scripts/lib/canonicalGateway.mjs`, and always pass through
+`withEmailContainment()` (the Resend transport interceptor is preloaded).
+`.env.local` is still loaded by Next, so spawned servers override the
+bridge variables, the email controls and the retired `NEXT_PUBLIC_*` /
+`RESEND_FROM` names explicitly (empty counts as unset). Development
+verification servers set `TENOTRAINER_MODE=development` explicitly.
 
 ## Suites
 
@@ -155,6 +164,7 @@ servers set `TENOTRAINER_MODE=development` explicitly.
 | `scripts/lib/m3MaintenanceLibraryProbe.mjs` | every guarded library mutation refuses in-process (with a production negative control) |
 | `scripts/verifyM3AdversarialSurface.mjs` | PostgREST attacks with real JWTs, legacy-authority baseline (`--expect-revoked` after Phase B), HTTP attacks on a production-mode server |
 | `scripts/verifyM3RevocationProof.sql` | rollback-only proof of the proposed revocation migration (Phase B) |
+| `scripts/verifyM33*` (M3.3 S3) | the configuration contract, canonical origin, email containment, readiness and the static boundary — see [m3-configuration-contract.md](m3-configuration-contract.md#static-enforcement-and-verification) |
 
 ## Legacy database authority (Phase B — applied)
 
