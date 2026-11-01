@@ -10,6 +10,7 @@
 // The environment is read through a variable (never `process.env.NAME`),
 // so no value can be inlined into a build.
 import { validateConfig, type SecretStore } from "./parse";
+import { absoluteUrl, redirectBase } from "./origin";
 import type { AppConfig, OperatingMode, SupabasePublicConfig } from "./types";
 
 export { ConfigError } from "./parse";
@@ -37,6 +38,14 @@ export function getMode(): OperatingMode {
 // application URLs.
 export function getAppOrigin(): string {
   return getConfig().appOrigin;
+}
+
+// M3.3 S3b — a trusted redirect target: `safePath` (an already-validated
+// internal path, e.g. from safeInternalPath) on the configured canonical
+// origin in production/maintenance, or on the request's own origin in
+// development. Request metadata never chooses a production origin.
+export function trustedRedirectUrl(requestUrl: string, safePath: string): URL {
+  return new URL(absoluteUrl(redirectBase(getConfig(), requestUrl), safePath));
 }
 
 export function getSupabasePublic(): SupabasePublicConfig {

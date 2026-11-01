@@ -51,3 +51,32 @@ export function absoluteUrl(origin: string, path: string): string {
   if (!path.startsWith("/") || path.startsWith("//")) throw new Error("absoluteUrl: path must be an internal path");
   return `${origin}${path}`;
 }
+
+// ---------------------------------------------------------------- M3.3 S3b — canonical host / redirects
+
+// The host the request was addressed to, OBSERVED only for comparison with
+// the configured canonical host: the first X-Forwarded-Host value when
+// present (the platform proxy's view of the public host — the assumption
+// M3.4 must verify on a real deployment), otherwise Host. Never used to
+// build a URL.
+export function observedRequestHost(forwardedHost: string | null, host: string | null): string | null {
+  const first = (v: string | null) => {
+    const f = v?.split(",")[0]?.trim().toLowerCase();
+    return f ? f : null;
+  };
+  return first(forwardedHost) ?? first(host);
+}
+
+// The host (name plus any non-default port) of a canonical origin, exactly
+// as it appears in a Host header for that origin.
+export function originHost(origin: string): string {
+  return new URL(origin).host;
+}
+
+// The base origin for a redirect answering a request: in production and
+// maintenance ALWAYS the configured canonical origin; in development the
+// request's own origin, so localhost, 127.0.0.1 and spawned test ports
+// redirect back to themselves.
+export function redirectBase(config: { mode: string; appOrigin: string }, requestUrl: string): string {
+  return config.mode === "development" ? new URL(requestUrl).origin : config.appOrigin;
+}

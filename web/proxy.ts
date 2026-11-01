@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { getConfig, type AppConfig } from "./lib/config";
+import { getConfig, trustedRedirectUrl, type AppConfig } from "./lib/config";
+import { observedRequestHost, originHost } from "./lib/config/origin";
 import type { OperatingMode } from "./lib/config/types";
 import { applySecurityHeaders, createSecurityContext, CSP_HEADER, type SecurityContext } from "./lib/securityHeaders";
 import { checkMutationOrigin } from "./lib/mutationOrigin";
@@ -64,15 +65,39 @@ function modeRefusal(mode: OperatingMode, request: NextRequest): NextResponse | 
   return null;
 }
 
+// M3.3 S3b (founder C1) — production / maintenance serve exactly one
+// canonical origin, TENOTRAINER_APP_ORIGIN. The observed host (first
+// X-Forwarded-Host, else Host) is only COMPARED with it; the redirect
+// destination comes from configuration alone (scheme, host and port), so
+// request metadata can never choose where a client is sent. Unsafe methods
+// (including OPTIONS) are refused, never redirected. Development keeps its
+// request-local behaviour (localhost, 127.0.0.1, spawned test ports).
+function canonicalHostRefusal(config: AppConfig, request: NextRequest): NextResponse | null {
+  if (config.mode === "development") return null;
+  const observed = observedRequestHost(request.headers.get("x-forwarded-host"), request.headers.get("host"));
+  if (observed === originHost(config.appOrigin)) return null;
+  if (request.method === "GET" || request.method === "HEAD") {
+    // Only the path and query are taken from the request (as Next parsed
+    // them: parameter-for-parameter, Next may re-encode e.g. %20 as +);
+    // the origin — scheme, host and port — is the configured one.
+    const { pathname, search } = new URL(request.url);
+    const path = pathname.startsWith("/") ? pathname : `/${pathname}`;
+    return NextResponse.redirect(`${config.appOrigin}${path}${search}`, 308);
+  }
+  return NextResponse.json({ error: "NONCANONICAL_HOST_REFUSED" }, { status: 403 });
+}
+
 // M3.3 S2 — cross-origin browser mutations never reach a handler or a
-// Server Action (see lib/mutationOrigin.ts).
-function crossOriginRefusal(request: NextRequest): NextResponse | null {
+// Server Action (see lib/mutationOrigin.ts). M3.3 S3b: in production and
+// maintenance a present Origin must be exactly the canonical origin.
+function crossOriginRefusal(config: AppConfig, request: NextRequest): NextResponse | null {
   const verdict = checkMutationOrigin({
     method: request.method,
     origin: request.headers.get("origin"),
     secFetchSite: request.headers.get("sec-fetch-site"),
     host: request.headers.get("host"),
     forwardedHost: request.headers.get("x-forwarded-host"),
+    canonicalOrigin: config.mode === "development" ? null : config.appOrigin,
   });
   if (verdict.allowed) return null;
   console.warn(`[security] refused cross-origin ${request.method} ${request.nextUrl.pathname}: ${verdict.reason}`);
@@ -102,7 +127,7 @@ export async function proxy(request: NextRequest) {
   // needs eval; it is honoured in development mode only.
   const { mode } = config;
   const security = createSecurityContext(mode, config.platform.isDevServer);
-  const refused = modeRefusal(mode, request) ?? crossOriginRefusal(request);
+  const refused = canonicalHostRefusal(config, request) ?? modeRefusal(mode, request) ?? crossOriginRefusal(config, request);
   if (refused) return secured(refused, security);
   return secured(await route(request, config, security), security);
 }
@@ -150,21 +175,22 @@ async function route(request: NextRequest, config: AppConfig, security: Security
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
+    // M3.3 S3b — canonical origin in production/maintenance, request-local
+    // in development; the original query is kept, as before.
+    const url = trustedRedirectUrl(request.url, `/login${request.nextUrl.search}`);
     url.searchParams.set("next", pathname);
     return NextResponse.redirect(url);
   }
 
   // Already authenticated — redirect away from login/register
   if (user && (pathname === "/login" || pathname === "/register")) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    url.search = "";
-    return NextResponse.redirect(url);
+    return NextResponse.redirect(trustedRedirectUrl(request.url, "/dashboard"));
   }
 
   // M3.1 — maintenance: patient pages show the unavailable experience.
+  // (An internal rewrite, never sent to the client: it stays on this
+  // request's own URL — only canonical-host requests reach this point — and
+  // an absolute URL on another origin would make it an external proxy.)
   if (mode === "maintenance" && startsWithAny(pathname, MAINTENANCE_PATIENT_PAGES)) {
     const url = request.nextUrl.clone();
     url.pathname = "/maintenance";

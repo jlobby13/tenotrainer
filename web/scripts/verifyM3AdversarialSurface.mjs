@@ -22,13 +22,18 @@ import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
 import { loadEnv, withoutRetiredNames } from "./lib/harnessEnv.mjs";
+import { gatewayFetch } from "./lib/canonicalGateway.mjs";
 
 const EXPECT_REVOKED = process.argv.includes("--expect-revoked");
 const REAL_ORG_ID = "07f342fd-075c-42b5-a885-30ca64953d46";
 const TZ = "America/New_York";
 const PASSWORD = "throwaway-verification-1!";
 const PORT = 3155;
-const BASE = `http://localhost:${PORT}`;
+// M3.3 S3b — the production server is addressed at its canonical origin;
+// requests go straight to its port with that Host (no browser, no TLS needed).
+const CANON_HOST = "app.tenotrainer.test";
+const BASE = `https://${CANON_HOST}`;
+const fetch = gatewayFetch({ routes: new Map([[CANON_HOST, PORT]]) });
 const RUN = randomUUID().slice(0, 8);
 
 const env = loadEnv(".env.local");

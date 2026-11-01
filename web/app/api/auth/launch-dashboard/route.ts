@@ -4,7 +4,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getSessionInfo } from "@/lib/auth";
 import { createBridgeToken, FASTAPI_ROLE } from "@/lib/bridge";
 import { legacyRetiredResponse } from "@/lib/modeHttp";
-import { getLegacyFastapiUrl } from "@/lib/config";
+import { getLegacyFastapiUrl, trustedRedirectUrl } from "@/lib/config";
 
 export async function GET(request: NextRequest) {
   // M3.1 — legacy (FastAPI-era) route: exists only in development mode (410 LEGACY_RETIRED otherwise).
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return NextResponse.redirect(trustedRedirectUrl(request.url, "/login"));
   }
 
   const session = await getSessionInfo();
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 
   // Super-users stay on :3000 — dedicated Next.js dashboard
   if (supabaseRole === "super_user") {
-    return NextResponse.redirect(new URL("/super/dashboard", request.url));
+    return NextResponse.redirect(trustedRedirectUrl(request.url, "/super/dashboard"));
   }
 
   const fastapiRole = FASTAPI_ROLE[supabaseRole] ?? "patient";

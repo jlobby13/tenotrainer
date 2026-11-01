@@ -80,5 +80,43 @@ test("a refusal names its reason", () => {
   assertEqual(v.allowed === false && v.reason, "Origin does not match host", "reason");
 });
 
+// ---------------------------------------------------------------- M3.3 S3b — exact canonical Origin (production / maintenance)
+const CANON = "https://app.tenotrainer.example";
+const prod = (over: Partial<MutationOriginInput>) => checkMutationOrigin(req({ canonicalOrigin: CANON, host: "app.tenotrainer.example", ...over }));
+test("canonical: exact canonical Origin is allowed", () => {
+  assertEqual(prod({ origin: CANON, secFetchSite: "same-origin" }).allowed, true, "exact");
+});
+test("canonical: wrong scheme, port, host or sub/super-domain refused", () => {
+  for (const origin of ["http://app.tenotrainer.example", "https://app.tenotrainer.example:8443", "https://evil.example",
+    "https://evil.app.tenotrainer.example", "https://app.tenotrainer.example.evil.example", "https://tenotrainer.example"]) {
+    assertEqual(prod({ origin, secFetchSite: "same-origin" }).allowed, false, origin);
+  }
+});
+test("canonical: comparison is exact serialization (no case / trailing-slash tolerance)", () => {
+  for (const origin of ["https://APP.tenotrainer.example", "https://app.tenotrainer.example/", "https://app.tenotrainer.example:443"]) {
+    assertEqual(prod({ origin }).allowed, false, origin);
+  }
+});
+test("canonical: Host / X-Forwarded-Host cannot substitute for the canonical origin", () => {
+  assertEqual(prod({ origin: "https://evil.example", host: "evil.example", forwardedHost: "evil.example" }).allowed, false, "forged host headers");
+});
+test("canonical: malformed, multiple and null Origin still refused", () => {
+  for (const origin of ["null", "", "not a url", `${CANON}, https://evil.example`, `${CANON}/path`]) {
+    assertEqual(prod({ origin }).allowed, false, JSON.stringify(origin));
+  }
+});
+test("canonical: Sec-Fetch-Site protections unchanged", () => {
+  assertEqual(prod({ origin: CANON, secFetchSite: "cross-site" }).allowed, false, "cross-site");
+  assertEqual(prod({ origin: CANON, secFetchSite: "same-site" }).allowed, false, "same-site");
+  assertEqual(prod({ origin: CANON, secFetchSite: "bogus" }).allowed, false, "bogus");
+});
+test("canonical: non-browser callers (no Origin, no Sec-Fetch-Site) continue to route authentication", () => {
+  assertEqual(prod({}).allowed, true, "server-to-server");
+});
+test("canonical: a refusal names its reason", () => {
+  const v = prod({ origin: "https://evil.example" });
+  assertEqual(v.allowed === false && v.reason, "Origin is not the canonical origin", "reason");
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

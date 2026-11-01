@@ -8,17 +8,18 @@
 //   2. Sec-Fetch-Site (sent by every modern browser): "same-origin" or
 //      "none" (user-initiated) continue; "same-site" / "cross-site" and any
 //      unknown value are refused.
-//   3. Origin, when present, must be a well-formed http(s) origin whose
-//      host equals the request's own host. "null", malformed values or
-//      several values are refused.
+//   3. Origin, when present, must be a well-formed http(s) origin. "null",
+//      malformed values or several values are refused. In production and
+//      maintenance (M3.3 S3b) it must then EXACTLY equal the configured
+//      canonical origin serialization — scheme, host and port; in
+//      development its host must equal the request's own host.
 //   4. Neither header: not a browser (curl, server-to-server). No ambient
 //      browser credentials can be forged that way, so it continues to the
 //      route's own authentication (session, or the dispatch secret).
 //
-// The expected host is the forwarded host (the platform's proxy) or Host,
-// exactly what Next compares for Server Actions. S3 centralizes the
-// validated application URL; this check then also accepts that one origin
-// (and should compare scheme as well) — see expectedHosts.
+// Development's expected host is the forwarded host (the platform's proxy)
+// or Host, exactly what Next compares for Server Actions — so localhost,
+// 127.0.0.1 and spawned test ports keep working there.
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 const FETCH_SITES = new Set(["same-origin", "same-site", "cross-site", "none"]);
 
@@ -28,6 +29,9 @@ export type MutationOriginInput = {
   secFetchSite: string | null;
   host: string | null;
   forwardedHost: string | null;
+  // M3.3 S3b — production / maintenance: the configured canonical origin
+  // (exact serialization). Absent / null in development.
+  canonicalOrigin?: string | null;
 };
 
 export type MutationOriginVerdict = { allowed: true } | { allowed: false; reason: string };
@@ -58,6 +62,9 @@ export function checkMutationOrigin(input: MutationOriginInput): MutationOriginV
     }
     if ((parsed.protocol !== "http:" && parsed.protocol !== "https:") || parsed.origin !== raw.toLowerCase().replace(/\/$/, "")) {
       return { allowed: false, reason: "malformed Origin" };
+    }
+    if (input.canonicalOrigin) {
+      return raw === input.canonicalOrigin ? { allowed: true } : { allowed: false, reason: "Origin is not the canonical origin" };
     }
     const expected = expectedHosts(input);
     if (expected.length === 0 || !expected.includes(parsed.host)) return { allowed: false, reason: "Origin does not match host" };

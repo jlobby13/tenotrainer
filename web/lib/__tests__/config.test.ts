@@ -4,7 +4,7 @@
 import { inspect } from "node:util";
 import { ConfigError, validateConfig } from "../config/parse";
 import { Secret } from "../config/secret";
-import { absoluteUrl, isLoopbackHost, parseOrigin } from "../config/origin";
+import { absoluteUrl, isLoopbackHost, observedRequestHost, originHost, parseOrigin, redirectBase } from "../config/origin";
 import { classifySupabaseKey, parseSupabaseUrl, RESOURCE_IDENTITY } from "../config/identity";
 import type { ResourceIdentityRegistry } from "../config/types";
 
@@ -217,6 +217,20 @@ test("absoluteUrl: configured origin + internal path only", () => {
     try { absoluteUrl("https://a.example", bad); } catch { threw = true; }
     assert(threw, `accepted ${bad}`);
   }
+});
+test("S3b: observed host = first X-Forwarded-Host value, else Host (lower-cased; comparison only)", () => {
+  assert(observedRequestHost("App.Example.com, proxy.internal", "internal:3000") === "app.example.com", "first XFH");
+  assert(observedRequestHost(null, "LOCALHOST:3181") === "localhost:3181", "host");
+  assert(observedRequestHost("  ", "h") === "h" && observedRequestHost(null, null) === null, "fallback / none");
+});
+test("S3b: originHost carries a non-default port only", () => {
+  assert(originHost("https://app.example.com") === "app.example.com" && originHost("https://app.example.com:8443") === "app.example.com:8443", "host");
+});
+test("S3b: redirect base is the configured origin in production/maintenance, request-local in development", () => {
+  for (const mode of ["production", "maintenance"]) {
+    assert(redirectBase({ mode, appOrigin: "https://app.example.com" }, "http://evil.example:1234/x") === "https://app.example.com", mode);
+  }
+  assert(redirectBase({ mode: "development", appOrigin: "http://localhost:3000" }, "http://localhost:3183/logout") === "http://localhost:3183", "dev");
 });
 test("Supabase URL parsing", () => {
   const h = parseSupabaseUrl(`https://${PROD_REF}.supabase.co`);

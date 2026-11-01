@@ -26,13 +26,19 @@ import { randomUUID } from "node:crypto";
 import { chromium } from "playwright";
 import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
 import { loadEnv, withoutRetiredNames } from "./lib/harnessEnv.mjs";
+import { gatewayFetch, launchCanonicalBrowser, startCanonicalGateway } from "./lib/canonicalGateway.mjs";
 
 const REAL_ORG_ID = "07f342fd-075c-42b5-a885-30ca64953d46";
 const TZ = "America/New_York";
 const PASSWORD = "throwaway-verification-1!";
 const DEAD_FASTAPI = "http://127.0.0.1:59999";
 const RUN = randomUUID().slice(0, 8);
-const PORTS = { refuse: 3150, prodFrozen: 3151, maintenance: 3152, prodLive: 3153, dev: 3154 };
+const PORTS = { refuse: 3150, prodFrozen: 3151, maintenance: 3152, prodLive: 3153, dev: 3154, gateway: 3156 };
+// M3.3 S3b — production / maintenance servers are reached at their REAL
+// canonical origins through the local TLS test gateway (a localhost URL is a
+// wrong host for them by design). One reserved .test name per server.
+const CANONICAL = { prodFrozen: "app.tenotrainer.test", maintenance: "maint.tenotrainer.test", prodLive: "live.tenotrainer.test" };
+let fetch = globalThis.fetch;
 
 const env = loadEnv(".env.local");
 // M3.1 — refuse unless TENOTRAINER_MODE=development and the target project is allow-listed.
@@ -310,7 +316,9 @@ async function main() {
   exerciseIds.push(exRow.id);
   const patient = await makeProgramPatient(clinician, exRow.id);
 
-  const browser = await chromium.launch();
+  const gateway = await startCanonicalGateway({ port: PORTS.gateway, routes: Object.fromEntries(Object.entries(CANONICAL).map(([k, h]) => [h, PORTS[k]])) });
+  fetch = gatewayFetch(gateway);
+  const browser = await launchCanonicalBrowser(gateway);
   let server = null;
   let sessionId = null;
   let draftId = null;
@@ -318,7 +326,7 @@ async function main() {
     // ================================================================ B
     section("B. Production (publication frozen; FastAPI not configured)");
     server = await startServer(PORTS.prodFrozen, { ...PROD_ENV, TENOTRAINER_MODE: "production", C5_PRESCRIPTION_PUBLISH_ENABLED: "false" });
-    const P1 = `http://localhost:${PORTS.prodFrozen}`;
+    const P1 = `https://${CANONICAL.prodFrozen}`;
     check("production server started and logged its mode", server.log.includes("TenoTrainer operating mode: production"));
     check("production test server classified as the isolated test profile (test infrastructure only)", server.log.includes("TenoTrainer configuration profile: isolated test"));
     for (const [m, path] of LEGACY_ROUTES) {
@@ -371,8 +379,8 @@ async function main() {
     const before = await rowState(patient, clinician);
     const sessionBefore = (await admin.from("rehab_sessions").select("*").eq("id", sessionId).single()).data;
     check("maintenance precondition: the session is Started", sessionBefore?.training_status === "started", sessionBefore?.training_status);
-    server = await startServer(PORTS.maintenance, { ...PROD_ENV, TENOTRAINER_MODE: "maintenance", C5_PRESCRIPTION_PUBLISH_ENABLED: "true" });
-    const M = `http://localhost:${PORTS.maintenance}`;
+    server = await startServer(PORTS.maintenance, { ...PROD_ENV, TENOTRAINER_MODE: "maintenance", C5_PRESCRIPTION_PUBLISH_ENABLED: "true", TENOTRAINER_APP_ORIGIN: `https://${CANONICAL.maintenance}` });
+    const M = `https://${CANONICAL.maintenance}`;
     check("maintenance server started and logged its mode", server.log.includes("TenoTrainer operating mode: maintenance"));
 
     const mp = await login(browser, M, patient.email);
@@ -488,8 +496,8 @@ async function main() {
 
     // ================================================================ D
     section("D. Production again (resume; publication on)");
-    server = await startServer(PORTS.prodLive, { ...PROD_ENV, TENOTRAINER_MODE: "production", C5_PRESCRIPTION_PUBLISH_ENABLED: "true", C5_PATIENT_RUNTIME_ENABLED: "true" });
-    const P2 = `http://localhost:${PORTS.prodLive}`;
+    server = await startServer(PORTS.prodLive, { ...PROD_ENV, TENOTRAINER_APP_ORIGIN: `https://${CANONICAL.prodLive}`, TENOTRAINER_MODE: "production", C5_PRESCRIPTION_PUBLISH_ENABLED: "true", C5_PATIENT_RUNTIME_ENABLED: "true" });
+    const P2 = `https://${CANONICAL.prodLive}`;
     const rp = await login(browser, P2, patient.email);
     const resumed = await api(rp, P2, "GET", "/api/patient/c5/state");
     check("production again: the patient's Started session is offered for resume", resumed.status === 200 && resumed.body?.state?.kind === "resume" && resumed.body.state.session?.id === sessionId, `status ${resumed.status} ${JSON.stringify(resumed.body)?.slice(0, 200)}`);
@@ -521,6 +529,7 @@ async function main() {
     server = null;
   } finally {
     await browser.close().catch(() => {});
+    await gateway.close().catch(() => {});
     for (const s of started) await stopServer(s);
     await teardown().catch((e) => console.error("teardown error", e));
   }

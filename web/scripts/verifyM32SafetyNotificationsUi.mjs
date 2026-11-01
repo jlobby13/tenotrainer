@@ -27,14 +27,22 @@ import { chromium } from "playwright";
 import { FixtureRun, FIXTURE_PASSWORD, guardedSql, loadEnv, q } from "./lib/m32Fixtures.mjs";
 import { assertPurgeTarget } from "./lib/safetyFixturePurge.mjs";
 import { withoutRetiredNames } from "./lib/harnessEnv.mjs";
+import { gatewayFetch, launchCanonicalBrowser, startCanonicalGateway } from "./lib/canonicalGateway.mjs";
 
 const env = loadEnv(".env.local");
 assertPurgeTarget(env);
 const admin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 const PORTS = { dev: 3160, maint: 3161, prod: 3162, refuse: 3163 };
 const DEV = `http://127.0.0.1:${PORTS.dev}`;
-const MAINT = `http://127.0.0.1:${PORTS.maint}`;
-const PROD = `http://127.0.0.1:${PORTS.prod}`;
+// M3.3 S3b — maintenance / production at their REAL canonical origins
+// through the local TLS test gateway (scripts/lib/canonicalGateway.mjs).
+const MAINT_HOST = "maint.tenotrainer.test";
+const PROD_HOST = "app.tenotrainer.test";
+const MAINT = `https://${MAINT_HOST}`;
+const PROD = `https://${PROD_HOST}`;
+const GATEWAY_PORT = 3164;
+let fetch = globalThis.fetch;
+let gateway = null;
 const DEAD_FASTAPI = "http://127.0.0.1:9";
 const SECRET = `m32-ui-${crypto.randomUUID()}-${crypto.randomUUID()}`;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -147,7 +155,9 @@ try {
   // ---------------------------------------------------------------- servers
   const dev = await startServer(PORTS.dev, { TENOTRAINER_MODE: "development", C5_PATIENT_RUNTIME_ENABLED: "true", FASTAPI_URL: DEAD_FASTAPI,
     TENOTRAINER_APP_ORIGIN: DEV, SAFETY_DISPATCH_SECRET: SECRET });
-  browser = await chromium.launch();
+  gateway = await startCanonicalGateway({ port: GATEWAY_PORT, routes: { [MAINT_HOST]: PORTS.maint, [PROD_HOST]: PORTS.prod } });
+  fetch = gatewayFetch(gateway);
+  browser = await launchCanonicalBrowser(gateway);
 
   // ---------------------------------------------------------------- dispatch endpoint (development; provider disabled)
   check("endpoint: no Authorization -> 401", (await post(DEV)).status === 401);
@@ -281,7 +291,7 @@ try {
   await stopServer(dev);
 
   // ---------------------------------------------------------------- maintenance
-  const maint = await startServer(PORTS.maint, { ...PROD_ENV, TENOTRAINER_MODE: "maintenance", TENOTRAINER_APP_ORIGIN: "https://app.tenotrainer.test" });
+  const maint = await startServer(PORTS.maint, { ...PROD_ENV, TENOTRAINER_MODE: "maintenance", TENOTRAINER_APP_ORIGIN: MAINT });
   const mNoSecret = await post(MAINT);
   check("maintenance: the dispatch path reaches its own authentication (401, not 503 MAINTENANCE) — the narrow exception", mNoSecret.status === 401 && mNoSecret.body?.error === "UNAUTHORIZED");
   const mOther = await fetch(`${MAINT}/api/internal/safety-notifications`, { method: "POST", redirect: "manual" });
@@ -321,6 +331,7 @@ try {
   check("suite ran without an unexpected error", false, e?.stack ?? e);
 } finally {
   if (browser) await browser.close();
+  if (gateway) await gateway.close().catch(() => {});
   for (const s of started) await stopServer(s);
   const realAfter = guardedSql(env, `SELECT o.id, to_jsonb(o) AS row, (SELECT count(*) FROM safety_email_attempts a WHERE a.outbox_id = o.id) AS attempts
     FROM safety_email_outbox o WHERE o.id IN (${realBefore.length ? realBefore.map((r) => q(r.id)).join(", ") : "NULL"}) ORDER BY o.id`);

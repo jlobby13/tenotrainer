@@ -35,15 +35,25 @@ import { randomUUID } from "node:crypto";
 import { chromium } from "playwright";
 import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
 import { loadEnv, withoutRetiredNames } from "./lib/harnessEnv.mjs";
+import { gatewayFetch, launchCanonicalBrowser, rawRequest, startCanonicalGateway } from "./lib/canonicalGateway.mjs";
 
 const REAL_ORG_ID = "07f342fd-075c-42b5-a885-30ca64953d46";
 const PRESERVED_L5_OUTBOX = "f73aeb4d-6517-481b-ac6e-cc73fa0afc67";
 const TZ = "America/New_York";
 const PASSWORD = "throwaway-verification-1!";
 const RUN = randomUUID().slice(0, 8);
-const PORTS = { prod: 3181, maintenance: 3182, dev: 3183, external: 3184 };
-const P = `http://localhost:${PORTS.prod}`;
-const M = `http://localhost:${PORTS.maintenance}`;
+const PORTS = { prod: 3181, maintenance: 3182, dev: 3183, external: 3184, gateway: 3185 };
+// M3.3 S3b — production / maintenance servers are reached at their REAL
+// canonical origins (TENOTRAINER_APP_ORIGIN) through the local TLS test
+// gateway (scripts/lib/canonicalGateway.mjs); a localhost URL is now a
+// wrong host for them by design.
+const P_HOST = "app.tenotrainer.test";
+const M_HOST = "maint.tenotrainer.test";
+const P = `https://${P_HOST}`;
+const M = `https://${M_HOST}`;
+// Node-side requests to the canonical origins go to their upstream with the
+// canonical Host (set once the gateway is up); everything else is unchanged.
+let fetch = globalThis.fetch;
 const D = `http://localhost:${PORTS.dev}`;
 const EXT = `http://127.0.0.1:${PORTS.external}`;
 const DISPATCH = "/api/internal/safety-notifications/dispatch";
@@ -383,7 +393,9 @@ async function main() {
   const patient = await makeProgramPatient(clinician);
 
   await startExternal();
-  const browser = await chromium.launch();
+  const gateway = await startCanonicalGateway({ port: PORTS.gateway, routes: { [P_HOST]: PORTS.prod, [M_HOST]: PORTS.maintenance } });
+  fetch = gatewayFetch(gateway);
+  const browser = await launchCanonicalBrowser(gateway);
   try {
     // ================================================================ B
     section("B. Production: headers, no-store, HSTS, CSP Report-Only");
@@ -675,6 +687,18 @@ async function main() {
     check("production: server-to-server dispatch call passes the boundary and reaches its own secret check (401 on a wrong secret)", wrongProd.status === 401 && (await wrongProd.json()).error === "UNAUTHORIZED");
     const crossProd = await fetch(`${P}${DISPATCH}`, { method: "POST", headers: { authorization: "Bearer wrong", origin: "https://evil.example", "sec-fetch-site": "cross-site" } });
     check("production: a browser-shaped cross-origin dispatch call is refused (403)", crossProd.status === 403);
+
+    // M3.3 S3b — the logout handler's own redirect, WITH a real session, is
+    // anchored to the configured origin under forged request metadata (the
+    // patient session is ended here; nothing later uses it).
+    const cookieHeader = (await pCtx.cookies(P)).map((c) => `${c.name}=${c.value}`).join("; ");
+    const forgedLogout = await rawRequest(PORTS.prod, { method: "GET", path: "/logout",
+      headers: { host: "evil.example", "x-forwarded-host": P_HOST, "x-forwarded-proto": "http", cookie: cookieHeader } });
+    check("S3b: authenticated logout under forged Host + X-Forwarded-Proto redirects to the canonical /login (handler redirect)",
+      cookieHeader.length > 0 && forgedLogout.status === 307 && forgedLogout.headers.location === `${P}/login`, `${forgedLogout.status} ${forgedLogout.headers.location}`);
+    const forgedXfhLogout = await rawRequest(PORTS.prod, { method: "GET", path: "/logout", headers: { host: P_HOST, "x-forwarded-host": "evil.example", cookie: cookieHeader } });
+    check("S3b: logout under a forged X-Forwarded-Host never reaches the handler: 308 to the canonical /logout",
+      forgedXfhLogout.status === 308 && forgedXfhLogout.headers.location === `${P}/logout`, `${forgedXfhLogout.status} ${forgedXfhLogout.headers.location}`);
     await stopServer(prod);
 
     // ================================================================ G
@@ -706,7 +730,7 @@ async function main() {
     check("production development-only page: 404 with headers", devOnly.status === 404 && headerProblems(Object.fromEntries(devOnly.headers), { mode: "production" }).length === 0);
     await stopServer(prod2);
 
-    const maint = await startServer(PORTS.maintenance, { ...PROD_ENV, TENOTRAINER_MODE: "maintenance" });
+    const maint = await startServer(PORTS.maintenance, { ...PROD_ENV, TENOTRAINER_MODE: "maintenance", TENOTRAINER_APP_ORIGIN: M });
     check("maintenance server started and logged its mode", maint.log.includes("TenoTrainer operating mode: maintenance"));
     const mpCtx = await watchedContext(browser);
     const mpPage = await login(mpCtx, M, patient.email);
@@ -734,6 +758,7 @@ async function main() {
     check("the preserved development L5 is still unchanged at the end", (await l5Outbox()) === l5Before);
   } finally {
     await browser.close().catch(() => {});
+    await gateway.close().catch(() => {});
     for (const s of started) await stopServer(s);
     if (externalServer) await new Promise((r) => externalServer.close(r));
     const clean = await teardown();
