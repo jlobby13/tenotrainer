@@ -4,8 +4,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getSessionInfo } from "@/lib/auth";
 import { createBridgeToken, FASTAPI_ROLE } from "@/lib/bridge";
 import { legacyRetiredResponse } from "@/lib/modeHttp";
-
-const FASTAPI_URL = process.env.FASTAPI_URL ?? "http://localhost:8000";
+import { getLegacyFastapiUrl } from "@/lib/config";
 
 export async function GET(request: NextRequest) {
   // M3.1 — legacy (FastAPI-era) route: exists only in development mode (410 LEGACY_RETIRED otherwise).
@@ -33,7 +32,7 @@ export async function GET(request: NextRequest) {
 
   const token = createBridgeToken(user.email!, user.id, fastapiRole, name);
 
-  const dest = new URL(`${FASTAPI_URL}/auth/supabase`);
+  const dest = new URL(`${getLegacyFastapiUrl()}/auth/supabase`);
   dest.searchParams.set("token", token);
 
   // Optional deep-link: ?dest=/daily-log gets forwarded as ?next= to FastAPI

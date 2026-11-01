@@ -12,6 +12,22 @@
 //   NODE_OPTIONS="--conditions=react-server" npx tsx lib/__tests__/fastapiErrorClassification.test.ts
 import { getPatientSummary, BackendUnavailableError, BackendApplicationError } from "../fastapi";
 
+// M3.3 S3 — bridgeFetch now reads the legacy FastAPI URL / bridge header
+// through the centralized configuration (lazily, at the first call), so this
+// process supplies a valid development configuration (unsigned placeholder
+// keys; fetch itself is mocked below — nothing is contacted).
+{
+  const b64u = (o: unknown) => Buffer.from(JSON.stringify(o)).toString("base64url");
+  const key = (role: string) => `${b64u({ alg: "HS256", typ: "JWT" })}.${b64u({ iss: "supabase", role, ref: "kpdxlzqtvueiytwjamiw" })}.unsignedtestsignature`;
+  Object.assign(process.env, {
+    TENOTRAINER_MODE: "development",
+    TENOTRAINER_APP_ORIGIN: "http://localhost:3000",
+    SUPABASE_URL: "https://kpdxlzqtvueiytwjamiw.supabase.co",
+    SUPABASE_ANON_KEY: key("anon"),
+    SUPABASE_SERVICE_ROLE_KEY: key("service_role"),
+  });
+}
+
 let pass = 0;
 let fail = 0;
 async function test(name: string, fn: () => Promise<void>) {

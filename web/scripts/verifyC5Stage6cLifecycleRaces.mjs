@@ -17,6 +17,7 @@ import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
 import { sqlLocalDate, sqlLocalInstant } from "./lib/patientLocalDate.mjs";
+import { loadEnv } from "./lib/harnessEnv.mjs";
 
 const REPO_ROOT = "..";
 const CLINICIAN = "44197ef7-7421-47ed-a164-75d2765fc019";
@@ -42,20 +43,10 @@ async function removeFixtureClinicianMembership() {
 const TZ = "America/New_York";
 const PASSWORD = "throwaway-verification-1!";
 
-function loadEnv(path) {
-  const env = {};
-  for (const line of readFileSync(path, "utf8").split("\n")) {
-    const t = line.trim();
-    if (!t || t.startsWith("#") || !t.includes("=")) continue;
-    const eq = t.indexOf("=");
-    env[t.slice(0, eq).trim()] = t.slice(eq + 1).trim();
-  }
-  return env;
-}
 const env = loadEnv(".env.local");
 // M3.1 — refuse unless TENOTRAINER_MODE=development and the target project is allow-listed.
 assertDevTestTarget(env);
-const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+const admin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 const WORK = mkdtempSync(join(tmpdir(), "c56c-races-"));
 
 let pass = 0;

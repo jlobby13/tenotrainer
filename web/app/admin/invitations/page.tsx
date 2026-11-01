@@ -5,6 +5,7 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { INVITATION_ROLE_MAP } from "@/lib/invitations";
 import { sendInvitationAction, cancelInvitationAction } from "./actions";
 import { isLegacyAllowed } from "@/lib/operatingMode";
+import { getAppOrigin } from "@/lib/config";
 
 export const metadata = { title: "Invitations — TenoTrainer" };
 
@@ -55,7 +56,7 @@ export default async function InvitationsPage({ searchParams }: Props) {
   const adminMembership = session.memberships.find((m) => m.role === "clinician_admin" || m.role === "super_user")!;
   const orgId = adminMembership.organization_id;
   const orgName = adminMembership.organizations?.name ?? "Your Organization";
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const appUrl = getAppOrigin(); // M3.3 S3 — configured canonical origin
 
   const service = createServiceRoleClient();
   const { data: invitations } = await service

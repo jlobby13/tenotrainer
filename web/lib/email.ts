@@ -1,4 +1,6 @@
 import { Resend } from "resend";
+import { getConfig } from "./config";
+import { getResendApiKey } from "./config/secrets";
 
 const HUMAN_ROLE: Record<string, string> = {
   USER_TESTER: "TenoTrainer User Tester",
@@ -110,12 +112,12 @@ export async function sendInvitationEmail(opts: {
   orgName: string;
   invitationType: string;
 }): Promise<EmailResult> {
-  const apiKey = process.env.RESEND_API_KEY;
+  const apiKey = getResendApiKey();
   if (!apiKey) {
     return { sent: false, reason: "RESEND_API_KEY not configured" };
   }
 
-  const from = process.env.RESEND_FROM ?? "TenoTrainer <onboarding@resend.dev>";
+  const from = getConfig().email.from ?? "TenoTrainer <onboarding@resend.dev>";
   const humanRole = HUMAN_ROLE[opts.invitationType] ?? "TenoTrainer Tester";
 
   const resend = new Resend(apiKey);
@@ -151,11 +153,11 @@ export async function sendPatientInvitationEmail(opts: {
   orgName: string;
   clinicianName: string;
 }): Promise<EmailResult> {
-  const apiKey = process.env.RESEND_API_KEY;
+  const apiKey = getResendApiKey();
   if (!apiKey) {
     return { sent: false, reason: "RESEND_API_KEY not configured" };
   }
-  const from = process.env.RESEND_FROM ?? "TenoTrainer <onboarding@resend.dev>";
+  const from = getConfig().email.from ?? "TenoTrainer <onboarding@resend.dev>";
   const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   const text = `${opts.clinicianName} at ${opts.orgName} has invited you to TenoTrainer, where your rehabilitation program will be shared with you.
 

@@ -26,10 +26,11 @@ import { createClient } from "@supabase/supabase-js";
 import { chromium } from "playwright";
 import { FixtureRun, FIXTURE_PASSWORD, guardedSql, loadEnv, q } from "./lib/m32Fixtures.mjs";
 import { assertPurgeTarget } from "./lib/safetyFixturePurge.mjs";
+import { withoutRetiredNames } from "./lib/harnessEnv.mjs";
 
 const env = loadEnv(".env.local");
 assertPurgeTarget(env);
-const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+const admin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 const PORTS = { dev: 3160, maint: 3161, prod: 3162, refuse: 3163 };
 const DEV = `http://127.0.0.1:${PORTS.dev}`;
 const MAINT = `http://127.0.0.1:${PORTS.maint}`;
@@ -47,15 +48,15 @@ const check = (label, ok, detail = "") => {
 // ---------------------------------------------------------------- servers (only ones this script starts)
 const started = [];
 function serverEnv(overrides) {
-  const base = { ...process.env };
-  for (const k of ["FASTAPI_URL", "BRIDGE_SECRET", "NEXT_PUBLIC_APP_URL"]) delete base[k];
-  for (const k of ["TENOTRAINER_MODE", "C5_PATIENT_RUNTIME_ENABLED", "C5_PRESCRIPTION_PUBLISH_ENABLED", "SAFETY_EMAIL_PROVIDER",
-                   "SAFETY_DISPATCH_SECRET", "RESEND_API_KEY", "RESEND_FROM", "SAFETY_FAKE_PROVIDER_LOG", "SAFETY_FAKE_PROVIDER_SCRIPT"]) base[k] = "";
+  const base = withoutRetiredNames({ ...process.env });
+  for (const k of ["FASTAPI_URL", "BRIDGE_SECRET", "TENOTRAINER_APP_ORIGIN"]) delete base[k];
+  for (const k of ["TENOTRAINER_MODE", "C5_PATIENT_RUNTIME_ENABLED", "C5_PRESCRIPTION_PUBLISH_ENABLED", "TENOTRAINER_EMAIL_PROVIDER",
+                   "SAFETY_DISPATCH_SECRET", "RESEND_API_KEY", "TENOTRAINER_NOTIFICATION_EMAIL_FROM", "SAFETY_FAKE_PROVIDER_LOG", "SAFETY_FAKE_PROVIDER_SCRIPT"]) base[k] = "";
   return { ...base, ...overrides };
 }
 const PROD_ENV = {
-  FASTAPI_URL: "", BRIDGE_SECRET: "", NEXT_PUBLIC_APP_URL: "https://app.tenotrainer.test", C5_PATIENT_RUNTIME_ENABLED: "true",
-  SAFETY_EMAIL_PROVIDER: "resend", SAFETY_DISPATCH_SECRET: SECRET, RESEND_API_KEY: "re_m32_isolated_never_called", RESEND_FROM: "TenoTrainer <safety@tenotrainer.test>",
+  FASTAPI_URL: "", BRIDGE_SECRET: "", TENOTRAINER_APP_ORIGIN: "https://app.tenotrainer.test", C5_PATIENT_RUNTIME_ENABLED: "true",
+  TENOTRAINER_EMAIL_PROVIDER: "resend", SAFETY_DISPATCH_SECRET: SECRET, RESEND_API_KEY: "re_m32_isolated_never_called", TENOTRAINER_NOTIFICATION_EMAIL_FROM: "TenoTrainer <safety@tenotrainer.test>",
 };
 function spawnServer(port, overrides) {
   const proc = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-p", String(port)], { env: serverEnv(overrides), detached: true, stdio: ["ignore", "pipe", "pipe"] });
@@ -117,11 +118,11 @@ let browser;
 let teardownError = null;
 try {
   // ---------------------------------------------------------------- startup refusals
-  await expectRefusal("production with SAFETY_EMAIL_PROVIDER=fake", { ...PROD_ENV, TENOTRAINER_MODE: "production", SAFETY_EMAIL_PROVIDER: "fake" }, "forbidden");
-  await expectRefusal("maintenance with SAFETY_EMAIL_PROVIDER=fake", { ...PROD_ENV, TENOTRAINER_MODE: "maintenance", SAFETY_EMAIL_PROVIDER: "fake" }, "forbidden");
+  await expectRefusal("production with TENOTRAINER_EMAIL_PROVIDER=fake", { ...PROD_ENV, TENOTRAINER_MODE: "production", TENOTRAINER_EMAIL_PROVIDER: "fake" }, "forbidden");
+  await expectRefusal("maintenance with TENOTRAINER_EMAIL_PROVIDER=fake", { ...PROD_ENV, TENOTRAINER_MODE: "maintenance", TENOTRAINER_EMAIL_PROVIDER: "fake" }, "forbidden");
   await expectRefusal("production without SAFETY_DISPATCH_SECRET", { ...PROD_ENV, TENOTRAINER_MODE: "production", SAFETY_DISPATCH_SECRET: "" }, "SAFETY_DISPATCH_SECRET");
   await expectRefusal("production with a short SAFETY_DISPATCH_SECRET", { ...PROD_ENV, TENOTRAINER_MODE: "production", SAFETY_DISPATCH_SECRET: "short" }, "at least 32");
-  await expectRefusal("production without a safety email provider", { ...PROD_ENV, TENOTRAINER_MODE: "production", SAFETY_EMAIL_PROVIDER: "" }, "SAFETY_EMAIL_PROVIDER");
+  await expectRefusal("production without a safety email provider", { ...PROD_ENV, TENOTRAINER_MODE: "production", TENOTRAINER_EMAIL_PROVIDER: "" }, "TENOTRAINER_EMAIL_PROVIDER");
   await expectRefusal("production without RESEND_API_KEY", { ...PROD_ENV, TENOTRAINER_MODE: "production", RESEND_API_KEY: "" }, "RESEND_API_KEY");
 
   // ---------------------------------------------------------------- fixtures
@@ -145,7 +146,7 @@ try {
 
   // ---------------------------------------------------------------- servers
   const dev = await startServer(PORTS.dev, { TENOTRAINER_MODE: "development", C5_PATIENT_RUNTIME_ENABLED: "true", FASTAPI_URL: DEAD_FASTAPI,
-    NEXT_PUBLIC_APP_URL: DEV, SAFETY_DISPATCH_SECRET: SECRET });
+    TENOTRAINER_APP_ORIGIN: DEV, SAFETY_DISPATCH_SECRET: SECRET });
   browser = await chromium.launch();
 
   // ---------------------------------------------------------------- dispatch endpoint (development; provider disabled)
@@ -280,7 +281,7 @@ try {
   await stopServer(dev);
 
   // ---------------------------------------------------------------- maintenance
-  const maint = await startServer(PORTS.maint, { ...PROD_ENV, TENOTRAINER_MODE: "maintenance", NEXT_PUBLIC_APP_URL: "https://app.tenotrainer.test" });
+  const maint = await startServer(PORTS.maint, { ...PROD_ENV, TENOTRAINER_MODE: "maintenance", TENOTRAINER_APP_ORIGIN: "https://app.tenotrainer.test" });
   const mNoSecret = await post(MAINT);
   check("maintenance: the dispatch path reaches its own authentication (401, not 503 MAINTENANCE) — the narrow exception", mNoSecret.status === 401 && mNoSecret.body?.error === "UNAUTHORIZED");
   const mOther = await fetch(`${MAINT}/api/internal/safety-notifications`, { method: "POST", redirect: "manual" });

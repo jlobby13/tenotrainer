@@ -2,6 +2,8 @@ import "server-only";
 
 import crypto from "crypto";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { getAppOrigin } from "@/lib/config";
+import { absoluteUrl } from "@/lib/config/origin";
 
 // Server-side mapping — browser never submits a role directly. The database
 // enforces the same mapping (invitations_role_matches_type, M2), so a
@@ -43,8 +45,8 @@ export function hashInvitationToken(token: string): string {
 }
 
 export function invitationUrl(token: string): string {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  return `${appUrl}/invite/accept?token=${token}`;
+  // M3.3 S3 — the configured canonical origin; never a localhost fallback.
+  return absoluteUrl(getAppOrigin(), `/invite/accept?token=${token}`);
 }
 
 /**

@@ -21,6 +21,7 @@ import { readFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
+import { loadEnv, withoutRetiredNames } from "./lib/harnessEnv.mjs";
 
 const EXPECT_REVOKED = process.argv.includes("--expect-revoked");
 const REAL_ORG_ID = "07f342fd-075c-42b5-a885-30ca64953d46";
@@ -30,21 +31,11 @@ const PORT = 3155;
 const BASE = `http://localhost:${PORT}`;
 const RUN = randomUUID().slice(0, 8);
 
-function loadEnv(path) {
-  const env = {};
-  for (const line of readFileSync(path, "utf8").split("\n")) {
-    const t = line.trim();
-    if (!t || t.startsWith("#") || !t.includes("=")) continue;
-    const eq = t.indexOf("=");
-    env[t.slice(0, eq).trim()] = t.slice(eq + 1).trim();
-  }
-  return env;
-}
 const env = loadEnv(".env.local");
 // M3.1 — refuse unless TENOTRAINER_MODE=development and the target project is allow-listed.
 assertDevTestTarget(env);
-const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
-const anon = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, { auth: { persistSession: false } });
+const admin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+const anon = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, { auth: { persistSession: false } });
 
 let pass = 0;
 let fail = 0;
@@ -82,7 +73,7 @@ async function makeUser(label, role = null, orgId = REAL_ORG_ID) {
   createdUsers.push(data.user.id);
   await admin.from("profiles").upsert({ id: data.user.id, name: `M3.1 adv ${label}`, timezone: TZ, morning_reminder_time: "07:00" });
   if (role) await admin.from("organization_members").insert({ organization_id: orgId, user_id: data.user.id, role });
-  const client = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, { auth: { persistSession: false } });
+  const client = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, { auth: { persistSession: false } });
   const { error: se } = await client.auth.signInWithPassword({ email, password: PASSWORD });
   if (se) throw se;
   return { userId: data.user.id, email, db: client };
@@ -154,13 +145,13 @@ async function listening() {
 }
 async function startProductionServer() {
   if (await listening()) throw new Error(`port ${PORT} already in use — refusing to touch a server this script did not start`);
-  const e = { ...process.env };
+  const e = withoutRetiredNames({ ...process.env });
   for (const k of ["TENOTRAINER_MODE", "C5_PATIENT_RUNTIME_ENABLED", "C5_PRESCRIPTION_PUBLISH_ENABLED"]) delete e[k];
   const proc = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-p", String(PORT)], {
     // M3.2: production also requires the safety email configuration (the
     // dummy Resend key is never used — this suite sends no email).
-    env: { ...e, TENOTRAINER_MODE: "production", FASTAPI_URL: "", BRIDGE_SECRET: "", NEXT_PUBLIC_APP_URL: "https://app.tenotrainer.test",
-      SAFETY_EMAIL_PROVIDER: "resend", SAFETY_DISPATCH_SECRET: `m31-adv-${randomUUID()}-${randomUUID()}`, RESEND_API_KEY: "re_isolated_never_called", RESEND_FROM: "TenoTrainer <safety@tenotrainer.test>" },
+    env: { ...e, TENOTRAINER_MODE: "production", FASTAPI_URL: "", BRIDGE_SECRET: "", TENOTRAINER_APP_ORIGIN: "https://app.tenotrainer.test",
+      TENOTRAINER_EMAIL_PROVIDER: "resend", SAFETY_DISPATCH_SECRET: `m31-adv-${randomUUID()}-${randomUUID()}`, RESEND_API_KEY: "re_isolated_never_called", TENOTRAINER_NOTIFICATION_EMAIL_FROM: "TenoTrainer <safety@tenotrainer.test>" },
     detached: true, stdio: ["ignore", "pipe", "pipe"],
   });
   server = { proc, pid: proc.pid, log: "", exited: null };
@@ -192,7 +183,7 @@ async function stopServer() {
 }
 // Cookie-authenticated HTTP as a user: Supabase SSR cookie built from the session.
 function authCookie(session) {
-  const ref = new URL(env.NEXT_PUBLIC_SUPABASE_URL).hostname.split(".")[0];
+  const ref = new URL(env.SUPABASE_URL).hostname.split(".")[0];
   const value = "base64-" + Buffer.from(JSON.stringify(session)).toString("base64url");
   const name = `sb-${ref}-auth-token`;
   const chunks = value.match(/.{1,3180}/g);

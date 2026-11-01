@@ -5,8 +5,9 @@
 //   1. TENOTRAINER_MODE === "development" in the harness process environment
 //      (missing, production or maintenance -> refuse), AND
 //   2. the target Supabase project ref is explicitly listed in
-//      scripts/lib/allowedTestProjects.json (missing file, empty list or an
-//      unknown project -> refuse).
+//      developmentSupabaseProjects of web/config/resourceIdentity.json (the
+//      M3.3 S3 resource registry; missing file, empty list or an unknown
+//      project -> refuse).
 //
 // A production Supabase URL accidentally placed into a developer
 // environment is therefore never enough to permit test writes. The
@@ -17,7 +18,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const ALLOW_LIST = join(HERE, "allowedTestProjects.json");
+const ALLOW_LIST = join(HERE, "..", "..", "config", "resourceIdentity.json");
 const LINKED_REF = join(HERE, "..", "..", "..", "supabase", ".temp", "project-ref");
 
 export class TestTargetRefused extends Error {}
@@ -44,17 +45,19 @@ export function loadAllowedProjects(path = ALLOW_LIST) {
   } catch {
     refuse("the approved test-project allow-list is unreadable");
   }
-  const list = Array.isArray(parsed?.projects) ? parsed.projects.filter((p) => typeof p === "string" && p.length > 0) : [];
+  const raw = parsed?.developmentSupabaseProjects;
+  const list = Array.isArray(raw) ? raw.filter((p) => typeof p === "string" && p.length > 0) : [];
   if (list.length === 0) refuse("the approved test-project allow-list is empty");
   return list;
 }
 
-// env: the harness's loaded .env.local values (must include NEXT_PUBLIC_SUPABASE_URL).
+// env: the harness's loaded .env.local values (must include SUPABASE_URL;
+// see harnessEnv.mjs for the Phase 1 transition fallback).
 export function assertDevTestTarget(env, { mode = process.env.TENOTRAINER_MODE, allowListPath = ALLOW_LIST, linkedRefPath = LINKED_REF } = {}) {
   if (mode === undefined || mode === "") refuse("TENOTRAINER_MODE is not set (it must be explicitly 'development')");
   if (mode !== "development") refuse(`TENOTRAINER_MODE is '${mode}' (test writes are only allowed in development)`);
   const allowed = loadAllowedProjects(allowListPath);
-  const ref = projectRefFromUrl(env?.NEXT_PUBLIC_SUPABASE_URL ?? "");
+  const ref = projectRefFromUrl(env?.SUPABASE_URL ?? "");
   if (!ref) refuse("the target Supabase project ref could not be determined");
   if (!allowed.includes(ref)) refuse("the target Supabase project is not on the approved test-project allow-list");
   if (existsSync(linkedRefPath)) {

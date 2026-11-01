@@ -8,6 +8,9 @@ import {
 } from "@/lib/prescriptionVersionsServer";
 import type { Irritability, PrescriptionVersionSource } from "@/lib/prescriptionVersionTypes";
 import { legacyRetiredResponse } from "@/lib/modeHttp";
+// M3.3 S3 — temporary legacy debt (removed with M6 legacy retirement): constant-time
+// bridge-credential check inside the server-only secret boundary.
+import { verifyLegacyBridgeAuthorization } from "@/lib/config/secrets";
 
 // Milestone 5, Stage 1 — server-to-server only, mirrors the existing
 // FastAPI<->Next.js bridge-secret pattern used by
@@ -25,8 +28,6 @@ import { legacyRetiredResponse } from "@/lib/modeHttp";
 //                                  for pre-Stage-1 patients.
 // clinician_change/system_progression are NOT reachable from this endpoint
 // (no caller exists yet for either — see the M5 Stage 1 report).
-const BRIDGE_SECRET = process.env.BRIDGE_SECRET;
-
 const CALLABLE_SOURCES: PrescriptionVersionSource[] = ["onboarding", "legacy_bootstrap"];
 const VALID_IRRITABILITY: Irritability[] = ["low", "moderate", "high"];
 
@@ -44,8 +45,7 @@ export async function POST(request: NextRequest) {
   // M3.1 — legacy (FastAPI-era) route: exists only in development mode (410 LEGACY_RETIRED otherwise).
   const modeRefusal = legacyRetiredResponse();
   if (modeRefusal) return modeRefusal;
-  const auth = request.headers.get("Authorization");
-  if (!BRIDGE_SECRET || auth !== `Bearer ${BRIDGE_SECRET}`) {
+  if (!verifyLegacyBridgeAuthorization(request.headers.get("Authorization"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

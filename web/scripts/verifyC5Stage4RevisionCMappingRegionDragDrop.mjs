@@ -15,23 +15,14 @@ import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { chromium } from "playwright";
 import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
+import { loadEnv } from "./lib/harnessEnv.mjs";
 
 const LEGACY_DB_PATH = "../app/tenotrainer.db";
 
-function loadEnv(path) {
-  const env = {};
-  for (const line of readFileSync(path, "utf8").split("\n")) {
-    const t = line.trim();
-    if (!t || t.startsWith("#") || !t.includes("=")) continue;
-    const eq = t.indexOf("=");
-    env[t.slice(0, eq).trim()] = t.slice(eq + 1).trim();
-  }
-  return env;
-}
 const env = loadEnv(".env.local");
 // M3.1 — refuse unless TENOTRAINER_MODE=development and the target project is allow-listed.
 assertDevTestTarget(env);
-const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+const admin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 const BASE_URL = "http://localhost:3000";
 const REAL_ORG_ID = "07f342fd-075c-42b5-a885-30ca64953d46";
 const PASSWORD = "throwaway-verification-1!";

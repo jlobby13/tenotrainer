@@ -3,7 +3,7 @@
 // One module owns every security header so the proxy (per-request, mode-
 // aware) and next.config.ts (static assets the proxy never sees) cannot
 // drift apart. Pure: no Next/server imports, so next.config.ts can load it.
-import type { OperatingMode } from "./envValidation";
+import type { OperatingMode } from "./config/types";
 
 // Browser features TenoTrainer never uses: deny them for every origin
 // (including embedded third parties). The app needs none of camera,

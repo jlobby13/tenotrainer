@@ -12,7 +12,7 @@
 // Screenshots land in /tmp for manual inspection.
 //
 // Requires: `next dev` running on localhost:3000, web/.env.local populated
-// (NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY /
+// (SUPABASE_URL / SUPABASE_ANON_KEY /
 // SUPABASE_SERVICE_ROLE_KEY), and the Playwright Chromium browser installed
 // (`npx playwright install chromium`). Point at a dev/staging project only.
 //
@@ -28,22 +28,13 @@ import Database from "node:sqlite";
 import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
 import { guardedFixtureTeardown } from "./lib/safetyFixturePurge.mjs";
 import { guardedSql, q } from "./lib/m32Fixtures.mjs";
+import { loadEnv } from "./lib/harnessEnv.mjs";
 
-function loadEnv(path) {
-  const env = {};
-  for (const line of readFileSync(path, "utf8").split("\n")) {
-    const t = line.trim();
-    if (!t || t.startsWith("#") || !t.includes("=")) continue;
-    const eq = t.indexOf("=");
-    env[t.slice(0, eq).trim()] = t.slice(eq + 1).trim();
-  }
-  return env;
-}
 const env = loadEnv(".env.local");
 const RUN_STARTED_AT = new Date(Date.now() - 60_000).toISOString();
 // M3.1 — refuse unless TENOTRAINER_MODE=development and the target project is allow-listed.
 assertDevTestTarget(env);
-const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+const admin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 // M3.1 — optional base URL so the suite can target an isolated server.
 const BASE_URL = process.argv[2] ?? "http://localhost:3000";
 const REAL_ORG_ID = "07f342fd-075c-42b5-a885-30ca64953d46"; // founder's existing org — throwaway membership rows added+removed, founder's own rows untouched

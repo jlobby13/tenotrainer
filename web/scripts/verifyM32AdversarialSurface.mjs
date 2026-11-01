@@ -9,10 +9,11 @@ import { createClient } from "@supabase/supabase-js";
 import { chromium } from "playwright";
 import { FixtureRun, FIXTURE_PASSWORD, guardedSql, loadEnv, q } from "./lib/m32Fixtures.mjs";
 import { assertPurgeTarget } from "./lib/safetyFixturePurge.mjs";
+import { withoutRetiredNames } from "./lib/harnessEnv.mjs";
 
 const env = loadEnv(".env.local");
 assertPurgeTarget(env);
-const URL_ = env.NEXT_PUBLIC_SUPABASE_URL;
+const URL_ = env.SUPABASE_URL;
 const admin = createClient(URL_, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 const PORT = 3164;
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -46,7 +47,7 @@ const RPCS = [
 const denied = (e) => e && (e.code === "42501" || /permission denied/i.test(e.message ?? ""));
 
 async function asUser(email) {
-  const c = createClient(URL_, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, { auth: { persistSession: false } });
+  const c = createClient(URL_, env.SUPABASE_ANON_KEY, { auth: { persistSession: false } });
   const { error } = await c.auth.signInWithPassword({ email, password: FIXTURE_PASSWORD });
   if (error) throw new Error(`sign-in ${email}: ${error.message}`);
   return c;
@@ -74,7 +75,7 @@ try {
   check("fixtures: L5 for pA (cA), L3 for pB (cB), a clinician of another organization (cX)", aRid && aOb && other.orgId !== orgId);
 
   // ---------------------------------------------------------------- PostgREST with real JWTs
-  const anon = createClient(URL_, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, { auth: { persistSession: false } });
+  const anon = createClient(URL_, env.SUPABASE_ANON_KEY, { auth: { persistSession: false } });
   const actors = { anon, patient: await asUser(pA.email), clinicianA: await asUser(cA.email), clinicianB: await asUser(cB.email), crossOrg: await asUser(cX.email) };
   for (const [who, c] of Object.entries(actors)) {
     const bad = [];
@@ -114,8 +115,8 @@ try {
   check("exactly one safety_email_claim signature exists (no stale overload)", Number(ownFns) === 1);
 
   // ---------------------------------------------------------------- HTTP (isolated development server)
-  const envs = { ...process.env, TENOTRAINER_MODE: "development", C5_PATIENT_RUNTIME_ENABLED: "true", FASTAPI_URL: "http://127.0.0.1:9",
-    NEXT_PUBLIC_APP_URL: BASE, SAFETY_EMAIL_PROVIDER: "", SAFETY_DISPATCH_SECRET: `adv-${crypto.randomUUID()}-${crypto.randomUUID()}`, RESEND_API_KEY: "" };
+  const envs = { ...withoutRetiredNames(process.env), TENOTRAINER_MODE: "development", C5_PATIENT_RUNTIME_ENABLED: "true", FASTAPI_URL: "http://127.0.0.1:9",
+    TENOTRAINER_APP_ORIGIN: BASE, TENOTRAINER_EMAIL_PROVIDER: "", SAFETY_DISPATCH_SECRET: `adv-${crypto.randomUUID()}-${crypto.randomUUID()}`, RESEND_API_KEY: "" };
   const proc = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-p", String(PORT)], { env: envs, detached: true, stdio: ["ignore", "pipe", "pipe"] });
   server = { pid: proc.pid, exited: null };
   proc.on("exit", (c) => (server.exited = c ?? -1));

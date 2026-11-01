@@ -30,6 +30,7 @@ import { chromium } from "playwright";
 import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
 import { sqlLocalDate, sqlLocalInstant } from "./lib/patientLocalDate.mjs";
 import { guardedFixtureTeardown } from "./lib/safetyFixturePurge.mjs";
+import { loadEnv } from "./lib/harnessEnv.mjs";
 
 const ON = process.argv[2] ?? "http://localhost:3001";
 const DEAD_FASTAPI = process.argv[3] ?? "http://127.0.0.1:59999";
@@ -39,20 +40,10 @@ const REAL_ORG_ID = "07f342fd-075c-42b5-a885-30ca64953d46";
 const TZ = "America/New_York";
 const PASSWORD = "throwaway-verification-1!";
 
-function loadEnv(path) {
-  const env = {};
-  for (const line of readFileSync(path, "utf8").split("\n")) {
-    const t = line.trim();
-    if (!t || t.startsWith("#") || !t.includes("=")) continue;
-    const eq = t.indexOf("=");
-    env[t.slice(0, eq).trim()] = t.slice(eq + 1).trim();
-  }
-  return env;
-}
 const env = loadEnv(".env.local");
 // M3.1 — refuse unless TENOTRAINER_MODE=development and the target project is allow-listed.
 assertDevTestTarget(env);
-const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+const admin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 const WORK = mkdtempSync(join(tmpdir(), "m2-"));
 const RUN = randomUUID().slice(0, 8);
 

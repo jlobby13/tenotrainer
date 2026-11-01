@@ -17,7 +17,7 @@ import { assertPurgeTarget } from "./lib/safetyFixturePurge.mjs";
 const PAIRS = Number(process.argv[2] ?? 60);
 const env = loadEnv(".env.local");
 assertPurgeTarget(env);
-const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+const admin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 let pass = 0;
 let fail = 0;
 const check = (label, ok, detail = "") => {

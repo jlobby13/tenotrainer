@@ -34,6 +34,7 @@ import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
 import { chromium } from "playwright";
 import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
+import { loadEnv, withoutRetiredNames } from "./lib/harnessEnv.mjs";
 
 const REAL_ORG_ID = "07f342fd-075c-42b5-a885-30ca64953d46";
 const PRESERVED_L5_OUTBOX = "f73aeb4d-6517-481b-ac6e-cc73fa0afc67";
@@ -48,19 +49,9 @@ const EXT = `http://127.0.0.1:${PORTS.external}`;
 const DISPATCH = "/api/internal/safety-notifications/dispatch";
 const SECRET = `m33-s2-${randomUUID()}-${randomUUID()}`;
 
-function loadEnv(path) {
-  const env = {};
-  for (const line of readFileSync(path, "utf8").split("\n")) {
-    const t = line.trim();
-    if (!t || t.startsWith("#") || !t.includes("=")) continue;
-    const eq = t.indexOf("=");
-    env[t.slice(0, eq).trim()] = t.slice(eq + 1).trim();
-  }
-  return env;
-}
 const env = loadEnv(".env.local");
 assertDevTestTarget(env);
-const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+const admin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
 let pass = 0;
 let fail = 0;
@@ -82,21 +73,21 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // Same environment discipline as the M3.1 / M3.2 mode suites: every
 // mode-relevant key is explicit (blank overrides .env.local).
 function serverEnv(overrides) {
-  const base = { ...process.env };
-  for (const k of ["FASTAPI_URL", "BRIDGE_SECRET", "NEXT_PUBLIC_APP_URL"]) delete base[k];
+  const base = withoutRetiredNames({ ...process.env });
+  for (const k of ["FASTAPI_URL", "BRIDGE_SECRET", "TENOTRAINER_APP_ORIGIN"]) delete base[k];
   for (const k of ["TENOTRAINER_MODE", "C5_PATIENT_RUNTIME_ENABLED", "C5_PRESCRIPTION_PUBLISH_ENABLED"]) base[k] = "";
   return { ...base, RESEND_API_KEY: "", ...overrides };
 }
 // Production / maintenance require the safety email configuration; the
 // dummy key is never used — this suite never presents the real secret to
 // a server whose provider is configured.
-const PROD_ENV = { FASTAPI_URL: "", BRIDGE_SECRET: "", NEXT_PUBLIC_APP_URL: "https://app.tenotrainer.test", C5_PATIENT_RUNTIME_ENABLED: "true",
-  C5_PRESCRIPTION_PUBLISH_ENABLED: "false", SAFETY_EMAIL_PROVIDER: "resend", SAFETY_DISPATCH_SECRET: `m33-s2-prod-${randomUUID()}-${randomUUID()}`,
-  RESEND_API_KEY: "re_isolated_never_called", RESEND_FROM: "TenoTrainer <safety@tenotrainer.test>" };
+const PROD_ENV = { FASTAPI_URL: "", BRIDGE_SECRET: "", TENOTRAINER_APP_ORIGIN: "https://app.tenotrainer.test", C5_PATIENT_RUNTIME_ENABLED: "true",
+  C5_PRESCRIPTION_PUBLISH_ENABLED: "false", TENOTRAINER_EMAIL_PROVIDER: "resend", SAFETY_DISPATCH_SECRET: `m33-s2-prod-${randomUUID()}-${randomUUID()}`,
+  RESEND_API_KEY: "re_isolated_never_called", TENOTRAINER_NOTIFICATION_EMAIL_FROM: "TenoTrainer <safety@tenotrainer.test>" };
 // Development mode on the production build; provider disabled so the
 // dispatcher refuses before claiming anything.
-const DEV_ENV = { TENOTRAINER_MODE: "development", FASTAPI_URL: "http://127.0.0.1:59999", NEXT_PUBLIC_APP_URL: D, C5_PATIENT_RUNTIME_ENABLED: "true",
-  C5_PRESCRIPTION_PUBLISH_ENABLED: "false", SAFETY_EMAIL_PROVIDER: "", SAFETY_DISPATCH_SECRET: SECRET };
+const DEV_ENV = { TENOTRAINER_MODE: "development", FASTAPI_URL: "http://127.0.0.1:59999", TENOTRAINER_APP_ORIGIN: D, C5_PATIENT_RUNTIME_ENABLED: "true",
+  C5_PRESCRIPTION_PUBLISH_ENABLED: "false", TENOTRAINER_EMAIL_PROVIDER: "", SAFETY_DISPATCH_SECRET: SECRET };
 const started = [];
 
 function spawnServer(port, overrides) {

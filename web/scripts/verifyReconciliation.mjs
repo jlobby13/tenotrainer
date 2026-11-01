@@ -18,8 +18,8 @@
 // or the acute safety brake/gate RPCs.
 //
 // Talks to Supabase directly via RPC — no running Next.js server required.
-// Requires web/.env.local populated with NEXT_PUBLIC_SUPABASE_URL /
-// NEXT_PUBLIC_SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY, pointed at a
+// Requires web/.env.local populated with SUPABASE_URL /
+// SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY, pointed at a
 // dev/staging project — never run against production.
 //
 // Run from the web/ directory:
@@ -27,21 +27,12 @@
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "node:fs";
 import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
+import { loadEnv } from "./lib/harnessEnv.mjs";
 
-function loadEnv(path) {
-  const env = {};
-  for (const line of readFileSync(path, "utf8").split("\n")) {
-    const t = line.trim();
-    if (!t || t.startsWith("#") || !t.includes("=")) continue;
-    const eq = t.indexOf("=");
-    env[t.slice(0, eq).trim()] = t.slice(eq + 1).trim();
-  }
-  return env;
-}
 const env = loadEnv(".env.local");
 // M3.1 — refuse unless TENOTRAINER_MODE=development and the target project is allow-listed.
 assertDevTestTarget(env);
-const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+const admin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
 let pass = 0, fail = 0;
 function check(name, cond, detail) {
@@ -78,7 +69,7 @@ async function makeUser(label) {
   const password = "throwaway-verification-1!";
   const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
   if (error) throw error;
-  const client = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+  const client = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
   await client.auth.signInWithPassword({ email, password });
   return { userId: data.user.id, client };
 }

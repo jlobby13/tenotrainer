@@ -37,19 +37,10 @@ import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
+import { loadEnv } from "./lib/harnessEnv.mjs";
 
-function loadEnv(path) {
-  const env = {};
-  for (const line of readFileSync(path, "utf8").split("\n")) {
-    const t = line.trim();
-    if (!t || t.startsWith("#") || !t.includes("=")) continue;
-    const eq = t.indexOf("=");
-    env[t.slice(0, eq).trim()] = t.slice(eq + 1).trim();
-  }
-  return env;
-}
 const env = loadEnv(".env.local");
-const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+const admin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
 // Matches the legacy Python backend's own default DB_PATH exactly
 // (app/db/database.py: Path(__file__).parent.parent / "tenotrainer.db",

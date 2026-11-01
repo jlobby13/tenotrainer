@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { getServerConfig } from "./lib/env";
-import type { OperatingMode } from "./lib/envValidation";
+import { getConfig, type AppConfig } from "./lib/config";
+import type { OperatingMode } from "./lib/config/types";
 import { applySecurityHeaders, createSecurityContext, CSP_HEADER, type SecurityContext } from "./lib/securityHeaders";
 import { checkMutationOrigin } from "./lib/mutationOrigin";
 
@@ -92,18 +92,19 @@ function forwardedHeaders(request: NextRequest, security: SecurityContext): Head
 
 export async function proxy(request: NextRequest) {
   // Fail closed: an invalid configuration serves nothing.
-  let mode: OperatingMode;
+  let config: AppConfig;
   try {
-    mode = getServerConfig().mode;
+    config = getConfig();
   } catch {
     return secured(new NextResponse("Service unavailable", { status: 503 }), createSecurityContext(null, false));
   }
   // One nonce per request (M3.3 S2). `next dev` is the only place React
   // needs eval; it is honoured in development mode only.
-  const security = createSecurityContext(mode, process.env.NODE_ENV === "development");
+  const { mode } = config;
+  const security = createSecurityContext(mode, config.platform.isDevServer);
   const refused = modeRefusal(mode, request) ?? crossOriginRefusal(request);
   if (refused) return secured(refused, security);
-  return secured(await route(request, mode, security), security);
+  return secured(await route(request, config, security), security);
 }
 
 function secured(response: NextResponse, security: SecurityContext): NextResponse {
@@ -111,12 +112,13 @@ function secured(response: NextResponse, security: SecurityContext): NextRespons
   return response;
 }
 
-async function route(request: NextRequest, mode: OperatingMode, security: SecurityContext): Promise<NextResponse> {
+async function route(request: NextRequest, config: AppConfig, security: SecurityContext): Promise<NextResponse> {
+  const { mode } = config;
   let supabaseResponse = NextResponse.next({ request: { headers: forwardedHeaders(request, security) } });
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    config.supabase.url,
+    config.supabase.anonKey,
     {
       cookies: {
         getAll() {

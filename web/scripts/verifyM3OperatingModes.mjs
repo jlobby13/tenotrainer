@@ -25,6 +25,7 @@ import { spawn, execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { chromium } from "playwright";
 import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
+import { loadEnv, withoutRetiredNames } from "./lib/harnessEnv.mjs";
 
 const REAL_ORG_ID = "07f342fd-075c-42b5-a885-30ca64953d46";
 const TZ = "America/New_York";
@@ -33,20 +34,10 @@ const DEAD_FASTAPI = "http://127.0.0.1:59999";
 const RUN = randomUUID().slice(0, 8);
 const PORTS = { refuse: 3150, prodFrozen: 3151, maintenance: 3152, prodLive: 3153, dev: 3154 };
 
-function loadEnv(path) {
-  const env = {};
-  for (const line of readFileSync(path, "utf8").split("\n")) {
-    const t = line.trim();
-    if (!t || t.startsWith("#") || !t.includes("=")) continue;
-    const eq = t.indexOf("=");
-    env[t.slice(0, eq).trim()] = t.slice(eq + 1).trim();
-  }
-  return env;
-}
 const env = loadEnv(".env.local");
 // M3.1 — refuse unless TENOTRAINER_MODE=development and the target project is allow-listed.
 assertDevTestTarget(env);
-const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+const admin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
 let pass = 0;
 let fail = 0;
@@ -73,17 +64,17 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // filled from it. The bridge / app-URL keys are deleted so .env.local's
 // developer values still apply where a case relies on them.
 function serverEnv(overrides) {
-  const base = { ...process.env };
-  for (const k of ["FASTAPI_URL", "BRIDGE_SECRET", "NEXT_PUBLIC_APP_URL"]) delete base[k];
+  const base = withoutRetiredNames({ ...process.env });
+  for (const k of ["FASTAPI_URL", "BRIDGE_SECRET", "TENOTRAINER_APP_ORIGIN"]) delete base[k];
   for (const k of ["TENOTRAINER_MODE", "C5_PATIENT_RUNTIME_ENABLED", "C5_PRESCRIPTION_PUBLISH_ENABLED"]) base[k] = "";
   return { ...base, RESEND_API_KEY: "", ...overrides };
 }
 // M3.2: production / maintenance also require the safety email
 // configuration; the dummy Resend key is never used (this suite sends no
 // safety email and never calls the dispatch endpoint).
-const PROD_ENV = { FASTAPI_URL: "", BRIDGE_SECRET: "", NEXT_PUBLIC_APP_URL: "https://app.tenotrainer.test",
-  SAFETY_EMAIL_PROVIDER: "resend", SAFETY_DISPATCH_SECRET: `m31-modes-${randomUUID()}-${randomUUID()}`,
-  RESEND_API_KEY: "re_isolated_never_called", RESEND_FROM: "TenoTrainer <safety@tenotrainer.test>" };
+const PROD_ENV = { FASTAPI_URL: "", BRIDGE_SECRET: "", TENOTRAINER_APP_ORIGIN: "https://app.tenotrainer.test",
+  TENOTRAINER_EMAIL_PROVIDER: "resend", SAFETY_DISPATCH_SECRET: `m31-modes-${randomUUID()}-${randomUUID()}`,
+  RESEND_API_KEY: "re_isolated_never_called", TENOTRAINER_NOTIFICATION_EMAIL_FROM: "TenoTrainer <safety@tenotrainer.test>" };
 const started = [];
 
 function spawnServer(port, overrides) {
@@ -292,15 +283,21 @@ async function main() {
   // ================================================================ A
   section("A. Startup refusal (fail closed, no implicit default)");
   check("FastAPI URL used for this run refuses connections", await fetch(`${DEAD_FASTAPI}/`, { signal: AbortSignal.timeout(3000) }).then(() => false, () => true));
-  await expectStartupRefusal("TENOTRAINER_MODE missing (no default from NODE_ENV)", { NODE_ENV: "production" }, "TENOTRAINER_MODE is required");
+  await expectStartupRefusal("TENOTRAINER_MODE missing (no default from NODE_ENV)", { NODE_ENV: "production" }, "TENOTRAINER_MODE: is required");
   await expectStartupRefusal("TENOTRAINER_MODE invalid ('prod')", { TENOTRAINER_MODE: "prod" }, "must be exactly");
   await expectStartupRefusal("production with FASTAPI_URL", { ...PROD_ENV, TENOTRAINER_MODE: "production", FASTAPI_URL: DEAD_FASTAPI }, "FASTAPI_URL");
   await expectStartupRefusal("production with BRIDGE_SECRET", { ...PROD_ENV, TENOTRAINER_MODE: "production", BRIDGE_SECRET: "x" }, "BRIDGE_SECRET");
   await expectStartupRefusal("production with runtime gate false (cannot resurrect legacy)", { ...PROD_ENV, TENOTRAINER_MODE: "production", C5_PATIENT_RUNTIME_ENABLED: "false" }, "C5_PATIENT_RUNTIME_ENABLED");
-  await expectStartupRefusal("production with the developer (local http) app URL", { ...PROD_ENV, TENOTRAINER_MODE: "production", NEXT_PUBLIC_APP_URL: "http://localhost:3000" }, "NEXT_PUBLIC_APP_URL");
-  await expectStartupRefusal("production with the developer .env.local bridge config left in place", { TENOTRAINER_MODE: "production", NEXT_PUBLIC_APP_URL: "https://app.tenotrainer.test" }, "FASTAPI_URL");
+  await expectStartupRefusal("production with the developer (local http) app URL", { ...PROD_ENV, TENOTRAINER_MODE: "production", TENOTRAINER_APP_ORIGIN: "http://localhost:3000" }, "TENOTRAINER_APP_ORIGIN");
+  await expectStartupRefusal("production with the developer .env.local bridge config left in place", { TENOTRAINER_MODE: "production", TENOTRAINER_APP_ORIGIN: "https://app.tenotrainer.test" }, "FASTAPI_URL");
   await expectStartupRefusal("maintenance with FASTAPI_URL", { ...PROD_ENV, TENOTRAINER_MODE: "maintenance", FASTAPI_URL: DEAD_FASTAPI }, "FASTAPI_URL");
   await expectStartupRefusal("maintenance with runtime gate false", { ...PROD_ENV, TENOTRAINER_MODE: "maintenance", C5_PATIENT_RUNTIME_ENABLED: "false" }, "C5_PATIENT_RUNTIME_ENABLED");
+  // M3.3 S3 — the centralized contract, verified on real spawned servers.
+  await expectStartupRefusal("production with a retired NEXT_PUBLIC_* authority name", { ...PROD_ENV, TENOTRAINER_MODE: "production", NEXT_PUBLIC_APP_URL: "https://app.tenotrainer.test" }, "NEXT_PUBLIC_APP_URL: NEXT_PUBLIC_* configuration is refused");
+  await expectStartupRefusal("production against the development project with an ordinary origin (no isolated test profile)", { ...PROD_ENV, TENOTRAINER_MODE: "production", TENOTRAINER_APP_ORIGIN: "https://app.tenotrainer.example" }, "registered development project and is refused");
+  await expectStartupRefusal("production with VERCEL set: the isolated test profile is impossible", { ...PROD_ENV, TENOTRAINER_MODE: "production", VERCEL: "1" }, "registered development project and is refused");
+  await expectStartupRefusal("production with ANTHROPIC_API_KEY (undeclared credential)", { ...PROD_ENV, TENOTRAINER_MODE: "production", ANTHROPIC_API_KEY: "sk-ant-not-a-key" }, "ANTHROPIC_API_KEY");
+  await expectStartupRefusal("maintenance without the expected Supabase project ref", { ...PROD_ENV, TENOTRAINER_MODE: "maintenance", TENOTRAINER_SUPABASE_PROJECT_REF: "" }, "TENOTRAINER_SUPABASE_PROJECT_REF: is required");
 
   // ---------------------------------------------------------------- fixtures
   const { data: org, error: oe } = await admin.from("organizations").insert({ name: `M3.1 super org ${RUN}`, slug: `m31-super-${RUN}` }).select("id").single();
@@ -323,6 +320,7 @@ async function main() {
     server = await startServer(PORTS.prodFrozen, { ...PROD_ENV, TENOTRAINER_MODE: "production", C5_PRESCRIPTION_PUBLISH_ENABLED: "false" });
     const P1 = `http://localhost:${PORTS.prodFrozen}`;
     check("production server started and logged its mode", server.log.includes("TenoTrainer operating mode: production"));
+    check("production test server classified as the isolated test profile (test infrastructure only)", server.log.includes("TenoTrainer configuration profile: isolated test"));
     for (const [m, path] of LEGACY_ROUTES) {
       const st = await rawStatus(P1, m, path);
       check(`production: legacy/bridge route ${m} ${path.replace(/[0-9a-f-]{36}/, ":id")} retired (410)`, st === 410, `status ${st}`);

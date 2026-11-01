@@ -2,13 +2,16 @@ import "server-only";
 
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { getSupabasePublic } from "../config";
+import { getServiceRoleKey } from "../config/secrets";
 
 // Anon-key server client — respects RLS, safe for user-scoped queries.
 export async function createServerSupabaseClient() {
   const cookieStore = await cookies();
+  const { url, anonKey } = getSupabasePublic();
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    url,
+    anonKey,
     {
       cookies: {
         getAll() {
@@ -31,14 +34,12 @@ export async function createServerSupabaseClient() {
 // Service-role client — bypasses RLS. ONLY call from server actions / route handlers.
 // Never export or use in Client Components.
 export function createServiceRoleClient() {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceRoleKey) {
-    throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set");
-  }
+  // M3.3 S3 — the credential comes only from the server-only secret boundary.
+  const serviceRoleKey = getServiceRoleKey();
   // Service-role client uses createServerClient with no cookie store —
   // it acts as a super-user, so session cookies are irrelevant.
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    getSupabasePublic().url,
     serviceRoleKey,
     { cookies: { getAll: () => [], setAll: () => {} } }
   );

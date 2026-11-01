@@ -1,6 +1,6 @@
 // M3.2 — development/test double for the safety email provider. It never
 // touches the network. Refused at startup outside development
-// (envValidation: SAFETY_EMAIL_PROVIDER "fake" is forbidden in production /
+// (lib/config: TENOTRAINER_EMAIL_PROVIDER "fake" is forbidden in production /
 // maintenance) and refuses to construct outside development as well.
 //
 // Behaviour:

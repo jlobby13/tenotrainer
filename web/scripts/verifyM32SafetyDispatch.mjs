@@ -17,7 +17,7 @@ import { buildSafetyEmail, notificationLink } from "../lib/safetyEmail/template.
 
 const env = loadEnv(".env.local");
 assertPurgeTarget(env);
-const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+const admin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 const APP = "https://app.tenotrainer.test";
 
 let pass = 0;

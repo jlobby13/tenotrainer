@@ -26,7 +26,7 @@
 //   node_modules/.bin/jiti scripts/bootstrapPrescriptionVersions.ts
 //
 // Requires (from web/.env.local or the environment):
-//   NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
+//   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
 //   FASTAPI_URL, NEXTJS_URL, BRIDGE_SECRET
 //
 // Deliberately does NOT import anything under web/lib/supabase/server.ts —
@@ -58,10 +58,12 @@ function loadEnvLocal(): void {
 }
 
 loadEnvLocal();
+// M3.3 S3 — server-only name (the retired NEXT_PUBLIC_* name is the Phase 1 transition fallback).
+if (!process.env.SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_URL) process.env.SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 // M3.1 — legacy bootstrap writes to the database: development + allow-listed project only.
 assertDevTestTarget(process.env);
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const FASTAPI_URL = process.env.FASTAPI_URL ?? "http://localhost:8000";
 const NEXTJS_URL = process.env.NEXTJS_URL ?? "http://localhost:3000";
@@ -119,7 +121,7 @@ async function createBootstrapVersion(params: {
 
 async function main() {
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
-    console.error("Missing NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY.");
+    console.error("Missing SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY.");
     process.exit(1);
   }
   if (!BRIDGE_SECRET) {

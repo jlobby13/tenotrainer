@@ -5,6 +5,7 @@ import { INVITATION_ROLE_MAP } from "@/lib/invitations";
 import { sendInvitationAction, cancelInvitationAction } from "@/app/admin/invitations/actions";
 import { getSuperOverview } from "@/lib/fastapi";
 import { isLegacyAllowed } from "@/lib/operatingMode";
+import { getAppOrigin } from "@/lib/config";
 
 export const metadata = { title: "Admin Overview — TenoTrainer" };
 
@@ -92,7 +93,7 @@ export default async function SuperDashboardPage({ searchParams }: Props) {
 
   const orgId = session.memberships[0].organization_id;
   const orgName = session.memberships[0].organizations?.name ?? "TenoTrainer";
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const appUrl = getAppOrigin(); // M3.3 S3 — configured canonical origin
   const service = createServiceRoleClient();
 
   // Fetch org members (clinicians + admins — exclude testers/members from caseload view)

@@ -1,7 +1,7 @@
 import "server-only";
 
-import { createHash, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
+import { verifyDispatchAuthorization } from "@/lib/config/secrets";
 import { runSafetyDispatch, structuredLog } from "@/lib/safetyEmail";
 
 // M3.2 — protected internal safety email dispatch ("dispatch eligible
@@ -15,20 +15,10 @@ import { runSafetyDispatch, structuredLog } from "@/lib/safetyEmail";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-function digest(v: string): Buffer {
-  return createHash("sha256").update(v, "utf8").digest();
-}
-
-function authorized(request: Request): boolean {
-  const secret = process.env.SAFETY_DISPATCH_SECRET ?? "";
-  if (secret.trim().length < 32) return false;
-  const header = request.headers.get("authorization") ?? "";
-  const presented = header.startsWith("Bearer ") ? header.slice(7) : "";
-  return timingSafeEqual(digest(presented), digest(secret)) && presented.length > 0;
-}
-
 export async function POST(request: Request) {
-  if (!authorized(request)) {
+  // M3.3 S3 — constant-time check against the configured credential (and
+  // its rotation partner), inside the server-only secret boundary.
+  if (!verifyDispatchAuthorization(request.headers.get("authorization"))) {
     structuredLog({ event: "tenotrainer.safety_dispatch.unauthorized" });
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }

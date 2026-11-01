@@ -10,13 +10,13 @@
 //                clinicians read-only; NO clinical mutation of any kind
 //
 // No "server-only" import: the proxy uses this too.
-import { getServerConfig } from "./env";
-import type { OperatingMode } from "./envValidation";
+import { getConfig, getMode as getConfiguredMode } from "./config";
+import type { OperatingMode } from "./config/types";
 
-export type { OperatingMode } from "./envValidation";
+export type { OperatingMode } from "./config/types";
 
 export function getMode(): OperatingMode {
-  return getServerConfig().mode;
+  return getConfiguredMode();
 }
 
 // The ONLY way into legacy (FastAPI / legacy patient runtime) code paths.
@@ -26,12 +26,12 @@ export function isLegacyAllowed(): boolean {
 
 // C5 is the patient runtime unless development explicitly selects legacy.
 export function isC5RuntimeAuthoritative(): boolean {
-  const { mode, runtimeGate } = getServerConfig();
+  const { mode, runtimeGate } = getConfig();
   return mode !== "development" || runtimeGate;
 }
 
 export function isPublishAllowedByMode(): boolean {
-  const { mode, publishGate } = getServerConfig();
+  const { mode, publishGate } = getConfig();
   if (mode === "maintenance") return false;
   return publishGate;
 }

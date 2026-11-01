@@ -11,6 +11,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import { assertPurgeTarget, purgeSafetyFixtures } from "./safetyFixturePurge.mjs";
+import { loadEnv } from "./harnessEnv.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "..", "..", "..");
@@ -18,16 +19,8 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 export const REAL_ORG_ID = "07f342fd-075c-42b5-a885-30ca64953d46";
 export const FIXTURE_PASSWORD = "M32-fixture-password-1!";
 
-export function loadEnv(path) {
-  const env = {};
-  for (const line of readFileSync(path, "utf8").split("\n")) {
-    const t = line.trim();
-    if (!t || t.startsWith("#")) continue;
-    const eq = t.indexOf("=");
-    if (eq > 0) env[t.slice(0, eq).trim()] = t.slice(eq + 1).trim();
-  }
-  return env;
-}
+// M3.3 S3 — the shared harness reader (re-exported for existing importers).
+export { loadEnv };
 
 export const q = (id) => {
   if (!UUID_RE.test(String(id))) throw new Error(`not a uuid: ${id}`);

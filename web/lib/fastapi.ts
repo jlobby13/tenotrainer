@@ -1,7 +1,8 @@
 import "server-only";
-
-const FASTAPI_URL = process.env.FASTAPI_URL ?? "http://localhost:8000";
-const BRIDGE_SECRET = process.env.BRIDGE_SECRET ?? "";
+import { getLegacyFastapiUrl } from "./config";
+// M3.3 S3 — temporary legacy debt (removed with M6 legacy retirement): the
+// development-only bridge sends its credential without ever holding it.
+import { legacyBridgeAuthorizationHeader } from "./config/secrets";
 
 // Two distinct failure shapes a caller needs to tell apart — never surfaced
 // with infrastructure detail (URL/port/status/body) to a patient; that
@@ -33,10 +34,14 @@ export class BackendApplicationError extends Error {
 }
 
 async function bridgeFetch<T>(path: string): Promise<T> {
+  // Resolved before the transport attempt: a configuration error must never
+  // be mislabeled as the backend being temporarily unavailable.
+  const url = `${getLegacyFastapiUrl()}${path}`;
+  const authorization = legacyBridgeAuthorizationHeader();
   let res: Response;
   try {
-    res = await fetch(`${FASTAPI_URL}${path}`, {
-      headers: { Authorization: `Bearer ${BRIDGE_SECRET}` },
+    res = await fetch(url, {
+      headers: { Authorization: authorization },
       cache: "no-store",
     });
   } catch (err) {

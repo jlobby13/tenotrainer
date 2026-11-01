@@ -4,29 +4,36 @@
 // bypassing the proxy, the HTTP boundary and server actions. Each must
 // refuse with MaintenanceError before touching any database.
 //
-// It can never write: the Supabase URL is forced to an unreachable local
-// port, so even a missing guard could only fail to connect (and would be
-// reported as a FAIL, not a MAINTENANCE refusal). Spawned by
-// verifyM3OperatingModes.mjs; prints one JSON line.
+// It can never write: the Supabase client modules are replaced by inert
+// stubs (m3ProbeStubHooks.mjs) whose every query resolves to a connection
+// error without any network access, so even a missing guard could only fail
+// (and would be reported as a FAIL, not a MAINTENANCE refusal). M3.3 S3:
+// the configuration is the isolated test profile (reserved .test origin,
+// the registered development project ref, unsigned placeholder keys) that
+// the centralized contract requires of production/maintenance processes.
+// Spawned by verifyM3OperatingModes.mjs; prints one JSON line.
 import { register } from "node:module";
+import { fakeKeysFor } from "./fakeSupabaseKeys.mjs";
+import { RETIRED_CONFIG_NAMES } from "./harnessEnv.mjs";
 
 register("./tsServerModuleHooks.mjs", import.meta.url);
 register("./m3ProbeStubHooks.mjs", import.meta.url);
 
 // argv[2] = mode under test (default maintenance; "production" is the negative control).
+const PROBE_REF = "kpdxlzqtvueiytwjamiw"; // the registered development project (identity only — no client can connect)
 process.env.TENOTRAINER_MODE = process.argv[2] ?? "maintenance";
-process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:59997";
-process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "probe-anon";
-process.env.SUPABASE_SERVICE_ROLE_KEY = "probe-service";
-process.env.NEXT_PUBLIC_APP_URL = "https://app.tenotrainer.test";
-delete process.env.FASTAPI_URL;
-delete process.env.BRIDGE_SECRET;
+process.env.NODE_ENV = "production";
+process.env.SUPABASE_URL = `https://${PROBE_REF}.supabase.co`;
+process.env.TENOTRAINER_SUPABASE_PROJECT_REF = PROBE_REF;
+Object.assign(process.env, fakeKeysFor(PROBE_REF));
+process.env.TENOTRAINER_APP_ORIGIN = "https://app.tenotrainer.test";
+for (const k of ["FASTAPI_URL", "BRIDGE_SECRET", "VERCEL", "VERCEL_ENV", "ANTHROPIC_API_KEY", ...RETIRED_CONFIG_NAMES]) delete process.env[k];
 // M3.2 — production / maintenance also require the safety email
-// configuration (unreachable placeholders; nothing is ever sent here).
-process.env.SAFETY_EMAIL_PROVIDER = "resend";
+// configuration (inert placeholders; nothing is ever sent here).
+process.env.TENOTRAINER_EMAIL_PROVIDER = "resend";
 process.env.SAFETY_DISPATCH_SECRET = "m32-probe-dispatch-secret-0123456789abcdef";
 process.env.RESEND_API_KEY = "re_probe_never_called";
-process.env.RESEND_FROM = "TenoTrainer <safety@tenotrainer.test>";
+process.env.TENOTRAINER_NOTIFICATION_EMAIL_FROM = "TenoTrainer <safety@tenotrainer.test>";
 
 const TARGETS = {
   "@/lib/prescriptionDraftServer": [

@@ -20,7 +20,7 @@ const [ON, OFF] = process.argv.slice(2);
 if (!ON || !OFF) { console.error("usage: <gate-on url> <gate-off url>"); process.exit(2); }
 const env = loadEnv(".env.local");
 assertPurgeTarget(env);
-const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+const admin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 const CLINICIAN = "44197ef7-7421-47ed-a164-75d2765fc019";
 let pass = 0;
 let fail = 0;

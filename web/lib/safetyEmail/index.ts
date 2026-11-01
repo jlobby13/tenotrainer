@@ -4,7 +4,8 @@ import "server-only";
 // the validated configuration, and the production dispatch run (scope NULL:
 // every eligible due intent). Nothing here is reachable from a browser; the
 // only caller is the secret-authenticated internal dispatch route.
-import { getServerConfig } from "../env";
+import { getAppOrigin, getConfig } from "../config";
+import { getResendApiKey } from "../config/secrets";
 import { createServiceRoleClient } from "../supabase/server";
 import { dispatchSafetyEmails, type ClaimRow, type DispatchSummary } from "./dispatcher";
 import { FakeSafetyEmailProvider } from "./fakeProvider";
@@ -13,20 +14,20 @@ import { ResendSafetyEmailProvider } from "./resendProvider";
 import { buildSafetyEmail, notificationLink } from "./template";
 
 export function selectSafetyEmailProvider(): SafetyEmailProvider | null {
-  const config = getServerConfig();
-  if (config.safetyEmailProvider === "fake") {
-    // envValidation already refuses "fake" outside development; this is the
-    // second, independent refusal.
+  const config = getConfig();
+  if (config.email.provider === "fake") {
+    // The configuration contract already refuses "fake" outside development;
+    // this is the second, independent refusal.
     if (config.mode !== "development") return null;
     return new FakeSafetyEmailProvider({
       mode: config.mode,
-      logPath: process.env.SAFETY_FAKE_PROVIDER_LOG || undefined,
-      scriptPath: process.env.SAFETY_FAKE_PROVIDER_SCRIPT || undefined,
+      logPath: config.fakeProvider.logPath,
+      scriptPath: config.fakeProvider.scriptPath,
     });
   }
-  if (config.safetyEmailProvider === "resend") {
-    const apiKey = process.env.RESEND_API_KEY;
-    const from = process.env.RESEND_FROM;
+  if (config.email.provider === "resend") {
+    const apiKey = getResendApiKey();
+    const from = config.email.from;
     if (!apiKey || !from) return null;
     return new ResendSafetyEmailProvider(apiKey, from);
   }
@@ -51,7 +52,7 @@ export async function runSafetyDispatch(): Promise<DispatchRunResult> {
     structuredLog({ event: "tenotrainer.safety_dispatch.disabled" });
     return { ok: false, reason: "provider_not_configured" };
   }
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+  const appUrl = getAppOrigin(); // M3.3 S3 — configured canonical origin
   try {
     const summary = await dispatchSafetyEmails({
       rpc: async (fn, args) => {

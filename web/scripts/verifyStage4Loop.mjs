@@ -19,7 +19,7 @@
 // scripts/verifyBrowserStates.mjs, which established this pattern first).
 //
 // Requires: `next dev` running on localhost:3000, web/.env.local populated
-// (NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY /
+// (SUPABASE_URL / SUPABASE_ANON_KEY /
 // SUPABASE_SERVICE_ROLE_KEY), Playwright Chromium installed. Point at a
 // dev/staging Supabase project only.
 //
@@ -30,21 +30,12 @@ import { readFileSync } from "node:fs";
 import { chromium } from "playwright";
 import Database from "node:sqlite";
 import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
+import { loadEnv } from "./lib/harnessEnv.mjs";
 
-function loadEnv(path) {
-  const env = {};
-  for (const line of readFileSync(path, "utf8").split("\n")) {
-    const t = line.trim();
-    if (!t || t.startsWith("#") || !t.includes("=")) continue;
-    const eq = t.indexOf("=");
-    env[t.slice(0, eq).trim()] = t.slice(eq + 1).trim();
-  }
-  return env;
-}
 const env = loadEnv(".env.local");
 // M3.1 — refuse unless TENOTRAINER_MODE=development and the target project is allow-listed.
 assertDevTestTarget(env);
-const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+const admin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 const BASE_URL = "http://localhost:3000";
 const REAL_ORG_ID = "07f342fd-075c-42b5-a885-30ca64953d46"; // founder's existing org — throwaway membership rows added+removed, founder's own rows untouched
 const PASSWORD = "throwaway-verification-1!";
@@ -647,7 +638,7 @@ async function main() {
     console.log("\n=== Security spot checks ===");
     users.sec = await makeUser("security");
     await insertVersion(users.sec.userId);
-    const anonForSec = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+    const anonForSec = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
     await anonForSec.auth.signInWithPassword({ email: users.sec.email, password: PASSWORD });
 
     const writeTolerance = await anonForSec.from("tolerance_evaluations").insert({
@@ -684,7 +675,7 @@ async function main() {
     });
     check("Security: authenticated patient cannot INSERT into prescription_versions directly", !!writeVersion.error, JSON.stringify(writeVersion.error));
 
-    const anonPublic = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+    const anonPublic = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
     const anonRpc = await anonPublic.rpc("reconcile_missing_acute_episodes", { p_user_id: users.sec.userId });
     check("Security: unauthenticated (anon) caller cannot invoke reconcile_missing_acute_episodes", !!anonRpc.error, JSON.stringify(anonRpc.error));
   } finally {

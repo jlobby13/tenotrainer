@@ -21,12 +21,12 @@ const allow = join(dir, "allow.json");
 const empty = join(dir, "empty.json");
 const linked = join(dir, "project-ref");
 const linkedOther = join(dir, "project-ref-other");
-writeFileSync(allow, JSON.stringify({ projects: ["abcdefghijklmnopqrst", "bbbbbbbbbbbbbbbbbbbb"] }));
-writeFileSync(empty, JSON.stringify({ projects: [] }));
+writeFileSync(allow, JSON.stringify({ developmentSupabaseProjects: ["abcdefghijklmnopqrst", "bbbbbbbbbbbbbbbbbbbb"] }));
+writeFileSync(empty, JSON.stringify({ developmentSupabaseProjects: [] }));
 writeFileSync(linked, "abcdefghijklmnopqrst\n");
 writeFileSync(linkedOther, "bbbbbbbbbbbbbbbbbbbb\n");
-const DEV_ENV = { NEXT_PUBLIC_SUPABASE_URL: "https://abcdefghijklmnopqrst.supabase.co" };
-const PROD_ENV = { NEXT_PUBLIC_SUPABASE_URL: "https://zzzzzzzzzzzzzzzzzzzz.supabase.co" };
+const DEV_ENV = { SUPABASE_URL: "https://abcdefghijklmnopqrst.supabase.co" };
+const PROD_ENV = { SUPABASE_URL: "https://zzzzzzzzzzzzzzzzzzzz.supabase.co" };
 const FIXTURE = { userIds: [randomUUID()], runStartedAt: new Date().toISOString() };
 
 function attempt(label, env, guardOptions, args = FIXTURE, expectRefusal = true) {

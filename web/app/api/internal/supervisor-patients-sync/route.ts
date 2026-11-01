@@ -2,6 +2,9 @@ import "server-only";
 
 import { NextResponse, type NextRequest } from "next/server";
 import { legacyRetiredResponse } from "@/lib/modeHttp";
+// M3.3 S3 — temporary legacy debt (removed with M6 legacy retirement): constant-time
+// bridge-credential check inside the server-only secret boundary.
+import { verifyLegacyBridgeAuthorization } from "@/lib/config/secrets";
 
 // RETIRED in M2. This was the C1A forward-sync write path from the legacy
 // SQLite dismiss/reinstate lifecycle (app/supervisor.py) into Postgres
@@ -14,14 +17,11 @@ import { legacyRetiredResponse } from "@/lib/modeHttp";
 // exists, and an ended assignment period can never be reactivated.)
 // Assignment changes are made natively: patient invitation acceptance and
 // the admin assignment page (/admin/assignments).
-const BRIDGE_SECRET = process.env.BRIDGE_SECRET;
-
 export async function POST(request: NextRequest) {
   // M3.1 — legacy (FastAPI-era) route: exists only in development mode (410 LEGACY_RETIRED otherwise).
   const modeRefusal = legacyRetiredResponse();
   if (modeRefusal) return modeRefusal;
-  const auth = request.headers.get("Authorization");
-  if (!BRIDGE_SECRET || auth !== `Bearer ${BRIDGE_SECRET}`) {
+  if (!verifyLegacyBridgeAuthorization(request.headers.get("Authorization"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   return NextResponse.json(

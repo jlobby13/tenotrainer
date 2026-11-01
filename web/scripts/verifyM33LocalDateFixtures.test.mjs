@@ -15,6 +15,7 @@ import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
 import { addLocalDays, localDateOffset, localDowOffset, localToday, sqlLocalDate, sqlLocalInstant } from "./lib/patientLocalDate.mjs";
+import { loadEnv } from "./lib/harnessEnv.mjs";
 
 let pass = 0;
 let fail = 0;
@@ -28,16 +29,6 @@ function check(name, cond, detail) {
   }
 }
 
-function loadEnv(path) {
-  const env = {};
-  for (const line of readFileSync(path, "utf8").split("\n")) {
-    const t = line.trim();
-    if (!t || t.startsWith("#") || !t.includes("=")) continue;
-    const eq = t.indexOf("=");
-    env[t.slice(0, eq).trim()] = t.slice(eq + 1).trim();
-  }
-  return env;
-}
 const env = loadEnv(".env.local");
 // M3.1 — refuse unless TENOTRAINER_MODE=development and the target project is allow-listed.
 assertDevTestTarget(env);
