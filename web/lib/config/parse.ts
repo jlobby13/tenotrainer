@@ -77,6 +77,44 @@ const RESERVED_SENDER_TLDS = ["test", "invalid", "example", "localhost"];
 // The isolated test profile may use exactly these reserved TLDs.
 const ISOLATED_PROFILE_SENDER_TLDS = ["test", "invalid"];
 
+// M3.3 S3c — development email containment.
+export const DEV_EMAIL_RECIPIENTS_MAX = 20;
+const RESEND_KEY_PREFIX = "re_";
+// A deliberately narrow ASCII address grammar (no wildcards, quotes,
+// comments, IP literals or Unicode — confusables can never match).
+const ADDRESS = /^[a-z0-9._%+-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}$/;
+
+// The ONE normalization used both for the allow-list and for every
+// recipient checked against it: trim, then lower-case; anything outside the
+// ASCII grammar normalizes to null (and so can never be allowed).
+export function normalizeEmailAddress(raw: string): string | null {
+  const t = raw.trim();
+  if (t.length === 0 || t.length > 254 || /[^\x21-\x7e]/.test(t)) return null;
+  const lower = t.toLowerCase();
+  return ADDRESS.test(lower) ? lower : null;
+}
+
+// Exact, comma-separated addresses; every entry must parse, no duplicates
+// (after normalization), at most DEV_EMAIL_RECIPIENTS_MAX entries.
+function parseRecipientAllowlist(raw: string, registry: ResourceIdentityRegistry): { recipients: string[]; problems: string[] } {
+  const problems: string[] = [];
+  const entries = raw.split(",");
+  const recipients: string[] = [];
+  if (entries.some((e) => e.trim() === "")) problems.push("TENOTRAINER_DEV_EMAIL_RECIPIENTS: contains an empty entry");
+  for (const e of entries) {
+    if (e.trim() === "") continue;
+    const n = normalizeEmailAddress(e);
+    if (n === null) { problems.push("TENOTRAINER_DEV_EMAIL_RECIPIENTS: every entry must be one exact email address (no wildcards, patterns or non-ASCII)"); continue; }
+    const domain = n.slice(n.indexOf("@") + 1);
+    if (domainIn(domain, SANDBOX_SENDER_DOMAINS)) problems.push("TENOTRAINER_DEV_EMAIL_RECIPIENTS: a sandbox provider domain is refused");
+    if (domainIn(domain, registry.productionEmailDomains)) problems.push("TENOTRAINER_DEV_EMAIL_RECIPIENTS: a registered production email domain is refused");
+    if (recipients.includes(n)) problems.push("TENOTRAINER_DEV_EMAIL_RECIPIENTS: contains a duplicate entry");
+    else recipients.push(n);
+  }
+  if (entries.length > DEV_EMAIL_RECIPIENTS_MAX) problems.push(`TENOTRAINER_DEV_EMAIL_RECIPIENTS: at most ${DEV_EMAIL_RECIPIENTS_MAX} entries`);
+  return { recipients, problems: [...new Set(problems)] };
+}
+
 type Env = Record<string, string | undefined>;
 
 const present = (v: string | undefined): v is string => typeof v === "string" && v.trim() !== "";
@@ -230,6 +268,30 @@ export function validateConfig(env: Env, options: { registry?: ResourceIdentityR
   const emailRequired = provider === "resend" || prodLike;
   if (emailRequired && resendKey === null) problems.push("RESEND_API_KEY: is required for application email");
   if (emailRequired && from === null) problems.push("TENOTRAINER_NOTIFICATION_EMAIL_FROM: is required for application email");
+  if (emailRequired && resendKey !== null && !resendKey.startsWith(RESEND_KEY_PREFIX)) problems.push("RESEND_API_KEY: is not a Resend API key");
+  // The Resend SDK reads RESEND_BASE_URL itself: it would redirect provider
+  // traffic (and the API key) to another host. Not an application setting.
+  if (present(env.RESEND_BASE_URL)) problems.push("RESEND_BASE_URL: would redirect email provider traffic and is refused");
+  // M3.3 S3c — development email containment (exact recipient allow-list).
+  let devEmailRecipients: string[] | null = null;
+  const recipientsRaw = value(env.TENOTRAINER_DEV_EMAIL_RECIPIENTS);
+  if (prodLike) {
+    if (recipientsRaw !== null) problems.push(`TENOTRAINER_DEV_EMAIL_RECIPIENTS: is a development-only control and is refused in ${mode} mode`);
+    for (const key of ["SAFETY_FAKE_PROVIDER_LOG", "SAFETY_FAKE_PROVIDER_SCRIPT"]) {
+      if (present(env[key])) problems.push(`${key}: is a test-only fake-provider control and is refused in ${mode} mode`);
+    }
+  } else if (mode === "development") {
+    if (provider === "resend") {
+      if (recipientsRaw === null) problems.push('TENOTRAINER_DEV_EMAIL_RECIPIENTS: is required when TENOTRAINER_EMAIL_PROVIDER is "resend" in development');
+      else {
+        const parsed = parseRecipientAllowlist(recipientsRaw, registry);
+        problems.push(...parsed.problems);
+        devEmailRecipients = parsed.recipients;
+      }
+    } else if (recipientsRaw !== null) {
+      problems.push('TENOTRAINER_DEV_EMAIL_RECIPIENTS: is only valid with TENOTRAINER_EMAIL_PROVIDER "resend"');
+    }
+  }
   if (from !== null) {
     const domain = senderDomain(from);
     if (domain === null) {
@@ -241,6 +303,12 @@ export function validateConfig(env: Env, options: { registry?: ResourceIdentityR
       if (sandbox) problems.push(`TENOTRAINER_NOTIFICATION_EMAIL_FROM: a sandbox sender domain is refused in ${mode} mode`);
       else if (reserved && !isolatedAllowed) problems.push(`TENOTRAINER_NOTIFICATION_EMAIL_FROM: a reserved sender domain is refused in ${mode} mode`);
       if (domainIn(domain, registry.developmentEmailDomains)) problems.push(`TENOTRAINER_NOTIFICATION_EMAIL_FROM: a registered development sender domain is refused in ${mode} mode`);
+    } else if (mode === "development" && provider === "resend") {
+      // Development delivery only from an explicitly registered development
+      // sending domain — never a sandbox or production identity.
+      if (domainIn(domain, SANDBOX_SENDER_DOMAINS)) problems.push("TENOTRAINER_NOTIFICATION_EMAIL_FROM: a sandbox sender domain is refused");
+      if (domainIn(domain, registry.productionEmailDomains)) problems.push("TENOTRAINER_NOTIFICATION_EMAIL_FROM: a registered production sender domain is refused in development mode");
+      if (!domainIn(domain, registry.developmentEmailDomains)) problems.push("TENOTRAINER_NOTIFICATION_EMAIL_FROM: development delivery requires a registered development sending domain");
     }
   }
 
@@ -322,6 +390,7 @@ export function validateConfig(env: Env, options: { registry?: ResourceIdentityR
             logPath: env.SAFETY_FAKE_PROVIDER_LOG || undefined,
             scriptPath: env.SAFETY_FAKE_PROVIDER_SCRIPT || undefined,
           },
+          devEmailRecipients: devEmailRecipients ? Object.freeze([...devEmailRecipients]) : null,
         }
       : { ...base, mode, isolatedTestProfile };
   return { config, secrets };

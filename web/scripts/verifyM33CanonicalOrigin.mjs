@@ -19,7 +19,7 @@
 // Run from web/ (after `next build`):  TENOTRAINER_MODE=development node scripts/verifyM33CanonicalOrigin.mjs
 import { spawn, execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { withoutRetiredNames } from "./lib/harnessEnv.mjs";
+import { withEmailContainment, withoutRetiredNames } from "./lib/harnessEnv.mjs";
 import { launchCanonicalBrowser, rawRequest, startCanonicalGateway } from "./lib/canonicalGateway.mjs";
 
 const PORTS = { prod: 3186, maintenance: 3187, dev: 3188, gateway: 3189 };
@@ -57,7 +57,7 @@ async function listening(port) {
   try { await globalThis.fetch(`http://127.0.0.1:${port}/login`, { signal: AbortSignal.timeout(2000), redirect: "manual" }); return true; } catch { return false; }
 }
 async function startServer(port, overrides) {
-  const proc = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-p", String(port)], { env: serverEnv(overrides), detached: true, stdio: ["ignore", "pipe", "pipe"] });
+  const proc = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-p", String(port)], { env: withEmailContainment(serverEnv(overrides)), detached: true, stdio: ["ignore", "pipe", "pipe"] });
   const s = { port, proc, pid: proc.pid, log: "", exited: null };
   proc.stdout.on("data", (d) => (s.log += d));
   proc.stderr.on("data", (d) => (s.log += d));

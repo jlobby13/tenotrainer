@@ -315,5 +315,91 @@ test("every refusal names variables and rules, never supplied values", () => {
   assert(!message.includes(S) && !message.toLowerCase().includes(S.toLowerCase()), "a supplied value was echoed");
 });
 
+// ---------------------------------------------------------------- M3.3 S3c — email contract
+const DEV_SENDER = "TenoTrainer <notifications@dev-mail.tenotrainer.test>";
+const devResend = (recipients: string | undefined, extra: Env = {}): Env => ({ ...DEV, TENOTRAINER_EMAIL_PROVIDER: "resend", RESEND_API_KEY: "re_inert_s3c",
+  TENOTRAINER_NOTIFICATION_EMAIL_FROM: DEV_SENDER, ...(recipients === undefined ? {} : { TENOTRAINER_DEV_EMAIL_RECIPIENTS: recipients }), ...extra });
+const recipientsOf = (env: Env) => {
+  const c = ok(env);
+  return c.mode === "development" ? c.devEmailRecipients : null;
+};
+test("S3c: development default is disabled; a Resend key alone selects nothing", () => {
+  assert(ok(DEV).email.provider === "disabled" && ok({ ...DEV, RESEND_API_KEY: "re_real_looking" }).email.provider === "disabled", "default");
+  assert(recipientsOf({ ...DEV, RESEND_API_KEY: "re_x" }) === null, "no allow-list without resend");
+});
+test("S3c: development resend requires the allow-list, a registered development sender domain and a Resend-shaped key", () => {
+  refused(devResend(undefined), 'TENOTRAINER_DEV_EMAIL_RECIPIENTS: is required when TENOTRAINER_EMAIL_PROVIDER is "resend"');
+  refused(devResend("a@example.invalid", { TENOTRAINER_NOTIFICATION_EMAIL_FROM: "x@tenotrainer-verify.org" }), "requires a registered development sending domain");
+  refused(devResend("a@example.invalid", { TENOTRAINER_NOTIFICATION_EMAIL_FROM: "TenoTrainer <onboarding@resend.dev>" }), "sandbox sender domain");
+  refused(devResend("a@example.invalid", { RESEND_API_KEY: "sk_live_x" }), "RESEND_API_KEY: is not a Resend API key");
+  refused(devResend("a@example.invalid", { RESEND_API_KEY: undefined }), "RESEND_API_KEY: is required");
+  refused(devResend("a@example.invalid", { TENOTRAINER_NOTIFICATION_EMAIL_FROM: undefined }), "TENOTRAINER_NOTIFICATION_EMAIL_FROM: is required");
+  const prodDomain = { ...RESOURCE_IDENTITY, productionEmailDomains: ["dev-mail.tenotrainer.test"] };
+  refused(devResend("a@example.invalid"), "registered production sender domain is refused in development", prodDomain);
+  assert(JSON.stringify(recipientsOf(devResend("a@example.invalid"))) === '["a@example.invalid"]', "accepted");
+});
+test("S3c: allow-list outside resend is refused (no dormant recipient lists)", () => {
+  for (const provider of ["disabled", "fake", undefined]) refused({ ...DEV, TENOTRAINER_EMAIL_PROVIDER: provider, TENOTRAINER_DEV_EMAIL_RECIPIENTS: "a@example.invalid" }, 'only valid with TENOTRAINER_EMAIL_PROVIDER "resend"');
+});
+test("S3c allow-list: exact addresses, case normalized, whitespace trimmed", () => {
+  assert(JSON.stringify(recipientsOf(devResend("  Clin.One@Example.Invalid , b+tag@example.invalid "))) === '["clin.one@example.invalid","b+tag@example.invalid"]', JSON.stringify(recipientsOf(devResend("  Clin.One@Example.Invalid , b+tag@example.invalid "))));
+});
+test("S3c allow-list: empty entries, duplicates (after normalization) and malformed addresses refused", () => {
+  refused(devResend("a@example.invalid,,b@example.invalid"), "contains an empty entry");
+  refused(devResend("a@example.invalid,"), "contains an empty entry");
+  refused(devResend(" , "), "contains an empty entry");
+  refused(devResend("a@example.invalid,A@EXAMPLE.INVALID"), "contains a duplicate entry");
+  for (const bad of ["not-an-address", "@example.invalid", "a@", "a@localhost", "a b@example.invalid", "a@exa mple.invalid", '"a"@example.invalid', "a@[127.0.0.1]", "a@example.invalid>", "Name <a@example.invalid>"]) {
+    refused(devResend(bad), "every entry must be one exact email address");
+  }
+});
+test("S3c allow-list: no wildcard, pattern, domain-only or Unicode/confusable entries", () => {
+  for (const bad of ["*@example.invalid", "a*@example.invalid", "a@*.example.invalid", "*", "@dev-mail.tenotrainer.test", "/.+@example\\.invalid/", "ａ@example.invalid", "a@exаmple.invalid", "clin\u200b@example.invalid"]) {
+    refused(devResend(bad), "every entry must be one exact email address");
+  }
+});
+test("S3c allow-list: 20 entries accepted, 21 refused", () => {
+  const list = (n: number) => Array.from({ length: n }, (_, i) => `r${i}@example.invalid`).join(",");
+  assert(recipientsOf(devResend(list(20)))?.length === 20, "20");
+  refused(devResend(list(21)), "at most 20 entries");
+});
+test("S3c allow-list: sandbox and registered production domains refused; reserved fixture domains accepted", () => {
+  refused(devResend("x@resend.dev"), "sandbox provider domain is refused");
+  refused(devResend("x@onboarding.resend.dev"), "sandbox provider domain is refused");
+  refused(devResend("ops@prod-mail.example"), "registered production email domain is refused", { ...RESOURCE_IDENTITY, productionEmailDomains: ["prod-mail.example"] });
+  assert(recipientsOf(devResend("fixture@example.invalid"))?.[0] === "fixture@example.invalid", ".invalid fixtures allowed (undeliverable)");
+});
+test("S3c: production / maintenance refuse every development / test email control", () => {
+  for (const mode of ["production", "maintenance"]) {
+    const base = { ...PROD, TENOTRAINER_MODE: mode };
+    refused({ ...base, TENOTRAINER_EMAIL_PROVIDER: "disabled" }, 'must be "resend"');
+    refused({ ...base, TENOTRAINER_EMAIL_PROVIDER: undefined }, 'must be "resend"');
+    refused({ ...base, TENOTRAINER_EMAIL_PROVIDER: "fake" }, '"fake" is forbidden');
+    refused({ ...base, TENOTRAINER_DEV_EMAIL_RECIPIENTS: "a@example.invalid" }, "is a development-only control and is refused");
+    refused({ ...base, SAFETY_FAKE_PROVIDER_LOG: "/tmp/x" }, "SAFETY_FAKE_PROVIDER_LOG: is a test-only fake-provider control");
+    refused({ ...base, SAFETY_FAKE_PROVIDER_SCRIPT: "/tmp/x" }, "SAFETY_FAKE_PROVIDER_SCRIPT: is a test-only fake-provider control");
+    refused({ ...base, RESEND_API_KEY: "not-a-resend-key" }, "RESEND_API_KEY: is not a Resend API key");
+    refused({ ...base, SAFETY_EMAIL_PROVIDER: "resend" }, "SAFETY_EMAIL_PROVIDER: has been renamed");
+    refused({ ...base, RESEND_FROM: "x@y.org" }, "RESEND_FROM: has been renamed");
+  }
+});
+test("S3c: the isolated test profile relaxes no email control beyond the .test/.invalid sender", () => {
+  refused({ ...ISOLATED, TENOTRAINER_EMAIL_PROVIDER: "fake" }, '"fake" is forbidden');
+  refused({ ...ISOLATED, TENOTRAINER_EMAIL_PROVIDER: "disabled" }, 'must be "resend"');
+  refused({ ...ISOLATED, TENOTRAINER_DEV_EMAIL_RECIPIENTS: "a@example.invalid" }, "development-only control");
+  refused({ ...ISOLATED, SAFETY_FAKE_PROVIDER_LOG: "/tmp/x" }, "test-only fake-provider control");
+  refused({ ...ISOLATED, RESEND_BASE_URL: "http://127.0.0.1:9" }, "RESEND_BASE_URL");
+});
+test("S3c: RESEND_BASE_URL (SDK traffic redirection) refused in every mode", () => {
+  refused({ ...DEV, RESEND_BASE_URL: "https://elsewhere.example" }, "RESEND_BASE_URL: would redirect email provider traffic");
+  refused({ ...PROD, RESEND_BASE_URL: "https://elsewhere.example" }, "RESEND_BASE_URL");
+});
+test("S3c: allow-list values never appear in refusal messages", () => {
+  const S = "sentinel-7c1e";
+  let msg = "";
+  try { validateConfig(devResend(`${S}@x,${S},*@${S}.invalid`)); } catch (e) { msg = e instanceof Error ? e.message : ""; }
+  assert(msg.length > 0 && !msg.includes(S), msg);
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

@@ -48,6 +48,9 @@ export type DevelopmentConfig = BaseConfig & {
   // Legacy FastAPI bridge (development only until its retirement).
   legacyBridge: { fastapiUrl: string };
   fakeProvider: { logPath: string | undefined; scriptPath: string | undefined };
+  // M3.3 S3c — exact, normalized recipient allow-list; set only when the
+  // development provider is "resend" (required then), null otherwise.
+  devEmailRecipients: readonly string[] | null;
 };
 
 export type ProductionConfig = BaseConfig & {

@@ -39,3 +39,49 @@ export function withoutRetiredNames(env) {
   for (const k of RETIRED_CONFIG_NAMES) out[k] = "";
   return out;
 }
+
+// ---------------------------------------------------------------- M3.3 S3c — real-email kill switch
+// Every harness-spawned server goes through withEmailContainment() and
+// assertNoRealEmail(). A spawned server can never hold a real Resend
+// credential or development recipient list from the developer environment,
+// and any server whose provider is "resend" (production-mode servers must
+// be) runs with the test-only Resend interceptor preloaded, so even an
+// accidental delivery path cannot reach the network.
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { dirname, join } from "node:path";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+
+const INTERCEPTOR = pathToFileURL(join(dirname(fileURLToPath(import.meta.url)), "resendInterceptor.mjs")).href;
+const INTERCEPT_FLAG = `--import=${INTERCEPTOR}`;
+
+export class RealEmailRefused extends Error {}
+
+// A suite exercising INTERCEPTED delivery sets the provider to "resend"
+// (with an inert key and, in development, fixture recipients) and may pass
+// its own interceptLog path to count provider calls.
+export function withEmailContainment(env, { interceptLog } = {}) {
+  const out = { ...env };
+  const provider = out.TENOTRAINER_EMAIL_PROVIDER ?? "";
+  if (provider === "resend") {
+    out.NODE_OPTIONS = [out.NODE_OPTIONS ?? "", INTERCEPT_FLAG].filter(Boolean).join(" ").trim();
+    out.RESEND_INTERCEPT_LOG = interceptLog ?? out.RESEND_INTERCEPT_LOG ?? join(mkdtempSync(join(tmpdir(), "m33-resend-")), "intercepted.jsonl");
+  } else {
+    out.RESEND_API_KEY = "";
+    out.TENOTRAINER_DEV_EMAIL_RECIPIENTS = "";
+  }
+  out.RESEND_BASE_URL = "";
+  return assertNoRealEmail(out);
+}
+
+export function assertNoRealEmail(env) {
+  const provider = env.TENOTRAINER_EMAIL_PROVIDER ?? "";
+  const intercepted = String(env.NODE_OPTIONS ?? "").includes(INTERCEPT_FLAG) && !!env.RESEND_INTERCEPT_LOG;
+  if (provider === "resend" && !intercepted) throw new RealEmailRefused("Refusing to spawn a server with the resend provider without the Resend interceptor");
+  if (provider !== "resend" && (env.RESEND_API_KEY ?? "").trim() !== "") throw new RealEmailRefused("Refusing to pass a Resend API key to a server whose provider is not intercepted resend");
+  if (provider !== "resend" && (env.TENOTRAINER_DEV_EMAIL_RECIPIENTS ?? "").trim() !== "") throw new RealEmailRefused("Refusing to pass development email recipients to a non-resend server");
+  if ((env.RESEND_BASE_URL ?? "").trim() !== "") throw new RealEmailRefused("Refusing RESEND_BASE_URL in a test server");
+  return env;
+}
+
+export const RESEND_INTERCEPTOR_IMPORT = INTERCEPT_FLAG;

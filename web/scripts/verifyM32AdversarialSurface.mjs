@@ -9,7 +9,7 @@ import { createClient } from "@supabase/supabase-js";
 import { chromium } from "playwright";
 import { FixtureRun, FIXTURE_PASSWORD, guardedSql, loadEnv, q } from "./lib/m32Fixtures.mjs";
 import { assertPurgeTarget } from "./lib/safetyFixturePurge.mjs";
-import { withoutRetiredNames } from "./lib/harnessEnv.mjs";
+import { withEmailContainment, withoutRetiredNames } from "./lib/harnessEnv.mjs";
 
 const env = loadEnv(".env.local");
 assertPurgeTarget(env);
@@ -117,7 +117,7 @@ try {
   // ---------------------------------------------------------------- HTTP (isolated development server)
   const envs = { ...withoutRetiredNames(process.env), TENOTRAINER_MODE: "development", C5_PATIENT_RUNTIME_ENABLED: "true", FASTAPI_URL: "http://127.0.0.1:9",
     TENOTRAINER_APP_ORIGIN: BASE, TENOTRAINER_EMAIL_PROVIDER: "", SAFETY_DISPATCH_SECRET: `adv-${crypto.randomUUID()}-${crypto.randomUUID()}`, RESEND_API_KEY: "" };
-  const proc = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-p", String(PORT)], { env: envs, detached: true, stdio: ["ignore", "pipe", "pipe"] });
+  const proc = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-p", String(PORT)], { env: withEmailContainment(envs), detached: true, stdio: ["ignore", "pipe", "pipe"] });
   server = { pid: proc.pid, exited: null };
   proc.on("exit", (c) => (server.exited = c ?? -1));
   for (let i = 0; i < 120; i++) { try { await fetch(`${BASE}/login`, { redirect: "manual" }); break; } catch { await sleep(500); } }

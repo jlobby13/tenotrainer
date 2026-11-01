@@ -26,7 +26,7 @@ import { createClient } from "@supabase/supabase-js";
 import { chromium } from "playwright";
 import { FixtureRun, FIXTURE_PASSWORD, guardedSql, loadEnv, q } from "./lib/m32Fixtures.mjs";
 import { assertPurgeTarget } from "./lib/safetyFixturePurge.mjs";
-import { withoutRetiredNames } from "./lib/harnessEnv.mjs";
+import { withEmailContainment, withoutRetiredNames } from "./lib/harnessEnv.mjs";
 import { gatewayFetch, launchCanonicalBrowser, startCanonicalGateway } from "./lib/canonicalGateway.mjs";
 
 const env = loadEnv(".env.local");
@@ -67,7 +67,7 @@ const PROD_ENV = {
   TENOTRAINER_EMAIL_PROVIDER: "resend", SAFETY_DISPATCH_SECRET: SECRET, RESEND_API_KEY: "re_m32_isolated_never_called", TENOTRAINER_NOTIFICATION_EMAIL_FROM: "TenoTrainer <safety@tenotrainer.test>",
 };
 function spawnServer(port, overrides) {
-  const proc = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-p", String(port)], { env: serverEnv(overrides), detached: true, stdio: ["ignore", "pipe", "pipe"] });
+  const proc = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-p", String(port)], { env: withEmailContainment(serverEnv(overrides)), detached: true, stdio: ["ignore", "pipe", "pipe"] });
   const s = { port, pid: proc.pid, log: "", exited: null };
   proc.stdout.on("data", (d) => (s.log += d));
   proc.stderr.on("data", (d) => (s.log += d));

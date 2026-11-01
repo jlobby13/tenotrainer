@@ -25,7 +25,7 @@ import { spawn, execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { chromium } from "playwright";
 import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
-import { loadEnv, withoutRetiredNames } from "./lib/harnessEnv.mjs";
+import { loadEnv, withEmailContainment, withoutRetiredNames } from "./lib/harnessEnv.mjs";
 import { gatewayFetch, launchCanonicalBrowser, startCanonicalGateway } from "./lib/canonicalGateway.mjs";
 
 const REAL_ORG_ID = "07f342fd-075c-42b5-a885-30ca64953d46";
@@ -85,7 +85,7 @@ const started = [];
 
 function spawnServer(port, overrides) {
   const proc = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-p", String(port)], {
-    env: serverEnv(overrides), detached: true, stdio: ["ignore", "pipe", "pipe"],
+    env: withEmailContainment(serverEnv(overrides)), detached: true, stdio: ["ignore", "pipe", "pipe"],
   });
   const s = { port, proc, pid: proc.pid, log: "", exited: null };
   proc.stdout.on("data", (d) => (s.log += d));

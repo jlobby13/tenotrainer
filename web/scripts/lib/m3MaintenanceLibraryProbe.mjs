@@ -12,6 +12,9 @@
 // the registered development project ref, unsigned placeholder keys) that
 // the centralized contract requires of production/maintenance processes.
 // Spawned by verifyM3OperatingModes.mjs; prints one JSON line.
+// M3.3 S3c — the Resend transport interceptor first: this probe runs with
+// the resend provider and must never be able to reach the network.
+import "./resendInterceptor.mjs";
 import { register } from "node:module";
 import { fakeKeysFor } from "./fakeSupabaseKeys.mjs";
 import { RETIRED_CONFIG_NAMES } from "./harnessEnv.mjs";

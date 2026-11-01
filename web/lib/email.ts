@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 import { getConfig } from "./config";
 import { getResendApiKey } from "./config/secrets";
+import { emailDeliveryDecision, type EmailDeliveryCode } from "./emailPolicy";
 
 const HUMAN_ROLE: Record<string, string> = {
   USER_TESTER: "TenoTrainer User Tester",
@@ -102,9 +103,30 @@ If you weren't expecting this email, you can safely ignore it.
 `;
 }
 
+// M3.3 S3c — `reason` is a fixed, non-sensitive code (never provider free
+// text, configuration names or values).
+export type EmailNotSentReason = EmailDeliveryCode | "email_not_configured" | "email_not_sent";
 export type EmailResult =
   | { sent: true }
-  | { sent: false; reason: string };
+  | { sent: false; reason: EmailNotSentReason };
+
+// M3.3 S3c — the only invitation-email path to the network. The central
+// delivery policy (TENOTRAINER_EMAIL_PROVIDER + the development recipient
+// allow-list) decides first; a configured Resend key alone never sends.
+async function deliver(message: { to: string; subject: string; html: string; text: string }): Promise<EmailResult> {
+  const config = getConfig();
+  const decision = emailDeliveryDecision(config, message.to);
+  if (!decision.deliver) return { sent: false, reason: decision.code };
+  const apiKey = getResendApiKey();
+  const from = config.email.from;
+  if (!apiKey || !from) return { sent: false, reason: "email_not_configured" };
+  try {
+    const { error } = await new Resend(apiKey).emails.send({ from, ...message });
+    return error ? { sent: false, reason: "email_not_sent" } : { sent: true };
+  } catch {
+    return { sent: false, reason: "email_not_sent" };
+  }
+}
 
 export async function sendInvitationEmail(opts: {
   to: string;
@@ -112,17 +134,9 @@ export async function sendInvitationEmail(opts: {
   orgName: string;
   invitationType: string;
 }): Promise<EmailResult> {
-  const apiKey = getResendApiKey();
-  if (!apiKey) {
-    return { sent: false, reason: "RESEND_API_KEY not configured" };
-  }
-
-  const from = getConfig().email.from ?? "TenoTrainer <onboarding@resend.dev>";
   const humanRole = HUMAN_ROLE[opts.invitationType] ?? "TenoTrainer Tester";
 
-  const resend = new Resend(apiKey);
-  const { error } = await resend.emails.send({
-    from,
+  return deliver({
     to: opts.to,
     subject: "You're Invited to Try TenoTrainer",
     html: invitationHtml({
@@ -138,11 +152,6 @@ export async function sendInvitationEmail(opts: {
       recipientEmail: opts.to,
     }),
   });
-
-  if (error) {
-    return { sent: false, reason: error.message };
-  }
-  return { sent: true };
 }
 
 // M2 — patient invitation from a clinician. Neutral, factual copy; the same
@@ -153,11 +162,6 @@ export async function sendPatientInvitationEmail(opts: {
   orgName: string;
   clinicianName: string;
 }): Promise<EmailResult> {
-  const apiKey = getResendApiKey();
-  if (!apiKey) {
-    return { sent: false, reason: "RESEND_API_KEY not configured" };
-  }
-  const from = getConfig().email.from ?? "TenoTrainer <onboarding@resend.dev>";
   const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   const text = `${opts.clinicianName} at ${opts.orgName} has invited you to TenoTrainer, where your rehabilitation program will be shared with you.
 
@@ -175,8 +179,5 @@ This invitation was sent to ${opts.to} and expires in 7 days. If you weren't exp
 <p style="font-size:13px;color:#9ca3af;line-height:1.6;">This invitation was sent to ${esc(opts.to)} and expires in 7 days. If you weren't expecting it, you can ignore this email.</p>
 <p style="font-size:12px;color:#6b7280;word-break:break-all;background:#f3f4f6;border-radius:6px;padding:10px 14px;">${esc(opts.inviteUrl)}</p>
 </div></div></body></html>`;
-  const resend = new Resend(apiKey);
-  const { error } = await resend.emails.send({ from, to: opts.to, subject: "Your TenoTrainer invitation", html, text });
-  if (error) return { sent: false, reason: error.message };
-  return { sent: true };
+  return deliver({ to: opts.to, subject: "Your TenoTrainer invitation", html, text });
 }

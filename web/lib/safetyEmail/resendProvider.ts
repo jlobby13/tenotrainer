@@ -16,9 +16,16 @@ const TRANSIENT = new Set([
 export class ResendSafetyEmailProvider implements SafetyEmailProvider {
   readonly name = "resend" as const;
   private readonly client: Resend;
+  private readonly from: string;
+  private readonly timeoutMs: number;
 
-  constructor(apiKey: string, private readonly from: string, private readonly timeoutMs = 15000) {
+  // (Explicit fields rather than TypeScript parameter properties, so the
+  // real provider loads under Node's type stripping in the S3c
+  // transport-interception proofs; behaviour unchanged.)
+  constructor(apiKey: string, from: string, timeoutMs = 15000) {
     this.client = new Resend(apiKey);
+    this.from = from;
+    this.timeoutMs = timeoutMs;
   }
 
   async send(message: SafetyEmailMessage, { idempotencyKey }: { idempotencyKey: string }): Promise<SafetyEmailSendResult> {

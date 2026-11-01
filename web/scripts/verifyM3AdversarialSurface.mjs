@@ -21,7 +21,7 @@ import { readFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
-import { loadEnv, withoutRetiredNames } from "./lib/harnessEnv.mjs";
+import { loadEnv, withEmailContainment, withoutRetiredNames } from "./lib/harnessEnv.mjs";
 import { gatewayFetch } from "./lib/canonicalGateway.mjs";
 
 const EXPECT_REVOKED = process.argv.includes("--expect-revoked");
@@ -155,8 +155,8 @@ async function startProductionServer() {
   const proc = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-p", String(PORT)], {
     // M3.2: production also requires the safety email configuration (the
     // dummy Resend key is never used — this suite sends no email).
-    env: { ...e, TENOTRAINER_MODE: "production", FASTAPI_URL: "", BRIDGE_SECRET: "", TENOTRAINER_APP_ORIGIN: "https://app.tenotrainer.test",
-      TENOTRAINER_EMAIL_PROVIDER: "resend", SAFETY_DISPATCH_SECRET: `m31-adv-${randomUUID()}-${randomUUID()}`, RESEND_API_KEY: "re_isolated_never_called", TENOTRAINER_NOTIFICATION_EMAIL_FROM: "TenoTrainer <safety@tenotrainer.test>" },
+    env: withEmailContainment({ ...e, TENOTRAINER_MODE: "production", FASTAPI_URL: "", BRIDGE_SECRET: "", TENOTRAINER_APP_ORIGIN: "https://app.tenotrainer.test",
+      TENOTRAINER_EMAIL_PROVIDER: "resend", SAFETY_DISPATCH_SECRET: `m31-adv-${randomUUID()}-${randomUUID()}`, RESEND_API_KEY: "re_isolated_never_called", TENOTRAINER_NOTIFICATION_EMAIL_FROM: "TenoTrainer <safety@tenotrainer.test>" }),
     detached: true, stdio: ["ignore", "pipe", "pipe"],
   });
   server = { proc, pid: proc.pid, log: "", exited: null };
