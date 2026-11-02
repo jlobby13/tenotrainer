@@ -1,5 +1,7 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { connection } from "next/server";
 import { getSessionInfo } from "@/lib/auth";
+import { isLegacyAllowed } from "@/lib/operatingMode";
 import { createOrgAction } from "./actions";
 
 export const metadata = { title: "Set Up Your Organization — TenoTrainer" };
@@ -7,6 +9,11 @@ export const metadata = { title: "Set Up Your Organization — TenoTrainer" };
 type Props = { searchParams: Promise<{ error?: string }> };
 
 export default async function SetupPage({ searchParams }: Props) {
+  // D1 — first-run setup is development-only. Production and maintenance
+  // provision the organization and staff with the operator workflow
+  // (scripts/provisionStaff.mjs); nothing about bootstrap state is shown.
+  await connection();
+  if (!isLegacyAllowed()) notFound();
   const { error } = await searchParams;
   const session = await getSessionInfo();
 

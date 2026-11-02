@@ -3,10 +3,14 @@
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import { refuseActionInMaintenance } from "@/lib/modeActions";
+import { refuseActionOutsideDevelopment } from "@/lib/modeActions";
 
 export async function createOrgAction(formData: FormData) {
-  refuseActionInMaintenance("/login");
+  // D1 — refused outside development before anything else runs, so a direct
+  // invocation that bypasses the page and the proxy cannot provision. The
+  // check-then-insert guard below is NOT a production security boundary;
+  // production uses the operator workflow (scripts/provisionStaff.mjs).
+  refuseActionOutsideDevelopment("/dashboard");
   const name = (formData.get("name") as string).trim();
   const slug = (formData.get("slug") as string).trim().toLowerCase();
 

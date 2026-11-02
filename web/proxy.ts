@@ -31,9 +31,10 @@ const LEGACY_ROUTE_PREFIXES = [
   "/api/internal/supervisor-patients-sync",
 ];
 // F9 — the tester/admin invitation workflow is development-only.
-const DEVELOPMENT_ONLY_PAGES = ["/admin/invitations", "/api/auth/debug"];
+// D1 — so is first-run /setup (production uses the operator workflow).
+const DEVELOPMENT_ONLY_PAGES = ["/admin/invitations", "/api/auth/debug", "/setup"];
 // Maintenance: every patient-facing page shows the unavailable experience.
-const MAINTENANCE_PATIENT_PAGES = ["/patient", "/invite", "/setup"];
+const MAINTENANCE_PATIENT_PAGES = ["/patient", "/invite"];
 // Maintenance: signing in and out still works (patients then see the
 // unavailable page; staff get read-only access).
 const MAINTENANCE_SESSION_PATHS = ["/login", "/logout", "/auth/"];

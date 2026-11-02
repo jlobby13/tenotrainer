@@ -50,6 +50,10 @@ deleted. Accounts are created only by accepting an invitation. The Supabase
 public sign-up endpoint itself is still enabled at the project level and must be
 disabled in production (M3 environment configuration); an orphan account has no
 membership, no clinician and sees only "No active program".
+D1: `/setup` is development-only, so a signed-up account can no longer claim the
+first organization in production; production staff are provisioned by the
+operator workflow (`docs/m3-production-provisioning.md`). Public signup must
+still be disabled before the production project is externally reachable.
 
 ## Low — Post-launch hardening
 

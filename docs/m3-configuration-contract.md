@@ -568,7 +568,8 @@ Intentionally not part of S3:
   - set `TENOTRAINER_SUPABASE_PROJECT_REF`;
   - add the ref to `productionSupabaseProjects`;
   - prefer an individually revocable `sb_secret_` service key.
-- **Supabase Auth settings:** disable public signup; set the Site URL and an
+- **Supabase Auth settings:** disable public signup (required before the
+  project is attached to an externally reachable deployment); set the Site URL and an
   exact redirect allow-list on the canonical origin; configure Resend custom
   SMTP with the auth/security sender identity.
 - **Resend:**
@@ -602,9 +603,11 @@ Intentionally not part of S3:
 
 ## Remaining production blockers
 
-- **D1 `/setup` (P0).** The first-user bootstrap is still reachable in
-  production (refused only in maintenance). It must be replaced by guarded
-  provisioning before any production deployment.
+- **D1 `/setup` (P0): resolved.** `/setup` is development-only (proxy,
+  page and server action). Production organizations and staff come from the
+  operator workflow; see `docs/m3-production-provisioning.md`. Public
+  Supabase signup must still be disabled on the production project before it
+  is attached to an externally reachable deployment.
 - **S4 password recovery** (Supabase self-service; sign out other sessions
   on reset).
 - **Login-abuse protection** (Postgres-backed application rate limiter plus

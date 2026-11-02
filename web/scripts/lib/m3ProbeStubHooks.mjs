@@ -6,6 +6,8 @@
 // to a connection error and nothing ever reaches the network (the probe's
 // no-write guarantee no longer depends on an unreachable URL, which the
 // centralized contract refuses in maintenance/production).
+// D1 — every client construction is counted on globalThis
+// (__probeSupabaseClients) so a probe can prove a refusal happened first.
 const INERT_SUPABASE = `
 const failure = { data: null, error: { message: "probe: Supabase network access is disabled", code: "PROBE_NO_NETWORK" }, count: null, status: 0 };
 function chain() {
@@ -19,9 +21,10 @@ function chain() {
   });
   return proxy;
 }
-export function createServerClient() { return chain(); }
-export function createBrowserClient() { return chain(); }
-export function createClient() { return chain(); }
+const counted = () => { globalThis.__probeSupabaseClients = (globalThis.__probeSupabaseClients ?? 0) + 1; return chain(); };
+export function createServerClient() { return counted(); }
+export function createBrowserClient() { return counted(); }
+export function createClient() { return counted(); }
 `;
 const STUBS = {
   "next/navigation": "export function redirect(u){throw new Error('redirect:'+u)} export function notFound(){throw new Error('notFound')}",

@@ -5,8 +5,9 @@
 //   - extensionless relative imports from .ts files -> the .ts file
 //   - extensionless CommonJS package subpaths ("next/headers") -> ".js"
 // The react-server condition makes the `server-only` guard a no-op exactly
-// as it is inside Next's server runtime. Test infrastructure only — never
-// imported by application code.
+// as it is inside Next's server runtime. Script tooling only (verification
+// scripts and the D1 operator provisioning CLI) — never imported by
+// application code.
 import { existsSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join, resolve as resolvePath } from "node:path";
