@@ -202,10 +202,15 @@ async function main() {
   check("callback (no code) under forged Host -> canonical /login", new URL(loc(cbNone) ?? "x:").origin === CANON, `${cbNone.status} ${loc(cbNone)}`);
   const cbXfh = await req(P, "GET", "/auth/callback?error=x", { host: CANON_HOST, "x-forwarded-host": EVIL });
   check("callback under forged X-Forwarded-Host -> 308 to the canonical callback (never the attacker)", cbXfh.status === 308 && loc(cbXfh) === `${CANON}/auth/callback?error=x`, `${cbXfh.status} ${loc(cbXfh)}`);
-  // Without a session the proxy's auth redirect answers /logout (the logout
-  // handler's own redirect, with a session, is verified by the S2 suite).
+  // M3.4b — without a session /logout is public: the logout route itself
+  // answers (a no-op sign-out) with a plain canonical /login, never the auth
+  // redirect /login?next=/logout (the handler's redirect with a session is
+  // verified by the S2 suite).
   const lo = await req(P, "GET", "/logout", forgedHost);
-  check("logout (no session) under forged Host + X-Forwarded-Proto -> canonical /login", canonicalTarget(lo, CANON)?.pathname === "/login", `${lo.status} ${loc(lo)}`);
+  check("logout (no session) under forged Host + X-Forwarded-Proto -> canonical /login with no next (the route's own 307)",
+    lo.status === 307 && canonicalTarget(lo, CANON)?.pathname === "/login" && !canonicalTarget(lo, CANON)?.searchParams.has("next"), `${lo.status} ${loc(lo)}`);
+  const loCanon = await req(P, "GET", "/logout", { host: CANON_HOST });
+  check("logout (no session) on the canonical host -> 307 canonical /login, no next", loCanon.status === 307 && loc(loCanon) === `${CANON}/login`, `${loCanon.status} ${loc(loCanon)}`);
   const loXfh = await req(P, "GET", "/logout", { host: CANON_HOST, "x-forwarded-host": EVIL });
   check("logout under forged X-Forwarded-Host -> 308 to canonical /logout (never the attacker)", loXfh.status === 308 && loc(loXfh) === `${CANON}/logout`, `${loXfh.status} ${loc(loXfh)}`);
   const unauth = await req(P, "GET", "/patient/dashboard?tab=1", forgedHost);
@@ -228,7 +233,7 @@ async function main() {
   const mMut = await req(M, "POST", "/api/clinician/patients/00000000-0000-0000-0000-000000000000/prescription/pause", { host: MAINT_HOST, origin: MAINT, "sec-fetch-site": "same-origin", "content-length": "0" });
   check("maintenance canonical same-origin clinical mutation still refused 503 MAINTENANCE", mMut.status === 503 && json(mMut)?.error === "MAINTENANCE", String(mMut.status));
   const mLo = await req(M, "GET", "/logout", { host: EVIL, "x-forwarded-host": MAINT_HOST });
-  check("maintenance logout under forged Host -> canonical maintenance /login", canonicalTarget(mLo, MAINT)?.pathname === "/login", `${mLo.status} ${loc(mLo)}`);
+  check("maintenance logout under forged Host -> canonical maintenance /login, no next", canonicalTarget(mLo, MAINT)?.pathname === "/login" && !canonicalTarget(mLo, MAINT)?.searchParams.has("next"), `${mLo.status} ${loc(mLo)}`);
   await stopServer(maint);
 
   // ================================================================ E

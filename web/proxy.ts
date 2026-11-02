@@ -14,7 +14,10 @@ import { checkMutationOrigin } from "./lib/mutationOrigin";
 // ever runs. See web/app/api/internal/prescription-versions/route.ts
 // (found via M5 Stage 1 founder-acceptance live verification: the route's
 // own auth check was correct but unreachable without this exemption).
-const PUBLIC_PATHS = ["/login", "/register", "/auth", "/invite", "/api/auth/validate-bridge", "/api/internal"];
+// M3.4b — "/logout" is public so a request without a session reaches the
+// logout route (a no-op sign-out, then /login) instead of the auth redirect
+// /login?next=/logout, which would sign the user out again right after login.
+const PUBLIC_PATHS = ["/login", "/logout", "/register", "/auth", "/invite", "/api/auth/validate-bridge", "/api/internal"];
 // M3.3 S3d — the public readiness endpoint (exact path; canonical-host,
 // mode and cross-origin rules still apply before it).
 const READINESS_PATH = "/api/ready";

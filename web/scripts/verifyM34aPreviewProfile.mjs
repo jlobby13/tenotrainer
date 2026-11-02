@@ -11,6 +11,10 @@
 //      session, progress; clinician dashboard, patient page; invitation
 //      created with email disabled and the link on the preview alias;
 //      generated redirects stay on the alias; ZERO FastAPI contact.
+//  A2. Staff logout (M3.4b): the shared staff bar's Log out on clinician,
+//      admin and super pages (375px, 44px target, no overflow), session
+//      ended, protected routes redirect; patient logout unchanged; /logout
+//      without a session redirects to /login with no next.
 //   B. Contrast: the same profile WITHOUT C5_PATIENT_RUNTIME_ENABLED selects
 //      the legacy runtime and contacts FastAPI — why Preview must set it.
 //
@@ -68,7 +72,9 @@ try {
   await new Promise((r) => fastapi.listen(PORTS.fastapi, "127.0.0.1", r));
   const clin = await run.user("clin");
   const pat = await run.user("patient");
-  const { ceId } = run.setup({ orgName: `M3.4a Preview ${RUN}`, members: [["fixture", clin.id, "clinician"], ["fixture", pat.id, "member"]], assignments: [["fixture", clin.id, pat.id]], names: { [pat.id]: "Preview Patient", [clin.id]: "Preview Clinician" } });
+  const adminUser = await run.user("cadmin");
+  const superUser = await run.user("super");
+  const { ceId } = run.setup({ orgName: `M3.4a Preview ${RUN}`, members: [["fixture", clin.id, "clinician"], ["fixture", pat.id, "member"], ["fixture", adminUser.id, "clinician_admin"], ["fixture", superUser.id, "super_user"]], assignments: [["fixture", clin.id, pat.id]], names: { [pat.id]: "Preview Patient", [clin.id]: "Preview Clinician" } });
   guardedSql(env, `
 DO $fx$
 DECLARE v_pp UUID; v_v UUID; v_w UUID; v_e UUID;
@@ -123,6 +129,74 @@ SELECT 1 AS ok;`);
   check("invitation row pending with no email_sent_at", inv.length === 1 && inv[0].status === "pending" && inv[0].sent === false, JSON.stringify(inv));
   await c.ctx.close();
   check("ZERO FastAPI contact across patient, clinician and invitation flows", fastapiHits.length === 0, fastapiHits.join(", "));
+
+  section("A2. staff logout (M3.4b)");
+  // The shared staff bar's Log out: visible with a 44px target and no
+  // horizontal overflow at 375px on every clinician page; it ends the
+  // session (protected routes then redirect to /login).
+  const narrow = { viewport: { width: 375, height: 812 } };
+  const cl = await login(browser, clin.email);
+  await cl.page.setViewportSize(narrow.viewport);
+  for (const path of ["/clinician/dashboard", `/clinician/patients/${pat.id}`, "/clinician/invitations", "/clinician/notifications"]) {
+    await cl.page.goto(`${ORIGIN}${path}`, { timeout: 120000 });
+    const m = await cl.page.evaluate(() => {
+      const a = document.querySelector('[data-testid="staff-logout-link"]');
+      const bar = document.querySelector('[data-testid="staff-bar"]');
+      const r = a?.getBoundingClientRect();
+      return a && bar && r ? { href: a.getAttribute("href"), tag: a.tagName, h: r.height, left: r.left, right: r.right, vw: innerWidth, barOverflow: bar.scrollWidth > bar.clientWidth, safety: !!document.querySelector('[data-testid="safety-notifications-link"]') } : null;
+    });
+    check(`clinician ${path}: Log out (plain <a href="/logout">) visible at 375px, ≥44px, inside the viewport, bar not overflowing; Safety notifications kept`,
+      m && m.tag === "A" && m.href === "/logout" && m.h >= 44 && m.left >= 0 && m.right <= m.vw && !m.barOverflow && m.safety, JSON.stringify(m));
+  }
+  await cl.page.goto(`${ORIGIN}/clinician/dashboard`, { timeout: 120000 });
+  await cl.page.click('[data-testid="staff-logout-link"]');
+  await cl.page.waitForURL((u) => u.pathname === "/login", { timeout: 60000 });
+  // In development mode the logout route redirects to the request's own
+  // origin; under a local `next start` a route handler's request.url carries
+  // the server's bound address (localhost:<port>), not the Host header, so
+  // only the path is asserted here. The hosted M3.4b check confirms the
+  // Preview alias. Session termination is asserted strictly below.
+  check("clicking Log out lands on /login", new URL(cl.page.url()).pathname === "/login", cl.page.url());
+  console.log(`      (observed post-logout URL locally: ${new URL(cl.page.url()).origin}/login)`);
+  const authCookies = (await cl.ctx.cookies(ORIGIN)).filter((c) => /^sb-.*-auth-token/.test(c.name) && c.value);
+  check("the Supabase session cookies are cleared", authCookies.length === 0, authCookies.map((c) => c.name).join(","));
+  const after = await cl.ctx.request.get(`${ORIGIN}/clinician/dashboard`, { maxRedirects: 0 });
+  const afterLoc = new URL(after.headers().location ?? "x:", ORIGIN);
+  check("after logout a protected clinician route redirects to /login", [302, 303, 307].includes(after.status()) && afterLoc.pathname === "/login", `${after.status()} ${after.headers().location}`);
+  await cl.ctx.close();
+
+  const ad = await login(browser, adminUser.email);
+  await ad.page.setViewportSize(narrow.viewport);
+  await ad.page.goto(`${ORIGIN}/admin/assignments`, { timeout: 120000 });
+  check("clinician_admin on /admin/assignments: Log out available (shared staff bar)", await ad.page.locator('[data-testid="staff-logout-link"]').isVisible());
+  await ad.ctx.close();
+  // A super_user's home (/super/dashboard) calls the legacy FastAPI overview
+  // in development mode (known; fails harmlessly on Vercel). Only that call
+  // may appear while signing the super_user in.
+  const hitsBeforeSuper = fastapiHits.length;
+  const su = await login(browser, superUser.email);
+  await su.page.goto(`${ORIGIN}/super/safety-notifications`, { timeout: 120000 });
+  check("super_user on /super/safety-notifications: Log out available, no clinician Safety link", await su.page.locator('[data-testid="staff-logout-link"]').isVisible() && (await su.page.locator('[data-testid="safety-notifications-link"]').count()) === 0);
+  await su.ctx.close();
+
+  const pt = await login(browser, pat.email);
+  await pt.page.goto(`${ORIGIN}/patient/dashboard`, { timeout: 120000 });
+  await pt.page.getByRole("link", { name: "Log out" }).click();
+  await pt.page.waitForURL((u) => u.pathname === "/login", { timeout: 60000 });
+  const pAfter = await pt.ctx.request.get(`${ORIGIN}/patient/dashboard`, { maxRedirects: 0 });
+  const pCookies = (await pt.ctx.cookies(ORIGIN)).filter((c) => /^sb-.*-auth-token/.test(c.name) && c.value);
+  check("patient logout unchanged: dashboard Log out ends the session (cookies cleared, dashboard redirects to /login)", new URL(pt.page.url()).pathname === "/login" && pCookies.length === 0 && new URL(pAfter.headers().location ?? "x:", ORIGIN).pathname === "/login", `${pt.page.url()} ${pAfter.status()}`);
+  await pt.ctx.close();
+
+  const anonLo = await browser.newContext();
+  const lo = await anonLo.request.get(`${ORIGIN}/logout`, { maxRedirects: 0 });
+  const loUrl = new URL(lo.headers().location ?? "x:", ORIGIN);
+  check("GET /logout without a session → the route's 307 to /login, no next=/logout", lo.status() === 307 && loUrl.pathname === "/login" && !loUrl.searchParams.has("next"), `${lo.status()} ${lo.headers().location}`);
+  await anonLo.close();
+  const superHits = fastapiHits.slice(hitsBeforeSuper);
+  check("FastAPI contact only from the super_user's legacy home (/api/super/overview); none from logout, clinician, admin or patient flows",
+    fastapiHits.slice(0, hitsBeforeSuper).length === 0 && superHits.every((h) => h === "GET /api/super/overview"), fastapiHits.join(", "));
+
   check("the Preview server logged no unexpected error", !/⨯|Unhandled|TypeError/.test(srv.log), srv.log.match(/.*(⨯|Unhandled|TypeError).*/)?.[0]);
   await servers.stop(srv);
 
