@@ -8,6 +8,8 @@
 //   B. production + maintenance (isolated test profile) against the REAL
 //      development project: the real anonymous probe, maintenance reports
 //      ready, canonical-host rules still apply, production headers.
+//      M3.4a: GET/HEAD of exactly /api/ready answer on a deployment host
+//      (no redirect); other paths still 308, other methods still 403.
 //   C. a configuration-invalid process never answers ready (fails at start).
 //   D. no Resend transport call; accepted L5 untouched.
 //
@@ -173,12 +175,34 @@ async function partB(interceptLog) {
   check("production: the body reveals nothing else (no mode, project, provider, version)", !/production|kpdx|resend|supabase|version|commit/i.test(r.text));
   const rh = await rawRequest(P, { method: "HEAD", path: "/api/ready", headers: { host: CANON_HOST } });
   check("production HEAD: 200, no body", rh.status === 200 && rh.text === "");
-  const wrong = await rawRequest(P, { path: "/api/ready", headers: { host: "evil.example" } });
-  check("canonical host still applies: wrong-host GET -> 308 to the configured origin (no readiness bypass)", wrong.status === 308 && wrong.headers.location === `https://${CANON_HOST}/api/ready`, `${wrong.status} ${wrong.headers.location}`);
-  const wrongHead = await rawRequest(P, { method: "HEAD", path: "/api/ready", headers: { host: "evil.example" } });
-  check("canonical host still applies: wrong-host HEAD -> 308", wrongHead.status === 308 && wrongHead.headers.location === `https://${CANON_HOST}/api/ready`);
+  // M3.4a — the narrow deployment-host exception: GET/HEAD of exactly
+  // /api/ready is answered on any host (a staged deployment must be
+  // checkable on its own URL); nothing else gains a bypass.
+  const DEPLOY = "tenotrainer-abc123-team.vercel.app";
+  const wrong = await rawRequest(P, { path: "/api/ready", headers: { host: DEPLOY } });
+  check("M3.4a: deployment-host GET /api/ready -> 200 ready directly (no redirect to the canonical deployment)", wrong.status === 200 && wrong.text === READY && !wrong.headers.location, `${wrong.status} ${wrong.headers.location ?? ""} ${wrong.text}`);
+  check("M3.4a: deployment-host readiness keeps no-store, HSTS and the S2 headers", noStore(wrong) && s2Headers(wrong) && /max-age=/.test(wrong.headers["strict-transport-security"] ?? ""));
+  check("M3.4a: deployment-host readiness body is still the minimal contract", !/production|kpdx|resend|supabase|version|commit|vercel/i.test(wrong.text));
+  const wrongHead = await rawRequest(P, { method: "HEAD", path: "/api/ready", headers: { host: DEPLOY } });
+  check("M3.4a: deployment-host HEAD /api/ready -> 200, no body, no redirect", wrongHead.status === 200 && wrongHead.text === "" && !wrongHead.headers.location && noStore(wrongHead));
+  const wrongQuery = await rawRequest(P, { path: "/api/ready?probe=1", headers: { host: DEPLOY } });
+  check("M3.4a: a query string does not change the exact-path match (200)", wrongQuery.status === 200 && wrongQuery.text === READY);
   const xfh = await rawRequest(P, { path: "/api/ready", headers: { host: CANON_HOST, "x-forwarded-host": "evil.example" } });
-  check("canonical host still applies: forged X-Forwarded-Host -> 308 to the configured origin", xfh.status === 308 && xfh.headers.location === `https://${CANON_HOST}/api/ready`);
+  check("M3.4a: forged X-Forwarded-Host on readiness -> 200 ready (minimal, unlinked response)", xfh.status === 200 && xfh.text === READY && !xfh.headers.location);
+  for (const path of ["/api/ready/x", "/api/readyz", "/api/READY", "/api/ready.json", "/api/patient/c5/state", "/login", "/"]) {
+    const r2 = await rawRequest(P, { path, headers: { host: DEPLOY } });
+    check(`M3.4a: deployment-host GET ${path} -> still 308 to the configured origin`, r2.status === 308 && r2.headers.location === `https://${CANON_HOST}${path}`, `${r2.status} ${r2.headers.location}`);
+  }
+  const otherHead = await rawRequest(P, { method: "HEAD", path: "/api/patient/c5/state", headers: { host: DEPLOY } });
+  check("M3.4a: deployment-host HEAD of another API path -> still 308", otherHead.status === 308);
+  for (const method of ["POST", "PUT", "PATCH", "DELETE", "OPTIONS"]) {
+    const r3 = await rawRequest(P, { method, path: "/api/ready", headers: { host: DEPLOY, "content-length": "0" } });
+    check(`M3.4a: deployment-host ${method} /api/ready -> still 403 NONCANONICAL_HOST_REFUSED`, r3.status === 403 && JSON.parse(r3.text).error === "NONCANONICAL_HOST_REFUSED", `${r3.status} ${r3.text}`);
+  }
+  const wrongPostOrigin = await rawRequest(P, { method: "POST", path: "/api/ready", headers: { host: DEPLOY, origin: `https://${CANON_HOST}`, "content-length": "0" } });
+  check("M3.4a: deployment-host POST with the canonical Origin -> still 403", wrongPostOrigin.status === 403);
+  const xfhPost = await rawRequest(P, { method: "POST", path: "/api/ready", headers: { host: CANON_HOST, "x-forwarded-host": "evil.example", "content-length": "0" } });
+  check("M3.4a: forged X-Forwarded-Host POST /api/ready -> still 403", xfhPost.status === 403);
   const wrongPost = await rawRequest(P, { method: "POST", path: "/api/ready", headers: { host: "evil.example", "content-length": "0" } });
   check("wrong-host POST -> 403 NONCANONICAL_HOST_REFUSED", wrongPost.status === 403 && JSON.parse(wrongPost.text).error === "NONCANONICAL_HOST_REFUSED");
   await stopServer(prod);
@@ -189,7 +213,11 @@ async function partB(interceptLog) {
   const mPatient = await rawRequest(P, { method: "POST", path: "/api/patient/c5/start", headers: { host: MAINT_HOST, "content-length": "0" } });
   check("maintenance restrictions unchanged alongside readiness (patient API -> 503 MAINTENANCE)", mPatient.status === 503 && JSON.parse(mPatient.text).error === "MAINTENANCE", String(mPatient.status));
   const mWrong = await rawRequest(P, { path: "/api/ready", headers: { host: "evil.example" } });
-  check("maintenance wrong-host GET -> 308 to the maintenance origin", mWrong.status === 308 && mWrong.headers.location === `https://${MAINT_HOST}/api/ready`);
+  check("M3.4a: maintenance deployment-host GET /api/ready -> 200 ready directly", mWrong.status === 200 && mWrong.text === READY && !mWrong.headers.location, `${mWrong.status} ${mWrong.text}`);
+  const mWrongPage = await rawRequest(P, { path: "/login", headers: { host: "evil.example" } });
+  check("maintenance deployment-host GET /login -> still 308 to the maintenance origin", mWrongPage.status === 308 && mWrongPage.headers.location === `https://${MAINT_HOST}/login`);
+  const mWrongPost = await rawRequest(P, { method: "POST", path: "/api/ready", headers: { host: "evil.example", "content-length": "0" } });
+  check("maintenance deployment-host POST /api/ready -> still 403", mWrongPost.status === 403);
   await stopServer(maint);
 }
 

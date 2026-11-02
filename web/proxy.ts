@@ -80,7 +80,15 @@ function canonicalHostRefusal(config: AppConfig, request: NextRequest): NextResp
   if (config.mode === "development") return null;
   const observed = observedRequestHost(request.headers.get("x-forwarded-host"), request.headers.get("host"));
   if (observed === originHost(config.appOrigin)) return null;
-  if (request.method === "GET" || request.method === "HEAD") {
+  const read = request.method === "GET" || request.method === "HEAD";
+  // M3.4a (founder-approved) — the one deployment-host exception: GET/HEAD
+  // of exactly /api/ready is answered on any host, so a staged deployment
+  // can be health-checked on its own deployment URL before promotion
+  // instead of being redirected to the live canonical deployment. The
+  // response is the minimal public readiness contract (no data, no links);
+  // every other path, and every other method, keeps the rule below.
+  if (read && request.nextUrl.pathname === READINESS_PATH) return null;
+  if (read) {
     // Only the path and query are taken from the request (as Next parsed
     // them: parameter-for-parameter, Next may re-encode e.g. %20 as +);
     // the origin — scheme, host and port — is the configured one.
