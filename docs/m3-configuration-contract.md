@@ -255,6 +255,9 @@ deployed probe. If deployment evidence shows an internal host there (a
 redirect loop), M3.4 changes the rule to Host-only. This is not resolved by
 speculation.
 
+M3.4a provides the probe (`web/scripts/deploymentProbe.mjs`; see
+`docs/m3-deployment-readiness.md`). It reports; it never changes the rule.
+
 ## Supabase identity
 
 - **URL classification.** `SUPABASE_URL` is classified as:
@@ -404,8 +407,11 @@ The browser only ever sees fixed result codes, never provider text.
 | Access | public; no authentication of any kind |
 | Details | none (no mode, project, provider, version, latency or reason) |
 
-Canonical-host enforcement applies: a wrong-host GET or HEAD gets a 308 to
-the configured origin.
+**M3.4a deployment-host exception.** GET and HEAD of exactly `/api/ready`
+are answered on any host, without the canonical 308, so a staged deployment
+can be health-checked on its own deployment URL before promotion. Every other
+path still gets the 308, and every other method on `/api/ready` still gets
+`403 NONCANONICAL_HOST_REFUSED`. See `docs/m3-deployment-readiness.md`.
 
 ### Engineering detail (`web/lib/readiness.ts`)
 
@@ -584,9 +590,10 @@ Intentionally not part of S3:
 - **Dispatcher scheduling.** The endpoint is POST-only and must be called on
   the canonical origin; Vercel Cron issues GETs, so the scheduler choice is
   M3.4's.
-- **Readiness as a gate:** use `/api/ready` on the canonical origin as the
-  promotion / alias gate. A startup refusal on Vercel crashes the function
-  instance but leaves the deployment "Ready".
+- **Readiness as a gate:** M3.4a: `web/scripts/readinessGate.mjs` checks the
+  candidate deployment's own URL before promotion (the deployment-host
+  exception above), then the canonical origin after it. A startup refusal on
+  Vercel crashes the function instance but leaves the deployment "Ready".
 - **CSP:** move from Report-Only to enforcement before launch (D4).
 
 ## Known follow-up issues (not S3 failures)
