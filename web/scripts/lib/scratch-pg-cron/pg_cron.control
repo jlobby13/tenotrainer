@@ -1,0 +1,7 @@
+# M3.4a — TEST DOUBLE of pg_cron for the scratch fresh-database proof only
+# (verifyM34aFreshDatabase.mjs). Installed into the scratch Postgres tooling,
+# never into a real server. It records job definitions; it never runs them.
+comment = 'TenoTrainer scratch test double of pg_cron (records jobs; never executes)'
+default_version = '1.6'
+relocatable = false
+superuser = true
