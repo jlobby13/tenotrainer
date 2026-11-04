@@ -64,7 +64,7 @@ try {
   const safety = await import("./lib/safetyEmail/index.ts");
   const { dispatchSafetyEmails } = await import("./lib/safetyEmail/dispatcher.ts");
   for (const to of sc.invite ?? []) {
-    out["patient:" + to] = await email.sendPatientInvitationEmail({ to, inviteUrl: "http://x/invite/accept?token=t", orgName: "Org", clinicianName: "Clin" });
+    out["patient:" + to] = await email.sendPatientInvitationEmail({ to, inviteUrl: "http://x/invite/accept?token=t", orgName: "Org" });
     out["tester:" + to] = await email.sendInvitationEmail({ to, inviteUrl: "http://x/invite/accept?token=t", orgName: "Org", invitationType: "USER_TESTER" });
   }
   const provider = safety.selectSafetyEmailProvider();

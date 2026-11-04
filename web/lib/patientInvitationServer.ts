@@ -66,10 +66,10 @@ export async function createPatientInvitation(params: {
   const { data: inv } = await admin.from("invitations").select("email, organizations(name)").eq("id", invitationId).maybeSingle();
   const email = (inv?.email as string) ?? params.email.trim().toLowerCase();
   const orgName = (inv?.organizations as unknown as { name: string } | null)?.name ?? "your clinic";
-  const clinicianName = (await displayName(admin, params.clinicianId)) ?? "Your clinician";
   const inviteUrl = invitationUrl(token);
 
-  const emailResult = await sendPatientInvitationEmail({ to: email, inviteUrl, orgName, clinicianName });
+  // M3.4d — the email names only the organization (no clinician identity).
+  const emailResult = await sendPatientInvitationEmail({ to: email, inviteUrl, orgName });
   if (emailResult.sent) {
     await admin.from("invitations").update({ email_sent_at: new Date().toISOString() }).eq("id", invitationId);
   }

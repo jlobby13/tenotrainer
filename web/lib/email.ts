@@ -8,7 +8,7 @@ const HUMAN_ROLE: Record<string, string> = {
   CLINICIAN_ADMIN_TESTER: "TenoTrainer Clinician Tester",
 };
 
-function invitationHtml(opts: {
+export function invitationHtml(opts: {
   inviteUrl: string;
   orgName: string;
   humanRole: string;
@@ -45,15 +45,14 @@ function invitationHtml(opts: {
 
     <h1>Welcome to TenoTrainer</h1>
 
-    <p>You have been invited to help test <strong>TenoTrainer</strong>, an Achilles tendinopathy rehabilitation platform currently in development.</p>
+    <p>You have been invited to help test <strong>TenoTrainer</strong>, which is currently in development.</p>
 
     <p>Your role: <span class="role-badge">${humanRole}</span></p>
 
     <p>We'd love for you to try the platform and share your feedback. Your experience will directly help improve:</p>
     <ul style="color:#4b5563;font-size:15px;line-height:1.8;margin:0 0 16px;padding-left:20px;">
       <li>Usability and navigation</li>
-      <li>Rehabilitation workflows</li>
-      <li>Exercise guidance and progression</li>
+      <li>Workflows and guidance</li>
       <li>${humanRole.includes("Clinician") ? "Clinician oversight tools" : "Patient-facing experience"}</li>
     </ul>
 
@@ -80,7 +79,7 @@ function invitationHtml(opts: {
 </html>`;
 }
 
-function invitationText(opts: {
+export function invitationText(opts: {
   inviteUrl: string;
   orgName: string;
   humanRole: string;
@@ -88,12 +87,12 @@ function invitationText(opts: {
 }): string {
   return `Welcome to TenoTrainer
 
-You have been invited to help test TenoTrainer, an Achilles tendinopathy rehabilitation platform currently in development.
+You have been invited to help test TenoTrainer, which is currently in development.
 
 Role: ${opts.humanRole}
 Organization: ${opts.orgName}
 
-We'd love for you to try the platform and share your feedback on usability, rehabilitation workflows, and exercise guidance.
+We'd love for you to try the platform and share your feedback on usability and workflows.
 
 Create your account:
 ${opts.inviteUrl}
@@ -113,6 +112,22 @@ export type EmailResult =
 // M3.3 S3c — the only invitation-email path to the network. The central
 // delivery policy (TENOTRAINER_EMAIL_PROVIDER + the development recipient
 // allow-list) decides first; a configured Resend key alone never sends.
+// M3.4d — the invitation send is bounded (as the safety provider is): a hung
+// provider call must not hold the clinician's request. On timeout the email
+// counts as not sent and the one-time link is still shown in the UI.
+export const INVITATION_DELIVERY_TIMEOUT_MS = 15000;
+
+// Resolves to the promise's value, or to "timeout" after `ms`.
+export async function withDeliveryTimeout<T>(promise: Promise<T>, ms: number): Promise<T | "timeout"> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<"timeout">((resolve) => { timer = setTimeout(() => resolve("timeout"), ms); });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 async function deliver(message: { to: string; subject: string; html: string; text: string }): Promise<EmailResult> {
   const config = getConfig();
   const decision = emailDeliveryDecision(config, message.to);
@@ -121,8 +136,9 @@ async function deliver(message: { to: string; subject: string; html: string; tex
   const from = config.email.from;
   if (!apiKey || !from) return { sent: false, reason: "email_not_configured" };
   try {
-    const { error } = await new Resend(apiKey).emails.send({ from, ...message });
-    return error ? { sent: false, reason: "email_not_sent" } : { sent: true };
+    const outcome = await withDeliveryTimeout(new Resend(apiKey).emails.send({ from, ...message }), INVITATION_DELIVERY_TIMEOUT_MS);
+    if (outcome === "timeout") return { sent: false, reason: "email_not_sent" };
+    return outcome.error ? { sent: false, reason: "email_not_sent" } : { sent: true };
   } catch {
     return { sent: false, reason: "email_not_sent" };
   }
@@ -154,30 +170,33 @@ export async function sendInvitationEmail(opts: {
   });
 }
 
-// M2 — patient invitation from a clinician. Neutral, factual copy; the same
-// Resend delivery as the tester invitation (no new email infrastructure).
-export async function sendPatientInvitationEmail(opts: {
-  to: string;
-  inviteUrl: string;
-  orgName: string;
-  clinicianName: string;
-}): Promise<EmailResult> {
+// M2 — patient invitation. M3.4d (founder privacy decision): the email names
+// only the organization and carries the link. It must not disclose clinician
+// identity, care / rehabilitation / treatment wording, diagnosis, injury,
+// pain or prescription information (lib/__tests__/invitationEmailPrivacy.test.ts).
+export function buildPatientInvitationEmail(opts: { to: string; inviteUrl: string; orgName: string }): { subject: string; text: string; html: string } {
   const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-  const text = `${opts.clinicianName} at ${opts.orgName} has invited you to TenoTrainer, where your rehabilitation program will be shared with you.
+  const subject = "Your TenoTrainer invitation";
+  const text = `You've been invited to TenoTrainer by ${opts.orgName}.
 
-Accept the invitation:
+Accept your invitation:
 ${opts.inviteUrl}
 
 This invitation was sent to ${opts.to} and expires in 7 days. If you weren't expecting it, you can ignore this email.
 `;
-  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Your TenoTrainer invitation</title></head>
+  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>${subject}</title></head>
 <body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
 <div style="max-width:560px;margin:40px auto;padding:0 16px;"><div style="background:#ffffff;border-radius:12px;border:1px solid #e5e7eb;padding:36px;">
 <div style="font-size:22px;font-weight:700;color:#2563eb;margin-bottom:24px;">TenoTrainer</div>
-<p style="font-size:15px;line-height:1.6;color:#374151;"><strong>${esc(opts.clinicianName)}</strong> at <strong>${esc(opts.orgName)}</strong> has invited you to TenoTrainer, where your rehabilitation program will be shared with you.</p>
-<p style="margin:28px 0;text-align:center;"><a href="${esc(opts.inviteUrl)}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;font-size:16px;font-weight:600;padding:14px 32px;border-radius:8px;">Accept invitation</a></p>
+<p style="font-size:15px;line-height:1.6;color:#374151;">You've been invited to TenoTrainer by <strong>${esc(opts.orgName)}</strong>.</p>
+<p style="margin:28px 0;text-align:center;"><a href="${esc(opts.inviteUrl)}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;font-size:16px;font-weight:600;padding:14px 32px;border-radius:8px;">Accept your invitation</a></p>
 <p style="font-size:13px;color:#9ca3af;line-height:1.6;">This invitation was sent to ${esc(opts.to)} and expires in 7 days. If you weren't expecting it, you can ignore this email.</p>
 <p style="font-size:12px;color:#6b7280;word-break:break-all;background:#f3f4f6;border-radius:6px;padding:10px 14px;">${esc(opts.inviteUrl)}</p>
 </div></div></body></html>`;
-  return deliver({ to: opts.to, subject: "Your TenoTrainer invitation", html, text });
+  return { subject, text, html };
+}
+
+export async function sendPatientInvitationEmail(opts: { to: string; inviteUrl: string; orgName: string }): Promise<EmailResult> {
+  const { subject, text, html } = buildPatientInvitationEmail(opts);
+  return deliver({ to: opts.to, subject, html, text });
 }

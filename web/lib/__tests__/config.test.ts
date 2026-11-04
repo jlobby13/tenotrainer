@@ -59,9 +59,10 @@ function refused(env: Env, includes: string, registry?: ResourceIdentityRegistry
 }
 
 // ---------------------------------------------------------------- registry
-test("committed registry: the development project is registered; production lists are empty until M3.4", () => {
+test("committed registry: the development project is registered; no production Supabase project yet; the approved production sending domain only", () => {
   assert(RESOURCE_IDENTITY.developmentSupabaseProjects.includes(DEV_REF), "dev ref");
-  assert(RESOURCE_IDENTITY.productionSupabaseProjects.length === 0 && RESOURCE_IDENTITY.productionEmailDomains.length === 0, "no invented production identity");
+  assert(RESOURCE_IDENTITY.productionSupabaseProjects.length === 0, "no production Supabase project before the reviewed D1 registration");
+  assert(JSON.stringify(RESOURCE_IDENTITY.productionEmailDomains) === JSON.stringify(["notify.tenotrainer.com"]), "M3.4d: exactly the founder-approved production sending subdomain");
 });
 
 // ---------------------------------------------------------------- isolated test profile (founder Decision 1)
