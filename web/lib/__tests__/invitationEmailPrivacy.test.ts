@@ -6,7 +6,7 @@
 //     diagnosis, injury, pain, prescription or other clinical wording.
 //   - The development-only tester invitation carries no condition wording.
 //   - The invitation Resend call is bounded (15 s); a hung call is "not sent".
-//   - notify.tenotrainer.com is the registered production sending domain:
+//   - tenotrainer.com is the registered production sending domain:
 //     production accepts it as the sender; development refuses it as sender
 //     and as recipient.
 //
@@ -97,27 +97,27 @@ const PROD_REF = "abcdefghijklmnopqrst";
 const sb = (ref: string) => ({ SUPABASE_URL: `https://${ref}.supabase.co`, TENOTRAINER_SUPABASE_PROJECT_REF: ref, SUPABASE_ANON_KEY: jwt({ role: "anon", ref }), SUPABASE_SERVICE_ROLE_KEY: jwt({ role: "service_role", ref }) });
 const problems = (env: Env) => { try { validateConfig(env); return []; } catch (e) { if (e instanceof ConfigError) return e.problems; throw e; } };
 const PROD: Env = { VERCEL: "1", VERCEL_ENV: "production", NODE_ENV: "production", TENOTRAINER_MODE: "production", TENOTRAINER_APP_ORIGIN: "https://app.tenotrainer-verify.org", ...sb(PROD_REF),
-  TENOTRAINER_EMAIL_PROVIDER: "resend", RESEND_API_KEY: "re_placeholder_not_a_key", TENOTRAINER_NOTIFICATION_EMAIL_FROM: "TenoTrainer <no-reply@notify.tenotrainer.com>", SAFETY_DISPATCH_SECRET: "m34d-dispatch-secret-0123456789abcdef-xyz" };
+  TENOTRAINER_EMAIL_PROVIDER: "resend", RESEND_API_KEY: "re_placeholder_not_a_key", TENOTRAINER_NOTIFICATION_EMAIL_FROM: "TenoTrainer <no-reply@tenotrainer.com>", SAFETY_DISPATCH_SECRET: "m34d-dispatch-secret-0123456789abcdef-xyz" };
 const DEV: Env = { TENOTRAINER_MODE: "development", TENOTRAINER_APP_ORIGIN: "http://localhost:3000", ...sb(DEV_REF), TENOTRAINER_EMAIL_PROVIDER: "resend", RESEND_API_KEY: "re_placeholder_not_a_key",
   TENOTRAINER_NOTIFICATION_EMAIL_FROM: "TenoTrainer <x@dev-mail.tenotrainer.test>", TENOTRAINER_DEV_EMAIL_RECIPIENTS: "dev@example.com" };
 
-await test("registry: notify.tenotrainer.com is the registered production sending domain", () => {
-  assert(RESOURCE_IDENTITY.productionEmailDomains.includes("notify.tenotrainer.com"), JSON.stringify(RESOURCE_IDENTITY.productionEmailDomains));
+await test("registry: tenotrainer.com is the registered production sending domain", () => {
+  assert(RESOURCE_IDENTITY.productionEmailDomains.includes("tenotrainer.com"), JSON.stringify(RESOURCE_IDENTITY.productionEmailDomains));
 });
-await test("production accepts the approved sender TenoTrainer <no-reply@notify.tenotrainer.com>", () => {
+await test("production accepts the approved sender TenoTrainer <no-reply@tenotrainer.com>", () => {
   const p = problems(PROD);
   assert(p.length === 0, JSON.stringify(p));
 });
-await test("development refuses the production sending domain as sender", () => {
-  const p = problems({ ...DEV, TENOTRAINER_NOTIFICATION_EMAIL_FROM: "TenoTrainer <no-reply@notify.tenotrainer.com>" });
+await test("development refuses the production sending domain as sender (even with a Resend key present)", () => {
+  const p = problems({ ...DEV, TENOTRAINER_NOTIFICATION_EMAIL_FROM: "TenoTrainer <no-reply@tenotrainer.com>" });
   assert(p.some((x) => x.includes("TENOTRAINER_NOTIFICATION_EMAIL_FROM")), JSON.stringify(p));
 });
 await test("development refuses a production-domain recipient in the allow-list", () => {
-  const p = problems({ ...DEV, TENOTRAINER_DEV_EMAIL_RECIPIENTS: "someone@notify.tenotrainer.com" });
+  const p = problems({ ...DEV, TENOTRAINER_DEV_EMAIL_RECIPIENTS: "someone@tenotrainer.com" });
   assert(p.some((x) => x.includes("registered production email domain is refused")), JSON.stringify(p));
 });
 await test("a Vercel Preview (development mode) cannot send as the production domain either", () => {
-  const p = problems({ ...DEV, VERCEL: "1", VERCEL_ENV: "preview", NODE_ENV: "production", TENOTRAINER_NOTIFICATION_EMAIL_FROM: "TenoTrainer <no-reply@notify.tenotrainer.com>" });
+  const p = problems({ ...DEV, VERCEL: "1", VERCEL_ENV: "preview", NODE_ENV: "production", TENOTRAINER_NOTIFICATION_EMAIL_FROM: "TenoTrainer <no-reply@tenotrainer.com>" });
   assert(p.some((x) => x.includes("TENOTRAINER_NOTIFICATION_EMAIL_FROM")), JSON.stringify(p));
 });
 
