@@ -14,9 +14,12 @@
 //      the development project's migration-owned rows), no user / auth /
 //      organization / patient / invitation / safety-notification / L5 data,
 //      RLS on every public table, the sweep job.
-//   5. Drift: the migrations-built catalog vs the development project's
-//      catalog (read-only; scripts/lib/schemaCatalog.mjs). Any difference
-//      fails and is listed.
+//   5. Drift: the migrations-built catalog, at the development project's
+//      ledger position, vs the development project's catalog (read-only;
+//      scripts/lib/schemaCatalog.mjs). Any difference fails and is listed.
+//      Repository migrations dev has not yet received are listed and must
+//      apply on top (migration 64's own exact change set is proven by
+//      verifyM34cSecurityHardening.mjs).
 //
 // Requires TENOTRAINER_PG_TOOLING (see scratchPostgres.mjs).
 // Run from web/:  TENOTRAINER_MODE=development node scripts/verifyM34aFreshDatabase.mjs [--report <file.json>]
@@ -30,7 +33,7 @@ import { CATALOG_SQL, diffCatalogs, stable, summarizeCatalog } from "./lib/schem
 const env = loadEnv(".env.local");
 assertDevTestTarget(env);
 assertDevSqlTarget(); // the read-only development catalog read goes through the linked dev project only
-const EXPECTED_MIGRATIONS = 63;
+const EXPECTED_MIGRATIONS = 64; // 62 + the M3.4a corrective migration + the M3.4c security hardening
 const L5_OUTBOX = "f73aeb4d-6517-481b-ac6e-cc73fa0afc67";
 const reportArg = process.argv.indexOf("--report");
 const REPORT = reportArg > 0 ? process.argv[reportArg + 1] : null;
@@ -77,9 +80,25 @@ try {
   section("migrations on an empty database");
   const files = migrationFiles();
   report.migrations = files.length;
-  check(`migration count is ${EXPECTED_MIGRATIONS} (62 accepted + the M3.4a corrective migration)`, files.length === EXPECTED_MIGRATIONS, files.length);
-  const { applied, failed } = await applyMigrations(db, files);
-  if (failed) check(`migration ${failed.file} applies`, false, failed.error);
+  check(`migration count is ${EXPECTED_MIGRATIONS}`, files.length === EXPECTED_MIGRATIONS, files.length);
+  // Drift is measured at the development project's own ledger position:
+  // build exactly the versions dev has applied, snapshot that catalog for
+  // the comparison, then apply any repository migrations dev has not yet
+  // received (they must apply too; the fresh-state proof uses the final
+  // state).
+  const devLedger = guardedSql(env, "SELECT coalesce(jsonb_agg(version ORDER BY version), '[]') AS v FROM supabase_migrations.schema_migrations")[0].v;
+  const atDev = files.filter((f) => devLedger.includes(f.slice(0, 14)));
+  const pending = files.filter((f) => !devLedger.includes(f.slice(0, 14)));
+  report.devLedger = devLedger.length;
+  report.pendingForDev = pending;
+  check("every migration dev has applied exists in the repository, and they are a filename-order prefix", atDev.length === devLedger.length && stable(atDev) === stable(files.slice(0, atDev.length)), JSON.stringify({ dev: devLedger.length, matched: atDev.length }));
+  console.log(`      dev ledger: ${devLedger.length}; repository migrations not yet applied to dev: ${pending.length ? pending.join(", ") : "none"}`);
+  const first = await applyMigrations(db, atDev);
+  if (first.failed) check(`migration ${first.failed.file} applies`, false, first.failed.error);
+  var builtAtDev = first.failed ? null : (await db.query(CATALOG_SQL)).rows[0].catalog;
+  const second = first.failed ? { applied: 0, failed: null } : await applyMigrations(db, pending);
+  if (second.failed) check(`migration ${second.failed.file} applies`, false, second.failed.error);
+  const applied = first.applied + second.applied;
   check(`all ${files.length} migrations applied in filename order, one transaction each`, applied === files.length, `${applied}/${files.length}`);
   if (applied !== files.length) throw new Error("STOP: the migrations cannot reconstruct a fresh database");
 
@@ -131,8 +150,8 @@ try {
   }
 
   // ------------------------------------------------------------- drift
-  section("schema drift: migrations-built vs the development project");
-  const built = (await db.query(CATALOG_SQL)).rows[0].catalog;
+  section("schema drift: migrations-built (at dev's ledger position) vs the development project");
+  const built = builtAtDev;
   const dev = guardedSql(env, CATALOG_SQL)[0].catalog;
   report.catalogBuilt = summarizeCatalog(built);
   report.catalogDev = summarizeCatalog(dev);
@@ -143,9 +162,10 @@ try {
   report.drift = d;
   console.log(`      excluded platform-managed objects (exact, named; provenance unverified; M3.4c item): ${d.excludedPlatformObjects.length ? d.excludedPlatformObjects.join("; ") : "none present"}`);
   check("only the exact named platform objects were excluded", d.excludedPlatformObjects.every((x) => /rls_auto_enable|ensure_rls/.test(x)), d.excludedPlatformObjects.join("; "));
-  const fn = built.functions.find((f) => f.name === "create_rehab_session_if_allowed");
+  const finalCat = (await db.query(CATALOG_SQL)).rows[0].catalog;
+  const fn = finalCat.functions.find((f) => f.name === "create_rehab_session_if_allowed");
   const fnDev = dev.functions.find((f) => f.name === "create_rehab_session_if_allowed");
-  check("create_rehab_session_if_allowed ends in the accepted (development) definition", fn && fnDev && fn.def_md5 === fnDev.def_md5 && stable(fn) === stable(fnDev), `${fn?.def_md5} vs ${fnDev?.def_md5}`);
+  check("create_rehab_session_if_allowed ends (after every migration) in the accepted (development) definition", fn && fnDev && fn.def_md5 === fnDev.def_md5 && stable(fn) === stable(fnDev), `${fn?.def_md5} vs ${fnDev?.def_md5}`);
   const devNoRls = dev.relations.filter((r) => ["r", "p"].includes(r.kind) && !r.rls).map((r) => r.name);
   check("development application tables: RLS enabled on every one as well (security does not rely on platform automation)", devNoRls.length === 0, devNoRls.join(","));
   for (const [cat, x] of Object.entries(d.categories)) {

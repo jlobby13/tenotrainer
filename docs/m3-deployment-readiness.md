@@ -200,7 +200,9 @@ production project:
 
 **Fresh-state proof:**
 
-- the expected migration count (63);
+- the expected migration count (64 since M3.4c; drift is measured at the
+  development project's own ledger position, and migrations dev has not yet
+  received must apply on top);
 - the required extensions;
 - only reference tables hold rows (canonical exercises, reference dosage,
   M6 heuristics), plus the two safety-heartbeat state rows;
@@ -389,6 +391,7 @@ No code-level blocker was found.
 | `web/scripts/verifyM33Readiness.mjs` | readiness semantics incl. the narrow deployment-host exception |
 | `web/scripts/verifyM34aDeploymentTools.mjs` | gate verdicts, probe classification (modelled platforms), live probe/gate, CLIs |
 | `web/scripts/verifyM34aCspProduction.mjs` | zero CSP violations as served and under enforcement, resources work |
-| `web/scripts/verifyM34aFreshDatabase.mjs` | fresh reconstruction from 63 migrations, fresh state, zero application drift |
+| `web/scripts/verifyM34aFreshDatabase.mjs` | fresh reconstruction from every migration (64), fresh state, zero application drift at dev's ledger position |
+| `web/scripts/verifyM34cSecurityHardening.mjs` | migration 64's exact change set, privilege matrix, linter-equivalent counts, trigger / RLS / reconcile / schedule-gate behaviour |
 | `web/scripts/verifyM34aPreviewProfile.mjs` | the Preview model works without FastAPI, email disabled |
 | `web/lib/__tests__/m34aDeploymentConfig.test.ts` | Production / Preview configuration acceptance and refusals |
