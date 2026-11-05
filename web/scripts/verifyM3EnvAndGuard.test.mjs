@@ -35,9 +35,9 @@ function throwsConfig(env, includes) {
   }
 }
 
-// A hosted project that is NOT a registered development project (the
-// committed registry lists only the real development project).
-const PROD_REF = "abcdefghijklmnopqrst";
+// The registered production project (M3.4e N1: production requires a
+// registered production project; synthetic keys only).
+const PROD_REF = "wfaalpfobpmojohetjlr";
 const PROD_BASE = {
   SUPABASE_URL: `https://${PROD_REF}.supabase.co`,
   TENOTRAINER_SUPABASE_PROJECT_REF: PROD_REF,

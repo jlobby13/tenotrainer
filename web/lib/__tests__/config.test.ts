@@ -30,7 +30,7 @@ const jwt = (claims: Record<string, unknown>) => `${b64u({ alg: "HS256", typ: "J
 const keys = (ref: string) => ({ SUPABASE_ANON_KEY: jwt({ role: "anon", ref }), SUPABASE_SERVICE_ROLE_KEY: jwt({ role: "service_role", ref }) });
 
 const DEV_REF = "kpdxlzqtvueiytwjamiw"; // the committed development registry entry
-const PROD_REF = "abcdefghijklmnopqrst"; // unregistered hosted project
+const PROD_REF = "wfaalpfobpmojohetjlr"; // the committed production registry entry (synthetic keys only)
 const UNKNOWN_REF = "zyxwvutsrqponmlkjihg";
 const SECRET32 = "s3-dispatch-secret-0123456789abcdef-xyz";
 
@@ -139,6 +139,38 @@ test("no generic test override: unknown TEST/BYPASS-style variables have no effe
 // ---------------------------------------------------------------- ordinary production / maintenance identity
 test("production: hosted https://<ref>.supabase.co with matching expected ref accepted", () => {
   for (const mode of ["production", "maintenance"]) assert(ok({ ...PROD, TENOTRAINER_MODE: mode }).supabase.ref === PROD_REF, mode);
+});
+// M3.4e (N1) — positive production identity: production and maintenance
+// require a REGISTERED production project; "not development" is insufficient.
+test("N1: production and maintenance accept the registered production project", () => {
+  for (const mode of ["production", "maintenance"]) {
+    const c = ok({ ...PROD, TENOTRAINER_MODE: mode });
+    assert(c.mode === mode && c.supabase.ref === PROD_REF && !c.isolatedTestProfile, mode);
+  }
+});
+test("N1: production and maintenance refuse a valid but unregistered hosted project", () => {
+  for (const mode of ["production", "maintenance"]) refused({ ...PROD, TENOTRAINER_MODE: mode, ...supabase(UNKNOWN_REF) }, `must be a registered production project in ${mode} mode`);
+});
+test("N1: production and maintenance refuse the registered development project", () => {
+  for (const mode of ["production", "maintenance"]) refused({ ...PROD, TENOTRAINER_MODE: mode, ...supabase(DEV_REF) }, `is a registered development project and is refused in ${mode} mode`);
+});
+test("N1: production refuses a URL / expected-ref mismatch even between registered projects", () => {
+  refused({ ...PROD, TENOTRAINER_SUPABASE_PROJECT_REF: DEV_REF }, "must equal the project ref");
+  refused({ ...PROD, SUPABASE_URL: `https://${DEV_REF}.supabase.co` }, "must equal the project ref");
+});
+test("N1: development refuses the registered production project and accepts the registered development project", () => {
+  const p = problems({ ...DEV, SUPABASE_URL: `https://${PROD_REF}.supabase.co`, ...keys(PROD_REF) });
+  assert(p.some((x) => x.includes("registered production project is refused in development mode")) && p.some((x) => x.includes("must be a registered development project")), JSON.stringify(p));
+  assert(ok(DEV).supabase.ref === DEV_REF, "dev accepted");
+  refused({ ...DEV, SUPABASE_URL: `https://${UNKNOWN_REF}.supabase.co`, ...keys(UNKNOWN_REF) }, "must be a registered development project in development mode");
+});
+test("N1: an overlapping development / production registry is refused in every mode", () => {
+  const overlap = { ...RESOURCE_IDENTITY, productionSupabaseProjects: [PROD_REF, DEV_REF] };
+  for (const env of [PROD, { ...PROD, TENOTRAINER_MODE: "maintenance" }, DEV]) refused(env, "must be disjoint", overlap);
+});
+test("N1: a Vercel Preview in development mode on the development project stays valid", () => {
+  const c = ok({ ...DEV, VERCEL: "1", VERCEL_ENV: "preview", NODE_ENV: "production", TENOTRAINER_APP_ORIGIN: "https://preview-alias.vercel.app", TENOTRAINER_SUPABASE_PROJECT_REF: DEV_REF, TENOTRAINER_EMAIL_PROVIDER: "disabled", C5_PATIENT_RUNTIME_ENABLED: "true" });
+  assert(c.mode === "development" && c.supabase.ref === DEV_REF && c.email.provider === "disabled", JSON.stringify(c.mode));
 });
 test("production: local Supabase, custom domains, http and non-bare URLs refused", () => {
   refused({ ...PROD, SUPABASE_URL: "http://127.0.0.1:54321" }, "a local Supabase is refused");

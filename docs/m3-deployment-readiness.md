@@ -303,11 +303,11 @@ owned by the TenoTrainer migration set; provenance currently unverified*.
     - the `.test` profile on Vercel.
   - **Preview:** the Preview model validates, and its unsafe variants are
     refused.
-- **The production "approval" at runtime is the identity pin.** S3's runtime
-  configuration does not consult `productionSupabaseProjects` (the registry
-  is not runtime authority). Production requires `TENOTRAINER_SUPABASE_PROJECT_REF`
-  to equal the URL's ref and refuses the registered development project. The
-  D1 operator workflow is what requires registry approval.
+- **The production "approval" at runtime is the identity pin plus the
+  registry.** Production requires `TENOTRAINER_SUPABASE_PROJECT_REF` to equal
+  the URL's ref, refuses the registered development project and, since M3.4e
+  (N1), refuses any project not registered in `productionSupabaseProjects`.
+  The D1 operator workflow applies the same registry approval.
 
 ## Vercel configuration
 

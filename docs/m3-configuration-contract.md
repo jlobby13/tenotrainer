@@ -269,7 +269,12 @@ M3.4a provides the probe (`web/scripts/deploymentProbe.mjs`; see
   - `TENOTRAINER_SUPABASE_PROJECT_REF` is required and must equal the URL's
     ref;
   - a ref registered as a development project is refused (except under the
-    isolated test profile).
+    isolated test profile);
+  - **M3.4e (N1):** the ref must be registered in `productionSupabaseProjects`.
+    Not being a development project is not enough: an unregistered hosted
+    project is refused;
+  - the development and production project lists must be disjoint (checked
+    in every mode).
 - **Development:**
   - a hosted ref must be a registered development project and must not be a
     registered production project;
@@ -449,7 +454,7 @@ never a substitute for production configuration.
 | List | Meaning |
 |---|---|
 | `developmentSupabaseProjects` | Projects development servers and write-capable test harnesses may target; production and maintenance refuse them. |
-| `productionSupabaseProjects` | Projects development refuses. Empty until M3.4; never add a guessed identity. |
+| `productionSupabaseProjects` | Projects production and maintenance require (M3.4e N1) and development refuses. M3.4e: `wfaalpfobpmojohetjlr`. Never add a guessed identity. |
 | `developmentEmailDomains` | The only sender domains development Resend delivery may use; production and maintenance refuse them. Currently only the undeliverable `dev-mail.tenotrainer.test`. |
 | `productionEmailDomains` | Sender and recipient domains development refuses. Empty until M3.4. |
 

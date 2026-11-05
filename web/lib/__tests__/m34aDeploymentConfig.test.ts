@@ -73,9 +73,10 @@ function refused(env: Env, includes: string | RegExp, registry?: ResourceIdentit
 const without = (env: Env, ...names: string[]) => Object.fromEntries(Object.entries(env).filter(([k]) => !names.includes(k)));
 
 // ---------------------------------------------------------------- production: accepted
-test("Vercel Production: the intended configuration validates (placeholders)", () => {
-  const c = validateConfig(VERCEL_PROD).config;
-  assert(c.mode === "production" && c.email.provider === "resend" && c.isolatedTestProfile === false && c.supabase.ref === PROD_REF, JSON.stringify(c));
+// M3.4e (N1) — an unregistered production project is refused; the intended
+// configuration validates only once its project is registered (next test).
+test("Vercel Production: the intended configuration is refused while its project is unregistered", () => {
+  refused(VERCEL_PROD, "must be a registered production project in production mode");
 });
 test("Vercel Production: also valid once the production ref and sender domain are registered", () => {
   assert(problems(VERCEL_PROD, REGISTRY_WITH_PROD).length === 0, JSON.stringify(problems(VERCEL_PROD, REGISTRY_WITH_PROD)));

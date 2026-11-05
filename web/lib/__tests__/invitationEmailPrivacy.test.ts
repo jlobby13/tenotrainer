@@ -93,7 +93,7 @@ type Env = Record<string, string | undefined>;
 const b64u = (o: unknown) => Buffer.from(JSON.stringify(o)).toString("base64url");
 const jwt = (claims: Record<string, unknown>) => `${b64u({ alg: "HS256", typ: "JWT" })}.${b64u({ iss: "supabase", ...claims })}.sig`;
 const DEV_REF = "kpdxlzqtvueiytwjamiw";
-const PROD_REF = "abcdefghijklmnopqrst";
+const PROD_REF = "wfaalpfobpmojohetjlr"; // the registered production project (synthetic keys only)
 const sb = (ref: string) => ({ SUPABASE_URL: `https://${ref}.supabase.co`, TENOTRAINER_SUPABASE_PROJECT_REF: ref, SUPABASE_ANON_KEY: jwt({ role: "anon", ref }), SUPABASE_SERVICE_ROLE_KEY: jwt({ role: "service_role", ref }) });
 const problems = (env: Env) => { try { validateConfig(env); return []; } catch (e) { if (e instanceof ConfigError) return e.problems; throw e; } };
 const PROD: Env = { VERCEL: "1", VERCEL_ENV: "production", NODE_ENV: "production", TENOTRAINER_MODE: "production", TENOTRAINER_APP_ORIGIN: "https://app.tenotrainer-verify.org", ...sb(PROD_REF),

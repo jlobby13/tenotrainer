@@ -132,6 +132,10 @@ export function validateConfig(env: Env, options: { registry?: ResourceIdentityR
   const registry = options.registry ?? RESOURCE_IDENTITY;
   const problems: string[] = [];
   const warnings: string[] = [];
+  // M3.4e — a project can never be both development and production.
+  if (registry.productionSupabaseProjects.some((r) => registry.developmentSupabaseProjects.includes(r))) {
+    problems.push("resourceIdentity.json: developmentSupabaseProjects and productionSupabaseProjects must be disjoint");
+  }
 
   // ------------------------------------------------------------ mode
   const rawMode = env.TENOTRAINER_MODE;
@@ -202,6 +206,10 @@ export function validateConfig(env: Env, options: { registry?: ResourceIdentityR
           if (inProduction) problems.push("SUPABASE_URL: under the isolated test profile a registered production project is refused");
         } else if (inDevelopment) {
           problems.push(`SUPABASE_URL: is a registered development project and is refused in ${mode} mode`);
+        } else if (!inProduction) {
+          // M3.4e (N1) — positive identity: not being a development project
+          // is insufficient; the project must be a reviewed production entry.
+          problems.push(`SUPABASE_URL: must be a registered production project in ${mode} mode`);
         }
       }
     } else if (mode === "development") {
