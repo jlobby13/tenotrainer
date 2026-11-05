@@ -59,9 +59,10 @@ function refused(env: Env, includes: string, registry?: ResourceIdentityRegistry
 }
 
 // ---------------------------------------------------------------- registry
-test("committed registry: the development project is registered; no production Supabase project yet; the approved production sending domain only", () => {
-  assert(RESOURCE_IDENTITY.developmentSupabaseProjects.includes(DEV_REF), "dev ref");
-  assert(RESOURCE_IDENTITY.productionSupabaseProjects.length === 0, "no production Supabase project before the reviewed D1 registration");
+test("committed registry: exactly the development project, exactly the production project (disjoint), the approved production sending domain only", () => {
+  assert(JSON.stringify(RESOURCE_IDENTITY.developmentSupabaseProjects) === JSON.stringify([DEV_REF]), "dev ref");
+  assert(JSON.stringify(RESOURCE_IDENTITY.productionSupabaseProjects) === JSON.stringify(["wfaalpfobpmojohetjlr"]), "M3.4e: exactly the founder-provisioned production project");
+  assert(!RESOURCE_IDENTITY.productionSupabaseProjects.some((r) => RESOURCE_IDENTITY.developmentSupabaseProjects.includes(r)), "development and production registries are disjoint");
   assert(JSON.stringify(RESOURCE_IDENTITY.productionEmailDomains) === JSON.stringify(["tenotrainer.com"]), "M3.4d: exactly the founder-verified production sending domain");
 });
 
