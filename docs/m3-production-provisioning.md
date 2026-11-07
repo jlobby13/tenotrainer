@@ -136,8 +136,8 @@ All of these must hold, or the run is refused before any network call:
 4. the S3 registry (`web/config/resourceIdentity.json`) classifies the ref
    for the intent:
    - `production` refuses a registered development project, and requires
-     the ref in `productionSupabaseProjects` (added by reviewed change in
-     M3.4; until then every production run is refused);
+     the ref in `productionSupabaseProjects` (registered in M3.4e:
+     `wfaalpfobpmojohetjlr`);
    - `development` refuses a registered production project and requires a
      registered development project.
 

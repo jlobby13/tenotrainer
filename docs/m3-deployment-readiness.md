@@ -15,6 +15,7 @@ DNS or other cloud resource was created.
 - [Build and configuration proofs](#build-and-configuration-proofs)
 - [Vercel configuration](#vercel-configuration)
 - [What M3.4b Preview requires](#what-m34b-preview-requires)
+- [M3.4e — protected Production (closed)](#m34e--protected-production-closed)
 - [Deferred](#deferred)
 - [Verification](#verification)
 
@@ -96,8 +97,8 @@ review) or `MANUAL`.
 | 6 | A client-supplied wrong `X-Forwarded-Host` on the canonical host is ignored |
 | 7, 8 | Same-origin mutation `Origin` passes the proxy (handler 405); a foreign `Origin` → `403` |
 | 9, 9b | The readiness gate passes on the deployment origin (directly) and on the canonical origin |
-| 10 | An unauthenticated redirect goes to the canonical `/login` |
-| 10b | **MANUAL:** generated links (invitation, safety email) use the canonical origin. Verify in the M3.4e founder smoke. |
+| 10 | An unauthenticated redirect lands on the canonical `/login` (with `next`): `Location` is resolved against the canonical origin, so an absolute canonical URL or a path-absolute relative one passes; a protocol-relative or foreign target fails |
+| 10b | **MANUAL:** generated links (invitation, safety email) use the canonical origin. Deferred at M3.4e (see [M3.4e — protected Production](#m34e--protected-production-closed)). |
 
 **What calls for Host-only reconsideration:**
 
@@ -363,6 +364,107 @@ email stays disabled, and links stay on the alias.
 
 No code-level blocker was found.
 
+## M3.4e — protected Production (closed)
+
+The first protected Production deployment, verified end to end without
+introducing any patient, clinical or operational data.
+
+### Release
+
+| Item | Value |
+|---|---|
+| Production application SHA | `20c06b11dfc80343e0f0245bd403fba7d5964446` (exact-SHA fast-forward of `main`, no force, no merge) |
+| Vercel deployment | `9x1YanDFkZPwjZUMDwrLnzpdHhmG`, Production / Current, from `main` |
+| Canonical origin | `https://tenotrainer.vercel.app` |
+| Verified per-deployment host | `https://tenotrainer-q70ila1g3-teno-trainer.vercel.app` |
+| Protection | Vercel Authentication on every deployment; never weakened or bypassed for browsers |
+| Production Supabase | `wfaalpfobpmojohetjlr`, the only registered production project (N1); ledger 64 |
+| Prescription publishing | `C5_PRESCRIPTION_PUBLISH_ENABLED=false` |
+
+### Final live verification
+
+Run by the founder from a temporary checkout of the corrected operator probe
+(below) against the unchanged Production deployment, with the Deployment
+Protection bypass entered through a hidden prompt and unset afterwards.
+
+| Check | Result |
+|---|---|
+| J3 readiness gate, per-deployment host and canonical, GET + HEAD | PASS |
+| J5 deployment probe | `PASS 13, FAIL 0, OBSERVATION 0, MANUAL 1` (10b) |
+| J5 check 10 | PASS: `307 /login?next=%2Fpatient%2Fdashboard` |
+| J6 canonical `GET /login` | HTTP/2 200; `Content-Security-Policy-Report-Only` present (no enforced CSP); HSTS `max-age=31536000; includeSubDomains` (the application's value); `x-vercel-id` shows `iad1` |
+| Runtime logs | `TenoTrainer operating mode: production`; no configuration refusal or runtime error |
+| Email and dispatch | none sent or started |
+
+### Probe correction (check 10)
+
+The first live run reported check 10 as FAIL: Production answered
+`307 Location: /login?next=%2Fpatient%2Fdashboard`. The proxy builds an
+absolute canonical URL, but Next.js 16 relativizes a proxy redirect whose
+target is the request's own origin (`next/dist/server/web/adapter.js`), and
+on the real HTTPS canonical host that origin is identical. A browser resolves
+the relative `Location` against the canonical URL, so it stays on the
+canonical host, which is the approved intent (the M3.3 real-TLS browser check
+asserts the landing URL). Local runs had kept the absolute form only because
+plain-HTTP requests made the `https` target cross-origin.
+
+Check 10 now verifies the browser-resolved destination (commit
+`949cb94e7634c55bc80bb36a26efd46ab8d414be`, operator tooling only). The
+application's redirect behaviour was not changed, and Production / `main`
+stayed at `20c06b1`.
+
+### D1 founder provisioning
+
+- Run with `web/scripts/provisionStaff.mjs` from the production-ops worktree
+  at the deployed SHA: dry run, then apply (3 writes: the initial
+  organization `tenotrainer`, the founder account, its `super_user`
+  membership), then an idempotent rerun (`no_change`, 0 writes).
+- The dedicated D1 operator key was revoked afterwards; the temporary
+  password file was deleted. `tenotrainer_vercel_production` (the runtime
+  service key) is retained.
+- Local audit artifacts, outside the repository and retained:
+  `~/.tenotrainer-d1/plan.json` (no secret) and
+  `~/.tenotrainer-d1/post-d1-verify.sql` (read-only verification, SHA-256
+  `5124ca8e48de97d8a286e75bef02a30b698d1373935e5e70ffbf1f7171c5d836`).
+
+### Auth and service-role verification
+
+- The founder signed in (Vercel login, then TenoTrainer), reached
+  `/super/dashboard`, and observed the founder account listed with role
+  **Super User**. That list is read with the service role
+  (`organization_members` and `auth.admin.listUsers`), so this proves the
+  Production service key; a failing key renders "No clinicians yet".
+- The founder logged out. During the first sign-in, Auth sessions and refresh
+  tokens were 1 (from 0); after each of the two logouts both were 0.
+- Final read-only verification: `read_only` on; ledger 64 (latest
+  `20261104000001`); one founder user, one email identity, one profile; the
+  organization and `super_user` membership unchanged; `never_signed_in`
+  false; sessions 0; refresh tokens 0; 76 public tables, nonzero only for
+  the reference data (`canonical_exercises` 47, `exercise_reference_dosage`
+  46, `m6_heuristics` 16), the two safety heartbeats and the three D1 rows;
+  sweep healthy, dispatch never started; the safety sweep is the only cron
+  job; Vault 0, Storage 0, `pg_net` absent.
+
+### Operating lessons
+
+- **Read-only production checks use the Management API
+  `POST /v1/projects/<ref>/database/query/read-only`.** `supabase db query
+  --linked` first creates or refreshes a temporary `cli_login_postgres`
+  role (and can remove network bans after failed connections) and then runs
+  the SQL through the full-privilege query endpoint.
+- **The Deployment Protection bypass for automation is retained.** The
+  readiness gate and probe need it for every protected release, and the
+  M3.4f scheduler's database-side dispatch caller needs it to reach the
+  protected dispatch route.
+
+### Deferred, not failed: generated-link check (10b)
+
+- **Invitation links:** verified at the first real clinician onboarding,
+  not with a manufactured invitation or email.
+- **Safety-email links:** verified in M3.4f with the first real dispatch.
+
+The code path is covered locally by `verifyM33CanonicalOrigin.mjs`.
+
 ## Deferred
 
 - **M3.4b:** the Vercel project, Preview environment, protection and toolbar.
@@ -378,11 +480,17 @@ No code-level blocker was found.
     project.
 - **M3.4c and onward:** signup disabled, Site URL and redirect list.
 - **M3.4d:** Resend.
-- **M3.4e:** the first protected Production deployment, the probe, and the
-  manual link check.
-- **M3.4f:** the scheduler.
+- **M3.4e:** closed (see
+  [M3.4e — protected Production](#m34e--protected-production-closed)); its
+  generated-link check (10b) is deferred as described there.
+- **M3.4f:** the scheduler: `pg_net`, the protected dispatch caller (Vault
+  and Deployment Protection bypass handling), the first real dispatch, the
+  dispatch heartbeat, and the safety-email link check.
 - **M3.4g:** CSP enforcement (and the global-error page).
-- **Outside M3.4:** S4 and login rate limiting.
+- **S4:** the Auth Site URL and redirect list, password recovery, and the
+  related Auth hardening (including login rate limiting).
+- **Later:** mobile/PWA work, Jason Alpha readiness and onboarding, and any
+  compliance / BAA gate required before clinical use.
 
 ## Verification
 
