@@ -23,7 +23,7 @@ import { randomUUID } from "node:crypto";
 import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
 import { loadEnv } from "./lib/harnessEnv.mjs";
 import { IsolatedServers, listening, productionProfile } from "./lib/isolatedServers.mjs";
-import { DeploymentToolError, deploymentProbe, parseOrigin, readinessGate, READY_BODY, STATUSES } from "./lib/deploymentChecks.mjs";
+import { DeploymentToolError, deploymentProbe, loginRedirectLandsOnCanonical, parseOrigin, readinessGate, READY_BODY, STATUSES } from "./lib/deploymentChecks.mjs";
 
 assertDevTestTarget(loadEnv(".env.local"));
 const PORTS = { prod: 3181, dev: 3182, closed: 3183 };
@@ -91,7 +91,9 @@ const DEPLOY = "https://deploy-abc.example.test";
 //   "controlled" — the platform sets X-Forwarded-Host to the requested host;
 //   "internal"   — the platform puts an internal host first (S3b's risk);
 //   "passthrough"— the client's X-Forwarded-Host reaches the app.
-function modelled(platform, { breakMutationRefusal = false } = {}) {
+//   `loginLocation` — the unauthenticated redirect's Location (default: the
+//   absolute canonical URL; the real Vercel shape is the relative form).
+function modelled(platform, { breakMutationRefusal = false, loginLocation = `${CANON}/login?next=%2Fpatient%2Fdashboard` } = {}) {
   const canonHost = new URL(CANON).host;
   return async (url, { method = "GET", headers = {} } = {}) => {
     const u = new URL(url);
@@ -106,7 +108,7 @@ function modelled(platform, { breakMutationRefusal = false } = {}) {
     }
     if (method === "POST" && headers.origin && headers.origin !== CANON) return { status: 403, text: '{"error":"CROSS_ORIGIN_REQUEST_REFUSED"}', headers: base };
     if (method === "POST") return { status: 405, text: "", headers: base };
-    if (u.pathname === "/patient/dashboard") return { status: 307, text: "", headers: { ...base, location: `${CANON}/login?next=%2Fpatient%2Fdashboard` } };
+    if (u.pathname === "/patient/dashboard") return { status: 307, text: "", headers: { ...base, location: loginLocation } };
     return { status: 200, text: body("<form>"), headers: base };
   };
 }
@@ -121,6 +123,31 @@ check("client X-Forwarded-Host honoured → OBSERVATION (checks 5 and 6), Host-o
 p = await deploymentProbe({ canonicalOrigin: CANON, deploymentOrigin: DEPLOY, transport: modelled("controlled", { breakMutationRefusal: true }) });
 check("a deployment-host mutation not refused → FAIL", by(p, 4).status === "FAIL" && p.verdict === "FAIL");
 check("identical canonical and deployment origins refused", await deploymentProbe({ canonicalOrigin: CANON, deploymentOrigin: CANON, transport: modelled("controlled") }).then(() => false, (e) => e instanceof DeploymentToolError));
+
+section("U. check 10: the unauthenticated redirect lands on the canonical /login");
+// Next relativizes a proxy redirect to the request's own origin, so real
+// HTTPS on the canonical host answers "/login?next=..." (M3.4e production).
+const r307 = (location) => ({ status: 307, headers: location === undefined ? {} : { location }, text: "" });
+const lands = (r) => loginRedirectLandsOnCanonical(r, CANON);
+check("absolute canonical Location → lands", lands(r307(`${CANON}/login?next=%2Fpatient%2Fdashboard`)));
+check("relative path-absolute Location (Vercel shape) → lands", lands(r307("/login?next=%2Fpatient%2Fdashboard")));
+check("302, 303 and 308 also accepted", [302, 303, 308].every((status) => lands({ ...r307("/login?next=%2Fpatient%2Fdashboard"), status })));
+check("missing Location → fails", !lands(r307(undefined)));
+check("protocol-relative //evil.example → fails", !lands(r307("//evil.example/login?next=%2Fpatient%2Fdashboard")));
+check("backslash form /\\evil.example (URL-parsed as protocol-relative) → fails", !lands(r307("/\\evil.example/login?next=%2Fpatient%2Fdashboard")));
+check("absolute foreign origin → fails", !lands(r307("https://evil.example/login?next=%2Fpatient%2Fdashboard")));
+check("canonical host on another scheme → fails", !lands(r307(`${CANON.replace("https:", "http:")}/login?next=%2Fpatient%2Fdashboard`)));
+check("canonical-prefixed foreign host → fails", !lands(r307(`${CANON}.evil.example/login?next=%2Fpatient%2Fdashboard`)));
+check("wrong path → fails", !lands(r307("/dashboard?next=%2Fpatient%2Fdashboard")));
+check("missing or wrong next → fails", !lands(r307("/login")) && !lands(r307("/login?next=%2Fdashboard")));
+check("relative path without a leading slash → fails", !lands(r307("login?next=%2Fpatient%2Fdashboard")));
+check("non-redirect status (200) → fails", !lands({ ...r307("/login?next=%2Fpatient%2Fdashboard"), status: 200 }));
+p = await deploymentProbe({ canonicalOrigin: CANON, deploymentOrigin: DEPLOY, transport: modelled("controlled", { loginLocation: "/login?next=%2Fpatient%2Fdashboard" }) });
+check("probe: relative Location (Vercel shape) → check 10 PASS, verdict PASS", by(p, 10).status === "PASS" && p.verdict === STATUSES.PASS, JSON.stringify(by(p, 10)));
+p = await deploymentProbe({ canonicalOrigin: CANON, deploymentOrigin: DEPLOY, transport: modelled("controlled", { loginLocation: "//evil.example/login?next=%2Fpatient%2Fdashboard" }) });
+check("probe: protocol-relative foreign Location → check 10 FAIL, verdict FAIL", by(p, 10).status === "FAIL" && p.verdict === "FAIL", JSON.stringify(by(p, 10)));
+p = await deploymentProbe({ canonicalOrigin: CANON, deploymentOrigin: DEPLOY, transport: modelled("controlled", { loginLocation: "https://evil.example/login?next=%2Fpatient%2Fdashboard" }) });
+check("probe: absolute foreign-origin Location → check 10 FAIL", by(p, 10).status === "FAIL", JSON.stringify(by(p, 10)));
 
 // ---------------------------------------------------------------- L. live
 const servers = new IsolatedServers();

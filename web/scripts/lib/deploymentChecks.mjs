@@ -125,6 +125,26 @@ export const STATUSES = Object.freeze({ PASS, FAIL, OBSERVATION, MANUAL });
 export const HOST_ONLY_NOTE = "the platform's first X-Forwarded-Host (or Host) is not the public canonical host as the S3b rule assumes — founder review: a separately reviewed Host-only comparison change (docs/m3-deployment-readiness.md)";
 const json = (r) => { try { return JSON.parse(r.text); } catch { return null; } };
 
+// Check 10: where a browser lands, resolving Location against the canonical
+// request URL. Next makes a proxy redirect to the request's own origin
+// relative (server/web/adapter.js), so on a real HTTPS canonical host the
+// header is path-absolute ("/login?next=..."); an absolute canonical URL is
+// equally correct. A protocol-relative or foreign-origin target fails.
+export function loginRedirectLandsOnCanonical(r, canonicalOrigin) {
+  if (![302, 303, 307, 308].includes(r.status)) return false;
+  const raw = String(r.headers.location ?? "");
+  const absoluteCanonical = raw.startsWith(`${canonicalOrigin}/`);
+  const pathAbsolute = raw.startsWith("/") && !raw.startsWith("//") && !raw.startsWith("/\\");
+  if (!absoluteCanonical && !pathAbsolute) return false;
+  let l;
+  try {
+    l = new URL(raw, canonicalOrigin);
+  } catch {
+    return false;
+  }
+  return l.origin === canonicalOrigin && l.pathname === "/login" && l.searchParams.get("next") === "/patient/dashboard";
+}
+
 export async function deploymentProbe({ canonicalOrigin, deploymentOrigin, transport, gateOptions = {} }) {
   if (canonicalOrigin === deploymentOrigin) throw new DeploymentToolError("the deployment origin must differ from the canonical origin");
   const canonHost = new URL(canonicalOrigin).host;
@@ -190,12 +210,7 @@ export async function deploymentProbe({ canonicalOrigin, deploymentOrigin, trans
 
   // 10. Trusted redirects use the configured canonical origin.
   const r10 = await req(canonicalOrigin, "/patient/dashboard");
-  let ok10 = false;
-  try {
-    const l = new URL(loc(r10));
-    ok10 = [302, 303, 307, 308].includes(r10.status) && l.origin === canonicalOrigin && l.pathname === "/login";
-  } catch { /* relative or absent */ }
-  add(10, "unauthenticated redirect goes to the canonical /login", ok10 ? PASS : FAIL, `${r10.status || r10.error} ${loc(r10)}`);
+  add(10, "unauthenticated redirect goes to the canonical /login", loginRedirectLandsOnCanonical(r10, canonicalOrigin) ? PASS : FAIL, `${r10.status || r10.error} ${loc(r10)}`);
   add("10b", "generated links (invitation, safety email) use the canonical origin", MANUAL, "needs an authenticated founder fixture: verify in the M3.4e smoke (create an invitation as a founder-provisioned clinician; inspect the one-time link origin)");
 
   const counts = Object.fromEntries([PASS, FAIL, OBSERVATION, MANUAL].map((s) => [s, results.filter((r) => r.status === s).length]));
