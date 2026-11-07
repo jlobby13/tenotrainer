@@ -7,9 +7,11 @@
 // the API roles, the auth schema (auth.users' column list and the auth
 // helper functions copied from the development project), the extensions
 // schema and search_path, and Supabase's default privileges on public.
-// pg_cron is a test double that records jobs. None of this is evidence of
-// real Supabase platform behaviour (real pg_cron, Auth, platform grants and
-// objects are verified on the real project in M3.4c).
+// pg_cron and pg_net are test doubles that record jobs / requests, and Vault
+// is a plaintext test double of vault.decrypted_secrets (M3.4f). None of this
+// is evidence of real Supabase platform behaviour (real pg_cron, Auth,
+// platform grants and objects are verified on the real project in M3.4c;
+// real pg_net and Vault in M3.4f Stage B).
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { guardedSql } from "./m32Fixtures.mjs";
@@ -49,6 +51,13 @@ ALTER DATABASE ${ident(database)} SET search_path = "$user", public, extensions;
 CREATE TABLE auth.users (
   ${cols}
 );
+-- M3.4f — Vault TEST DOUBLE (plaintext; never a real secret store). No
+-- unique name constraint, so the scheduler wrapper's duplicate-name refusal
+-- is testable; real Vault's name uniqueness is checked in Stage B.
+CREATE SCHEMA vault;
+REVOKE ALL ON SCHEMA vault FROM PUBLIC;
+CREATE TABLE vault.secrets (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT, description TEXT NOT NULL DEFAULT '', secret TEXT NOT NULL);
+CREATE VIEW vault.decrypted_secrets AS SELECT id, name, description, secret, secret AS decrypted_secret FROM vault.secrets;
 `);
   for (const def of shape.auth_functions) await db.query(def);
   await db.query(`SET search_path = "$user", public, extensions`);

@@ -461,7 +461,9 @@ stayed at `20c06b1`.
 
 - **Invitation links:** verified at the first real clinician onboarding,
   not with a manufactured invitation or email.
-- **Safety-email links:** verified in M3.4f with the first real dispatch.
+- **Safety-email links:** verified with the first genuine safety event.
+  M3.4f proves the scheduler with empty-queue dispatches and does not
+  create a safety event to exercise email.
 
 The code path is covered locally by `verifyM33CanonicalOrigin.mjs`.
 
@@ -484,8 +486,14 @@ The code path is covered locally by `verifyM33CanonicalOrigin.mjs`.
   [M3.4e — protected Production](#m34e--protected-production-closed)); its
   generated-link check (10b) is deferred as described there.
 - **M3.4f:** the scheduler: `pg_net`, the protected dispatch caller (Vault
-  and Deployment Protection bypass handling), the first real dispatch, the
-  dispatch heartbeat, and the safety-email link check.
+  and Deployment Protection bypass handling), empty-queue dispatch proofs and
+  the dispatch heartbeat (see `docs/m3-safety-notifications.md`, Production
+  scheduler). The first real safety email and its link check wait for the
+  first genuine safety event. Stages A+B (2026-11-07): migration 65 written
+  and applied to development only (job inactive, no Vault entries, no
+  request ever queued); the pg_net trust boundary and redirect behaviour
+  measured there are recorded in that document. Production stays at 64
+  migrations until Stage C.
 - **M3.4g:** CSP enforcement (and the global-error page).
 - **S4:** the Auth Site URL and redirect list, password recovery, and the
   related Auth hardening (including login rate limiting).
@@ -499,7 +507,8 @@ The code path is covered locally by `verifyM33CanonicalOrigin.mjs`.
 | `web/scripts/verifyM33Readiness.mjs` | readiness semantics incl. the narrow deployment-host exception |
 | `web/scripts/verifyM34aDeploymentTools.mjs` | gate verdicts, probe classification (modelled platforms), live probe/gate, CLIs |
 | `web/scripts/verifyM34aCspProduction.mjs` | zero CSP violations as served and under enforcement, resources work |
-| `web/scripts/verifyM34aFreshDatabase.mjs` | fresh reconstruction from every migration (64), fresh state, zero application drift at dev's ledger position |
+| `web/scripts/verifyM34aFreshDatabase.mjs` | fresh reconstruction from every migration (65), fresh state (incl. the inactive dispatch job and an empty pg_net queue), zero application drift at dev's ledger position |
 | `web/scripts/verifyM34cSecurityHardening.mjs` | migration 64's exact change set, privilege matrix, linter-equivalent counts, trigger / RLS / reconcile / schedule-gate behaviour |
+| `web/scripts/verifyM34fDispatchScheduler.mjs` | migration 65 on a scratch cluster (pg_net / Vault / pg_cron test doubles): application catalog unchanged, wrapper privileges, inactive job, fail-closed configuration, exact request shape, no value leakage |
 | `web/scripts/verifyM34aPreviewProfile.mjs` | the Preview model works without FastAPI, email disabled |
 | `web/lib/__tests__/m34aDeploymentConfig.test.ts` | Production / Preview configuration acceptance and refusals |

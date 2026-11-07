@@ -593,8 +593,9 @@ Intentionally not part of S3:
   (the dispatch secret, with optional rotation via
   `SAFETY_DISPATCH_SECRET_NEXT`).
 - **Dispatcher scheduling.** The endpoint is POST-only and must be called on
-  the canonical origin; Vercel Cron issues GETs, so the scheduler choice is
-  M3.4's.
+  the canonical origin; Vercel Cron issues GETs. M3.4f chose pg_cron +
+  pg_net with Vault-held credentials (`docs/m3-safety-notifications.md`,
+  Production scheduler).
 - **Readiness as a gate:** M3.4a: `web/scripts/readinessGate.mjs` checks the
   candidate deployment's own URL before promotion (the deployment-host
   exception above), then the canonical origin after it. A startup refusal on

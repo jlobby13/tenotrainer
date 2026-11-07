@@ -53,10 +53,11 @@ export class ScratchPostgres {
     writeFileSync(pwfile, this.password, { mode: 0o600 });
     execFileSync(join(this.bin, "initdb"), ["-D", this.data, "-U", "postgres", "-A", "scram-sha-256", "--pwfile", pwfile, "-E", "UTF8", "--locale=C"], { stdio: "ignore" });
     rmSync(pwfile);
-    // The pg_cron TEST DOUBLE (scratch-pg-cron/) goes into this tooling's
-    // extension directory only.
+    // The pg_cron and pg_net TEST DOUBLES (scratch-pg-cron/, scratch-pg-net/)
+    // go into this tooling's extension directory only.
     const ext = join(this.native, "share", "postgresql", "extension");
     for (const f of ["pg_cron.control", "pg_cron--1.6.sql"]) copyFileSync(join(HERE, "scratch-pg-cron", f), join(ext, f));
+    for (const f of ["pg_net.control", "pg_net--0.1.sql"]) copyFileSync(join(HERE, "scratch-pg-net", f), join(ext, f));
     execFileSync(join(this.bin, "pg_ctl"), ["-D", this.data, "-l", join(this.dir, "server.log"), "-w", "-t", "60", "-o",
       `-p ${this.port} -c listen_addresses=127.0.0.1 -k ${this.dir} -c fsync=off -c synchronous_commit=off`, "start"], { stdio: "ignore" });
     const admin = await this.connect("postgres");

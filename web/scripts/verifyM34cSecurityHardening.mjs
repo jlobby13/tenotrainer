@@ -105,7 +105,9 @@ const sp = new ScratchPostgres();
 try {
   const files = migrationFiles();
   section("migrations");
-  check("64 migrations; migration 64 is the M3.4c hardening migration", files.length === 64 && files.at(-1) === M64, `${files.length} ${files.at(-1)}`);
+  // Later migrations (M3.4f onward) are not applied here: this suite proves
+  // migration 64's own change set on the 63-migration state.
+  check("migration 64 (filename order) is the M3.4c hardening migration", files.indexOf(M64) === 63, `${files.indexOf(M64)} ${files.length}`);
   const db = await sp.start();
   const standIn = await installPlatformStandIn(db, readPlatformShape(env), SCRATCH_DB);
   const ver = (await db.query("SHOW server_version")).rows[0].server_version;

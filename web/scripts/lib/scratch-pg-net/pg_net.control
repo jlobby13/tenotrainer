@@ -1,0 +1,8 @@
+# M3.4f — TEST DOUBLE of pg_net for the scratch fresh-database proofs only
+# (verifyM34aFreshDatabase.mjs, verifyM34fDispatchScheduler.mjs). Installed
+# into the scratch Postgres tooling, never into a real server. It records
+# requests; it never makes a network call.
+comment = 'TenoTrainer scratch test double of pg_net (records requests; never sends)'
+default_version = '0.1'
+relocatable = false
+superuser = true

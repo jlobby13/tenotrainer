@@ -130,7 +130,8 @@ heartbeat; structured JSON logs with codes, counts and opaque ids only).
 no session authority, no body, no scope; replay / concurrency safe (leases +
 idempotency keys); 503 `SAFETY_EMAIL_DISABLED` when no provider is
 configured (development default — nothing is ever sent implicitly). Allowed
-in maintenance (the D1 exception). Recurring production invocation is M3.4.
+in maintenance (the D1 exception). Recurring production invocation: the
+M3.4f scheduler ([Production scheduler](#production-scheduler-m34f)).
 `after()` acceleration is NOT implemented in M3.2 (durability never depended
 on it).
 
@@ -153,8 +154,134 @@ release.
 acceptance after 15 min, failed_permanent by tier, outbox by status,
 failed recipient resolution, hook failures repaired by the sweep, events
 detected by the sweep, orphan reconciliations, last successful sweep /
-dispatch, open alerts (kind, opaque subject, code). No PHI. External paging
-is M3.3; the production alert destination is M3.4.
+dispatch, open alerts (kind, opaque subject, code). No PHI. Dispatch
+heartbeat freshness is defined in
+[Production scheduler](#production-scheduler-m34f); automated external
+paging on a stale heartbeat is a later reliability item (not M3.4f).
+
+### Production scheduler (M3.4f)
+
+Migration `20261107000001_m34f_safety_dispatch_scheduler.sql`. pg_cron runs
+`private.safety_dispatch_tick()` every minute; pg_net POSTs to the canonical
+dispatch route. Delivery semantics (claim, lease, idempotent send, record,
+heartbeat) stay in the application. pg_net (0.20.4 on Supabase) does not
+retry; it **does follow redirects** (libcurl `FOLLOWLOCATION`, no option to
+disable). The pinned endpoint never redirects; a redirect seen in practice
+means the bypass or the domain configuration is wrong (see Operator
+response).
+
+- **The wrapper** (schema `private`, not API-exposed): `SECURITY DEFINER`,
+  `search_path = ''`, EXECUTE for its owner only; the API roles cannot call
+  it. It returns only `{status, request_id}`;
+  failures raise value-free `SAFETY_DISPATCH_TICK_<CODE>` errors, so a
+  failed cron run records a safe message.
+- **Configuration**: three Vault entries, entered by the operator in the
+  Supabase dashboard (never a migration, CLI argument, repository file or
+  cron command):
+
+  | Vault name | Value |
+  |---|---|
+  | `tenotrainer_production_dispatch_url` | the canonical dispatch URL |
+  | `tenotrainer_production_dispatch_secret` | `SAFETY_DISPATCH_SECRET` |
+  | `tenotrainer_production_dispatch_vercel_bypass` | a dedicated, independently revocable Vercel Protection Bypass for Automation, labeled for the Production database safety-dispatch scheduler (never the operator / probe bypass) |
+
+  Vault names are unique (a partial unique index on `vault.secrets.name`),
+  so the duplicate check is defense in depth. Before entering values,
+  confirm with a read-only query that none of the three names exists: a
+  failing statement is written to the Postgres log with its text
+  (`log_min_error_statement = error`), and a duplicate name is the one
+  foreseeable failure. Enter the values through the dashboard's Vault UI,
+  never the SQL editor (which keeps query history), and never in a command,
+  repository file, migration or report.
+
+  None present → `not_configured`, no request (development and fresh
+  databases). Partial, duplicated, malformed (non-printable or space
+  characters; dispatch secret < 32, bypass < 16 characters) or any URL
+  other than the pinned endpoint → error, no request.
+- **The URL is pinned** to
+  `https://tenotrainer.vercel.app/api/internal/safety-notifications/dispatch`;
+  the wrapper is not a generic HTTP client. A different canonical origin
+  (e.g. a custom domain) is a reviewed forward migration together with
+  `TENOTRAINER_APP_ORIGIN` and the Vault URL.
+- **The request**: `POST`, body `{}`, headers `Content-Type`,
+  `Authorization: Bearer <dispatch secret>` and
+  `x-vercel-protection-bypass` only (no `Origin`, `Sec-Fetch-Site` or bypass
+  cookie), 30 s timeout.
+- **pg_net access**: see the accepted trust boundary below.
+- **The job** `tenotrainer_m34f_safety_dispatch` is created **inactive**.
+  Activation is an explicit operator step after the empty-queue proof:
+  `SELECT cron.alter_job(<jobid>, active := true)`.
+
+**pg_net trust boundary (accepted residual exposure).** Measured on
+development (pg_net 0.20.4, M3.4f Stage B) and accepted by the founder:
+
+- pg_net's objects (schema `net`, its functions, `net.http_request_queue`,
+  `net._http_response`) are owned by `supabase_admin`.
+- Supabase's platform defaults grant access to them: `USAGE` on `net` to
+  PUBLIC and the API roles, `EXECUTE` on its functions and all privileges
+  on its tables and sequence to PUBLIC. **At the SQL privilege level the
+  API roles (`anon`, `authenticated`, `service_role`) can use pg_net.**
+- Our migrations run as `postgres`, which cannot revoke grants made by
+  `supabase_admin`, so migration 65 attempts no REVOKE or ownership change
+  on pg_net's objects.
+- `net` is not exposed through the Data API (exposed schemas: `public`,
+  `graphql_public`), so ordinary `anon` / `authenticated` application
+  clients have no SQL path to pg_net.
+- Roles with direct SQL capability (the operator, Supabase platform
+  services) may use pg_net, read its queue and read its responses, as
+  Supabase's grants allow.
+- While a request waits in `net.http_request_queue`, its row holds the
+  outbound request headers. For the safety dispatcher these are the
+  dispatch credential (`Authorization: Bearer …`) and the Vercel bypass.
+  The worker deletes the row before sending, so the exposure is transient,
+  but it is real.
+- `net._http_response` holds response data (status, response headers and
+  body, kept for `pg_net.ttl`, 6 hours), never the original request headers.
+- This residual exposure is accepted as part of trusting the Supabase
+  database / platform boundary. Only the scheduler's own entry point
+  (`private.safety_dispatch_tick()`) is restricted to its owner.
+
+**Redirects.** pg_net 0.20.4 follows HTTP redirects (libcurl
+`FOLLOWLOCATION`; no option to disable it). The exact URL pin stays
+required: the wrapper rejects every configured URL other than the canonical
+endpoint. The wrapper only enqueues the request and does not inspect the
+asynchronous response, so judging the response belongs to the operator
+verification step (Operator response, below).
+
+**Verification strategy.** With no clinical data the outbox is empty, so a
+dispatch claims nothing, sends nothing and records a successful dispatch
+heartbeat. M3.4f proves the path with a manual empty-queue call, then
+scheduled empty-queue calls, then a read-only baseline check. No Production
+safety event is created for testing (safety history is immutable). The first
+real safety email and its generated-link (canonical origin) observation are
+deferred to the first genuine safety event.
+
+**Heartbeat freshness** (`safety_notification_health`, shown on
+`/super/safety-notifications`), while the job is active:
+
+| Dispatch heartbeat | State |
+|---|---|
+| `dispatch_last_succeeded_at` within 5 minutes | healthy |
+| more than 5 and up to 15 minutes old, or `dispatch_last_failed_at` newer than the last success | degraded: investigate |
+| more than 15 minutes old (the urgent-delivery stall threshold) | stale: incident |
+
+**Operator response.** Read `cron.job_run_details` for the job (status and
+the value-free `SAFETY_DISPATCH_TICK_*` message) and `net._http_response`
+(about 6 hours of responses; redirects are already followed, so read the
+final response). **HTTP 200 alone is not proof of a dispatch.** A successful
+dispatch is a 200 with `content_type` `application/json` and a body matching
+the route's contract: `{"result":"dispatched","claimed":…,"accepted":…,
+"retry_scheduled":…,"failed_permanent":…,"stale":…,"record_failed":…,
+"batches":…,"duration_ms":…}`, together with an advancing
+`dispatch_last_succeeded_at`. A 200 HTML page or any other body is a
+**failed** verification: pg_net may have followed a redirect to a login /
+protection page or elsewhere (bypass or domain misconfigured). A JSON `UNAUTHORIZED` 401 is a dispatch-secret mismatch; a
+Vercel 401 page is the bypass; 403
+`NONCANONICAL_HOST_REFUSED` is the URL; 503 `SAFETY_EMAIL_DISABLED` or 500
+`DISPATCH_FAILED` point at the application logs. **Stop**:
+`SELECT cron.alter_job(<jobid>, active := false)` (immediate; the outbox and
+its leases are unaffected). Automated paging on a stale heartbeat is a later
+reliability item.
 
 ### Audit history and account deletion
 

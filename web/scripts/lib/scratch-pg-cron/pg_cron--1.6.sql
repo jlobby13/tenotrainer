@@ -29,3 +29,13 @@ CREATE FUNCTION cron.unschedule(job_name TEXT) RETURNS BOOLEAN
 LANGUAGE sql AS $$ WITH d AS (DELETE FROM cron.job WHERE jobname = job_name RETURNING 1) SELECT count(*) > 0 FROM d $$;
 CREATE FUNCTION cron.unschedule(job_id BIGINT) RETURNS BOOLEAN
 LANGUAGE sql AS $$ WITH d AS (DELETE FROM cron.job WHERE jobid = job_id RETURNING 1) SELECT count(*) > 0 FROM d $$;
+-- M3.4f — cron.alter_job (pg_cron's signature): the dispatch job is created
+-- inactive.
+CREATE FUNCTION cron.alter_job(job_id BIGINT, schedule TEXT DEFAULT NULL, command TEXT DEFAULT NULL, database TEXT DEFAULT NULL,
+                               username TEXT DEFAULT NULL, active BOOLEAN DEFAULT NULL) RETURNS VOID
+LANGUAGE sql AS $$
+  UPDATE cron.job j SET schedule = coalesce(alter_job.schedule, j.schedule), command = coalesce(alter_job.command, j.command),
+         database = coalesce(alter_job.database, j.database), username = coalesce(alter_job.username, j.username),
+         active = coalesce(alter_job.active, j.active)
+  WHERE j.jobid = alter_job.job_id
+$$;

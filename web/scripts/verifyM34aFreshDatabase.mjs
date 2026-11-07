@@ -33,7 +33,7 @@ import { CATALOG_SQL, diffCatalogs, stable, summarizeCatalog } from "./lib/schem
 const env = loadEnv(".env.local");
 assertDevTestTarget(env);
 assertDevSqlTarget(); // the read-only development catalog read goes through the linked dev project only
-const EXPECTED_MIGRATIONS = 64; // 62 + the M3.4a corrective migration + the M3.4c security hardening
+const EXPECTED_MIGRATIONS = 65; // 62 + the M3.4a corrective migration + the M3.4c security hardening + the M3.4f dispatch scheduler
 const L5_OUTBOX = "f73aeb4d-6517-481b-ac6e-cc73fa0afc67";
 const reportArg = process.argv.indexOf("--report");
 const REPORT = reportArg > 0 ? process.argv[reportArg + 1] : null;
@@ -105,7 +105,9 @@ try {
   // ------------------------------------------------------------- fresh state
   section("fresh-state proof");
   const ext = (await db.query("SELECT extname FROM pg_extension ORDER BY 1")).rows.map((r) => r.extname);
-  check("required extensions established (pgcrypto, pg_trgm, pg_cron)", ["pgcrypto", "pg_trgm", "pg_cron"].every((e) => ext.includes(e)), ext.join(","));
+  check("required extensions established (pgcrypto, pg_trgm, pg_cron, pg_net)", ["pgcrypto", "pg_trgm", "pg_cron", "pg_net"].every((e) => ext.includes(e)), ext.join(","));
+  const queued = Number((await db.query("SELECT count(*) AS n FROM net.http_request_queue")).rows[0].n);
+  check("applying every migration made no outbound request (pg_net queue empty)", queued === 0, queued);
   const tables = (await db.query(`SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
     WHERE n.nspname = 'public' AND c.relkind IN ('r','p') ORDER BY 1`)).rows.map((r) => r.relname);
   const counts = {};
@@ -126,8 +128,12 @@ try {
     WHERE n.nspname = 'public' AND c.relkind IN ('r','p') AND NOT c.relrowsecurity ORDER BY 1`)).rows.map((r) => r.relname);
   report.tablesWithoutRls = noRls;
   check(`RLS enabled on every public table (${tables.length})`, noRls.length === 0, noRls.join(","));
-  const jobs = (await db.query("SELECT jobname, schedule, command FROM cron.job")).rows;
-  check("the safety-notification sweep job is defined (every minute, SQL only)", jobs.length === 1 && jobs[0].jobname === "tenotrainer_m32_safety_notification_sweep" && jobs[0].schedule === "* * * * *" && /safety_notifications_sweep\(\)/.test(jobs[0].command), JSON.stringify(jobs));
+  const jobs = (await db.query("SELECT jobname, schedule, command, active FROM cron.job ORDER BY jobname")).rows;
+  const sweep = jobs.find((j) => j.jobname === "tenotrainer_m32_safety_notification_sweep");
+  const dispatchJob = jobs.find((j) => j.jobname === "tenotrainer_m34f_safety_dispatch");
+  check("exactly two cron jobs: the M3.2 sweep and the M3.4f dispatch job", jobs.length === 2 && !!sweep && !!dispatchJob, JSON.stringify(jobs));
+  check("the safety-notification sweep job is defined (every minute, SQL only, active)", sweep?.schedule === "* * * * *" && /safety_notifications_sweep\(\)/.test(sweep?.command ?? "") && sweep?.active === true, JSON.stringify(sweep));
+  check("the M3.4f dispatch job is defined INACTIVE (every minute, the bare wrapper call)", dispatchJob?.schedule === "* * * * *" && dispatchJob?.command === "SELECT private.safety_dispatch_tick()" && dispatchJob?.active === false, JSON.stringify(dispatchJob));
 
   // Reference rows: row-for-row equal to the development project's rows
   // with the same keys (timestamps excluded) — the migrations reproduce the
