@@ -33,7 +33,7 @@ import { CATALOG_SQL, diffCatalogs, stable, summarizeCatalog } from "./lib/schem
 const env = loadEnv(".env.local");
 assertDevTestTarget(env);
 assertDevSqlTarget(); // the read-only development catalog read goes through the linked dev project only
-const EXPECTED_MIGRATIONS = 65; // 62 + the M3.4a corrective migration + the M3.4c security hardening + the M3.4f dispatch scheduler
+const EXPECTED_MIGRATIONS = 66; // 62 + the M3.4a corrective migration + the M3.4c security hardening + the M3.4f dispatch scheduler + the M3.4f-MON monitor
 const L5_OUTBOX = "f73aeb4d-6517-481b-ac6e-cc73fa0afc67";
 const reportArg = process.argv.indexOf("--report");
 const REPORT = reportArg > 0 ? process.argv[reportArg + 1] : null;
@@ -131,9 +131,11 @@ try {
   const jobs = (await db.query("SELECT jobname, schedule, command, active FROM cron.job ORDER BY jobname")).rows;
   const sweep = jobs.find((j) => j.jobname === "tenotrainer_m32_safety_notification_sweep");
   const dispatchJob = jobs.find((j) => j.jobname === "tenotrainer_m34f_safety_dispatch");
-  check("exactly two cron jobs: the M3.2 sweep and the M3.4f dispatch job", jobs.length === 2 && !!sweep && !!dispatchJob, JSON.stringify(jobs));
+  const monitorJob = jobs.find((j) => j.jobname === "tenotrainer_m34f_mon_safety_monitor");
+  check("exactly three cron jobs: the M3.2 sweep, the M3.4f dispatch job and the M3.4f-MON monitor job", jobs.length === 3 && !!sweep && !!dispatchJob && !!monitorJob, JSON.stringify(jobs));
   check("the safety-notification sweep job is defined (every minute, SQL only, active)", sweep?.schedule === "* * * * *" && /safety_notifications_sweep\(\)/.test(sweep?.command ?? "") && sweep?.active === true, JSON.stringify(sweep));
   check("the M3.4f dispatch job is defined INACTIVE (every minute, the bare wrapper call)", dispatchJob?.schedule === "* * * * *" && dispatchJob?.command === "SELECT private.safety_dispatch_tick()" && dispatchJob?.active === false, JSON.stringify(dispatchJob));
+  check("the M3.4f-MON monitor job is defined INACTIVE (every five minutes, the bare tick call)", monitorJob?.schedule === "*/5 * * * *" && monitorJob?.command === "SELECT private.safety_monitor_tick()" && monitorJob?.active === false, JSON.stringify(monitorJob));
 
   // Reference rows: row-for-row equal to the development project's rows
   // with the same keys (timestamps excluded) — the migrations reproduce the

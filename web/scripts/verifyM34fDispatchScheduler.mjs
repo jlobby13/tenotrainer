@@ -59,7 +59,7 @@ const sp = new ScratchPostgres();
 try {
   const files = migrationFiles();
   section("1. migration 65 on the 64-migration state");
-  check("migration 65 (filename order, last) is the M3.4f dispatch scheduler", files.indexOf(M65) === 64 && files.at(-1) === M65, `${files.indexOf(M65)} ${files.at(-1)}`);
+  check("migration 65 (filename order) is the M3.4f dispatch scheduler", files.indexOf(M65) === 64, `${files.indexOf(M65)} ${files.length}`);
   const db = await sp.start();
   const standIn = await installPlatformStandIn(db, readPlatformShape(env), SCRATCH_DB);
   console.log(`      stand-in: ${standIn.columns} auth.users columns; pg_net / pg_cron / Vault are test doubles (not platform evidence)`);

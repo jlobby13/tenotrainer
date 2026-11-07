@@ -156,8 +156,8 @@ failed recipient resolution, hook failures repaired by the sweep, events
 detected by the sweep, orphan reconciliations, last successful sweep /
 dispatch, open alerts (kind, opaque subject, code). No PHI. Dispatch
 heartbeat freshness is defined in
-[Production scheduler](#production-scheduler-m34f); automated external
-paging on a stale heartbeat is a later reliability item (not M3.4f).
+[Production scheduler](#production-scheduler-m34f); automatic external
+alerts are [Automated monitoring](#automated-monitoring-m34f-mon).
 
 ### Production scheduler (M3.4f)
 
@@ -280,8 +280,147 @@ Vercel 401 page is the bypass; 403
 `NONCANONICAL_HOST_REFUSED` is the URL; 503 `SAFETY_EMAIL_DISABLED` or 500
 `DISPATCH_FAILED` point at the application logs. **Stop**:
 `SELECT cron.alter_job(<jobid>, active := false)` (immediate; the outbox and
-its leases are unaffected). Automated paging on a stale heartbeat is a later
-reliability item.
+its leases are unaffected). Automatic alerting:
+[Automated monitoring](#automated-monitoring-m34f-mon).
+
+### Automated monitoring (M3.4f-MON)
+
+Migration `20261108000001_m34f_mon_safety_monitor.sql`. Founder decision:
+automatic operational alerts exist **before** the recurring dispatcher is
+activated.
+
+**Architecture.** A Supabase-side evaluator checks the safety notification
+machinery every five minutes and checks in with an **external dead-man's
+switch** (Healthchecks.io): a success ping when healthy, a `/fail` ping
+carrying failure codes when not. Healthchecks.io alerts the founder on a
+`/fail` ping **and** when check-ins stop (period 5 min, grace 10 min), so a
+dead database, a paused project, a stopped pg_cron or pg_net, or a crashed
+evaluator is detected outside Supabase. Alert delivery is Healthchecks.io's
+own (email plus an optional second channel), independent of Resend, Vercel
+and the dispatch path being monitored.
+
+- `private.safety_monitor_evaluate()`: returns
+  `{v, status: ok | pre_activation | fail, codes, m}`; owner-only,
+  `SECURITY DEFINER`, empty `search_path`.
+- `private.safety_monitor_tick()` (the cron command): evaluates (an
+  evaluator failure becomes a `fail` check-in with `monitor_evaluator_error`
+  and the SQLSTATE only), records the result in
+  `private.safety_monitor_state`, then POSTs the payload to the check-in URL
+  (or `<url>/fail`) with only `Content-Type`, 10 s timeout. Its pg_net request
+  ids go to `private.safety_monitor_requests` (kept 2 days) so check-in
+  responses are never classified as dispatch responses.
+- `private.safety_monitor_set_dispatch_expected(boolean)`: declares
+  recurring dispatch expected (records `dispatch_expected_since`).
+- The job `tenotrainer_m34f_mon_safety_monitor` (`*/5 * * * *`) is created
+  **inactive**.
+
+**Pre-activation vs active.** Until an operator declares dispatch expected,
+the intentionally inactive dispatcher is not an alert (status
+`pre_activation`; only the always-on checks apply). The Stage F activation
+runs, in one transaction, `cron.alter_job(<dispatch jobid>, active := true)`
+and `private.safety_monitor_set_dispatch_expected(true)`. The dispatch rules
+other than "job inactive" then wait a 10-minute grace (no runs or heartbeat
+are expected yet).
+
+**Detection rules** (codes; windows are the last 10 minutes):
+
+| Code | Applies | Fires when |
+|---|---|---|
+| `sweep_job_inactive` | always | the M3.2 sweep job is missing or inactive |
+| `sweep_heartbeat_stale` | always | the sweep never succeeded, or last success > 5 min ago |
+| `pg_net_worker_down` | always | no pg_net worker backend |
+| `pg_net_queue_backlog` | always | > 3 requests waiting in `net.http_request_queue` |
+| `notification_backlog` | always | > 20 emails in flight, or the oldest in flight > 15 min |
+| `open_alert_<kind>` | always | an open `safety_notification_alerts` row (every kind but the informational `orphan_fact_reconciled`), e.g. `open_alert_delivery_failed_permanent`, `open_alert_urgent_delivery_stalled` |
+| `dispatch_scheduler_unexpectedly_active` | pre-activation | the dispatch job is active although not declared expected |
+| `dispatch_scheduler_inactive` | active | the dispatch job is missing or inactive |
+| `dispatch_runs_missing` | active, after grace | < 8 runs in 10 min, or none in the last 3 min |
+| `dispatch_runs_failing` | active, after grace | the last 3 runs all failed |
+| `dispatch_heartbeat_degraded` / `_stale` | active, after grace | last successful dispatch > 10 / > 15 min ago |
+| `dispatch_failed_after_success` | active, after grace | `last_failed_at` newer than `last_succeeded_at` |
+| `dispatch_auth_failures` | active, after grace | ≥ 2 JSON 401 `UNAUTHORIZED` (dispatch secret mismatch) |
+| `dispatch_protection_redirects` | active, after grace | ≥ 2 HTML responses (a followed Vercel login / protection redirect, or a Vercel 401 page) |
+| `dispatch_http_errors` | active, after grace | ≥ 3 other non-contract responses (503, 500, 403, 5xx, a 200 without the exact contract) |
+| `dispatch_timeouts` | active, after grace | ≥ 3 pg_net timeouts or transport errors |
+| (no check-in) | always | detected by Healthchecks.io after period + grace |
+
+Single bad ticks never alert (window thresholds). Healthchecks.io alerts
+once per state change (down / up) and sends a recovery notice; repeated
+`/fail` check-ins with the same codes do not re-alert. The payload's codes are
+sorted and distinct.
+
+**Payload (no PHI).** `{v: 1, status, codes, m}` where `codes` are the fixed
+words above and `m` holds integer / boolean metrics only (ages in seconds,
+counts, flags). No patient, clinician, recipient, event or alert identifiers,
+addresses, alert subject keys or detail codes, and no free text (the
+evaluator's error text is replaced by its SQLSTATE).
+
+**Healthchecks.io configuration** (founder; not in the repository):
+
+- one check, *Simple* schedule, **period 5 minutes, grace 10 minutes**;
+- integrations: the founder's email, plus one second channel (push,
+  Telegram or SMS) so a missed email is not the only signal;
+- account two-factor authentication on.
+
+**Vault contract.** `tenotrainer_production_monitor_ping_url` = the check's
+UUID check-in URL, exactly
+`https://hc-ping.com/<lowercase uuid>` (no other host, scheme, port, path,
+slug form, query, fragment or trailing slash). Entered by the founder
+through the dashboard's Vault UI after confirming the name is absent. No
+entry → the tick evaluates and records state but sends nothing
+(`not_configured`): with the external check configured, the silence alerts
+(fail closed). A duplicated or malformed entry or a pg_net failure raises a
+value-free `SAFETY_MONITOR_TICK_*` error (the cron run fails; nothing is
+sent; the silence alerts).
+
+**Trust and security.** Push-only: nothing new is reachable from outside; no
+health endpoint, database credential, Management API token or Vercel bypass
+leaves Supabase. The check-in URL can only report to its own check; a leaked
+URL allows false "up" or "down" check-ins but reads nothing. Rotate by
+regenerating the check's URL in Healthchecks.io and replacing the Vault
+entry; revoke by deleting the check. The URL sits briefly in
+`net.http_request_queue` like the dispatch credentials (the accepted pg_net
+trust boundary). It is separate from the dispatch secret and both bypasses.
+
+**Detected / not detected.**
+
+| Failure | Detected |
+|---|---|
+| Supabase down or paused, pg_cron or pg_net stopped, evaluator crash | yes (check-ins stop, or `monitor_evaluator_error`) |
+| Vercel down or misconfigured while dispatch is active | yes (dispatch responses / heartbeat) |
+| Vercel down **before** activation | no (no traffic; a later external `/api/ready` probe) |
+| Healthchecks.io itself down | no (rare; its status page) |
+| The founder's alert email not arriving | mitigated by the second channel |
+| An evaluator bug reporting `ok` | no at runtime; mitigated by `verifyM34fMonSafetyMonitor.mjs` |
+
+**Operational checks.** `~/.tenotrainer-m34f/f-monitor.sql` (v2; operator
+copy, outside the repository) reports the monitor job, its runs and
+check-ins, the last evaluation and settings, and excludes the check-ins from
+dispatch classification.
+
+**Production provisioning sequence** (each step separately authorized):
+
+1. Apply migration 66 to development (inert), then Production.
+2. The founder creates the Healthchecks.io check (period 5, grace 10) and
+   the integrations; enters the check-in URL in Production Vault (Vault UI,
+   name verified absent first).
+3. Boolean-only verification that the entry exists once and matches the
+   pinned pattern.
+4. Activate the **monitor** job:
+   `SELECT cron.alter_job(<monitor jobid>, active := true)`; observe
+   `pre_activation` check-ins arriving (Healthchecks.io shows "up").
+5. Alert tests that never touch dispatch or clinical data:
+   (a) deactivate the monitor job for ~20 minutes → "down" alert → reactivate
+   → recovery notice; (b) `private.safety_monitor_set_dispatch_expected(true)`
+   while the dispatcher stays inactive → `dispatch_scheduler_inactive`
+   `/fail` alert → `set_dispatch_expected(false)` → recovery notice.
+6. Only then Stage F: activate the dispatcher and declare it expected in
+   one transaction.
+
+**Rollback.** Deactivate the monitor job
+(`cron.alter_job(<monitor jobid>, active := false)`) and pause the check in
+Healthchecks.io (so the silence does not alert); optionally delete the Vault
+entry. The migration's objects are inert without the job and the entry.
 
 ### Audit history and account deletion
 
