@@ -6,6 +6,10 @@
 import {
   bucketKey, clientNetworkIdentity, createAuthRateLimiter, DEFAULT_AUTH_RATE_LIMITS, normalizeAccountIdentifier, normalizeClientIp, rateLimitFailsClosed,
 } from "../lib/authRateLimit.ts";
+import { readFileSync } from "node:fs";
+import {
+  D3_IPV4_NETWORK, D3_IPV6_PREFIX, rateLimitKey, SUITE_NETWORKS, suiteBucketKeys, suiteHeaders, suiteRateLimitSecret,
+} from "./lib/authRateLimitTestIdentity.mjs";
 
 let pass = 0;
 let fail = 0;
@@ -84,6 +88,29 @@ for (const [label, broken] of [
 ]) {
   const l = createAuthRateLimiter({ key: k1, failClosed: rateLimitFailsClosed(cfg("production", false, true)), reserve: broken, clear: async () => {} });
   check(`production: ${label} → refused as unavailable (fail closed)`, (await l.reserve([{ scope: "login_account", id: "x" }])).reason === "unavailable");
+}
+
+console.log("--- test-suite isolation (scripts/lib/authRateLimitTestIdentity.mjs) ---");
+{
+  const addrs = Object.values(SUITE_NETWORKS);
+  check("suite networks: distinct, TEST-NET-1 (192.0.2.0/24) only", new Set(addrs).size === addrs.length && addrs.every((a) => /^192\.0\.2\.\d+$/.test(a)));
+  check("D3 networks: TEST-NET-2 and the 2001:db8::/32 documentation prefix", D3_IPV4_NETWORK === "198.51.100." && D3_IPV6_PREFIX.startsWith("2001:db8:"));
+  check("suite headers carry only the suite's own address", suiteHeaders("verifyS4PasswordRecovery")["x-forwarded-for"] === SUITE_NETWORKS.verifyS4PasswordRecovery);
+  let unknownRefused = false;
+  try { suiteHeaders("someUnregisteredSuite"); } catch { unknownRefused = true; }
+  check("an unregistered suite has no network (no silent sharing)", unknownRefused);
+  const sec = suiteRateLimitSecret("verifyM33WebSecurity");
+  check("suite secrets meet the configuration rules (>= 32 chars, >= 12 distinct) and say test-only",
+    sec.length >= 32 && new Set(sec).size >= 12 && sec.startsWith("test-only-") && sec !== suiteRateLimitSecret("verifyM3OperatingModes"));
+  const ks = (suite) => suiteBucketKeys({ secret: suiteRateLimitSecret(suite), networks: ["untrusted"] });
+  check("each spawning suite has its own key space (its 'untrusted' bucket differs)", ks("verifyM33WebSecurity").every((k) => !ks("verifyM3OperatingModes").includes(k)));
+  check("suite bucket keys are deterministic (repeatable cleanup)", JSON.stringify(ks("verifyM33WebSecurity")) === JSON.stringify(ks("verifyM33WebSecurity")));
+  check("networks expand to the three network scopes, accounts to two, users to one",
+    suiteBucketKeys({ networks: ["192.0.2.41"], accounts: ["X@Example.invalid"], users: ["u"] }).length === 6);
+  const src = readFileSync("lib/config/secrets.ts", "utf8");
+  check("the helper's key derivation matches lib/config/secrets.ts (salt, info strings, development-only key)",
+    ["\"tenotrainer-auth-rate-limit\"", "\"tenotrainer/auth-rate-limit/v1\"", "\"tenotrainer/auth-rate-limit/v1/development-only\"", "\"tenotrainer-development-only-rate-limit-key-NOT-A-SECRET\""].every((x) => src.includes(x))
+    && rateLimitKey(null).length === 32 && !rateLimitKey(null).equals(rateLimitKey(sec)));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

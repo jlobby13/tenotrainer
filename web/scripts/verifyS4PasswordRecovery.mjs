@@ -19,6 +19,7 @@ import { randomUUID, randomBytes } from "node:crypto";
 import { chromium } from "playwright";
 import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
 import { loadEnv } from "./lib/harnessEnv.mjs";
+import { clearSuiteCounters, suiteHeaders, suiteNetwork } from "./lib/authRateLimitTestIdentity.mjs";
 
 const BASE = process.argv[2] ?? "http://localhost:3000";
 const REAL_ORG_ID = "07f342fd-075c-42b5-a885-30ca64953d46";
@@ -91,9 +92,13 @@ async function teardown() {
 }
 
 // ---------------------------------------------------------------- browser
+// M3.5 D3 — this suite's own client network (development trusts the header),
+// so its counters never mix with other suites' or the developer's.
+const SUITE = "verifyS4PasswordRecovery";
 async function newCtx(browser) {
-  return browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  return browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, extraHTTPHeaders: suiteHeaders(SUITE) });
 }
+const suiteCounters = () => ({ networks: [suiteNetwork(SUITE)], accounts: ["clinician", "patient", "invited", "nobody"].map(emailOf), users: createdUsers });
 async function login(ctx, email, password) {
   const page = await ctx.newPage();
   await page.goto(`${BASE}/login`);
@@ -127,6 +132,7 @@ const confirmUrl = (hash, extra = "") => `${BASE}/auth/confirm?token_hash=${hash
 
 async function main() {
   section("0. setup (development fixtures)");
+  await clearSuiteCounters({ networks: [suiteNetwork(SUITE)] }); // a crashed earlier run
   const clinician = await makeUser("clinician", "clinician");
   const patient = await makeUser("patient", "member");
   const clinicianMembershipsBefore = await memberships(clinician.id);
@@ -190,7 +196,7 @@ async function main() {
     {
       patientHash = await recoveryHash(patient.email);
       // Link scanners / prefetchers: plain GETs (no cookies) must not spend the token.
-      for (let i = 0; i < 3; i++) await fetch(confirmUrl(patientHash), { redirect: "manual" });
+      for (let i = 0; i < 3; i++) await fetch(confirmUrl(patientHash), { redirect: "manual", headers: suiteHeaders(SUITE) });
       const ctx = await newCtx(browser);
       const page = await ctx.newPage();
       await page.goto(confirmUrl(patientHash, "&next=https://evil.example/&redirect_to=https://evil.example/"));
@@ -380,8 +386,15 @@ try {
 } catch (e) {
   check("suite completed", false, e.stack ?? e.message);
 } finally {
+  const counters = suiteCounters();
   const leftovers = await teardown();
   check("teardown: every fixture account deleted", leftovers.length === 0, leftovers.join("; "));
+  try {
+    await clearSuiteCounters(counters);
+    check("teardown: this suite's rate-limit counters cleared (its network, fixture accounts and users only)", true);
+  } catch (e) {
+    check("teardown: this suite's rate-limit counters cleared", false, e.message);
+  }
   const remaining = [];
   for (const label of ["clinician", "patient", "invited"]) if (await userIdByEmail(emailOf(label))) remaining.push(label);
   check("no s4 fixture account remains", remaining.length === 0, remaining.join(","));

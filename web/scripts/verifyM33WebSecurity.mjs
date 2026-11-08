@@ -35,6 +35,7 @@ import { randomUUID } from "node:crypto";
 import { chromium } from "playwright";
 import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
 import { loadEnv, withEmailContainment, withoutRetiredNames } from "./lib/harnessEnv.mjs";
+import { clearSuiteCounters, SPAWNED_SERVER_NETWORKS, suiteRateLimitEnv, suiteRateLimitSecret } from "./lib/authRateLimitTestIdentity.mjs";
 import { gatewayFetch, launchCanonicalBrowser, rawRequest, startCanonicalGateway } from "./lib/canonicalGateway.mjs";
 
 const REAL_ORG_ID = "07f342fd-075c-42b5-a885-30ca64953d46";
@@ -86,8 +87,13 @@ function serverEnv(overrides) {
   const base = withoutRetiredNames({ ...process.env });
   for (const k of ["FASTAPI_URL", "BRIDGE_SECRET", "TENOTRAINER_APP_ORIGIN"]) delete base[k];
   for (const k of ["TENOTRAINER_MODE", "C5_PATIENT_RUNTIME_ENABLED", "C5_PRESCRIPTION_PUBLISH_ENABLED"]) base[k] = "";
-  return { ...base, RESEND_API_KEY: "", ...overrides };
+  // M3.5 D3 — every server this suite starts gets the suite's own test-only
+  // rate-limit key space (scripts/lib/authRateLimitTestIdentity.mjs).
+  return { ...base, RESEND_API_KEY: "", ...suiteRateLimitEnv(SUITE), ...overrides };
 }
+const SUITE = "verifyM33WebSecurity";
+// This suite's counters only (its own key space), at start and at teardown.
+const clearOwnRateLimitCounters = () => clearSuiteCounters({ secret: suiteRateLimitSecret(SUITE), networks: SPAWNED_SERVER_NETWORKS });
 // Production / maintenance require the safety email configuration; the
 // dummy key is never used — this suite never presents the real secret to
 // a server whose provider is configured.
@@ -232,6 +238,7 @@ async function l5Outbox() {
 }
 
 async function teardown() {
+  await clearOwnRateLimitCounters().catch((e) => console.log(`teardown: rate-limit counters: ${e.message}`));
   const ids = createdUsers.length ? createdUsers : [randomUUID()];
   for (const userId of createdUsers) {
     await admin.from("rehab_sessions").delete().eq("user_id", userId);
@@ -377,6 +384,7 @@ const LEGACY_ROUTES = [
 ];
 
 async function main() {
+  await clearOwnRateLimitCounters(); // a crashed earlier run
   // ================================================================ A
   section("A. Build: authenticated content is never statically generated");
   const manifest = JSON.parse(readFileSync(".next/prerender-manifest.json", "utf8"));

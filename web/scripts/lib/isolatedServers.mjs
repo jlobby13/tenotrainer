@@ -9,6 +9,8 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { withEmailContainment, withoutRetiredNames } from "./harnessEnv.mjs";
+import { basename } from "node:path";
+import { clearSuiteCounters, SPAWNED_SERVER_NETWORKS, suiteRateLimitEnv, suiteRateLimitSecret } from "./authRateLimitTestIdentity.mjs";
 
 const PROTECTED_PORTS = new Set([3000, 8000]);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -31,7 +33,19 @@ function serverEnv(overrides) {
   for (const k of ["FASTAPI_URL", "BRIDGE_SECRET", "TENOTRAINER_APP_ORIGIN", "VERCEL", "VERCEL_ENV"]) delete base[k];
   for (const k of ["TENOTRAINER_MODE", "C5_PATIENT_RUNTIME_ENABLED", "C5_PRESCRIPTION_PUBLISH_ENABLED", "TENOTRAINER_EMAIL_PROVIDER", "SAFETY_DISPATCH_SECRET",
     "RESEND_API_KEY", "TENOTRAINER_NOTIFICATION_EMAIL_FROM", "TENOTRAINER_DEV_EMAIL_RECIPIENTS", "SAFETY_FAKE_PROVIDER_LOG", "SAFETY_FAKE_PROVIDER_SCRIPT"]) base[k] = "";
-  return { ...base, ...overrides };
+  // M3.5 D3 — the calling suite's own test-only rate-limit key space.
+  return { ...base, ...suiteRateLimitEnv(SUITE), ...overrides };
+}
+
+// The suite running this process (scripts/<suite>.mjs).
+const SUITE = basename(process.argv[1] ?? "isolatedSuite").replace(/\.m?js$/, "").replace(/[^A-Za-z0-9]/g, "");
+// Best effort: this suite's counters only (its own key space).
+async function clearOwnRateLimitCounters() {
+  try {
+    await clearSuiteCounters({ secret: suiteRateLimitSecret(SUITE), networks: SPAWNED_SERVER_NETWORKS });
+  } catch (e) {
+    console.log(`isolatedServers: rate-limit counters not cleared (${e.message})`);
+  }
 }
 
 export async function listening(port) {
@@ -49,6 +63,7 @@ export class IsolatedServers {
   }
 
   async start(port, overrides) {
+    if (this.started.length === 0) await clearOwnRateLimitCounters(); // a crashed earlier run
     if (PROTECTED_PORTS.has(port)) throw new Error(`port ${port} is reserved for the accepted development servers`);
     if (await listening(port)) throw new Error(`port ${port} is already in use — refusing to touch a server this suite did not start`);
     const proc = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-p", String(port)], {
@@ -77,5 +92,6 @@ export class IsolatedServers {
 
   async stopAll() {
     for (const s of this.started) await this.stop(s);
+    if (this.started.length) await clearOwnRateLimitCounters();
   }
 }

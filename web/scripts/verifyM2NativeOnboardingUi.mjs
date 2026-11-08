@@ -31,6 +31,7 @@ import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
 import { sqlLocalDate, sqlLocalInstant } from "./lib/patientLocalDate.mjs";
 import { guardedFixtureTeardown } from "./lib/safetyFixturePurge.mjs";
 import { loadEnv } from "./lib/harnessEnv.mjs";
+import { clearSuiteCounters, suiteHeaders, suiteNetwork } from "./lib/authRateLimitTestIdentity.mjs";
 
 const ON = process.argv[2] ?? "http://localhost:3001";
 const DEAD_FASTAPI = process.argv[3] ?? "http://127.0.0.1:59999";
@@ -122,8 +123,21 @@ async function teardown() {
 }
 
 // ---------------------------------------------------------------- browser / API
+// M3.5 D3 — this suite's own client network on the shared development
+// server (development trusts the header): its rate-limit counters never mix
+// with other suites' or the developer's.
+const SUITE = "verifyM2NativeOnboardingUi";
 async function newCtx(browser) {
-  return browser.newContext({ viewport: { width: 1280, height: 900 } });
+  return browser.newContext({ viewport: { width: 1280, height: 900 }, extraHTTPHeaders: suiteHeaders(SUITE) });
+}
+// Before the fixtures are deleted: this suite's network, fixture accounts and users.
+async function clearOwnRateLimitCounters() {
+  const accounts = [];
+  for (const id of createdUsers) {
+    const { data } = await admin.auth.admin.getUserById(id);
+    if (data?.user?.email) accounts.push(data.user.email);
+  }
+  return clearSuiteCounters({ networks: [suiteNetwork(SUITE)], accounts, users: createdUsers });
 }
 async function login(browser, email, next = null) {
   const context = await newCtx(browser);
@@ -693,11 +707,18 @@ if (process.argv.includes("--cleanup")) {
 }
 
 try {
+  await clearSuiteCounters({ networks: [suiteNetwork(SUITE)] }); // a crashed earlier run
   await main();
 } catch (err) {
   fail++;
   console.error("ERROR", err);
 } finally {
+  try {
+    await clearOwnRateLimitCounters();
+  } catch (e) {
+    fail++;
+    console.log(`FAIL  teardown: rate-limit counters: ${e.message}`);
+  }
   try {
     await teardown();
   } catch (e) {
