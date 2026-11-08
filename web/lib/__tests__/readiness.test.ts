@@ -25,7 +25,7 @@ function assert(cond: boolean, msg: string) {
 const config = (url = "https://kpdxlzqtvueiytwjamiw.supabase.co", anonKey = "anon-key-A"): AppConfig => ({
   mode: "production", isolatedTestProfile: false, appOrigin: "https://app.example.com",
   supabase: { url, anonKey, kind: "hosted", ref: "kpdxlzqtvueiytwjamiw" }, runtimeGate: true, publishGate: false,
-  email: { provider: "resend", from: "n@x.org" }, safetyDispatchConfigured: true, platform: { isDevServer: false }, warnings: [],
+  email: { provider: "resend", from: "n@x.org" }, safetyDispatchConfigured: true, platform: { isDevServer: false, onVercel: false }, warnings: [],
 });
 type Call = { url: string; method: string; headers: Record<string, string> };
 function stub(respond: (call: Call, signal: AbortSignal | undefined) => Promise<Response>) {

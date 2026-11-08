@@ -12,6 +12,7 @@ const ERROR_COPY: Record<string, string> = {
   ...(PASSWORD_POLICY_COPY as Record<PasswordPolicyCode, string>),
   same_password: "Your new password must be different from your current one.",
   weak_password: "That password isn't strong enough. Please choose a longer or less common one.",
+  rate_limited: "Too many password changes. Please wait an hour and try again.",
   reauthentication_needed: "For your security, please log out and back in (or use “Forgot password?”) before changing your password.",
   error: "Your password couldn't be changed. Please try again.",
 };

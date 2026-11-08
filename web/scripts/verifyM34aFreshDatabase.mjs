@@ -33,7 +33,7 @@ import { CATALOG_SQL, diffCatalogs, stable, summarizeCatalog } from "./lib/schem
 const env = loadEnv(".env.local");
 assertDevTestTarget(env);
 assertDevSqlTarget(); // the read-only development catalog read goes through the linked dev project only
-const EXPECTED_MIGRATIONS = 66; // 62 + the M3.4a corrective migration + the M3.4c security hardening + the M3.4f dispatch scheduler + the M3.4f-MON monitor
+const EXPECTED_MIGRATIONS = 67; // 62 + the M3.4a corrective migration + the M3.4c security hardening + the M3.4f dispatch scheduler + the M3.4f-MON monitor + the M3.5 D3 rate limiter
 const L5_OUTBOX = "f73aeb4d-6517-481b-ac6e-cc73fa0afc67";
 const reportArg = process.argv.indexOf("--report");
 const REPORT = reportArg > 0 ? process.argv[reportArg + 1] : null;

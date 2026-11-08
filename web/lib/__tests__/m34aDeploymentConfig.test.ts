@@ -44,6 +44,7 @@ const VERCEL_PROD: Env = {
   TENOTRAINER_EMAIL_PROVIDER: "resend", RESEND_API_KEY: "re_placeholder_not_a_key",
   TENOTRAINER_NOTIFICATION_EMAIL_FROM: "TenoTrainer <safety@notify.tenotrainer-verify.org>",
   SAFETY_DISPATCH_SECRET: SECRET32, C5_PRESCRIPTION_PUBLISH_ENABLED: "false",
+  AUTH_RATE_LIMIT_SECRET: "d3-test-only-rate-limit-secret-0123456789abcdefXYZ", // M3.5 D3 test-only value
 };
 // Vercel Preview as M3.4b will configure it (founder C2).
 const VERCEL_PREVIEW: Env = {
@@ -111,6 +112,7 @@ const PROD_REFUSALS: [string, Env, string | RegExp][] = [
   ["RESEND_BASE_URL", { ...VERCEL_PROD, RESEND_BASE_URL: "https://intercept.example" }, "RESEND_BASE_URL"],
   ["a short dispatch secret", { ...VERCEL_PROD, SAFETY_DISPATCH_SECRET: "short" }, "SAFETY_DISPATCH_SECRET"],
   ["no dispatch secret", without(VERCEL_PROD, "SAFETY_DISPATCH_SECRET"), "SAFETY_DISPATCH_SECRET"],
+  ["no rate-limit secret (M3.5 D3)", without(VERCEL_PROD, "AUTH_RATE_LIMIT_SECRET"), "AUTH_RATE_LIMIT_SECRET: is required"],
   ["the legacy patient runtime", { ...VERCEL_PROD, C5_PATIENT_RUNTIME_ENABLED: "false" }, "C5_PATIENT_RUNTIME_ENABLED"],
   ["production mode on a Preview deployment", { ...VERCEL_PROD, VERCEL_ENV: "preview" }, "VERCEL_ENV"],
   ["a reserved .test origin on Vercel (no isolated test profile on Vercel)", { ...VERCEL_PROD, TENOTRAINER_APP_ORIGIN: "https://app.tenotrainer.test", ...supabase(DEV_REF) }, "registered development project"],

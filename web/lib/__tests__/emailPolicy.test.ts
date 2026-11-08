@@ -24,7 +24,7 @@ function assert(cond: boolean, msg: string) {
 const base = {
   appOrigin: "http://localhost:3000",
   supabase: { url: "https://kpdxlzqtvueiytwjamiw.supabase.co", anonKey: "x", kind: "hosted" as const, ref: "kpdxlzqtvueiytwjamiw" },
-  runtimeGate: true, publishGate: false, safetyDispatchConfigured: false, platform: { isDevServer: false }, warnings: [],
+  runtimeGate: true, publishGate: false, safetyDispatchConfigured: false, platform: { isDevServer: false, onVercel: false }, warnings: [],
 };
 const dev = (provider: "disabled" | "fake" | "resend", recipients: string[] | null): AppConfig => ({
   ...base, mode: "development", isolatedTestProfile: false, email: { provider, from: "n@dev-mail.tenotrainer.test" },

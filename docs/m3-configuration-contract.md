@@ -71,6 +71,7 @@ outside this contract and is development-only.
 | `TENOTRAINER_DEV_EMAIL_RECIPIENTS` | Development-only exact recipient allow-list (see [Application email](#application-email)) | no |
 | `SAFETY_DISPATCH_SECRET` | Bearer credential for the internal safety-dispatch endpoint (≥ 32 chars) | **yes** |
 | `SAFETY_DISPATCH_SECRET_NEXT` | Optional rotation partner (≥ 32 chars, distinct, needs the current secret) | **yes** |
+| `AUTH_RATE_LIMIT_SECRET` | Dedicated key material for the authentication rate limiter HMAC keys (≥ 32 chars, ≥ 12 distinct characters — generate with e.g. `openssl rand -base64 32` — distinct from every other credential and different in every environment). Required in production / maintenance; development and the isolated test profile fall back to a public development-only key. Rotating it only resets rate-limit counters | **yes** |
 
 ### Legacy, development-only (temporary — removed with the M6 legacy retirement)
 
@@ -144,6 +145,7 @@ R = required · O = optional · F = refused at startup · W = ignored with a sta
 | `TENOTRAINER_DEV_EMAIL_RECIPIENTS` | R only with `resend`; F otherwise | F | F |
 | `SAFETY_DISPATCH_SECRET` | O; ≥ 32 | R; ≥ 32 | R; ≥ 32 |
 | `SAFETY_DISPATCH_SECRET_NEXT` | O | O | O |
+| `AUTH_RATE_LIMIT_SECRET` | O (warning when unset); ≥ 32 | R; ≥ 32 (O only under the isolated test profile) | R; ≥ 32 (O only under the isolated test profile) |
 | `SAFETY_FAKE_PROVIDER_*` | O (test-only) | F | F |
 | `FASTAPI_URL`, `BRIDGE_SECRET` | O (legacy) | F | F |
 | `ANTHROPIC_API_KEY` | not read | F | F |
@@ -387,6 +389,65 @@ localhost in production); public sign-up disabled; custom SMTP (Resend);
 the recovery template above; minimum password length ≥ 8; reauthentication
 for password change; "password changed" notification; leaked-password
 (HIBP) check; links expire within 1 hour.
+
+### Authentication rate limiting (M3.5 D3)
+
+Login and password recovery are rate limited in the application
+(`web/lib/authRateLimit.ts`, `web/lib/authRateLimitServer.ts`; storage
+`supabase/migrations/20261109000001_m35_auth_rate_limit.sql`).
+
+- **Atomic reservations.** Before Supabase is asked, one attempt is reserved
+  in every relevant bucket by `public.auth_rate_limit_reserve` (one
+  transaction, rows locked in key order). If any bucket is at its limit the
+  request is refused and **nothing is incremented**, so a refused request
+  never extends a lockout; windows are fixed and end on their own.
+  Concurrent requests cannot exceed a limit.
+- **Buckets** are HMAC-SHA256 keys over `<scope>|<identifier>` (64 hex): no
+  email address, IP address or user id is stored or logged. The HMAC key is
+  derived (HKDF) inside the secret boundary from the dedicated
+  `AUTH_RATE_LIMIT_SECRET`, required in production / maintenance (startup
+  is refused without it, naming only the variable). Development and the
+  isolated production-mode test profile — a reserved `.test` origin on a
+  registered development project, never on Vercel, so never a real
+  deployment — may omit it and use a public development-only key. The
+  service-role key is never used. Rotating the secret only resets counters.
+- **Thresholds** (`DEFAULT_AUTH_RATE_LIMITS`, overridable in code / tests):
+
+  | Endpoint | Buckets | Limit |
+  |---|---|---|
+  | Login | account (normalized email, existing or not); client network | 5 / 15 min; 30 / 15 min |
+  | Reset request | account; client network | 3 / hour; 10 / hour (refused requests send nothing; same response) |
+  | Recovery-link verification | client network | 20 / 15 min |
+  | Password change | user | 10 / hour |
+
+  A successful login clears the account's login bucket; a completed password
+  change (recovery or signed in) clears it too. Network buckets are never
+  cleared early. Recovery uses its own buckets, so it stays available during
+  a login lockout.
+- **Client network.** `X-Forwarded-For` is trusted only on Vercel (the
+  platform overwrites it; `platform.onVercel`) or in development. Elsewhere
+  every request shares one `untrusted` bucket, so no header can select an
+  arbitrary identity. IPv4 addresses as-is; IPv6 by /64; IPv4-mapped IPv6 as
+  IPv4.
+- **Failure policy** (`rateLimitFailsClosed`). Real production / maintenance
+  fail **closed**: an unavailable database, a missing RPC, an RPC error or a
+  missing key refuses the login, reset, verification or change.
+  Development and the isolated production-mode test profile fail **open**
+  (they use the shared development database); a deployment on Vercel is
+  never treated as the test profile (on Vercel that profile configuration
+  is refused outright). Logged without identifiers.
+- **Timing.** Failed logins and every reset request take at least 500 ms.
+- **Cleanup.** At most once every 10 minutes a reservation also deletes up to
+  200 buckets idle for more than a day (no cron job).
+- **Direct Supabase Auth access** (someone calling Supabase Auth with the
+  project URL and anon key, bypassing the application) is NOT covered by
+  this limiter; there only Supabase's own per-IP limits apply. The URL and
+  key are server-only today (not in browser bundles), but this design does
+  not depend on them staying secret: the consequence of a leak is that
+  password guessing is bounded only by Supabase's limits (and by
+  `invalid_credentials` giving no account hint). Supabase's per-IP limits
+  also see every application request as coming from Vercel; moving to
+  Supabase's `Sb-Forwarded-For` (new API keys) is a follow-up.
 
 ### The one delivery policy (`web/lib/emailPolicy.ts`)
 
@@ -674,7 +735,8 @@ Intentionally not part of S3:
   [Password recovery](#password-recovery-m35-s4)); the production Supabase
   Auth settings it requires are still to be made (run
   `web/scripts/verifyS4AuthConfig.mjs`).
-- **Login-abuse protection** (Postgres-backed application rate limiter plus
-  Vercel protection; reviewed design first).
+- **Login-abuse protection:** implemented (M3.5 D3,
+  [Authentication rate limiting](#authentication-rate-limiting-m35-d3));
+  migration 67 is still to be applied to development and Production.
 - **CSP enforcement** (still Report-Only).
 - **The M3.4 infrastructure items** above.

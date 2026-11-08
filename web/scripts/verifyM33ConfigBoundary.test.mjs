@@ -82,6 +82,8 @@ const SECRET_IMPORTERS = [
   "lib/safetyEmail/index.ts",
   "lib/email.ts",
   "app/api/internal/safety-notifications/dispatch/route.ts",
+  // M3.5 D3 — the rate limiter's HMAC key (getAuthRateLimitKey only).
+  "lib/authRateLimitServer.ts",
   // TEMPORARY legacy debt (founder Decision 2; removed with M6 legacy retirement):
   "lib/fastapi.ts",
   "app/api/auth/validate-bridge/route.ts",

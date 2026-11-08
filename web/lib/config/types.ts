@@ -37,7 +37,9 @@ type BaseConfig = {
   email: { provider: EmailProviderName; from: string | null };
   // Whether the internal dispatch endpoint can authenticate at all (never the value).
   safetyDispatchConfigured: boolean;
-  platform: { isDevServer: boolean };
+  // onVercel: running on Vercel (the platform sets the client address in
+  // X-Forwarded-For itself — M3.5 D3 trusts that header only then).
+  platform: { isDevServer: boolean; onVercel: boolean };
   // Non-fatal notices for the startup log (names only, never values).
   warnings: readonly string[];
 };

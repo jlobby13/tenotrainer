@@ -38,6 +38,9 @@ export type SecretStore = {
   // The current dispatch secret first, then the optional rotation partner.
   dispatchSecrets: readonly Secret[];
   legacyBridgeSecret: Secret | null;
+  // M3.5 D3 — the rate limiter's dedicated hashing secret (required in real
+  // production / maintenance; see parse below).
+  authRateLimitSecret: Secret | null;
 };
 
 export type ValidatedConfig = { config: AppConfig; secrets: SecretStore };
@@ -53,6 +56,8 @@ export class ConfigError extends Error {
 
 // M3.2 — the internal dispatch credential must be long and random.
 export const SAFETY_DISPATCH_SECRET_MIN_LENGTH = 32;
+export const AUTH_RATE_LIMIT_SECRET_MIN_LENGTH = 32;
+export const AUTH_RATE_LIMIT_SECRET_MIN_DISTINCT = 12;
 
 // Configuration whose only purpose is the legacy FastAPI bridge. Forbidden
 // in production and maintenance (FastAPI is not deployed — founder F7).
@@ -333,6 +338,24 @@ export function validateConfig(env: Env, options: { registry?: ResourceIdentityR
   }
   if (prodLike && dispatchCurrent === null) problems.push(`SAFETY_DISPATCH_SECRET: is required in ${mode} mode`);
 
+  // ------------------------------------------------------------ rate-limit hashing secret (M3.5 D3)
+  // Required in real production / maintenance. Development and the isolated
+  // production-mode test profile (a reserved .test origin on a registered
+  // development project, never on Vercel — structurally unable to be a real
+  // deployment) may omit it and then use a public, development-only key.
+  const rateLimitSecret = value(env.AUTH_RATE_LIMIT_SECRET);
+  if (rateLimitSecret !== null) {
+    if (rateLimitSecret.length < AUTH_RATE_LIMIT_SECRET_MIN_LENGTH) problems.push(`AUTH_RATE_LIMIT_SECRET: must be at least ${AUTH_RATE_LIMIT_SECRET_MIN_LENGTH} characters`);
+    else if (new Set(rateLimitSecret).size < AUTH_RATE_LIMIT_SECRET_MIN_DISTINCT) problems.push(`AUTH_RATE_LIMIT_SECRET: must be random (at least ${AUTH_RATE_LIMIT_SECRET_MIN_DISTINCT} distinct characters)`);
+    if (rateLimitSecret === serviceKey || rateLimitSecret === dispatchCurrent || rateLimitSecret === dispatchNext) {
+      problems.push("AUTH_RATE_LIMIT_SECRET: must differ from every other credential");
+    }
+  } else if (prodLike && !isolatedTestProfile) {
+    problems.push(`AUTH_RATE_LIMIT_SECRET: is required in ${mode} mode`);
+  } else if (mode === "development") {
+    warnings.push("AUTH_RATE_LIMIT_SECRET is not set; rate limiting uses the public development-only key");
+  }
+
   // ------------------------------------------------------------ refused / retired configuration
   const retiredSenderName = "RESEND_FROM";
   if (prodLike) {
@@ -376,6 +399,7 @@ export function validateConfig(env: Env, options: { registry?: ResourceIdentityR
     resendApiKey: resendKey !== null ? new Secret(resendKey) : null,
     dispatchSecrets: [dispatchCurrent, dispatchNext].filter((s): s is string => s !== null).map((s) => new Secret(s)),
     legacyBridgeSecret: mode === "development" && present(env.BRIDGE_SECRET) ? new Secret(env.BRIDGE_SECRET.trim()) : null,
+    authRateLimitSecret: rateLimitSecret !== null ? new Secret(rateLimitSecret) : null,
   };
   const base = {
     appOrigin,
@@ -384,7 +408,7 @@ export function validateConfig(env: Env, options: { registry?: ResourceIdentityR
     publishGate: publishRaw === "true",
     email: { provider, from },
     safetyDispatchConfigured: dispatchCurrent !== null,
-    platform: { isDevServer: nodeEnv === "development" },
+    platform: { isDevServer: nodeEnv === "development", onVercel: vercelMarked },
     warnings: Object.freeze(warnings),
   };
   const config: AppConfig =

@@ -28,6 +28,7 @@ const PROD = {
   SUPABASE_URL: "https://wfaalpfobpmojohetjlr.supabase.co", TENOTRAINER_SUPABASE_PROJECT_REF: "wfaalpfobpmojohetjlr",
   ...fakeKeysFor("wfaalpfobpmojohetjlr"), TENOTRAINER_APP_ORIGIN: "https://app.tenotrainer.example", NODE_ENV: "production",
   TENOTRAINER_EMAIL_PROVIDER: "resend", SAFETY_DISPATCH_SECRET: SECRET, RESEND_API_KEY: "re_test",
+  AUTH_RATE_LIMIT_SECRET: "d3-test-only-rate-limit-secret-0123456789abcdefXYZ", // M3.5 D3 test-only value
   TENOTRAINER_NOTIFICATION_EMAIL_FROM: "TenoTrainer <s@notifications.tenotrainer-verify.org>",
 };
 const DEV = {

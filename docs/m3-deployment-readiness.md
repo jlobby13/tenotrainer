@@ -503,7 +503,8 @@ The code path is covered locally by `verifyM33CanonicalOrigin.mjs`.
 - **S4:** password recovery is implemented (M3.5 S4; see
   `docs/m3-configuration-contract.md`, Password recovery); the production
   Auth Site URL, redirect list, SMTP, recovery template and password settings
-  are still to be configured. Login rate limiting is the next M3.5 item.
+  are still to be configured. Login and recovery rate limiting is implemented
+  (M3.5 D3, migration 67 not yet applied anywhere); CSP enforcement is next.
 - **Later:** mobile/PWA work, Jason Alpha readiness and onboarding, and any
   compliance / BAA gate required before clinical use.
 
@@ -514,12 +515,14 @@ The code path is covered locally by `verifyM33CanonicalOrigin.mjs`.
 | `web/scripts/verifyM33Readiness.mjs` | readiness semantics incl. the narrow deployment-host exception |
 | `web/scripts/verifyM34aDeploymentTools.mjs` | gate verdicts, probe classification (modelled platforms), live probe/gate, CLIs |
 | `web/scripts/verifyM34aCspProduction.mjs` | zero CSP violations as served and under enforcement, resources work |
-| `web/scripts/verifyM34aFreshDatabase.mjs` | fresh reconstruction from every migration (66), fresh state (incl. the inactive dispatch and monitor jobs and an empty pg_net queue), zero application drift at dev's ledger position |
+| `web/scripts/verifyM34aFreshDatabase.mjs` | fresh reconstruction from every migration (67), fresh state (incl. the inactive dispatch and monitor jobs and an empty pg_net queue), zero application drift at dev's ledger position |
 | `web/scripts/verifyM34cSecurityHardening.mjs` | migration 64's exact change set, privilege matrix, linter-equivalent counts, trigger / RLS / reconcile / schedule-gate behaviour |
 | `web/scripts/verifyM34fDispatchScheduler.mjs` | migration 65 on a scratch cluster (pg_net / Vault / pg_cron test doubles): application catalog unchanged, wrapper privileges, inactive job, fail-closed configuration, exact request shape, no value leakage |
 | `web/scripts/verifyM34fMonSafetyMonitor.mjs` | migration 66 on a scratch cluster: application catalog unchanged but the inactive monitor job, owner-only privileges, every detection rule and threshold edge, pre-activation (no false alerts) and activation grace, check-in exclusion, no-PHI payload shape, fail-closed / pinned check-in URL, exact check-in request, deduplication and recovery transitions |
 | `web/scripts/verifyS4PasswordPolicy.test.mjs` | the shared password policy, recovery token / email helpers, redirect validator (unit) |
 | `web/scripts/verifyS4PasswordRecovery.mjs` | password recovery end to end on development fixtures: enumeration-safe requests, invalid / expired / reused links, prefetch safety, ignored redirects, password policy, patient and clinician recovery with role preserved, session revocation (Auth and Data API behaviour), login error codes, invitation acceptance under the shared policy |
 | `web/scripts/verifyS4AuthConfig.mjs` | READ-ONLY Supabase Auth settings check (non-secret fields only) for password recovery |
+| `web/scripts/verifyD3RateLimit.test.mjs` | rate limiter unit: IPv4 / IPv6 /64 / mapped normalization, header trust, HMAC keys, thresholds, failure policy |
+| `web/scripts/verifyD3RateLimitSql.mjs` | migration 67 on a scratch cluster: catalog delta, privileges, atomic reservations (20 concurrent connections), no lockout extension, window expiry, bounded cleanup; the limiter core against it (account / network lockouts, distributed and concurrent guessing, recovery during lockout, reset flooding, IPv6, untrusted headers, fail-closed / fail-open) |
 | `web/scripts/verifyM34aPreviewProfile.mjs` | the Preview model works without FastAPI, email disabled |
 | `web/lib/__tests__/m34aDeploymentConfig.test.ts` | Production / Preview configuration acceptance and refusals |

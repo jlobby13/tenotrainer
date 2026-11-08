@@ -29,6 +29,8 @@ import { emailDeliveryDecision } from "./emailPolicy";
 import { checkPassword, type PasswordPolicyCode } from "./passwordPolicy";
 import { isRecoveryTokenShape, normalizeRecoveryEmail, RECOVERY_PATH } from "./passwordRecovery";
 import { createServerSupabaseClient } from "./supabase/server";
+import { normalizeAccountIdentifier } from "./authRateLimit";
+import { getAuthRateLimiter, requestClientNetwork } from "./authRateLimitServer";
 
 export { isRecoveryTokenShape, normalizeRecoveryEmail, RECOVERY_PATH };
 
@@ -45,8 +47,19 @@ export function recoveryRedirectUrl(): string {
 
 // Fire-and-report: the caller ignores the outcome for the user-facing
 // response (always the same generic confirmation).
-export async function requestPasswordRecovery(rawEmail: unknown): Promise<"requested" | "invalid_email" | "suppressed" | "error"> {
+export async function requestPasswordRecovery(rawEmail: unknown): Promise<"requested" | "invalid_email" | "suppressed" | "limited" | "error"> {
   const email = normalizeRecoveryEmail(rawEmail);
+  // M3.5 D3 — reserve one request for this client network (and this
+  // address, when it is one) before anything else. A refused or failed
+  // reservation sends nothing; the caller's response is identical anyway.
+  const reservation = await getAuthRateLimiter().reserve([
+    { scope: "reset_ip", id: await requestClientNetwork() },
+    ...(email ? [{ scope: "reset_account" as const, id: email }] : []),
+  ]);
+  if (!reservation.allowed) {
+    log("recovery_request", { outcome: reservation.reason });
+    return reservation.reason === "limited" ? "limited" : "error";
+  }
   if (!email) {
     log("recovery_request", { outcome: "invalid_email" });
     return "invalid_email";
@@ -75,6 +88,13 @@ export async function requestPasswordRecovery(rawEmail: unknown): Promise<"reque
 // Expired, already used, unknown and malformed links are deliberately one
 // outcome ("invalid"): the page never tells them apart.
 export async function verifyRecoveryToken(tokenHash: unknown, type: unknown): Promise<"verified" | "invalid" | "rate_limited" | "error"> {
+  // M3.5 D3 — one verification attempt per client network (tokens are
+  // single-use and unguessable; this bounds abuse of the endpoint).
+  const reservation = await getAuthRateLimiter().reserve([{ scope: "verify_ip", id: await requestClientNetwork() }]);
+  if (!reservation.allowed) {
+    log("recovery_verify", { outcome: reservation.reason });
+    return reservation.reason === "limited" ? "rate_limited" : "error";
+  }
   if (!isRecoveryTokenShape(tokenHash, type)) {
     log("recovery_verify", { outcome: "invalid", code: "shape" });
     return "invalid";
@@ -99,7 +119,7 @@ export async function verifyRecoveryToken(tokenHash: unknown, type: unknown): Pr
 
 export type PasswordUpdateOutcome =
   | { ok: true; othersSignedOut: boolean }
-  | { ok: false; code: PasswordPolicyCode | "not_signed_in" | "same_password" | "weak_password" | "reauthentication_needed" | "error" };
+  | { ok: false; code: PasswordPolicyCode | "not_signed_in" | "same_password" | "weak_password" | "reauthentication_needed" | "rate_limited" | "error" };
 
 export async function updateAccountPassword(password: unknown, confirmation: unknown): Promise<PasswordUpdateOutcome> {
   const supabase = await createServerSupabaseClient();
@@ -110,6 +130,14 @@ export async function updateAccountPassword(password: unknown, confirmation: unk
 
   const policy = checkPassword(password, { confirmation, email: user.email ?? null });
   if (!policy.ok) return { ok: false, code: policy.code };
+
+  // M3.5 D3 — password changes per signed-in user.
+  const limiter = getAuthRateLimiter();
+  const reservation = await limiter.reserve([{ scope: "password_user", id: user.id }]);
+  if (!reservation.allowed) {
+    log("password_update", { outcome: reservation.reason });
+    return { ok: false, code: reservation.reason === "limited" ? "rate_limited" : "error" };
+  }
 
   // Only the password field: memberships, roles and metadata are untouched.
   const { error } = await supabase.auth.updateUser({ password: password as string });
@@ -123,6 +151,9 @@ export async function updateAccountPassword(password: unknown, confirmation: unk
     return { ok: false, code };
   }
   const { error: signOutError } = await supabase.auth.signOut({ scope: "others" });
+  // The account's owner has just proven control (recovery link or live
+  // session): lift a login lockout on this account. Network buckets stay.
+  await limiter.clear([{ scope: "login_account", id: normalizeAccountIdentifier(user.email) }]);
   log("password_update", { outcome: "updated", others_signed_out: !signOutError });
   return { ok: true, othersSignedOut: !signOutError };
 }

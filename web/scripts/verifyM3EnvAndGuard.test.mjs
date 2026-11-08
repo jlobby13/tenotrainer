@@ -49,6 +49,7 @@ const PROD_BASE = {
 const SAFETY_PROD = {
   TENOTRAINER_EMAIL_PROVIDER: "resend",
   SAFETY_DISPATCH_SECRET: "m32-test-dispatch-secret-0123456789abcdef",
+  AUTH_RATE_LIMIT_SECRET: "d3-test-only-rate-limit-secret-0123456789abcdefXYZ", // M3.5 D3 test-only value
   RESEND_API_KEY: "re_test",
   TENOTRAINER_NOTIFICATION_EMAIL_FROM: "TenoTrainer <safety@notifications.tenotrainer-verify.org>",
 };

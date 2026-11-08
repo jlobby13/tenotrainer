@@ -4,7 +4,7 @@ import "server-only";
 // revealed. Importers are allow-listed by the static boundary test
 // (scripts/verifyM33ConfigBoundary.test.mjs); the proxy, instrumentation,
 // readiness, next.config and client components must never import it.
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, hkdfSync, timingSafeEqual } from "node:crypto";
 import { getConfig, readSecretStore } from "./index";
 
 function digest(v: string): Buffer {
@@ -67,4 +67,25 @@ export function verifyLegacyBridgeAuthorization(header: string | null): boolean 
   const presented = bearerToken(header);
   if (!secret || presented === null) return false;
   return constantTimeEqual(presented, secret.reveal());
+}
+
+// M3.5 D3 — the rate limiter's HMAC key: HKDF-SHA256 (purpose-bound) over
+// the dedicated AUTH_RATE_LIMIT_SECRET. Configuration validation requires
+// that secret in real production / maintenance, so only development and the
+// isolated production-mode test profile can reach the public,
+// development-only fallback below — never the service-role key. Any other
+// case throws (the limiter then fails closed). The key never leaves this
+// boundary unhashed; rotating the secret only resets counters.
+const DEVELOPMENT_ONLY_RATE_LIMIT_KEY = "tenotrainer-development-only-rate-limit-key-NOT-A-SECRET";
+
+export function getAuthRateLimitKey(): Buffer {
+  const store = readSecretStore();
+  if (store.authRateLimitSecret) {
+    return Buffer.from(hkdfSync("sha256", store.authRateLimitSecret.reveal(), "tenotrainer-auth-rate-limit", "tenotrainer/auth-rate-limit/v1", 32));
+  }
+  const config = getConfig();
+  if (config.mode === "development" || config.isolatedTestProfile) {
+    return Buffer.from(hkdfSync("sha256", DEVELOPMENT_ONLY_RATE_LIMIT_KEY, "tenotrainer-auth-rate-limit", "tenotrainer/auth-rate-limit/v1/development-only", 32));
+  }
+  throw new Error("AUTH_RATE_LIMIT_SECRET is required");
 }

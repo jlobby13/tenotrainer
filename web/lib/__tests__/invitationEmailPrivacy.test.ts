@@ -97,7 +97,7 @@ const PROD_REF = "wfaalpfobpmojohetjlr"; // the registered production project (s
 const sb = (ref: string) => ({ SUPABASE_URL: `https://${ref}.supabase.co`, TENOTRAINER_SUPABASE_PROJECT_REF: ref, SUPABASE_ANON_KEY: jwt({ role: "anon", ref }), SUPABASE_SERVICE_ROLE_KEY: jwt({ role: "service_role", ref }) });
 const problems = (env: Env) => { try { validateConfig(env); return []; } catch (e) { if (e instanceof ConfigError) return e.problems; throw e; } };
 const PROD: Env = { VERCEL: "1", VERCEL_ENV: "production", NODE_ENV: "production", TENOTRAINER_MODE: "production", TENOTRAINER_APP_ORIGIN: "https://app.tenotrainer-verify.org", ...sb(PROD_REF),
-  TENOTRAINER_EMAIL_PROVIDER: "resend", RESEND_API_KEY: "re_placeholder_not_a_key", TENOTRAINER_NOTIFICATION_EMAIL_FROM: "TenoTrainer <no-reply@tenotrainer.com>", SAFETY_DISPATCH_SECRET: "m34d-dispatch-secret-0123456789abcdef-xyz" };
+  TENOTRAINER_EMAIL_PROVIDER: "resend", RESEND_API_KEY: "re_placeholder_not_a_key", TENOTRAINER_NOTIFICATION_EMAIL_FROM: "TenoTrainer <no-reply@tenotrainer.com>", SAFETY_DISPATCH_SECRET: "m34d-dispatch-secret-0123456789abcdef-xyz", AUTH_RATE_LIMIT_SECRET: "d3-test-only-rate-limit-secret-0123456789abcdefXYZ", };
 const DEV: Env = { TENOTRAINER_MODE: "development", TENOTRAINER_APP_ORIGIN: "http://localhost:3000", ...sb(DEV_REF), TENOTRAINER_EMAIL_PROVIDER: "resend", RESEND_API_KEY: "re_placeholder_not_a_key",
   TENOTRAINER_NOTIFICATION_EMAIL_FROM: "TenoTrainer <x@dev-mail.tenotrainer.test>", TENOTRAINER_DEV_EMAIL_RECIPIENTS: "dev@example.com" };
 

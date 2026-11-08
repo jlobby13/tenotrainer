@@ -35,7 +35,8 @@ const UNKNOWN_REF = "zyxwvutsrqponmlkjihg";
 const SECRET32 = "s3-dispatch-secret-0123456789abcdef-xyz";
 
 const supabase = (ref: string) => ({ SUPABASE_URL: `https://${ref}.supabase.co`, TENOTRAINER_SUPABASE_PROJECT_REF: ref, ...keys(ref) });
-const email = (from: string) => ({ TENOTRAINER_EMAIL_PROVIDER: "resend", RESEND_API_KEY: "re_inert_test", TENOTRAINER_NOTIFICATION_EMAIL_FROM: from, SAFETY_DISPATCH_SECRET: SECRET32 });
+const RATE_LIMIT_SECRET = "d3-Rate-Limit-secret-0123456789abcdefXYZ";
+const email = (from: string) => ({ TENOTRAINER_EMAIL_PROVIDER: "resend", RESEND_API_KEY: "re_inert_test", TENOTRAINER_NOTIFICATION_EMAIL_FROM: from, SAFETY_DISPATCH_SECRET: SECRET32, AUTH_RATE_LIMIT_SECRET: RATE_LIMIT_SECRET });
 const PROD: Env = { TENOTRAINER_MODE: "production", NODE_ENV: "production", TENOTRAINER_APP_ORIGIN: "https://app.tenotrainer.example", ...supabase(PROD_REF), ...email("TenoTrainer <safety@notifications.tenotrainer-verify.org>") };
 // The existing spawned production-server profile: reserved .test origin + the registered development project.
 const ISOLATED: Env = { ...PROD, TENOTRAINER_APP_ORIGIN: "https://app.tenotrainer.test", ...supabase(DEV_REF), ...email("TenoTrainer <safety@tenotrainer.test>") };
@@ -433,6 +434,44 @@ test("S3c: allow-list values never appear in refusal messages", () => {
   let msg = "";
   try { validateConfig(devResend(`${S}@x,${S},*@${S}.invalid`)); } catch (e) { msg = e instanceof Error ? e.message : ""; }
   assert(msg.length > 0 && !msg.includes(S), msg);
+});
+
+// ---------------------------------------------------------------- M3.5 D3: rate-limit secret and platform
+test("AUTH_RATE_LIMIT_SECRET: required in real production and maintenance; random, >= 32 characters, distinct, redacted", () => {
+  refused({ ...PROD, AUTH_RATE_LIMIT_SECRET: undefined }, "AUTH_RATE_LIMIT_SECRET: is required in production mode");
+  refused({ ...PROD, TENOTRAINER_MODE: "maintenance", AUTH_RATE_LIMIT_SECRET: undefined }, "AUTH_RATE_LIMIT_SECRET: is required in maintenance mode");
+  refused({ ...PROD, AUTH_RATE_LIMIT_SECRET: "   " }, "AUTH_RATE_LIMIT_SECRET: is required in production mode");
+  assert(validateConfig(PROD).secrets.authRateLimitSecret !== null, "a dedicated secret is accepted");
+  refused({ ...PROD, AUTH_RATE_LIMIT_SECRET: "short" }, "AUTH_RATE_LIMIT_SECRET: must be at least 32");
+  refused({ ...PROD, AUTH_RATE_LIMIT_SECRET: "a".repeat(40) }, "AUTH_RATE_LIMIT_SECRET: must be random");
+  refused({ ...PROD, AUTH_RATE_LIMIT_SECRET: "abcabcabcabcabcabcabcabcabcabcabcabc" }, "AUTH_RATE_LIMIT_SECRET: must be random");
+  refused({ ...PROD, AUTH_RATE_LIMIT_SECRET: SECRET32 }, "AUTH_RATE_LIMIT_SECRET: must differ from every other credential");
+  refused({ ...PROD, AUTH_RATE_LIMIT_SECRET: PROD.SUPABASE_SERVICE_ROLE_KEY as string }, "AUTH_RATE_LIMIT_SECRET: must differ from every other credential");
+  const problemText = problems({ ...PROD, AUTH_RATE_LIMIT_SECRET: "short-but-recognisable" }).join(" ");
+  assert(!problemText.includes("short-but-recognisable"), "a refusal never echoes the value");
+  const shown = inspect(validateConfig(PROD), { depth: 10 });
+  assert(!shown.includes(RATE_LIMIT_SECRET), "redacted when the validated configuration is inspected");
+});
+test("AUTH_RATE_LIMIT_SECRET: optional only in development (with a warning) and the isolated test profile", () => {
+  const dev = validateConfig(DEV);
+  assert(dev.secrets.authRateLimitSecret === null && dev.config.warnings.some((w) => w.startsWith("AUTH_RATE_LIMIT_SECRET is not set")), "development: optional, warned");
+  const iso = validateConfig({ ...ISOLATED, AUTH_RATE_LIMIT_SECRET: undefined });
+  assert(iso.secrets.authRateLimitSecret === null && iso.config.mode === "production" && iso.config.isolatedTestProfile === true, "isolated profile: optional");
+});
+test("the isolated test profile can never be a real deployment", () => {
+  // On Vercel the test-profile shape is not the test profile at all: it is
+  // refused outright (development project, reserved sender) — and still
+  // demands the dedicated rate-limit secret.
+  refused({ ...ISOLATED, VERCEL: "1", VERCEL_ENV: "production" }, "is a registered development project and is refused in production mode");
+  refused({ ...ISOLATED, VERCEL: "1", VERCEL_ENV: "production", AUTH_RATE_LIMIT_SECRET: undefined }, "AUTH_RATE_LIMIT_SECRET: is required in production mode");
+  refused({ ...ISOLATED, ...supabase(PROD_REF) }, "under the isolated test profile a registered production project is refused");
+  assert(ok(PROD).isolatedTestProfile === false, "a non-.test origin is never the test profile");
+});
+test("platform.onVercel: true only when the Vercel platform variables are present", () => {
+  assert(ok(PROD).platform.onVercel === false && ok(DEV).platform.onVercel === false, "plain process");
+  assert(ok({ ...PROD, VERCEL: "1", VERCEL_ENV: "production" }).platform.onVercel === true, "Vercel production");
+  assert(ok({ ...DEV, VERCEL: "1", VERCEL_ENV: "preview" }).platform.onVercel === true, "Vercel preview");
+  assert(ok(ISOLATED).platform.onVercel === false && ok(ISOLATED).mode === "production", "isolated test profile is never on Vercel");
 });
 
 console.log(`\n${pass} passed, ${fail} failed`);

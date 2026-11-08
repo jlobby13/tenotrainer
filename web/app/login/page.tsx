@@ -9,7 +9,7 @@ type Props = { searchParams: Promise<{ error?: string; email?: string; next?: st
 // (or free text from an old/crafted link) show the generic message.
 const LOGIN_ERROR_COPY: Record<string, string> = {
   invalid_credentials: "Invalid email or password.",
-  rate_limited: "Too many sign-in attempts. Please wait a few minutes and try again.",
+  rate_limited: "Too many sign-in attempts. Please wait 15 minutes and try again, or reset your password below.",
   unavailable: "We couldn't sign you in right now. Please try again shortly.",
   link_invalid: "That link is invalid or has expired. Please log in, or request a new link.",
   account_created: "Your account was created. Please log in to continue.",
