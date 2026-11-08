@@ -5,8 +5,20 @@ export const metadata = { title: "Log In — TenoTrainer" };
 
 type Props = { searchParams: Promise<{ error?: string; email?: string; next?: string; notice?: string }> };
 
+// M3.5 S4 — fixed copy only: the `error` parameter is a code; unknown codes
+// (or free text from an old/crafted link) show the generic message.
+const LOGIN_ERROR_COPY: Record<string, string> = {
+  invalid_credentials: "Invalid email or password.",
+  rate_limited: "Too many sign-in attempts. Please wait a few minutes and try again.",
+  unavailable: "We couldn't sign you in right now. Please try again shortly.",
+  link_invalid: "That link is invalid or has expired. Please log in, or request a new link.",
+  account_created: "Your account was created. Please log in to continue.",
+};
+const GENERIC_LOGIN_ERROR = "Something went wrong. Please try again.";
+
 export default async function LoginPage({ searchParams }: Props) {
-  const { error, email, next, notice } = await searchParams;
+  const { error: errorCode, email, next, notice } = await searchParams;
+  const error = errorCode ? (LOGIN_ERROR_COPY[errorCode] ?? GENERIC_LOGIN_ERROR) : null;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
@@ -30,7 +42,7 @@ export default async function LoginPage({ searchParams }: Props) {
           )}
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 mb-5">
+            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 mb-5" data-testid="login-error" data-code={errorCode}>
               {error}
             </div>
           )}
@@ -81,6 +93,11 @@ export default async function LoginPage({ searchParams }: Props) {
               Log in
             </button>
           </form>
+          <div className="mt-4 text-center">
+            <a href="/login/forgot" data-testid="forgot-password-link" className="inline-flex min-h-11 items-center text-sm font-medium text-brand-600 hover:underline">
+              Forgot password?
+            </a>
+          </div>
         </div>
       </div>
     </div>

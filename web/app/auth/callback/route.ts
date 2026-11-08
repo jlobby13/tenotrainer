@@ -15,11 +15,11 @@ export async function GET(request: Request) {
   // Same-origin paths only (shared validator) — never an open redirect.
   const next = safeInternalPath(searchParams.get("next"), "/dashboard");
   const error = searchParams.get("error");
-  const errorDescription = searchParams.get("error_description");
 
   if (error) {
     const url = to("/login");
-    url.searchParams.set("error", errorDescription ?? error);
+    // M3.5 S4 — a fixed code; the provider's description is never echoed.
+    url.searchParams.set("error", "link_invalid");
     return NextResponse.redirect(url);
   }
 
@@ -33,11 +33,11 @@ export async function GET(request: Request) {
     }
 
     const url = to("/login");
-    url.searchParams.set("error", "Could not verify your link. Please try signing in again.");
+    url.searchParams.set("error", "link_invalid");
     return NextResponse.redirect(url);
   }
 
   const url = to("/login");
-  url.searchParams.set("error", "Invalid confirmation link.");
+  url.searchParams.set("error", "link_invalid");
   return NextResponse.redirect(url);
 }

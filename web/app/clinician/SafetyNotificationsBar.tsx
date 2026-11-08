@@ -26,6 +26,9 @@ export async function SafetyNotificationsBar() {
             )}
           </Link>
         )}
+        <a href="/account/password" className="inline-flex min-h-11 items-center font-medium text-gray-700 hover:text-brand-700" data-testid="staff-password-link">
+          Password
+        </a>
         <a href="/logout" className="inline-flex min-h-11 items-center font-medium text-gray-700 hover:text-brand-700" data-testid="staff-logout-link">
           Log out
         </a>

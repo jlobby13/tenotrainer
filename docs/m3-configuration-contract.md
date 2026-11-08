@@ -336,8 +336,57 @@ TenoTrainer has **two separate email systems**.
 | Sender | `TENOTRAINER_NOTIFICATION_EMAIL_FROM` (application-notification identity) | a separate auth/security identity on the same verified domain (founder C5) |
 
 Configuring Resend for the application does **not** configure Supabase auth
-email. There is no custom password-reset email path; S4 password recovery is
-pending.
+email. Password-recovery email (M3.5 S4) is sent by Supabase Auth through the
+project's own SMTP settings and recovery template; see
+[Password recovery (M3.5 S4)](#password-recovery-m35-s4).
+
+### Password recovery (M3.5 S4)
+
+Same flow for patients and staff; roles and memberships are never touched.
+
+1. `/login` → **Forgot password?** → `/login/forgot`. The server action calls
+   `resetPasswordForEmail` with `redirectTo` built only from configuration
+   (`TENOTRAINER_APP_ORIGIN` + `/auth/confirm`; `web/lib/passwordRecoveryServer.ts`).
+   Every outcome (account or not, malformed address, Supabase limit, error)
+   ends on the same page with the same message. In development the
+   application email policy applies: only an allow-listed recipient can
+   cause a recovery email (the default `disabled` provider sends none).
+2. The Supabase recovery template must link to
+   `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=recovery` (no
+   `{{ .ConfirmationURL }}`). No PKCE verifier is involved, so the link works
+   from a mail app's browser or on another device.
+3. `/auth/confirm` **GET** only renders a button (link scanners cannot spend
+   the one-time token); its **POST** calls `verifyOtp({ type: "recovery" })`.
+   Expired, used, unknown and malformed links are one neutral outcome. No
+   `next` / redirect parameter is read.
+4. `/account/password` (signed in; also reachable from patient Settings and
+   the staff navigation): new password + confirmation under the shared policy
+   (`web/lib/passwordPolicy.ts`: at least 10 characters, at most 72 bytes,
+   not blank, not the account email). Supabase's own project minimum is a
+   second check. Afterwards `/dashboard` routes each role home.
+5. **Sessions.** Changing the password inside a session makes Supabase Auth
+   delete every OTHER session of the user (`UpdatePassword` →
+   `LogoutAllExceptMe`); the application also calls
+   `signOut({ scope: "others" })` as a second, independent revocation. The
+   current session survives. Revoked sessions' refresh tokens are refused and
+   their access tokens are refused by the Auth server immediately (403
+   `session_not_found`) — every page request is checked that way by the
+   proxy — but an unexpired access token is still accepted by the Data API
+   (PostgREST checks only its signature) until it expires (`jwt_exp`, 1 h).
+   Verified in `verifyS4PasswordRecovery.mjs`.
+
+Login failures travel as fixed codes (`invalid_credentials`, `rate_limited`,
+`unavailable`, `link_invalid`, `account_created`), rendered from fixed copy;
+Supabase's message text (which can disclose account state) and free-text
+`?error=` values are never displayed.
+
+**Supabase Auth settings required** (checked read-only by
+`web/scripts/verifyS4AuthConfig.mjs`): Site URL = the canonical origin;
+redirect allowlist exactly `<origin>/auth/confirm` (no wildcards; no
+localhost in production); public sign-up disabled; custom SMTP (Resend);
+the recovery template above; minimum password length ≥ 8; reauthentication
+for password change; "password changed" notification; leaked-password
+(HIBP) check; links expire within 1 hour.
 
 ### The one delivery policy (`web/lib/emailPolicy.ts`)
 
@@ -621,8 +670,10 @@ Intentionally not part of S3:
   operator workflow; see `docs/m3-production-provisioning.md`. Public
   Supabase signup must still be disabled on the production project before it
   is attached to an externally reachable deployment.
-- **S4 password recovery** (Supabase self-service; sign out other sessions
-  on reset).
+- **S4 password recovery:** implemented in the application (M3.5 S4,
+  [Password recovery](#password-recovery-m35-s4)); the production Supabase
+  Auth settings it requires are still to be made (run
+  `web/scripts/verifyS4AuthConfig.mjs`).
 - **Login-abuse protection** (Postgres-backed application rate limiter plus
   Vercel protection; reviewed design first).
 - **CSP enforcement** (still Report-Only).

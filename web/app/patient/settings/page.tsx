@@ -40,6 +40,13 @@ export default async function PatientSettingsPage() {
           initialTime={profile?.morning_reminder_time ?? DEFAULT_MORNING_REMINDER_TIME}
         />
 
+        <div className="mt-6 bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Password</p>
+          <Link href="/account/password" data-testid="change-password-link" className="inline-flex min-h-11 items-center text-sm font-medium text-brand-600 hover:underline">
+            Change password
+          </Link>
+        </div>
+
         {profile?.timezone && (
           <div className="mt-6 bg-white rounded-xl border border-gray-100 shadow-sm p-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Timezone</p>

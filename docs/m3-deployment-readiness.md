@@ -500,8 +500,10 @@ The code path is covered locally by `verifyM33CanonicalOrigin.mjs`.
   (Supabase evaluator + Healthchecks.io dead-man's switch; see
   `docs/m3-safety-notifications.md`, Automated monitoring).
 - **M3.4g:** CSP enforcement (and the global-error page).
-- **S4:** the Auth Site URL and redirect list, password recovery, and the
-  related Auth hardening (including login rate limiting).
+- **S4:** password recovery is implemented (M3.5 S4; see
+  `docs/m3-configuration-contract.md`, Password recovery); the production
+  Auth Site URL, redirect list, SMTP, recovery template and password settings
+  are still to be configured. Login rate limiting is the next M3.5 item.
 - **Later:** mobile/PWA work, Jason Alpha readiness and onboarding, and any
   compliance / BAA gate required before clinical use.
 
@@ -516,5 +518,8 @@ The code path is covered locally by `verifyM33CanonicalOrigin.mjs`.
 | `web/scripts/verifyM34cSecurityHardening.mjs` | migration 64's exact change set, privilege matrix, linter-equivalent counts, trigger / RLS / reconcile / schedule-gate behaviour |
 | `web/scripts/verifyM34fDispatchScheduler.mjs` | migration 65 on a scratch cluster (pg_net / Vault / pg_cron test doubles): application catalog unchanged, wrapper privileges, inactive job, fail-closed configuration, exact request shape, no value leakage |
 | `web/scripts/verifyM34fMonSafetyMonitor.mjs` | migration 66 on a scratch cluster: application catalog unchanged but the inactive monitor job, owner-only privileges, every detection rule and threshold edge, pre-activation (no false alerts) and activation grace, check-in exclusion, no-PHI payload shape, fail-closed / pinned check-in URL, exact check-in request, deduplication and recovery transitions |
+| `web/scripts/verifyS4PasswordPolicy.test.mjs` | the shared password policy, recovery token / email helpers, redirect validator (unit) |
+| `web/scripts/verifyS4PasswordRecovery.mjs` | password recovery end to end on development fixtures: enumeration-safe requests, invalid / expired / reused links, prefetch safety, ignored redirects, password policy, patient and clinician recovery with role preserved, session revocation (Auth and Data API behaviour), login error codes, invitation acceptance under the shared policy |
+| `web/scripts/verifyS4AuthConfig.mjs` | READ-ONLY Supabase Auth settings check (non-secret fields only) for password recovery |
 | `web/scripts/verifyM34aPreviewProfile.mjs` | the Preview model works without FastAPI, email disabled |
 | `web/lib/__tests__/m34aDeploymentConfig.test.ts` | Production / Preview configuration acceptance and refusals |

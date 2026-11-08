@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { PASSWORD_MAX_BYTES, PASSWORD_MIN_LENGTH, PASSWORD_POLICY_COPY, PASSWORD_POLICY_HINT } from "@/lib/passwordPolicy";
 import { getInvitationPreview } from "@/lib/patientInvitationServer";
 import {
   acceptInvitationNewUserAction,
@@ -15,7 +16,12 @@ type Props = { searchParams: Promise<{ token?: string; error?: string }> };
 // accounts' addresses or anything about another organization.
 const ERROR_COPY: Record<string, string> = {
   name_invalid: "Please enter your name (at least 2 characters).",
-  password_invalid: "Your password must be at least 8 characters.",
+  // M3.5 S4 — the shared password policy's copy (password_invalid kept for old links).
+  password_invalid: PASSWORD_POLICY_COPY.too_short,
+  password_too_short: PASSWORD_POLICY_COPY.too_short,
+  password_too_long: PASSWORD_POLICY_COPY.too_long,
+  password_blank: PASSWORD_POLICY_COPY.blank,
+  password_same_as_email: PASSWORD_POLICY_COPY.same_as_email,
   account_exists: "An account with this email already exists. Log in to accept the invitation.",
   account_failed: "Your account could not be created. Please try again.",
   wrong_account: "This invitation was sent to a different email address. Log out and sign in with the invited account.",
@@ -256,11 +262,12 @@ function PasswordField() {
         name="password"
         type="password"
         required
-        minLength={8}
+        minLength={PASSWORD_MIN_LENGTH}
+        maxLength={PASSWORD_MAX_BYTES}
         autoComplete="new-password"
         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:border-brand-400 focus:outline-none"
       />
-      <p className="text-xs text-gray-400 mt-1">At least 8 characters.</p>
+      <p className="text-xs text-gray-400 mt-1">{PASSWORD_POLICY_HINT}</p>
     </div>
   );
 }

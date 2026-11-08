@@ -6,6 +6,7 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { hashInvitationToken, validateInvitationToken } from "@/lib/invitations";
 import { acceptPatientInvitation } from "@/lib/patientInvitationServer";
 import { refuseActionInMaintenance, refuseActionOutsideDevelopment } from "@/lib/modeActions";
+import { checkPassword } from "@/lib/passwordPolicy";
 
 // M2 — every acceptance lands in native Next.js (never the FastAPI bridge).
 const PATIENT_HOME = "/patient/dashboard";
@@ -42,12 +43,15 @@ export async function acceptPatientInvitationNewUserAction(formData: FormData) {
   const password = String(formData.get("password") ?? "");
   if (!token) redirect("/invite/accept");
   if (name.length < 2 || name.length > 120) backToInvite(token, "name_invalid");
-  if (password.length < 8) backToInvite(token, "password_invalid");
+  // M3.5 S4 — the shared password policy (lib/passwordPolicy.ts).
+  const policy = checkPassword(password);
+  if (!policy.ok) backToInvite(token, `password_${policy.code}`);
 
   const validation = await validateInvitationToken(token);
   if (!validation.valid) backToInvite(token, validation.reason);
   const { invitation } = validation;
   if (invitation.invitation_type !== "PATIENT") backToInvite(token, "invalid");
+  if (!checkPassword(password, { email: invitation.email }).ok) backToInvite(token, "password_same_as_email");
 
   const service = createServiceRoleClient();
   const { data: created, error: createError } = await service.auth.admin.createUser({
@@ -120,12 +124,14 @@ export async function acceptInvitationNewUserAction(formData: FormData) {
   const password = String(formData.get("password") ?? "");
   if (!token) redirect("/invite/accept");
   if (name.length < 2) backToInvite(token, "name_invalid");
-  if (password.length < 8) backToInvite(token, "password_invalid");
+  const policy = checkPassword(password);
+  if (!policy.ok) backToInvite(token, `password_${policy.code}`);
 
   const validation = await validateInvitationToken(token);
   if (!validation.valid) backToInvite(token, validation.reason);
   const { invitation } = validation;
   if (invitation.invitation_type === "PATIENT") backToInvite(token, "invalid");
+  if (!checkPassword(password, { email: invitation.email }).ok) backToInvite(token, "password_same_as_email");
   const tokenHash = hashInvitationToken(token);
 
   if (!(await claimInvitation(tokenHash, null))) backToInvite(token, "already_used");
@@ -149,7 +155,7 @@ export async function acceptInvitationNewUserAction(formData: FormData) {
 
   const supabase = await createServerSupabaseClient();
   const { error: signInError } = await supabase.auth.signInWithPassword({ email: invitation.email, password });
-  if (signInError) redirect("/login?error=Account+created.+Please+log+in+to+continue.");
+  if (signInError) redirect("/login?error=account_created");
   redirect(STAFF_HOME);
 }
 
