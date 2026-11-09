@@ -57,7 +57,9 @@ test("CSP: framing, plugins, base and form targets locked down", () => {
   for (const d of ["default-src 'self'", "frame-ancestors 'none'", "object-src 'none'", "base-uri 'none'", "form-action 'self'", "frame-src 'none'", "media-src 'none'", "img-src 'self'", "font-src 'self'", "connect-src 'self'"]) {
     assert(csp.split("; ").includes(d), `missing ${d}`);
   }
-  assert(!csp.includes("upgrade-insecure-requests"), "upgrade-insecure-requests is ignored in Report-Only; added at enforcement");
+  // Deliberately not added at enforcement (founder decision: preserve the
+  // reviewed directives; HSTS already pins production to HTTPS).
+  assert(!csp.includes("upgrade-insecure-requests"), "no upgrade-insecure-requests");
 });
 test("development allowances only under the dev server in development mode", () => {
   const dev = buildContentSecurityPolicy("abc", "development", true);
@@ -66,8 +68,8 @@ test("development allowances only under the dev server in development mode", () 
   const devModeBuilt = buildContentSecurityPolicy("abc", "development", false);
   assert(devModeBuilt === buildContentSecurityPolicy("abc", "production", false), "development mode on a production build = production policy");
 });
-test("Report-Only until founder enforcement", () => {
-  assert(CSP_HEADER === "Content-Security-Policy-Report-Only", CSP_HEADER);
+test("M3.4g: the CSP is enforced (the single code-level switch)", () => {
+  assert(CSP_HEADER === "Content-Security-Policy", CSP_HEADER);
 });
 test("applied headers: production / maintenance get HSTS (no preload); development does not", () => {
   for (const [mode, hsts] of [["production", true], ["maintenance", true], ["development", false], [null, true]] as const) {
@@ -75,7 +77,7 @@ test("applied headers: production / maintenance get HSTS (no preload); developme
     applySecurityHeaders(h, createSecurityContext(mode, false));
     assert((h.get("strict-transport-security") === HSTS_VALUE) === hsts, `${mode} HSTS ${h.get("strict-transport-security")}`);
     assert(h.get("cache-control") === SENSITIVE_CACHE_CONTROL, "no-store");
-    assert(h.get("content-security-policy") === null && h.get("content-security-policy-report-only") !== null, "report-only only");
+    assert((h.get("content-security-policy") ?? "").includes("'nonce-") && h.get("content-security-policy-report-only") === null, "enforced only, never Report-Only");
     for (const { key, value } of STATIC_SECURITY_HEADERS) assert(h.get(key) === value, key);
   }
   assert(!HSTS_VALUE.includes("preload"), "no preload commitment");

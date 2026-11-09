@@ -25,6 +25,7 @@ import { guardedSql, loadEnv, q } from "./lib/m32Fixtures.mjs";
 import { withEmailContainment, withoutRetiredNames } from "./lib/harnessEnv.mjs";
 import { rawRequest } from "./lib/canonicalGateway.mjs";
 import { fakeSupabaseJwt } from "./lib/fakeSupabaseKeys.mjs";
+import { CSP_HEADER } from "../lib/securityHeaders.ts"; // M3.4g — the served CSP header name
 
 const PORTS = { dev: 3192, prod: 3193, stub: 3194 };
 const L5_OUTBOX = "f73aeb4d-6517-481b-ac6e-cc73fa0afc67";
@@ -97,7 +98,7 @@ async function stopServer(s) {
 const ready = (port, method = "GET", headers = {}) => rawRequest(port, { method, path: "/api/ready", headers: { host: `localhost:${port}`, ...headers } });
 const noStore = (r) => /no-store/.test(r.headers["cache-control"] ?? "");
 const s2Headers = (r) => r.headers["x-content-type-options"] === "nosniff" && r.headers["referrer-policy"] === "no-referrer" && r.headers["x-frame-options"] === "DENY"
-  && !!r.headers["content-security-policy-report-only"];
+  && !!r.headers[CSP_HEADER.toLowerCase()];
 const leaks = (r) => SENTINELS.some((s) => r.text.includes(s) || JSON.stringify(r.headers).includes(s));
 
 async function partA() {

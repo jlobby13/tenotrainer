@@ -21,6 +21,7 @@ import { spawn, execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { withEmailContainment, withoutRetiredNames } from "./lib/harnessEnv.mjs";
 import { launchCanonicalBrowser, rawRequest, startCanonicalGateway } from "./lib/canonicalGateway.mjs";
+import { CSP_HEADER } from "../lib/securityHeaders.ts"; // M3.4g — the served CSP header name
 
 const PORTS = { prod: 3186, maintenance: 3187, dev: 3188, gateway: 3189 };
 const CANON = "https://app.tenotrainer.test";
@@ -83,7 +84,7 @@ const loc = (r) => r.headers.location ?? null;
 const hostOf = (u) => { try { return new URL(u).host; } catch { return null; } };
 function securedProd(r) {
   const h = r.headers;
-  return h["strict-transport-security"]?.includes("max-age=") && h["content-security-policy-report-only"]?.includes("nonce-")
+  return h["strict-transport-security"]?.includes("max-age=") && h[CSP_HEADER.toLowerCase()]?.includes("nonce-")
     && h["cache-control"] === "private, no-store, max-age=0" && h["x-content-type-options"] === "nosniff" && h["referrer-policy"] === "no-referrer";
 }
 const json = (r) => { try { return JSON.parse(r.text); } catch { return null; } };

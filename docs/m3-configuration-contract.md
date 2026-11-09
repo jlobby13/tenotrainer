@@ -710,7 +710,7 @@ Intentionally not part of S3:
   candidate deployment's own URL before promotion (the deployment-host
   exception above), then the canonical origin after it. A startup refusal on
   Vercel crashes the function instance but leaves the deployment "Ready".
-- **CSP:** move from Report-Only to enforcement before launch (D4).
+- **CSP:** enforced (M3.4g; `CSP_HEADER` in `web/lib/securityHeaders.ts`, see `docs/m3-deployment-readiness.md`).
 
 ## Known follow-up issues (not S3 failures)
 
@@ -738,5 +738,5 @@ Intentionally not part of S3:
 - **Login-abuse protection:** implemented (M3.5 D3,
   [Authentication rate limiting](#authentication-rate-limiting-m35-d3));
   migration 67 is still to be applied to development and Production.
-- **CSP enforcement** (still Report-Only).
+- **CSP enforcement:** implemented (M3.4g); Production release pending.
 - **The M3.4 infrastructure items** above.

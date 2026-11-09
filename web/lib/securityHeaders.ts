@@ -42,8 +42,8 @@ export const STATIC_SECURITY_HEADERS: ReadonlyArray<{ key: string; value: string
   // Invitation tokens travel in URLs: never send a Referer anywhere, not
   // even to this origin (founder decision: privacy first).
   { key: "Referrer-Policy", value: "no-referrer" },
-  // CSP frame-ancestors is authoritative once enforced; until then (Report-
-  // Only) this is the enforced clickjacking protection.
+  // CSP frame-ancestors 'none' is the authoritative clickjacking protection
+  // (enforced since M3.4g); this covers browsers without CSP Level 2.
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Permissions-Policy", value: PERMISSIONS_POLICY },
 ];
@@ -57,9 +57,11 @@ export const SENSITIVE_CACHE_CONTROL = "private, no-store, max-age=0";
 // http development is never pinned to HTTPS.
 export const HSTS_VALUE = "max-age=31536000; includeSubDomains";
 
-// The CSP stays Report-Only until the production-mode suite proves it
-// (founder D4). Flipping this is the single enforcement switch.
-export const CSP_HEADER = "Content-Security-Policy-Report-Only";
+// M3.4g — the CSP is ENFORCED (founder decision: a code constant, never an
+// environment variable). This is the single switch: reverting it to
+// "Content-Security-Policy-Report-Only" is the documented rollback. Next.js
+// reads the request nonce from either header name (parse-request-headers).
+export const CSP_HEADER = "Content-Security-Policy";
 
 // 128 bits from the platform CSPRNG, base64 — fresh per request.
 export function createNonce(): string {

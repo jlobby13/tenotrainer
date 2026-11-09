@@ -9,7 +9,7 @@ DNS or other cloud resource was created.
 - [Readiness deployment-host exception](#readiness-deployment-host-exception)
 - [Pre-promotion readiness gate](#pre-promotion-readiness-gate)
 - [Forwarded-host deployment probe](#forwarded-host-deployment-probe)
-- [CSP verification before enforcement](#csp-verification-before-enforcement)
+- [CSP enforcement (M3.4g)](#csp-enforcement-m34g)
 - [Fresh database and schema drift](#fresh-database-and-schema-drift)
 - [Drift incident: create_rehab_session_if_allowed](#drift-incident-create_rehab_session_if_allowed)
 - [Build and configuration proofs](#build-and-configuration-proofs)
@@ -116,53 +116,77 @@ condition.
 Exit codes: 0 means all PASS (MANUAL allowed), 1 means any FAIL, 2 means
 OBSERVATION only, 3 means a usage error.
 
-## CSP verification before enforcement
+## CSP enforcement (M3.4g)
 
-The production CSP stays **Report-Only** until M3.4g.
+The Content-Security-Policy is **enforced** (`CSP_HEADER` in
+`web/lib/securityHeaders.ts` is `Content-Security-Policy`, a code constant —
+founder decision; reverting it to `Content-Security-Policy-Report-Only` is the
+rollback). The policy value is unchanged and identical in production,
+maintenance and any production build (Preview included); only `next dev`
+adds `'unsafe-eval'` and inline styles:
 
-`web/scripts/verifyM34aCspProduction.mjs` runs an isolated production server
-at its canonical origin through the TLS gateway, with exact-id fixtures, in
-two passes:
+```
+default-src 'self'; script-src 'self' 'nonce-…' 'strict-dynamic';
+style-src 'self' 'nonce-…'; img-src 'self'; font-src 'self'; connect-src 'self';
+media-src 'none'; frame-src 'none'; frame-ancestors 'none'; object-src 'none';
+base-uri 'none'; form-action 'self'
+```
 
-1. **The policy as served** (Report-Only).
-2. **An enforcement rehearsal:** the browser rewrites only the header name to
-   `Content-Security-Policy`, with the same policy value. The application is
-   unchanged.
+A fresh 128-bit nonce per request (the proxy); Next.js stamps it on its own
+scripts and styles. `X-Frame-Options: DENY`, `nosniff`, `no-referrer`,
+Permissions-Policy, `no-store` and production HSTS are unchanged. There is no
+violation-reporting endpoint (founder decision); violations are visible only
+in the browser console.
 
-**Surfaces covered:**
+**Verification** (`web/scripts/verifyM34aCspProduction.mjs`, an isolated
+production server at its canonical origin through the TLS gateway, exact-id
+fixtures): the served header must be exactly `CSP_HEADER`. While it was
+Report-Only the suite also ran an enforcement rehearsal (header name
+rewritten in the browser); now it runs once, as served. Surfaces:
 
-- login;
-- invitation acceptance (pending and invalid);
-- a signed-out unknown path;
-- `/setup` (404);
-- the patient dashboard, session, progress and settings;
-- the application 404;
-- the clinician dashboard, patient page, invitations and notifications;
-- the logins themselves under enforcement.
+- login, invitation acceptance (pending / invalid), a signed-out unknown
+  path, `/setup` (404), the application 404;
+- S4: `/login/forgot` (a reset request — malformed address, refused before
+  any Supabase call), `/auth/confirm` (unknown and valid tokens; the valid one
+  from `auth.admin.generateLink`, never sent), `/account/password` (signed
+  out → login; a policy-refused submission — no password is changed);
+- patient: dashboard, session, progress, settings, check-in,
+  morning-response, and the workflow Begin → record a set → Finish →
+  immediate check-in → morning check-in;
+- acute safety: a real episode (`FixtureRun.safetyFlow` "l3"), the
+  reassessment answered and submitted;
+- clinician: dashboard, patient page, progress, sessions, a session,
+  safety, review, prescription, a version, invitations, notifications, and
+  the prescription builder with a real pointer drag-and-drop (persisted,
+  re-rendered after reload);
+- the application's `global-error` component (build artifact).
 
-**On every surface it checks:**
+Each surface and flow: zero violations, no page errors, no request to another
+origin, React hydrated with only nonce'd inline scripts, same-origin
+stylesheets applied, the self-hosted font loaded.
+`web/scripts/verifyM33WebSecurity.mjs` proves an injected non-nonced script
+is blocked as served. `web/scripts/verifyCspStaticGuards.test.mjs` fails on
+React `style` props outside a reviewed list (whose values must be undefined
+at rest), `dangerouslySetInnerHTML`, `next/script` / `next/head`, raw
+`<script>`/`<style>`/`<link>`/`<iframe>`/`<object>`/`<embed>`/`<base>`,
+`eval` / `new Function`, external URLs in browser-reachable code, CSS imports
+or `url()` other than the Tailwind entry, fonts outside `next/font`, and any
+non-`'self'` source in the policy.
 
-- zero violations (browser-extension noise is classified separately);
-- no page errors;
-- no request to another origin;
-- React hydrated, and only nonce'd inline scripts;
-- same-origin stylesheets applied;
-- the self-hosted font loaded.
+**Findings fixed without relaxing the policy:**
 
-It also asserts the policy's shape: a nonce plus `'strict-dynamic'`, no
-`unsafe-*`, no hosts, and `img`/`font`/`connect` set to `'self'`.
+- Next's built-in not-found page (inline styles) → `web/app/not-found.tsx`.
+- Next's built-in global-error fallback (inline style attributes) →
+  `web/app/global-error.tsx` (app stylesheet and classes only).
+- The prescription builder's draft rows were server-rendered with
+  `style="position:relative"`, which the enforced policy blocks (so drag
+  stacking lost its positioning) → the `relative` class; only drag-time
+  values remain in `style`, applied through the CSSOM.
 
-**Finding fixed:** Next's built-in not-found page uses un-nonced inline
-styles. It is replaced by `web/app/not-found.tsx`; the policy was not
-relaxed.
-
-**Remaining for M3.4g:**
-
-- Next's built-in global-error page also uses inline style attributes. Under
-  enforcement an unexpected-error screen would lose its styling. Add an
-  app-owned error page with an isolated failure trigger to verify it.
-- The Vercel Preview toolbar injects third-party scripts. Disable it for
-  Preview; it must not drive the policy.
+**Known residual:** Next's separate built-in 500 document
+(`_global-error.html`, prerendered without a nonce) still carries inline
+style attributes; under enforcement it renders unstyled with its text
+intact. The Vercel Preview toolbar would be blocked; keep it off.
 
 ## Fresh database and schema drift
 
@@ -499,12 +523,12 @@ The code path is covered locally by `verifyM33CanonicalOrigin.mjs`.
 - **M3.4f-MON:** automated monitoring of the safety dispatch infrastructure
   (Supabase evaluator + Healthchecks.io dead-man's switch; see
   `docs/m3-safety-notifications.md`, Automated monitoring).
-- **M3.4g:** CSP enforcement (and the global-error page).
+- **M3.4g:** CSP enforcement — implemented (see [CSP enforcement (M3.4g)](#csp-enforcement-m34g)); a separately identifiable Production release after S4 / D3.
 - **S4:** password recovery is implemented (M3.5 S4; see
   `docs/m3-configuration-contract.md`, Password recovery); the production
   Auth Site URL, redirect list, SMTP, recovery template and password settings
   are still to be configured. Login and recovery rate limiting is implemented
-  (M3.5 D3, migration 67 not yet applied anywhere); CSP enforcement is next.
+  (M3.5 D3; migration 67 applied to development, not yet to Production); CSP enforcement is implemented (M3.4g).
 - **Later:** mobile/PWA work, Jason Alpha readiness and onboarding, and any
   compliance / BAA gate required before clinical use.
 
@@ -514,7 +538,8 @@ The code path is covered locally by `verifyM33CanonicalOrigin.mjs`.
 |---|---|
 | `web/scripts/verifyM33Readiness.mjs` | readiness semantics incl. the narrow deployment-host exception |
 | `web/scripts/verifyM34aDeploymentTools.mjs` | gate verdicts, probe classification (modelled platforms), live probe/gate, CLIs |
-| `web/scripts/verifyM34aCspProduction.mjs` | zero CSP violations as served and under enforcement, resources work |
+| `web/scripts/verifyM34aCspProduction.mjs` | the enforced CSP as served: zero violations across S4, patient, acute-safety and clinician workflows (incl. builder drag-and-drop), resources work |
+| `web/scripts/verifyCspStaticGuards.test.mjs` | no code needing a weaker CSP (inline styles/scripts, eval, external origins) |
 | `web/scripts/verifyM34aFreshDatabase.mjs` | fresh reconstruction from every migration (67), fresh state (incl. the inactive dispatch and monitor jobs and an empty pg_net queue), zero application drift at dev's ledger position |
 | `web/scripts/verifyM34cSecurityHardening.mjs` | migration 64's exact change set, privilege matrix, linter-equivalent counts, trigger / RLS / reconcile / schedule-gate behaviour |
 | `web/scripts/verifyM34fDispatchScheduler.mjs` | migration 65 on a scratch cluster (pg_net / Vault / pg_cron test doubles): application catalog unchanged, wrapper privileges, inactive job, fail-closed configuration, exact request shape, no value leakage |

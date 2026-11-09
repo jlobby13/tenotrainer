@@ -402,18 +402,22 @@ export function DraftPanel({
 // no listeners at all, matching Part: "view-only clinician cannot reorder."
 function SortableExerciseRow({ exerciseId, disabled, highlightError, children }: { exerciseId: string; disabled: boolean; highlightError: boolean; children: React.ReactNode }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, isDragging } = useSortable({ id: exerciseId, disabled });
+  // M3.4g — only drag-time values live in `style`: React applies them in the
+  // browser through the CSSOM, which the CSP allows. A static value here
+  // would be server-rendered as a style="" attribute, which the enforced
+  // policy (no 'unsafe-inline') blocks — so positioning is the `relative`
+  // class instead. At rest every value is undefined and no attribute exists.
   const style: React.CSSProperties = {
     transform: transform ? `translate3d(${Math.round(transform.x)}px, ${Math.round(transform.y)}px, 0)` : undefined,
     opacity: isDragging ? 0.5 : undefined,
     zIndex: isDragging ? 10 : undefined,
-    position: "relative",
   };
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`bg-white rounded-lg border shadow-sm p-3 flex gap-2 ${highlightError ? "border-red-300 ring-1 ring-red-200" : "border-gray-100"}`}
+      className={`relative bg-white rounded-lg border shadow-sm p-3 flex gap-2 ${highlightError ? "border-red-300 ring-1 ring-red-200" : "border-gray-100"}`}
       data-testid="draft-exercise-row"
       data-exercise-id={exerciseId}
       data-save-failed={highlightError ? "true" : undefined}

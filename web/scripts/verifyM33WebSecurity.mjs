@@ -6,12 +6,13 @@
 //   B. production: baseline headers, no-store on patient / clinician /
 //      super / admin pages and authenticated APIs (reads and mutation
 //      responses), static assets keep immutable public caching, HSTS (no
-//      preload), CSP Report-Only (not enforced) with a fresh per-request
+//      preload), the CSP (CSP_HEADER; enforced since M3.4g) with a fresh per-request
 //      nonce, no eval / inline / wildcard sources.
 //   C. production pages render and hydrate with ZERO CSP violations, and
 //      still do when the same policy is ENFORCED (simulated by promoting the
-//      Report-Only header in the browser); an injected inline script is
-//      reported (Report-Only) and blocked (enforced) — the detector works.
+//      Report-Only header in the browser — a no-op once CSP_HEADER is
+//      enforced); an injected inline script is blocked (enforced) or
+//      reported (Report-Only) as served — the detector works.
 //   D. Referrer-Policy no-referrer: an invitation-token URL is never sent
 //      as a Referer, to another origin or to this one.
 //   E. cross-origin mutation boundary: hostile / malformed browser
@@ -35,6 +36,12 @@ import { randomUUID } from "node:crypto";
 import { chromium } from "playwright";
 import { assertDevTestTarget } from "./lib/devProjectGuard.mjs";
 import { loadEnv, withEmailContainment, withoutRetiredNames } from "./lib/harnessEnv.mjs";
+import { CSP_HEADER } from "../lib/securityHeaders.ts";
+// M3.4g — the served CSP header is exactly lib/securityHeaders.ts CSP_HEADER
+// (enforced since M3.4g); the other name must never appear.
+const CSP = CSP_HEADER.toLowerCase();
+const CSP_OTHER = CSP === "content-security-policy" ? "content-security-policy-report-only" : "content-security-policy";
+const ENFORCED = CSP === "content-security-policy";
 import { clearSuiteCounters, SPAWNED_SERVER_NETWORKS, suiteRateLimitEnv, suiteRateLimitSecret } from "./lib/authRateLimitTestIdentity.mjs";
 import { gatewayFetch, launchCanonicalBrowser, rawRequest, startCanonicalGateway } from "./lib/canonicalGateway.mjs";
 
@@ -341,8 +348,8 @@ function headerProblems(h, { mode, sensitive = true }) {
   if (!/^accelerometer=\(\).*camera=\(\).*geolocation=\(\).*microphone=\(\).*payment=\(\)/.test(h["permissions-policy"] ?? "")) problems.push(`permissions-policy=${h["permissions-policy"]}`);
   if (sensitive) {
     if (h["cache-control"] !== "private, no-store, max-age=0") problems.push(`cache-control=${h["cache-control"]}`);
-    if (!h["content-security-policy-report-only"]) problems.push("no CSP Report-Only");
-    if (h["content-security-policy"]) problems.push("CSP is ENFORCED");
+    if (!h[CSP]) problems.push(`no ${CSP_HEADER}`);
+    if (h[CSP_OTHER]) problems.push(`unexpected ${CSP_OTHER}`);
     const hsts = h["strict-transport-security"];
     if (mode === "development" ? hsts !== undefined : hsts !== "max-age=31536000; includeSubDomains") problems.push(`hsts=${hsts}`);
   }
@@ -406,7 +413,7 @@ async function main() {
   const browser = await launchCanonicalBrowser(gateway);
   try {
     // ================================================================ B
-    section("B. Production: headers, no-store, HSTS, CSP Report-Only");
+    section(`B. Production: headers, no-store, HSTS, ${CSP_HEADER}`);
     const prod = await startServer(PORTS.prod, { ...PROD_ENV, TENOTRAINER_MODE: "production" });
     check("production server started and logged its mode", prod.log.includes("TenoTrainer operating mode: production"));
 
@@ -433,10 +440,10 @@ async function main() {
         const label = path.replace(patient.userId, ":patient");
         check(`production ${role} ${label}: 200, not redirected`, res.status() === 200 && new URL(page.url()).pathname === path, `${res.status()} ${page.url()}`);
         const hp = headerProblems(h, { mode: "production" });
-        check(`production ${role} ${label}: no-store + baseline headers + HSTS + Report-Only`, hp.length === 0, hp.join("; "));
-        const cp = cspProblems(h["content-security-policy-report-only"]);
+        check(`production ${role} ${label}: no-store + baseline headers + HSTS + ${CSP_HEADER}`, hp.length === 0, hp.join("; "));
+        const cp = cspProblems(h[CSP]);
         check(`production ${role} ${label}: CSP has nonce + strict-dynamic, no eval / inline / wildcard`, cp.length === 0, cp.join("; "));
-        const n = nonceOf(h["content-security-policy-report-only"]);
+        const n = nonceOf(h[CSP]);
         nonces.add(n);
         const scripts = await page.evaluate(() => [...document.scripts].map((s) => ({ nonce: s.nonce, src: s.src })));
         check(`production ${role} ${label}: every server-rendered script carries this response's nonce`, scripts.length > 0 && scripts.every((s) => s.nonce === n), JSON.stringify(scripts.filter((s) => s.nonce !== n)).slice(0, 300));
@@ -487,7 +494,7 @@ async function main() {
     for (const a of assets.slice(0, 6)) {
       const r = await fetch(`${P}${a}`);
       const h = Object.fromEntries(r.headers);
-      if (r.status === 200 && h["cache-control"] === "public, max-age=31536000, immutable" && h["x-content-type-options"] === "nosniff" && !h["content-security-policy-report-only"]) staticOk++;
+      if (r.status === 200 && h["cache-control"] === "public, max-age=31536000, immutable" && h["x-content-type-options"] === "nosniff" && !h[CSP] && !h[CSP_OTHER]) staticOk++;
       else console.log(`      static ${a}: ${r.status} ${h["cache-control"]}`);
     }
     check("production static assets: immutable public caching (NOT no-store) + nosniff", staticOk === Math.min(6, assets.length));
@@ -512,9 +519,15 @@ async function main() {
     await sleep(2000);
     check("the stand-in XSS really is in the delivered document", await xPage.evaluate(() => document.documentElement.outerHTML.includes("window.__injected = 1")));
     const roV = await violations(xPage);
-    check("Report-Only: an injected (non-nonced) inline script is REPORTED (script-src)", roV.some((v) => v.directive.startsWith("script-src") && v.disposition === "report"), JSON.stringify(roV));
-    check("Report-Only: ...and NOT blocked (the policy is not enforced yet)", (await xPage.evaluate(() => window.__injected)) === 1);
-    check("Report-Only: the injected script is the ONLY violation on the page", roV.length === 1, JSON.stringify(roV));
+    if (ENFORCED) {
+      check("AS SERVED (enforced): an injected (non-nonced) inline script is BLOCKED and reported (script-src)", roV.some((v) => v.directive.startsWith("script-src") && v.disposition === "enforce"), JSON.stringify(roV));
+      check("AS SERVED (enforced): ...and it never ran", (await xPage.evaluate(() => window.__injected)) === undefined);
+    } else {
+      check("Report-Only: an injected (non-nonced) inline script is REPORTED (script-src)", roV.some((v) => v.directive.startsWith("script-src") && v.disposition === "report"), JSON.stringify(roV));
+      check("Report-Only: ...and NOT blocked (the policy is not enforced yet)", (await xPage.evaluate(() => window.__injected)) === 1);
+    }
+    check("the injected script is the ONLY violation on the page", roV.length === 1, JSON.stringify(roV));
+    check("the page still hydrates around the injected script", await hydrated(xPage));
     await xCtx.close();
 
     const eCtx = await watchedContext(browser, { enforce: true, inject: true });
@@ -714,8 +727,8 @@ async function main() {
     const dev = await startServer(PORTS.dev, DEV_ENV);
     const devLogin = await fetch(`${D}/login`);
     const dh = Object.fromEntries(devLogin.headers);
-    check("development: baseline headers + no-store + Report-Only, HSTS absent (local http never pinned)", headerProblems(dh, { mode: "development" }).length === 0, headerProblems(dh, { mode: "development" }).join("; "));
-    check("development mode on a production build: no unsafe-eval (that is `next dev` only)", cspProblems(dh["content-security-policy-report-only"]).length === 0, cspProblems(dh["content-security-policy-report-only"]).join("; "));
+    check(`development: baseline headers + no-store + ${CSP_HEADER}, HSTS absent (local http never pinned)`, headerProblems(dh, { mode: "development" }).length === 0, headerProblems(dh, { mode: "development" }).join("; "));
+    check("development mode on a production build: no unsafe-eval (that is `next dev` only)", cspProblems(dh[CSP]).length === 0, cspProblems(dh[CSP]).join("; "));
     const ok = await fetch(`${D}${DISPATCH}`, { method: "POST", headers: { authorization: `Bearer ${SECRET}` } });
     const okBody = await ok.json();
     check("dispatch with the correct secret (no Origin) reaches the dispatcher: provider disabled -> 503, nothing claimed", ok.status === 503 && okBody.error === "SAFETY_EMAIL_DISABLED", `${ok.status} ${JSON.stringify(okBody)}`);
@@ -745,9 +758,9 @@ async function main() {
     const mres = await mpPage.goto(`${M}/patient/dashboard`, { waitUntil: "networkidle" });
     const mh = mres.headers();
     check("maintenance patient page: unavailable experience (rewrite), 200", mres.status() === 200 && /unavailable|maintenance/i.test(await mpPage.textContent("body")), String(mres.status()));
-    check("maintenance patient page: no-store + headers + HSTS + Report-Only", headerProblems(mh, { mode: "maintenance" }).length === 0, headerProblems(mh, { mode: "maintenance" }).join("; "));
+    check(`maintenance patient page: no-store + headers + HSTS + ${CSP_HEADER}`, headerProblems(mh, { mode: "maintenance" }).length === 0, headerProblems(mh, { mode: "maintenance" }).join("; "));
     const mScripts = await mpPage.evaluate(() => [...document.scripts].map((s) => s.nonce));
-    check("maintenance rewrite renders with this response's nonce, zero violations", mScripts.length > 0 && mScripts.every((n) => n === nonceOf(mh["content-security-policy-report-only"])) && (await violations(mpPage)).length === 0);
+    check("maintenance rewrite renders with this response's nonce, zero violations", mScripts.length > 0 && mScripts.every((n) => n === nonceOf(mh[CSP])) && (await violations(mpPage)).length === 0);
     const mApi = await call(mpCtx, M, "GET", "/api/patient/c5/state");
     check("maintenance patient API read: 503 MAINTENANCE with no-store + headers", mApi.status === 503 && mApi.body?.error === "MAINTENANCE" && headerProblems(mApi.headers, { mode: "maintenance" }).length === 0, String(mApi.status));
     const mcCtx = await watchedContext(browser);
