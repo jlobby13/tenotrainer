@@ -88,6 +88,7 @@ export default async function PatientDashboardPage() {
         notices={notices}
         pausedSafetyHold={pausedSafetyHold}
         upcomingMorning={checkIns.mornings.length === 0 && checkIns.upcomingMorning ? describeUpcomingMorning(checkIns.upcomingMorning.dueAt, checkIns.patientTimezone) : null}
+        patientTimezone={checkIns.patientTimezone}
       />
     );
   }

@@ -70,7 +70,10 @@ export function C5StopSheet({
 
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-slate-950/70 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="c5-stop-title" data-c5-stop-sheet>
-      <div ref={panelRef} className="w-full max-w-md rounded-t-2xl border border-slate-800 bg-slate-900 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:rounded-2xl">
+      {/* Alpha 1 M2 — bounded by the dynamic viewport and scrollable inside,
+          so the title, safety items and both actions stay reachable on short /
+          landscape / large-text screens. Bottom safe-area padding is kept. */}
+      <div ref={panelRef} className="max-h-dvh w-full max-w-md overflow-y-auto overscroll-contain rounded-t-2xl border border-slate-800 bg-slate-900 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl">
         <h2 id="c5-stop-title" className="text-lg font-semibold text-slate-50">
           Stop today&apos;s session?
         </h2>

@@ -65,7 +65,7 @@ export default async function LoginPage({ searchParams }: Props) {
                 required
                 autoFocus
                 autoComplete="email"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:border-brand-400 focus:outline-none"
+                className="w-full min-h-11 border border-gray-300 rounded-lg px-3 py-2 text-base focus:ring-2 focus:ring-brand-400 focus:border-brand-400 focus:outline-none"
               />
             </div>
 
@@ -82,7 +82,7 @@ export default async function LoginPage({ searchParams }: Props) {
                 type="password"
                 required
                 autoComplete="current-password"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:border-brand-400 focus:outline-none"
+                className="w-full min-h-11 border border-gray-300 rounded-lg px-3 py-2 text-base focus:ring-2 focus:ring-brand-400 focus:border-brand-400 focus:outline-none"
               />
             </div>
 

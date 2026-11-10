@@ -71,7 +71,7 @@ export default async function AccountPasswordPage({ searchParams }: Props) {
                     minLength={PASSWORD_MIN_LENGTH}
                     maxLength={PASSWORD_MAX_BYTES}
                     autoComplete="new-password"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:border-brand-400 focus:outline-none"
+                    className="w-full min-h-11 border border-gray-300 rounded-lg px-3 py-2 text-base focus:ring-2 focus:ring-brand-400 focus:border-brand-400 focus:outline-none"
                   />
                   <p className="text-xs text-gray-400 mt-1">{PASSWORD_POLICY_HINT}</p>
                 </div>
@@ -87,7 +87,7 @@ export default async function AccountPasswordPage({ searchParams }: Props) {
                     minLength={PASSWORD_MIN_LENGTH}
                     maxLength={PASSWORD_MAX_BYTES}
                     autoComplete="new-password"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:border-brand-400 focus:outline-none"
+                    className="w-full min-h-11 border border-gray-300 rounded-lg px-3 py-2 text-base focus:ring-2 focus:ring-brand-400 focus:border-brand-400 focus:outline-none"
                   />
                 </div>
                 <button

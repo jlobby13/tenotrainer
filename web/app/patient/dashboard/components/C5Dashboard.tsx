@@ -6,6 +6,21 @@ import { TimezoneInitializer } from "./TimezoneInitializer";
 import { C5ProgramNotices } from "./C5ProgramNotices";
 import type { ProgramNotice } from "@/lib/programNoticesServer";
 
+// Alpha 1 M3 — the header date, display only. Rendered on the server, so it
+// is formatted in the patient's profile timezone; with no timezone (or an
+// invalid one) it falls back to the previous server-local formatting.
+function formatDashboardDate(timezone: string | null, now: Date = new Date()): string {
+  const options = { weekday: "long", month: "long", day: "numeric" } as const;
+  if (timezone) {
+    try {
+      return now.toLocaleDateString("en-US", { ...options, timeZone: timezone });
+    } catch {
+      // Invalid IANA name — fall through.
+    }
+  }
+  return now.toLocaleDateString("en-US", options);
+}
+
 // C5.6D — the patient dashboard when the gated C5 runtime serves this
 // patient. Independent of the legacy FastAPI summary (no stage/irritability
 // session_plan): Today's Rehab comes only from the authoritative C5 state.
@@ -17,6 +32,7 @@ export function C5Dashboard({
   notices = [],
   pausedSafetyHold = null,
   upcomingMorning = null,
+  patientTimezone = null,
 }: {
   email: string;
   firstName: string | null;
@@ -29,6 +45,8 @@ export function C5Dashboard({
   pausedSafetyHold?: { requiresClinicianRelease: boolean } | null;
   // PEC — "Morning check-in opens tomorrow at 7:00 AM." (informational).
   upcomingMorning?: string | null;
+  // Alpha 1 M3 — the patient's profile timezone, for the header date only.
+  patientTimezone?: string | null;
 }) {
   const checkInCardShown = state.kind === "immediate_response_required" || state.kind === "morning_response_required";
   return (
@@ -54,7 +72,7 @@ export function C5Dashboard({
       <main className="mx-auto max-w-5xl px-4 py-8 lg:py-10">
         <div className="max-w-2xl">
           <h1 className="text-2xl font-semibold text-slate-50">{firstName ? `Welcome back, ${firstName}` : "Welcome back"}</h1>
-          <p className="mt-0.5 text-sm text-slate-400">{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</p>
+          <p className="mt-0.5 text-sm text-slate-400">{formatDashboardDate(patientTimezone)}</p>
           {/* The authoritative state card is always primary; everything
               below it is secondary information. */}
           <div className="mt-6">

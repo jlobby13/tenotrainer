@@ -236,7 +236,7 @@ function NameField() {
         required
         autoFocus
         autoComplete="name"
-        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:border-brand-400 focus:outline-none"
+        className="w-full min-h-11 border border-gray-300 rounded-lg px-3 py-2 text-base focus:ring-2 focus:ring-brand-400 focus:border-brand-400 focus:outline-none"
       />
     </div>
   );
@@ -246,7 +246,7 @@ function EmailField({ email }: { email: string }) {
   return (
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-      <input type="text" disabled value={email} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-500 cursor-not-allowed" />
+      <input type="text" disabled value={email} className="w-full min-h-11 border border-gray-200 rounded-lg px-3 py-2 text-base bg-gray-50 text-gray-500 cursor-not-allowed" />
     </div>
   );
 }
@@ -265,7 +265,7 @@ function PasswordField() {
         minLength={PASSWORD_MIN_LENGTH}
         maxLength={PASSWORD_MAX_BYTES}
         autoComplete="new-password"
-        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-400 focus:border-brand-400 focus:outline-none"
+        className="w-full min-h-11 border border-gray-300 rounded-lg px-3 py-2 text-base focus:ring-2 focus:ring-brand-400 focus:border-brand-400 focus:outline-none"
       />
       <p className="text-xs text-gray-400 mt-1">{PASSWORD_POLICY_HINT}</p>
     </div>

@@ -66,7 +66,7 @@ export function ReminderTimeSetting({ initialTime }: { initialTime: string }) {
         value={time}
         onChange={(e) => handleChange(e.target.value)}
         disabled={saving}
-        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm disabled:opacity-60"
+        className="w-full min-h-11 border border-gray-200 rounded-lg px-3 py-2 text-base disabled:opacity-60"
       >
         {TIME_OPTIONS.map((opt) => (
           <option key={opt.value} value={opt.value}>
