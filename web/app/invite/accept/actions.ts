@@ -7,6 +7,7 @@ import { hashInvitationToken, validateInvitationToken } from "@/lib/invitations"
 import { acceptPatientInvitation } from "@/lib/patientInvitationServer";
 import { refuseActionInMaintenance, refuseActionOutsideDevelopment } from "@/lib/modeActions";
 import { checkPassword } from "@/lib/passwordPolicy";
+import { checkAlpha1AgreementForm } from "@/lib/alpha1AgreementServer";
 
 // M2 — every acceptance lands in native Next.js (never the FastAPI bridge).
 const PATIENT_HOME = "/patient/dashboard";
@@ -28,7 +29,17 @@ function readToken(formData: FormData): string {
 // auth) cannot join that transaction, so it happens first; if acceptance is
 // then refused, the account exists, nothing else was written and the
 // invitation stays retryable.
+//
+// Alpha 1 — both patient actions refuse unless the participation agreement
+// was affirmatively accepted for the current version, BEFORE any account is
+// created or invitation accepted. The acceptance itself is recorded by the
+// database in the acceptance transaction (acceptPatientInvitation).
 // ---------------------------------------------------------------------------
+
+function requireAgreement(token: string, formData: FormData): void {
+  const agreement = checkAlpha1AgreementForm(formData);
+  if (!agreement.ok) backToInvite(token, agreement.code);
+}
 
 async function finishPatientAcceptance(token: string, userId: string): Promise<never> {
   const result = await acceptPatientInvitation(token, userId);
@@ -42,6 +53,7 @@ export async function acceptPatientInvitationNewUserAction(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   if (!token) redirect("/invite/accept");
+  requireAgreement(token, formData);
   if (name.length < 2 || name.length > 120) backToInvite(token, "name_invalid");
   // M3.5 S4 — the shared password policy (lib/passwordPolicy.ts).
   const policy = checkPassword(password);
@@ -76,6 +88,7 @@ export async function acceptPatientInvitationExistingUserAction(formData: FormDa
   refuseActionInMaintenance("/invite/accept");
   const token = readToken(formData);
   if (!token) redirect("/invite/accept");
+  requireAgreement(token, formData);
 
   const supabase = await createServerSupabaseClient();
   const {

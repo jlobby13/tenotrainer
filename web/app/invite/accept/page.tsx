@@ -7,6 +7,8 @@ import {
   acceptPatientInvitationNewUserAction,
   acceptPatientInvitationExistingUserAction,
 } from "./actions";
+import { Alpha1AgreementSection } from "./Alpha1AgreementSection";
+import { AgreementAcceptControls } from "./AgreementAcceptControls";
 
 export const metadata = { title: "Accept Invitation — TenoTrainer" };
 
@@ -32,6 +34,9 @@ const ERROR_COPY: Record<string, string> = {
   expired: "This invitation has expired. Please ask your clinic for a new one.",
   cancelled: "This invitation has been cancelled.",
   already_used: "This invitation has already been accepted.",
+  // Alpha 1 — participation agreement (both patient forms).
+  agreement_required: "Please read and accept the Alpha 1 Participation Agreement to continue.",
+  agreement_updated: "The Alpha 1 Participation Agreement has been updated. Please review it and accept again.",
   not_found: "This invitation link is invalid or does not exist.",
   invalid: "This invitation link is invalid or does not exist.",
   error: "Something went wrong. Please try again.",
@@ -84,6 +89,8 @@ export default async function AcceptInvitePage({ searchParams }: Props) {
   const emailMatches = user?.email?.toLowerCase() === invitation.email.toLowerCase();
   const loginHref = `/login?next=${encodeURIComponent(`/invite/accept?token=${token}`)}`;
   const errorMessage = error ? (ERROR_COPY[error] ?? ERROR_COPY.error) : null;
+  const agreementErrorId = error === "agreement_required" || error === "agreement_updated" ? "invite-error-message" : undefined;
+  const patientButtonClass = "w-full py-2.5 bg-brand-600 text-white font-semibold rounded-lg hover:bg-brand-700 transition-colors";
 
   if (invitation.invitation_type === "PATIENT") {
     let isStaff = false;
@@ -105,7 +112,7 @@ export default async function AcceptInvitePage({ searchParams }: Props) {
           </p>
 
           {errorMessage && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 mb-5" data-testid="invite-error" data-error={error}>
+            <div id="invite-error-message" className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 mb-5" data-testid="invite-error" data-error={error}>
               {errorMessage}
             </div>
           )}
@@ -115,14 +122,13 @@ export default async function AcceptInvitePage({ searchParams }: Props) {
               {ERROR_COPY.staff_account}
             </div>
           ) : isLoggedIn && emailMatches ? (
-            <form action={acceptPatientInvitationExistingUserAction}>
+            <form action={acceptPatientInvitationExistingUserAction} className="space-y-4">
               <input type="hidden" name="token" value={token} />
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-gray-600">
                 You&apos;re signed in as <span className="font-medium text-gray-900">{user.email}</span>.
               </p>
-              <button type="submit" data-testid="accept-invitation" className="w-full py-2.5 bg-brand-600 text-white font-semibold rounded-lg hover:bg-brand-700 transition-colors">
-                Accept invitation
-              </button>
+              <Alpha1AgreementSection />
+              <AgreementAcceptControls buttonLabel="Accept invitation" buttonClassName={patientButtonClass} errorId={agreementErrorId} />
             </form>
           ) : isLoggedIn ? (
             <WrongAccount signedInAs={user.email ?? ""} />
@@ -132,9 +138,8 @@ export default async function AcceptInvitePage({ searchParams }: Props) {
               <NameField />
               <EmailField email={invitation.email} />
               <PasswordField />
-              <button type="submit" data-testid="accept-invitation" className="w-full py-2.5 bg-brand-600 text-white font-semibold rounded-lg hover:bg-brand-700 transition-colors">
-                Accept invitation
-              </button>
+              <Alpha1AgreementSection />
+              <AgreementAcceptControls buttonLabel="Accept invitation" buttonClassName={patientButtonClass} errorId={agreementErrorId} />
               <p className="text-center text-xs text-gray-500">
                 Already have an account?{" "}
                 <a href={loginHref} className="text-brand-600 font-medium hover:underline" data-testid="invite-login">

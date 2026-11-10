@@ -68,6 +68,36 @@ function sqlExec(sql) {
   execFileSync("supabase", ["db", "query", "--linked", "--file", path], { cwd: REPO_ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 }
 const sha256 = (s) => createHash("sha256").update(s, "utf8").digest("hex");
+// Alpha 1 — the participation agreement identity the server records (the
+// hash is pinned in lib/__tests__/alpha1Agreement.test.ts).
+const AGREEMENT = {
+  key: "alpha1_participation",
+  version: "1.0",
+  sha256: readFileSync("lib/__tests__/alpha1Agreement.test.ts", "utf8").match(/PINNED_SHA256 = "([0-9a-f]{64})"/)[1],
+};
+const acceptViaWrapper = (token, userId) =>
+  admin.rpc("accept_patient_invitation_with_agreement", {
+    p_token_hash: sha256(token), p_user_id: userId,
+    p_agreement_key: AGREEMENT.key, p_agreement_version: AGREEMENT.version, p_agreement_sha256: AGREEMENT.sha256,
+  });
+async function acceptances(userId) {
+  const { data } = await admin.from("participation_agreement_acceptances").select("user_id, agreement_key, agreement_version, agreement_sha256, invitation_id, accepted_at").eq("user_id", userId);
+  return data ?? [];
+}
+// Submits a patient acceptance form with the browser's checks removed, so the
+// SERVER's agreement check is what is exercised.
+async function forceSubmit(page, { agreement, version }) {
+  await page.evaluate(({ agreement, version }) => {
+    const box = document.querySelector('[data-testid="agreement-checkbox"]');
+    box.required = false;
+    box.checked = agreement;
+    document.querySelector('input[name="agreement_version"]').value = version;
+    const btn = document.querySelector('[data-testid="accept-invitation"]');
+    btn.disabled = false;
+    btn.form.noValidate = true;
+  }, { agreement, version });
+  await page.getByTestId("accept-invitation").click();
+}
 
 // ---------------------------------------------------------------- fixtures
 const RUN_STARTED_AT = new Date(Date.now() - 60_000).toISOString();
@@ -258,9 +288,31 @@ async function main() {
       const orgName = await page.getByTestId("invite-organization").innerText();
       const { data: realOrg } = await admin.from("organizations").select("name").eq("id", REAL_ORG_ID).single();
       check("acceptance page shows the organization name", orgName === realOrg.name, `${orgName} vs ${realOrg.name}`);
-      check("explicit 'Accept invitation' action, no extra checkbox", (await page.getByTestId("accept-invitation").innerText()).trim() === "Accept invitation" && (await page.locator('input[type="checkbox"]').count()) === 0);
+      // Alpha 1 — the participation agreement (replaces the M2 "no extra checkbox" assertion).
+      const agreementText = await page.getByTestId("alpha1-agreement").innerText();
+      check("A1. the full agreement is shown in the form (title, version 1.0, emergency line, contact)",
+        agreementText.includes("TenoTrainer Alpha 1 Participation Agreement") && (await page.getByTestId("alpha1-agreement-version").innerText()).trim() === "Version 1.0"
+          && agreementText.includes("In a medical emergency, call 911.") && agreementText.includes("tenotrainer@tenotrainer.com"));
+      const box = page.getByTestId("agreement-checkbox");
+      check("A1. exactly one checkbox: native, required, unchecked by default, with the exact label",
+        (await page.locator('input[type="checkbox"]').count()) === 1 && !(await box.isChecked()) && (await box.getAttribute("required")) !== null
+          && (await page.locator("label", { has: box }).innerText()).trim() === "I have read and agree to the TenoTrainer Alpha 1 Participation Agreement.");
+      check("A1. 'Accept invitation' is disabled until the box is ticked", (await page.getByTestId("accept-invitation").innerText()).trim() === "Accept invitation" && (await page.getByTestId("accept-invitation").isDisabled()));
       await page.fill("#name", "Pat Newcomer");
       await page.fill("#password", PASSWORD);
+      await forceSubmit(page, { agreement: false, version: "1.0" });
+      await page.waitForURL(/error=agreement_required/, { timeout: 20000 });
+      check("A1. server refuses a submission without acknowledgment (client checks bypassed)", (await page.getByTestId("invite-error").getAttribute("data-error")) === "agreement_required");
+      check("A1. no account was created and the invitation is still pending", (await userIdByEmail(newEmail)) === null && (await invitationRow(inv.token)).status === "pending");
+      await page.fill("#name", "Pat Newcomer");
+      await page.fill("#password", PASSWORD);
+      await forceSubmit(page, { agreement: true, version: "0.9" });
+      await page.waitForURL(/error=agreement_updated/, { timeout: 20000 });
+      check("A1. server refuses an outdated agreement version", (await page.getByTestId("invite-error").getAttribute("data-error")) === "agreement_updated" && (await userIdByEmail(newEmail)) === null);
+      await page.fill("#name", "Pat Newcomer");
+      await page.fill("#password", PASSWORD);
+      await box.check();
+      check("A1. ticking the box enables the button", await page.getByTestId("accept-invitation").isEnabled());
       await page.getByTestId("accept-invitation").click();
       await page.waitForURL((u) => u.pathname === "/patient/dashboard", { timeout: 30000 });
       check("2. success routes into native Next.js (/patient/dashboard), never the FastAPI bridge", new URL(page.url()).pathname === "/patient/dashboard");
@@ -278,6 +330,10 @@ async function main() {
         mem?.length === 1 && mem[0].role === "member" && mem[0].organization_id === REAL_ORG_ID
           && sp.length === 1 && sp[0].supervisor_id === clin1.userId && sp[0].organization_id === REAL_ORG_ID && sp[0].source_invitation_id === row.id
           && row.status === "accepted" && row.accepted_by === id, JSON.stringify({ mem, sp, status: row?.status }));
+      const acc = await acceptances(id);
+      check("A1. exactly one agreement acceptance: this user, key, version 1.0, server hash, this invitation, timestamp = accepted_at",
+        acc.length === 1 && acc[0].agreement_key === AGREEMENT.key && acc[0].agreement_version === AGREEMENT.version && acc[0].agreement_sha256 === AGREEMENT.sha256
+          && acc[0].invitation_id === row.id && new Date(acc[0].accepted_at).getTime() === new Date(row.accepted_at).getTime(), JSON.stringify({ acc, accepted_at: row.accepted_at }));
     }
 
     section("5/11. Replay");
@@ -293,8 +349,11 @@ async function main() {
       check("11. another user opening the consumed link sees 'already accepted' (no form)", (await p2.getByTestId("invite-state").getAttribute("data-state")) === "already_used" && (await p2.getByTestId("accept-invitation").count()) === 0);
       await p2.close();
       await ctxE.close();
-      const { data: r } = await admin.rpc("accept_patient_invitation", { p_token_hash: sha256(inv.token), p_user_id: existing.userId });
-      check("11. the consumed token cannot be claimed by another user (RPC)", r?.result === "already_used" && (await activeAssignments(existing.userId)).length === 0, JSON.stringify(r));
+      const { data: r } = await acceptViaWrapper(inv.token, existing.userId);
+      check("11. the consumed token cannot be claimed by another user (RPC)", r?.result === "already_used" && (await activeAssignments(existing.userId)).length === 0 && (await acceptances(existing.userId)).length === 0, JSON.stringify(r));
+      const { error: bypass } = await admin.rpc("accept_patient_invitation", { p_token_hash: sha256(inv.token), p_user_id: existing.userId });
+      check("A1. the server role cannot call the original acceptance function (no agreement bypass)", !!bypass, JSON.stringify(bypass));
+      check("A1. same-user replay did not duplicate the agreement record", (await acceptances(patient.userId)).length === 1);
     }
 
     section("3. Existing patient account accepts (login handoff with a safe next)");
@@ -310,11 +369,19 @@ async function main() {
       await page.click('button[type="submit"]');
       await page.waitForURL((u) => u.pathname === "/invite/accept", { timeout: 20000 });
       check("login returns to the invitation (validated internal next)", new URL(page.url()).searchParams.get("token") === i2.token);
+      check("A1. signed-in acceptance also shows the agreement, unchecked, button disabled",
+        (await page.getByTestId("alpha1-agreement").count()) === 1 && !(await page.getByTestId("agreement-checkbox").isChecked()) && (await page.getByTestId("accept-invitation").isDisabled()));
+      await forceSubmit(page, { agreement: false, version: "1.0" });
+      await page.waitForURL(/error=agreement_required/, { timeout: 20000 });
+      check("A1. signed-in path: server refuses without acknowledgment; nothing accepted", (await activeAssignments(existing.userId)).length === 0 && (await invitationRow(i2.token)).status === "pending");
+      await page.getByTestId("agreement-checkbox").check();
       await page.getByTestId("accept-invitation").click();
       await page.waitForURL((u) => u.pathname === "/patient/dashboard", { timeout: 20000 });
       const sp = await activeAssignments(existing.userId);
       const { data: mem } = await admin.from("organization_members").select("role").eq("user_id", existing.userId);
       check("3. existing patient accepted: assignment created, membership unchanged", sp.length === 1 && sp[0].supervisor_id === clin1.userId && mem.length === 1 && mem[0].role === "member", JSON.stringify({ sp, mem }));
+      const acc = await acceptances(existing.userId);
+      check("A1. existing account: one agreement acceptance for this invitation", acc.length === 1 && acc[0].invitation_id === (await invitationRow(i2.token)).id, JSON.stringify(acc));
       await page.close();
       await ctx.close();
     }
@@ -356,13 +423,14 @@ async function main() {
       createdUsers.push(u.user.id);
       const i5 = await inviteViaUi(ctx1, raceEmail);
       const results = await Promise.all(
-        [1, 2, 3, 4, 5, 6].map(() => admin.rpc("accept_patient_invitation", { p_token_hash: sha256(i5.token), p_user_id: u.user.id }))
+        [1, 2, 3, 4, 5, 6].map(() => acceptViaWrapper(i5.token, u.user.id))
       );
       const kinds = results.map((r) => r.data?.result ?? r.error?.message);
       check("14. six simultaneous acceptances: exactly one 'accepted', the rest idempotent", kinds.filter((k) => k === "accepted").length === 1 && kinds.filter((k) => k === "already_accepted").length === 5, kinds.join(","));
       const { data: rows } = await admin.from("supervisor_patients").select("id").eq("patient_id", u.user.id);
       const { data: mem } = await admin.from("organization_members").select("id").eq("user_id", u.user.id);
       check("14. one assignment row and one membership row", rows.length === 1 && mem.length === 1);
+      check("A1. six simultaneous acceptances: exactly one agreement record", (await acceptances(u.user.id)).length === 1);
     }
 
     // ------------------------------------------------------------ authorization with FastAPI down
@@ -614,8 +682,10 @@ VALUES ('${sid}', 5, 'pop_felt_or_heard', 'v1', '{"source":"c5_immediate_respons
       check("8. another organization's clinician can issue an invitation (no information leak)", iB.result === "created", JSON.stringify(iB));
       const page = await ctxP.newPage();
       await page.goto(onUrl(iB.link));
+      await page.getByTestId("agreement-checkbox").check();
       await page.getByTestId("accept-invitation").click();
       await page.waitForURL(/error=other_organization/, { timeout: 20000 });
+      check("A1. a refused acceptance records no agreement", (await acceptances(patient.userId)).length === 1);
       check("8. accepting refuses with neutral copy; no transfer", (await page.getByTestId("invite-error").innerText()).includes("already linked to a different clinic"));
       await page.close();
       const sp = await activeAssignments(patient.userId);

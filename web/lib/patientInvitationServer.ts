@@ -12,6 +12,7 @@ import { createServiceRoleClient } from "./supabase/server";
 import { generateInvitationToken, hashInvitationToken, invitationUrl, validateInvitationToken, type InvitationValidation } from "./invitations";
 import { sendPatientInvitationEmail } from "./email";
 import { assertMutationAllowed } from "./operatingMode";
+import { alpha1AgreementRecord } from "./alpha1AgreementServer";
 
 type Json = Record<string, unknown>;
 
@@ -157,18 +158,32 @@ export type AcceptPatientInvitationResult =
   | "inviter_unavailable"
   | "error";
 
+// Alpha 1 — acceptance always records the participation agreement:
+// accept_patient_invitation_with_agreement (migration 20261110000001) runs the
+// unchanged accept_patient_invitation and records the server-controlled
+// agreement (key, version, SHA-256 of the constant text) in the same
+// transaction — only when this call performs the acceptance, never for an
+// invitation accepted earlier. Callers must have checked the submitted acknowledgment
+// (checkAlpha1AgreementForm) first. The original function is no longer
+// executable by service_role.
 export async function acceptPatientInvitation(token: string, userId: string): Promise<AcceptPatientInvitationResult> {
   // M3.1 — clinical mutation: refused in maintenance mode (defense in depth).
   assertMutationAllowed();
   if (!/^[0-9a-f]{64}$/.test(token)) return "invalid";
+  const agreement = alpha1AgreementRecord();
   const admin = createServiceRoleClient();
-  const { data, error } = await admin.rpc("accept_patient_invitation", {
+  const { data, error } = await admin.rpc("accept_patient_invitation_with_agreement", {
     p_token_hash: hashInvitationToken(token),
     p_user_id: userId,
+    p_agreement_key: agreement.key,
+    p_agreement_version: agreement.version,
+    p_agreement_sha256: agreement.sha256,
   });
   if (error) {
-    console.error("accept_patient_invitation failed:", error.message);
+    console.error("accept_patient_invitation_with_agreement failed:", error.message);
     return "error";
   }
-  return ((data as Json)?.result as AcceptPatientInvitationResult) ?? "error";
+  const result = (data as Json)?.result as string | undefined;
+  // "agreement_invalid" can only mean a server constant is malformed: a generic error.
+  return result && result !== "agreement_invalid" ? (result as AcceptPatientInvitationResult) : "error";
 }

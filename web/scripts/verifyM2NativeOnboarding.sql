@@ -7,6 +7,7 @@
 --
 -- Run from the repo root:
 --   supabase db query --linked --file web/scripts/verifyM2NativeOnboarding.sql
+-- Requires migration 20261110000001 (Alpha 1 agreement) for the grant check.
 BEGIN;
 
 CREATE TEMP TABLE verify_results (seq SERIAL PRIMARY KEY, result TEXT);
@@ -395,8 +396,15 @@ BEGIN
     (SELECT bool_and(NOT has_function_privilege('authenticated', f, 'EXECUTE') AND NOT has_function_privilege('anon', f, 'EXECUTE')
                      AND has_function_privilege('service_role', f, 'EXECUTE'))
      FROM unnest(ARRAY['clinician_patient_access(uuid, uuid)', 'create_patient_invitation(uuid, uuid, text, text)',
-       'cancel_patient_invitation(uuid, uuid)', 'accept_patient_invitation(text, uuid)',
+       'cancel_patient_invitation(uuid, uuid)', 'accept_patient_invitation_with_agreement(text, uuid, text, text, text)',
        'admin_add_assignment(uuid, uuid, uuid, uuid)', 'end_assignment(uuid, uuid, text)']) f));
+  -- Alpha 1 (migration 20261110000001): accepting a patient invitation goes
+  -- only through accept_patient_invitation_with_agreement; the original is
+  -- no longer executable by any API role, service_role included.
+  PERFORM pg_temp.chk('grants: the original accept_patient_invitation is executable by no API role (agreement wrapper only)',
+    NOT has_function_privilege('service_role', 'accept_patient_invitation(text, uuid)', 'EXECUTE')
+    AND NOT has_function_privilege('authenticated', 'accept_patient_invitation(text, uuid)', 'EXECUTE')
+    AND NOT has_function_privilege('anon', 'accept_patient_invitation(text, uuid)', 'EXECUTE'));
   PERFORM pg_temp.chk('grants: no client write grant remains on assignment, membership or invitation tables',
     NOT EXISTS (SELECT 1 FROM information_schema.role_table_grants
                 WHERE table_schema = 'public' AND table_name IN ('supervisor_patients', 'organization_members', 'invitations')
