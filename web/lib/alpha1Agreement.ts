@@ -8,7 +8,7 @@
 // lib/__tests__/alpha1Agreement.test.ts in the same change.
 
 export const ALPHA1_AGREEMENT_KEY = "alpha1_participation";
-export const ALPHA1_AGREEMENT_VERSION = "1.0";
+export const ALPHA1_AGREEMENT_VERSION = "1.1";
 export const ALPHA1_AGREEMENT_TITLE = "TenoTrainer Alpha 1 Participation Agreement";
 export const ALPHA1_AGREEMENT_CHECKBOX_LABEL = "I have read and agree to the TenoTrainer Alpha 1 Participation Agreement.";
 export const ALPHA1_CONTACT_EMAIL = "tenotrainer@tenotrainer.com";
@@ -68,7 +68,8 @@ export const ALPHA1_AGREEMENT_SECTIONS: AgreementSection[] = [
       "Who can see it: the clinician who invited you and the TenoTrainer team running the test.",
       "Service providers: Vercel hosts the application. Supabase stores the data and handles sign-in. Resend delivers TenoTrainer's emails, such as invitations, password resets and safety notifications to clinicians.",
       "How long we keep it: Alpha 1 has no automatic deletion schedule. Your information is kept until it is deleted, for example at your request.",
-      `Deletion: email ${ALPHA1_CONTACT_EMAIL} to ask for your account and testing information to be deleted. Some records may not be fully deletable, including safety and audit records that the system is designed to keep unchanged, and backups kept by our database provider.`,
+      `Deletion: to ask for your account to be deleted, email ${ALPHA1_CONTACT_EMAIL}. If your account has no protected safety records, we will delete your account and your testing information from TenoTrainer's active database. If it has protected safety records, those records cannot be deleted, so we will close your account instead. Closing blocks access to your account and removes identifying account details, including your name and email address. Your safety records and your other testing information stay linked to the closed account, and these retained records, including any free text you entered, may still contain personal information. Closing an account is not complete deletion and does not guarantee anonymity.`,
+      "In either case, some information may remain in our service providers' systems, such as Supabase database backups and authentication logs, Vercel logs and Resend email records, under those providers' own retention.",
       `TenoTrainer Alpha 1 is experimental software and is not intended for medical care. Privacy questions and support: ${ALPHA1_CONTACT_EMAIL}.`,
     ],
   },

@@ -72,7 +72,7 @@ const sha256 = (s) => createHash("sha256").update(s, "utf8").digest("hex");
 // hash is pinned in lib/__tests__/alpha1Agreement.test.ts).
 const AGREEMENT = {
   key: "alpha1_participation",
-  version: "1.0",
+  version: "1.1",
   sha256: readFileSync("lib/__tests__/alpha1Agreement.test.ts", "utf8").match(/PINNED_SHA256 = "([0-9a-f]{64})"/)[1],
 };
 const acceptViaWrapper = (token, userId) =>
@@ -290,8 +290,9 @@ async function main() {
       check("acceptance page shows the organization name", orgName === realOrg.name, `${orgName} vs ${realOrg.name}`);
       // Alpha 1 — the participation agreement (replaces the M2 "no extra checkbox" assertion).
       const agreementText = await page.getByTestId("alpha1-agreement").innerText();
-      check("A1. the full agreement is shown in the form (title, version 1.0, emergency line, contact)",
-        agreementText.includes("TenoTrainer Alpha 1 Participation Agreement") && (await page.getByTestId("alpha1-agreement-version").innerText()).trim() === "Version 1.0"
+      check("A1. the full agreement v1.1 is shown in the form (title, version, emergency line, contact, deletion vs closure wording)",
+        agreementText.includes("TenoTrainer Alpha 1 Participation Agreement") && (await page.getByTestId("alpha1-agreement-version").innerText()).trim() === "Version 1.1"
+          && agreementText.includes("we will close your account instead") && agreementText.includes("Closing an account is not complete deletion and does not guarantee anonymity")
           && agreementText.includes("In a medical emergency, call 911.") && agreementText.includes("tenotrainer@tenotrainer.com"));
       const box = page.getByTestId("agreement-checkbox");
       check("A1. exactly one checkbox: native, required, unchecked by default, with the exact label",
@@ -300,13 +301,13 @@ async function main() {
       check("A1. 'Accept invitation' is disabled until the box is ticked", (await page.getByTestId("accept-invitation").innerText()).trim() === "Accept invitation" && (await page.getByTestId("accept-invitation").isDisabled()));
       await page.fill("#name", "Pat Newcomer");
       await page.fill("#password", PASSWORD);
-      await forceSubmit(page, { agreement: false, version: "1.0" });
+      await forceSubmit(page, { agreement: false, version: "1.1" });
       await page.waitForURL(/error=agreement_required/, { timeout: 20000 });
       check("A1. server refuses a submission without acknowledgment (client checks bypassed)", (await page.getByTestId("invite-error").getAttribute("data-error")) === "agreement_required");
       check("A1. no account was created and the invitation is still pending", (await userIdByEmail(newEmail)) === null && (await invitationRow(inv.token)).status === "pending");
       await page.fill("#name", "Pat Newcomer");
       await page.fill("#password", PASSWORD);
-      await forceSubmit(page, { agreement: true, version: "0.9" });
+      await forceSubmit(page, { agreement: true, version: "1.0" }); // a page still showing the superseded v1.0
       await page.waitForURL(/error=agreement_updated/, { timeout: 20000 });
       check("A1. server refuses an outdated agreement version", (await page.getByTestId("invite-error").getAttribute("data-error")) === "agreement_updated" && (await userIdByEmail(newEmail)) === null);
       // Stage 3B — a password Supabase Auth refuses as previously leaked (HIBP).
@@ -346,7 +347,7 @@ async function main() {
           && sp.length === 1 && sp[0].supervisor_id === clin1.userId && sp[0].organization_id === REAL_ORG_ID && sp[0].source_invitation_id === row.id
           && row.status === "accepted" && row.accepted_by === id, JSON.stringify({ mem, sp, status: row?.status }));
       const acc = await acceptances(id);
-      check("A1. exactly one agreement acceptance: this user, key, version 1.0, server hash, this invitation, timestamp = accepted_at",
+      check("A1. exactly one agreement acceptance: this user, key, version 1.1, server hash, this invitation, timestamp = accepted_at",
         acc.length === 1 && acc[0].agreement_key === AGREEMENT.key && acc[0].agreement_version === AGREEMENT.version && acc[0].agreement_sha256 === AGREEMENT.sha256
           && acc[0].invitation_id === row.id && new Date(acc[0].accepted_at).getTime() === new Date(row.accepted_at).getTime(), JSON.stringify({ acc, accepted_at: row.accepted_at }));
     }
@@ -395,7 +396,7 @@ async function main() {
       check("login returns to the invitation (validated internal next)", new URL(page.url()).searchParams.get("token") === i2.token);
       check("A1. signed-in acceptance also shows the agreement, unchecked, button disabled",
         (await page.getByTestId("alpha1-agreement").count()) === 1 && !(await page.getByTestId("agreement-checkbox").isChecked()) && (await page.getByTestId("accept-invitation").isDisabled()));
-      await forceSubmit(page, { agreement: false, version: "1.0" });
+      await forceSubmit(page, { agreement: false, version: "1.1" });
       await page.waitForURL(/error=agreement_required/, { timeout: 20000 });
       check("A1. signed-in path: server refuses without acknowledgment; nothing accepted", (await activeAssignments(existing.userId)).length === 0 && (await invitationRow(i2.token)).status === "pending");
       await page.getByTestId("agreement-checkbox").check();

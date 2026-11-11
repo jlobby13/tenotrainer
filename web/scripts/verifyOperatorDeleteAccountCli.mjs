@@ -95,7 +95,7 @@ async function main() {
   const token = randomUUID().replace(/-/g, "") + randomUUID().replace(/-/g, "");
   const { data: inv } = await admin.rpc("create_patient_invitation", { p_clinician_id: clin.id, p_organization_id: org.id, p_email: pat.email, p_token_hash: sha256(token) });
   const { data: acc } = await admin.rpc("accept_patient_invitation_with_agreement", {
-    p_token_hash: sha256(token), p_user_id: pat.id, p_agreement_key: "alpha1_participation", p_agreement_version: "1.0", p_agreement_sha256: AGREEMENT_SHA,
+    p_token_hash: sha256(token), p_user_id: pat.id, p_agreement_key: "alpha1_participation", p_agreement_version: "1.1", p_agreement_sha256: AGREEMENT_SHA,
   });
   check("fixture: synthetic patient accepted a real invitation with the agreement", inv?.result === "created" && acc?.result === "accepted", JSON.stringify({ inv, acc }));
   const base = ["--project", DEV_REF, "--user-id", pat.id, "--email", pat.email];
@@ -166,7 +166,7 @@ async function main() {
   createdExercises.push(ce.id);
   const tok2 = randomUUID().replace(/-/g, "") + randomUUID().replace(/-/g, "");
   await admin.rpc("create_patient_invitation", { p_clinician_id: clin.id, p_organization_id: org.id, p_email: p2.email, p_token_hash: sha256(tok2) });
-  await admin.rpc("accept_patient_invitation_with_agreement", { p_token_hash: sha256(tok2), p_user_id: p2.id, p_agreement_key: "alpha1_participation", p_agreement_version: "1.0", p_agreement_sha256: AGREEMENT_SHA });
+  await admin.rpc("accept_patient_invitation_with_agreement", { p_token_hash: sha256(tok2), p_user_id: p2.id, p_agreement_key: "alpha1_participation", p_agreement_version: "1.1", p_agreement_sha256: AGREEMENT_SHA });
   const helpers = readFileSync("scripts/verifyM32SafetyNotificationsHelpers.sql", "utf8");
   await mgmt(`BEGIN;\n${helpers}\nDO $x$ DECLARE rx JSONB; BEGIN rx := pg_temp.rx('${p2.id}'::uuid, '${clin.id}'::uuid, '${ce.id}'::uuid); PERFORM pg_temp.closed('${p2.id}'::uuid, rx, 1, '{"pop_felt_or_heard": true}', '{"peak_session_pain": 6, "overall_session_rpe": 5, "sudden_or_sharp_pain": false, "new_functional_difficulty": false}'); PERFORM pg_temp.reconcile('${p2.id}'::uuid); END $x$;\nCOMMIT;`);
   const anon = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, { auth: { persistSession: false } });

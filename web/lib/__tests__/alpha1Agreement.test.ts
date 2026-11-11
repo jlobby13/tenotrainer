@@ -27,8 +27,9 @@ function check(name: string, ok: boolean, detail?: string) {
 
 // Changing the agreement wording changes this hash. That is intended: bump
 // ALPHA1_AGREEMENT_VERSION and update both pins together, deliberately.
-const PINNED_VERSION = "1.0";
-const PINNED_SHA256 = "f58f56599a1e91e28fde7fbf11dddacb10593cfea9ff80cf0c4b77d43985a90d";
+const PINNED_VERSION = "1.1";
+const PINNED_SHA256 = "6898f1ac6e8cf59c6b508bff643b4b9c5b59590069337674bbabec2202dd486d";
+// v1.0 (historical; acceptances recorded under it keep this hash): f58f56599a1e91e28fde7fbf11dddacb10593cfea9ff80cf0c4b77d43985a90d
 
 const text = alpha1AgreementCanonicalText();
 const sha = alpha1AgreementSha256();
@@ -43,7 +44,13 @@ check("canonical text ends with the exact checkbox wording", text.endsWith("\nI 
 check("title is exact", ALPHA1_AGREEMENT_TITLE === "TenoTrainer Alpha 1 Participation Agreement");
 check("contact address is the official one and appears in the text", ALPHA1_CONTACT_EMAIL === "tenotrainer@tenotrainer.com" && text.includes("tenotrainer@tenotrainer.com"));
 check("emergency instruction present", text.includes("In a medical emergency, call 911."));
-for (const required of ["not a medical service", "fictional", "Vercel", "Supabase", "Resend", "no automatic deletion schedule", "backups"]) {
+for (const required of ["not a medical service", "fictional", "Vercel", "Supabase", "Resend", "no automatic deletion schedule", "backups",
+  // v1.1 — deletion vs closure (Stage 4 procedure)
+  "delete your account and your testing information from TenoTrainer's active database", "we will close your account instead",
+  "Closing blocks access to your account and removes identifying account details, including your name and email address",
+  "stay linked to the closed account", "including any free text you entered, may still contain personal information",
+  "Closing an account is not complete deletion and does not guarantee anonymity", "authentication logs", "Resend email records",
+  "In a medical emergency, call 911.", "tenotrainer@tenotrainer.com"]) {
   check(`text covers: ${required}`, text.includes(required));
 }
 for (const forbidden of [/HIPAA/i, /encrypt/i, /guarantee(s)? (that )?(your|the) (data|information)/i, /\b\d+\s*(days?|months?|years?)\b/i]) {
@@ -56,12 +63,12 @@ const code = (entries: Record<string, string>) => {
   const r = checkAlpha1AgreementForm(form(entries));
   return "code" in r ? r.code : "ok";
 };
-check("missing acknowledgment is refused", code({ agreement_version: "1.0" }) === "agreement_required");
-check("any value other than 'accepted' is refused", code({ agreement: "on", agreement_version: "1.0" }) === "agreement_required" && code({ agreement: "true", agreement_version: "1.0" }) === "agreement_required" && code({ agreement: "", agreement_version: "1.0" }) === "agreement_required");
+check("missing acknowledgment is refused", code({ agreement_version: "1.1" }) === "agreement_required");
+check("any value other than 'accepted' is refused", code({ agreement: "on", agreement_version: "1.1" }) === "agreement_required" && code({ agreement: "true", agreement_version: "1.1" }) === "agreement_required" && code({ agreement: "", agreement_version: "1.1" }) === "agreement_required");
 check("missing version is refused as an updated agreement", code({ agreement: "accepted" }) === "agreement_updated");
-check("an older / different version is refused", code({ agreement: "accepted", agreement_version: "0.9" }) === "agreement_updated" && code({ agreement: "accepted", agreement_version: "1.0 " }) === "agreement_updated");
-check("accepted + current version passes", code({ agreement: "accepted", agreement_version: "1.0" }) === "ok");
-check("client-supplied hash / user / timestamp fields are ignored", code({ agreement: "accepted", agreement_version: "1.0", agreement_sha256: "0".repeat(64), user_id: "x", accepted_at: "2000-01-01" }) === "ok");
+check("an older / different version (e.g. a page still showing v1.0) is refused", code({ agreement: "accepted", agreement_version: "1.0" }) === "agreement_updated" && code({ agreement: "accepted", agreement_version: "0.9" }) === "agreement_updated" && code({ agreement: "accepted", agreement_version: "1.1 " }) === "agreement_updated");
+check("accepted + current version passes", code({ agreement: "accepted", agreement_version: "1.1" }) === "ok");
+check("client-supplied hash / user / timestamp fields are ignored", code({ agreement: "accepted", agreement_version: "1.1", agreement_sha256: "0".repeat(64), user_id: "x", accepted_at: "2000-01-01" }) === "ok");
 
 // ------------------------------------------------------------ static guards (run from web/)
 const migration = readFileSync("../supabase/migrations/20261110000001_alpha1_participation_agreement.sql", "utf8");

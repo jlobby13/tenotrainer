@@ -69,8 +69,8 @@ DECLARE
   v_n INT;
   v_pass INT; v_fail INT;
   k CONSTANT TEXT := 'alpha1_participation';
-  ver CONSTANT TEXT := '1.0';
-  sha CONSTANT TEXT := 'f58f56599a1e91e28fde7fbf11dddacb10593cfea9ff80cf0c4b77d43985a90d';
+  ver CONSTANT TEXT := '1.1';
+  sha CONSTANT TEXT := '6898f1ac6e8cf59c6b508bff643b4b9c5b59590069337674bbabec2202dd486d';
 BEGIN
   -- ================= fixtures (inside the transaction) =================
   INSERT INTO organizations (name, slug) VALUES ('A1 Agreement Org ' || s, 'a1-agree-' || s) RETURNING id INTO v_org;
@@ -247,6 +247,26 @@ BEGIN
   PERFORM pg_temp.chk('association: every acceptance row belongs to the user whose invitation was accepted',
     NOT EXISTS (SELECT 1 FROM participation_agreement_acceptances a JOIN invitations i ON i.id = a.invitation_id
                 WHERE i.accepted_by IS DISTINCT FROM a.user_id));
+
+  -- ================= v1.0 history alongside v1.1 =================
+  -- An acceptance recorded under v1.0 (before this release) keeps its version
+  -- and hash; a later acceptance by another participant records v1.1. Nothing
+  -- rewrites history, and the database accepts both (no version is pinned in SQL).
+  DECLARE vOld UUID := pg_temp.mkuser('a1-hist-old-' || s || '@example.invalid'); vNew UUID := pg_temp.mkuser('a1-hist-new-' || s || '@example.invalid');
+  BEGIN
+    PERFORM create_patient_invitation(cA, v_org, 'a1-hist-old-' || s || '@example.invalid', pg_temp.h('tok-hist-old-' || s));
+    PERFORM create_patient_invitation(cA, v_org, 'a1-hist-new-' || s || '@example.invalid', pg_temp.h('tok-hist-new-' || s));
+    PERFORM pg_temp.accept_as_server(pg_temp.h('tok-hist-old-' || s), vOld, k, '1.0', 'f58f56599a1e91e28fde7fbf11dddacb10593cfea9ff80cf0c4b77d43985a90d');
+    PERFORM pg_temp.accept_as_server(pg_temp.h('tok-hist-new-' || s), vNew, k, ver, sha);
+    PERFORM pg_temp.chk('history: a v1.0 acceptance keeps version 1.0 and the v1.0 hash; a new acceptance records v1.1 and its hash',
+      EXISTS (SELECT 1 FROM participation_agreement_acceptances WHERE user_id = vOld AND agreement_version = '1.0' AND agreement_sha256 = 'f58f56599a1e91e28fde7fbf11dddacb10593cfea9ff80cf0c4b77d43985a90d')
+      AND EXISTS (SELECT 1 FROM participation_agreement_acceptances WHERE user_id = vNew AND agreement_version = '1.1' AND agreement_sha256 = sha)
+      AND (SELECT count(*) FROM participation_agreement_acceptances WHERE user_id IN (vOld, vNew)) = 2);
+    PERFORM pg_temp.accept_as_server(pg_temp.h('tok-hist-old-' || s), vOld, k, ver, sha);
+    PERFORM pg_temp.chk('history: replaying an invitation accepted under v1.0 never adds or rewrites to v1.1',
+      (SELECT count(*) FROM participation_agreement_acceptances WHERE user_id = vOld) = 1
+      AND (SELECT agreement_version FROM participation_agreement_acceptances WHERE user_id = vOld) = '1.0');
+  END;
 
   SELECT count(*) FILTER (WHERE result LIKE 'PASS:%'), count(*) FILTER (WHERE result LIKE 'FAIL:%') INTO v_pass, v_fail FROM verify_results;
   INSERT INTO verify_results(result) VALUES ('TOTAL: ' || v_pass || ' passed, ' || v_fail || ' failed');

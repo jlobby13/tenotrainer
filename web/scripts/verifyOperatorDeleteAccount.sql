@@ -58,7 +58,7 @@ DO $oda$
 DECLARE
   P CONSTANT TEXT := 'kpdxlzqtvueiytwjamiw';
   A_KEY CONSTANT TEXT := 'alpha1_participation';
-  A_SHA CONSTANT TEXT := 'f58f56599a1e91e28fde7fbf11dddacb10593cfea9ff80cf0c4b77d43985a90d';
+  A_SHA CONSTANT TEXT := '6898f1ac6e8cf59c6b508bff643b4b9c5b59590069337674bbabec2202dd486d';
   s TEXT := substr(md5(random()::text), 1, 8);
   v_org UUID; v_ce UUID; cA UUID; sU UUID; p1 UUID; p2 UUID; p3 UUID; p4 UUID;
   e1 TEXT; e2 TEXT; e3 TEXT; e4 TEXT; rx JSONB; v_r JSONB; v_inv JSONB; v_inv2 JSONB; v_err TEXT; v_fp TEXT; v_fp2 TEXT;
@@ -77,9 +77,9 @@ BEGIN
   PERFORM create_patient_invitation(cA, v_org, e2, pg_temp.h('oda-2-' || s));
   PERFORM create_patient_invitation(cA, v_org, e4, pg_temp.h('oda-4-' || s));
   PERFORM pg_temp.chk('fixture: three patients accepted with the agreement',
-    public.accept_patient_invitation_with_agreement(pg_temp.h('oda-1-' || s), p1, A_KEY, '1.0', A_SHA)->>'result' = 'accepted'
-    AND public.accept_patient_invitation_with_agreement(pg_temp.h('oda-2-' || s), p2, A_KEY, '1.0', A_SHA)->>'result' = 'accepted'
-    AND public.accept_patient_invitation_with_agreement(pg_temp.h('oda-4-' || s), p4, A_KEY, '1.0', A_SHA)->>'result' = 'accepted');
+    public.accept_patient_invitation_with_agreement(pg_temp.h('oda-1-' || s), p1, A_KEY, '1.1', A_SHA)->>'result' = 'accepted'
+    AND public.accept_patient_invitation_with_agreement(pg_temp.h('oda-2-' || s), p2, A_KEY, '1.1', A_SHA)->>'result' = 'accepted'
+    AND public.accept_patient_invitation_with_agreement(pg_temp.h('oda-4-' || s), p4, A_KEY, '1.1', A_SHA)->>'result' = 'accepted');
   -- p1: program + two closed sessions (no acute signal) + notification + auth session.
   rx := pg_temp.rx(p1, cA, v_ce);
   PERFORM pg_temp.closed(p1, rx, 3, NULL, '{"peak_session_pain": 2, "overall_session_rpe": 4, "sudden_or_sharp_pain": false, "pop_felt_or_heard": false, "new_functional_difficulty": false}');
