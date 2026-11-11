@@ -92,6 +92,7 @@ outside this contract and is development-only.
 |---|---|---|
 | `NODE_ENV` | Next.js (`next start` / `next build` → `production`, `next dev` → `development`) | production/maintenance require `production`; development's dev-server CSP allowances |
 | `VERCEL_ENV`, `VERCEL` | Vercel | consistency checks only (see the matrix); presence also disables the isolated test profile |
+| `VERCEL_BRANCH_URL` | Vercel (system variable, set per deployment) | **Preview only** (`VERCEL_ENV=preview`, development mode): required; the deployment's own Git-branch alias is the generated-link origin there. Must be a bare hostname. Ignored in production, maintenance and local development |
 | `NEXT_RUNTIME` | Next.js | `instrumentation.ts` runtime-conditional import only |
 
 These never supply a mode and must not be configured by hand.
@@ -612,9 +613,15 @@ maintenance mode, because they require `VERCEL_ENV=production`.
 
 **Preview behaviour to expect.**
 
-- **Origin and identity.** `TENOTRAINER_APP_ORIGIN` must be set to the
-  preview's stable alias; generated links use it. The preview's Supabase
-  project must be the registered development project.
+- **Origin and identity.** Generated links (invitations, password recovery,
+  safety email, admin links) use the Preview's **own** Git-branch alias,
+  `https://$VERCEL_BRANCH_URL`, which Vercel sets for each deployment. The
+  Preview-scope `TENOTRAINER_APP_ORIGIN` is still required and validated,
+  but it is shared by every branch's Preview, so it is never the link origin
+  there (Alpha 1: it had handed one branch's Preview another branch's
+  host). A Preview without `VERCEL_BRANCH_URL` refuses its configuration.
+  The preview's Supabase project must be the registered development
+  project.
 - **Development-only surfaces.** The legacy bridge routes and the
   tester/admin invitation workflow exist in development mode. With no
   `FASTAPI_URL` / `BRIDGE_SECRET` configured, the bridge is unconfigured.

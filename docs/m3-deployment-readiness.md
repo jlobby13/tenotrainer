@@ -364,8 +364,10 @@ email stays disabled, and links stay on the alias.
 **Preview environment (Vercel "Preview" scope only):**
 
 - `TENOTRAINER_MODE=development`
-- `TENOTRAINER_APP_ORIGIN=https://<stable preview alias>` (one dedicated
-  branch alias; generated links use it)
+- `TENOTRAINER_APP_ORIGIN=https://<stable preview alias>` (required and
+  validated; since Alpha 1 the link origin on a Preview is that deployment's
+  own branch alias from the Vercel system variable `VERCEL_BRANCH_URL`, so
+  System Environment Variables must stay exposed)
 - `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` and
   `TENOTRAINER_SUPABASE_PROJECT_REF` from the **development** project
 - `C5_PATIENT_RUNTIME_ENABLED=true` (**required**: unset selects the legacy

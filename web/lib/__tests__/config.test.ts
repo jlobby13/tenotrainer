@@ -170,7 +170,7 @@ test("N1: an overlapping development / production registry is refused in every m
   for (const env of [PROD, { ...PROD, TENOTRAINER_MODE: "maintenance" }, DEV]) refused(env, "must be disjoint", overlap);
 });
 test("N1: a Vercel Preview in development mode on the development project stays valid", () => {
-  const c = ok({ ...DEV, VERCEL: "1", VERCEL_ENV: "preview", NODE_ENV: "production", TENOTRAINER_APP_ORIGIN: "https://preview-alias.vercel.app", TENOTRAINER_SUPABASE_PROJECT_REF: DEV_REF, TENOTRAINER_EMAIL_PROVIDER: "disabled", C5_PATIENT_RUNTIME_ENABLED: "true" });
+  const c = ok({ ...DEV, VERCEL: "1", VERCEL_ENV: "preview", NODE_ENV: "production", VERCEL_BRANCH_URL: "preview-alias.vercel.app", TENOTRAINER_APP_ORIGIN: "https://preview-alias.vercel.app", TENOTRAINER_SUPABASE_PROJECT_REF: DEV_REF, TENOTRAINER_EMAIL_PROVIDER: "disabled", C5_PATIENT_RUNTIME_ENABLED: "true" });
   assert(c.mode === "development" && c.supabase.ref === DEV_REF && c.email.provider === "disabled", JSON.stringify(c.mode));
 });
 test("production: local Supabase, custom domains, http and non-bare URLs refused", () => {
@@ -226,7 +226,7 @@ test("VERCEL_ENV: production/maintenance require production; development must no
   assert(ok({ ...PROD, VERCEL_ENV: "production", VERCEL: "1" }).mode === "production", "prod on vercel");
   refused({ ...PROD, VERCEL_ENV: "preview" }, "VERCEL_ENV: must be production");
   refused({ ...DEV, VERCEL_ENV: "production" }, "VERCEL_ENV: a production deployment must not run in development");
-  assert(ok({ ...DEV, VERCEL_ENV: "preview", VERCEL: "1" }).mode === "development", "preview = development");
+  assert(ok({ ...DEV, VERCEL_ENV: "preview", VERCEL: "1", VERCEL_BRANCH_URL: "preview-alias.vercel.app" }).mode === "development", "preview = development");
 });
 
 // ---------------------------------------------------------------- canonical origin primitives
@@ -470,7 +470,7 @@ test("the isolated test profile can never be a real deployment", () => {
 test("platform.onVercel: true only when the Vercel platform variables are present", () => {
   assert(ok(PROD).platform.onVercel === false && ok(DEV).platform.onVercel === false, "plain process");
   assert(ok({ ...PROD, VERCEL: "1", VERCEL_ENV: "production" }).platform.onVercel === true, "Vercel production");
-  assert(ok({ ...DEV, VERCEL: "1", VERCEL_ENV: "preview" }).platform.onVercel === true, "Vercel preview");
+  assert(ok({ ...DEV, VERCEL: "1", VERCEL_ENV: "preview", VERCEL_BRANCH_URL: "preview-alias.vercel.app" }).platform.onVercel === true, "Vercel preview");
   assert(ok(ISOLATED).platform.onVercel === false && ok(ISOLATED).mode === "production", "isolated test profile is never on Vercel");
 });
 

@@ -7,6 +7,7 @@
 //
 //   npx tsx lib/__tests__/m34aDeploymentConfig.test.ts
 import { ConfigError, validateConfig } from "../config/parse";
+import { absoluteUrl } from "../config/origin";
 import type { ResourceIdentityRegistry } from "../config/types";
 
 let pass = 0;
@@ -46,10 +47,20 @@ const VERCEL_PROD: Env = {
   SAFETY_DISPATCH_SECRET: SECRET32, C5_PRESCRIPTION_PUBLISH_ENABLED: "false",
   AUTH_RATE_LIMIT_SECRET: "d3-test-only-rate-limit-secret-0123456789abcdefXYZ", // M3.5 D3 test-only value
 };
-// Vercel Preview as M3.4b will configure it (founder C2).
+// Vercel Preview as M3.4b configured it (founder C2). The Preview-scope
+// TENOTRAINER_APP_ORIGIN is shared by every branch's Preview, so it names
+// ANOTHER (older) branch's alias — the Alpha 1 defect. VERCEL_BRANCH_URL is
+// the platform's per-deployment system variable for THIS Preview's alias.
+const STALE_PREVIEW_ORIGIN = "https://tenotrainer-git-m6-stage-3-longitudinal-int-09d582-team.vercel.app";
+const OWN_BRANCH_HOST = "tenotrainer-git-alpha1-participation-agreement-team.vercel.app";
 const VERCEL_PREVIEW: Env = {
-  VERCEL: "1", VERCEL_ENV: "preview", NODE_ENV: "production",
-  TENOTRAINER_MODE: "development", TENOTRAINER_APP_ORIGIN: "https://tenotrainer-git-preview-team.vercel.app",
+  VERCEL: "1", VERCEL_ENV: "preview", NODE_ENV: "production", VERCEL_BRANCH_URL: OWN_BRANCH_HOST,
+  TENOTRAINER_MODE: "development", TENOTRAINER_APP_ORIGIN: STALE_PREVIEW_ORIGIN,
+  ...supabase(DEV_REF), C5_PATIENT_RUNTIME_ENABLED: "true", TENOTRAINER_EMAIL_PROVIDER: "disabled",
+};
+// Local development (no Vercel variables).
+const LOCAL_DEV: Env = {
+  NODE_ENV: "development", TENOTRAINER_MODE: "development", TENOTRAINER_APP_ORIGIN: "http://localhost:3000",
   ...supabase(DEV_REF), C5_PATIENT_RUNTIME_ENABLED: "true", TENOTRAINER_EMAIL_PROVIDER: "disabled",
 };
 const REGISTRY_WITH_PROD: ResourceIdentityRegistry = {
@@ -139,6 +150,58 @@ test("Vercel Preview refuses the retired NEXT_PUBLIC_ names (on Vercel)", () => 
   const w = p.length === 0 ? validateConfig({ ...VERCEL_PREVIEW, NEXT_PUBLIC_SUPABASE_URL: `https://${DEV_REF}.supabase.co` }).config.warnings : [];
   assert(p.some((x) => x.includes("NEXT_PUBLIC_SUPABASE_URL")) || w.some((x) => x.includes("NEXT_PUBLIC_SUPABASE_URL")), `neither refused nor warned: ${JSON.stringify({ p, w })}`);
 });
+
+// ---------------------------------------------------------------- Alpha 1 — generated-link origin per environment
+const TOKEN = "a".repeat(64);
+const inviteLink = (env: Env, registry?: ResourceIdentityRegistry) =>
+  absoluteUrl(validateConfig(env, registry ? { registry } : {}).config.appOrigin, `/invite/accept?token=${TOKEN}`);
+test("Preview: invitation links use THIS Preview's own branch alias (VERCEL_BRANCH_URL)", () => {
+  const link = inviteLink(VERCEL_PREVIEW);
+  assert(link === `https://${OWN_BRANCH_HOST}/invite/accept?token=${TOKEN}`, link);
+});
+test("Preview: the shared (outdated, other-branch) TENOTRAINER_APP_ORIGIN can never be selected", () => {
+  const origin = validateConfig(VERCEL_PREVIEW).config.appOrigin;
+  assert(origin !== STALE_PREVIEW_ORIGIN && !origin.includes("m6-stage-3"), origin);
+});
+test("Preview: a different branch's Preview gets its own alias, not this one's", () => {
+  const other = "tenotrainer-git-some-other-branch-team.vercel.app";
+  assert(validateConfig({ ...VERCEL_PREVIEW, VERCEL_BRANCH_URL: other }).config.appOrigin === `https://${other}`, "own alias per branch");
+});
+test("Preview: the branch hostname is normalized to lower case", () => {
+  assert(validateConfig({ ...VERCEL_PREVIEW, VERCEL_BRANCH_URL: OWN_BRANCH_HOST.toUpperCase() }).config.appOrigin === `https://${OWN_BRANCH_HOST}`, "lower-cased");
+});
+test("Preview fails closed without VERCEL_BRANCH_URL (no silent fallback to the shared origin)", () => refused(without(VERCEL_PREVIEW, "VERCEL_BRANCH_URL"), "VERCEL_BRANCH_URL: is required"));
+test("Preview fails closed on an empty VERCEL_BRANCH_URL", () => refused({ ...VERCEL_PREVIEW, VERCEL_BRANCH_URL: "  " }, "VERCEL_BRANCH_URL: is required"));
+for (const [label, bad] of [
+  ["a scheme", `https://${OWN_BRANCH_HOST}`],
+  ["a path", `${OWN_BRANCH_HOST}/invite`],
+  ["a query", `${OWN_BRANCH_HOST}?x=1`],
+  ["a port", `${OWN_BRANCH_HOST}:8443`],
+  ["user info", `user@${OWN_BRANCH_HOST}`],
+  ["a loopback host", "localhost"],
+  ["a loopback address", "127.0.0.1"],
+  ["two hosts", `${OWN_BRANCH_HOST},evil.example`],
+] as const) test(`Preview refuses a VERCEL_BRANCH_URL with ${label}`, () => refused({ ...VERCEL_PREVIEW, VERCEL_BRANCH_URL: bad }, "VERCEL_BRANCH_URL: must be a bare non-loopback hostname"));
+test("Production: links use the canonical origin; VERCEL_BRANCH_URL (set by Vercel on every deployment) is ignored", () => {
+  const link = inviteLink({ ...VERCEL_PROD, VERCEL_BRANCH_URL: "tenotrainer-git-main-team.vercel.app" }, REGISTRY_WITH_PROD);
+  assert(link === `https://app.tenotrainer-verify.org/invite/accept?token=${TOKEN}`, link);
+});
+test("Production: no Preview / branch hostname can appear in a link", () => {
+  const link = inviteLink({ ...VERCEL_PROD, VERCEL_BRANCH_URL: OWN_BRANCH_HOST }, REGISTRY_WITH_PROD);
+  assert(!link.includes("-git-") && !link.includes(OWN_BRANCH_HOST), link);
+});
+test("Maintenance: also the canonical origin, VERCEL_BRANCH_URL ignored", () => {
+  const c = validateConfig({ ...VERCEL_PROD, TENOTRAINER_MODE: "maintenance", VERCEL_BRANCH_URL: OWN_BRANCH_HOST }, { registry: REGISTRY_WITH_PROD }).config;
+  assert(c.appOrigin === "https://app.tenotrainer-verify.org", c.appOrigin);
+});
+test("Local development: links use TENOTRAINER_APP_ORIGIN as before", () => {
+  const link = inviteLink(LOCAL_DEV);
+  assert(link === `http://localhost:3000/invite/accept?token=${TOKEN}`, link);
+});
+test("Local development: a stray VERCEL_BRANCH_URL is ignored without VERCEL_ENV=preview", () => {
+  assert(validateConfig({ ...LOCAL_DEV, VERCEL_BRANCH_URL: OWN_BRANCH_HOST }).config.appOrigin === "http://localhost:3000", "ignored locally");
+});
+test("Vercel Preview still requires a valid TENOTRAINER_APP_ORIGIN (contract unchanged)", () => refused(without(VERCEL_PREVIEW, "TENOTRAINER_APP_ORIGIN"), "TENOTRAINER_APP_ORIGIN: is required"));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

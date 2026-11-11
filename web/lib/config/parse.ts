@@ -176,6 +176,29 @@ export function validateConfig(env: Env, options: { registry?: ResourceIdentityR
       isolatedTestProfile = prodLike && isUnderTld(o.hostname, ["test"]) && !vercelMarked;
     }
   }
+  // Alpha 1 — a Vercel Preview deployment's generated-link origin is its OWN
+  // Git-branch alias, from the platform system variable VERCEL_BRANCH_URL
+  // (set by Vercel for each deployment — never request metadata). One
+  // Preview-scope TENOTRAINER_APP_ORIGIN is shared by every branch's Preview,
+  // so it would hand each Preview another branch's host. Required (fail
+  // closed) on a Preview; never consulted in production/maintenance (they
+  // require VERCEL_ENV=production) or locally (no VERCEL_ENV).
+  if (mode === "development" && vercelEnv === "preview") {
+    const branchHost = value(env.VERCEL_BRANCH_URL);
+    const b = branchHost === null ? null : parseOrigin(`https://${branchHost.toLowerCase()}`);
+    if (b === null) {
+      problems.push("VERCEL_BRANCH_URL: is required on a Vercel Preview deployment (its own branch alias is the link origin)");
+    } else if (
+      !b.ok ||
+      b.origin !== `https://${b.hostname}` ||
+      !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/.test(b.hostname) ||
+      isLoopbackHost(b.hostname)
+    ) {
+      problems.push("VERCEL_BRANCH_URL: must be a bare non-loopback hostname (no scheme, port, path or query)");
+    } else {
+      appOrigin = b.origin;
+    }
+  }
 
   // ------------------------------------------------------------ Supabase identity
   let supabaseUrl = "";

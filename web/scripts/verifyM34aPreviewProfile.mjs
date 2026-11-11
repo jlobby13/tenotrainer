@@ -34,8 +34,13 @@ const RUN = randomUUID().slice(0, 8);
 const PORTS = { preview: 3187, gateway: 3188, fastapi: 3189 };
 const HOST = "preview.tenotrainer.test";
 const ORIGIN = `https://${HOST}`;
+// Alpha 1 — the Preview-scope TENOTRAINER_APP_ORIGIN is shared by every branch's
+// Preview, so it names ANOTHER branch's alias. Links must still use THIS
+// Preview's own alias (VERCEL_BRANCH_URL = HOST); the stale host must never appear.
+const STALE_ORIGIN = "https://stale-other-branch.tenotrainer.test";
 const PREVIEW_ENV = {
-  VERCEL: "1", VERCEL_ENV: "preview", TENOTRAINER_MODE: "development", TENOTRAINER_APP_ORIGIN: ORIGIN,
+  // Alpha 1 — on a Preview the link origin is the deployment's own branch alias (VERCEL_BRANCH_URL, a Vercel system variable).
+  VERCEL: "1", VERCEL_ENV: "preview", VERCEL_BRANCH_URL: HOST, TENOTRAINER_MODE: "development", TENOTRAINER_APP_ORIGIN: STALE_ORIGIN,
   C5_PATIENT_RUNTIME_ENABLED: "true", C5_PRESCRIPTION_PUBLISH_ENABLED: "false", TENOTRAINER_EMAIL_PROVIDER: "disabled",
   BRIDGE_SECRET: "", FASTAPI_URL: `http://127.0.0.1:${PORTS.fastapi}`,
 };
@@ -125,6 +130,7 @@ SELECT 1 AS ok;`);
   const text = await box.innerText();
   const link = (await c.page.getByTestId("invite-link").first().innerText().catch(() => "")).trim();
   check("invitation created; email NOT sent (disabled); one-time link on the preview alias", text.includes("could not be sent") && link.startsWith(`${ORIGIN}/invite/accept?token=`), text.slice(0, 120));
+  check("Alpha 1: the link uses this Preview's own branch alias, never the shared (stale) TENOTRAINER_APP_ORIGIN", new URL(link).origin === ORIGIN && !text.includes("stale-other-branch"), link);
   const inv = guardedSql(env, `SELECT status, (email_sent_at IS NOT NULL) AS sent FROM invitations WHERE invited_by = ${q(clin.id)}`);
   check("invitation row pending with no email_sent_at", inv.length === 1 && inv[0].status === "pending" && inv[0].sent === false, JSON.stringify(inv));
   await c.ctx.close();
