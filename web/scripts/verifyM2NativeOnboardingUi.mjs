@@ -309,6 +309,21 @@ async function main() {
       await forceSubmit(page, { agreement: true, version: "0.9" });
       await page.waitForURL(/error=agreement_updated/, { timeout: 20000 });
       check("A1. server refuses an outdated agreement version", (await page.getByTestId("invite-error").getAttribute("data-error")) === "agreement_updated" && (await userIdByEmail(newEmail)) === null);
+      // Stage 3B — a password Supabase Auth refuses as previously leaked (HIBP).
+      check("3B. password guidance keeps the requirement and adds the unique-password advice",
+        /At least \d+ characters\. Use a unique password\. Avoid common or previously leaked passwords\./.test(await page.getByTestId("password-hint").innerText()));
+      const LEAKED = "password1234";
+      await page.fill("#name", "Pat Newcomer");
+      await page.fill("#password", LEAKED);
+      await box.check();
+      await page.getByTestId("accept-invitation").click();
+      await page.waitForURL(/error=password_weak/, { timeout: 20000 });
+      const weakMsg = (await page.getByTestId("invite-error").innerText()).trim();
+      const weakBody = await page.locator("body").innerText();
+      check("3B. a leaked password shows the specific message", weakMsg === "That password isn't strong enough. Please choose a longer or less common one.", weakMsg);
+      check("3B. no Supabase error text and no password exposed (page or URL)", !/known to be weak|easy to guess|422/i.test(weakBody) && !weakBody.includes(LEAKED) && !page.url().includes(LEAKED));
+      const { data: weakAcc } = await admin.from("participation_agreement_acceptances").select("id").eq("invitation_id", (await invitationRow(inv.token)).id);
+      check("3B. no account created, invitation still pending, no agreement record", (await userIdByEmail(newEmail)) === null && (await invitationRow(inv.token)).status === "pending" && (weakAcc ?? []).length === 0);
       await page.fill("#name", "Pat Newcomer");
       await page.fill("#password", PASSWORD);
       await box.check();
@@ -362,6 +377,15 @@ async function main() {
       const ctx = await newCtx(browser);
       const page = await ctx.newPage();
       await page.goto(onUrl(i2.link));
+      // Stage 3B — duplicate-account handling unchanged: the new-user form for an
+      // address that already has an account still says "account exists".
+      await page.fill("#name", "Existing Person");
+      await page.fill("#password", PASSWORD);
+      await page.getByTestId("agreement-checkbox").check();
+      await page.getByTestId("accept-invitation").click();
+      await page.waitForURL(/error=account_exists/, { timeout: 20000 });
+      check("3B. an existing account still gets the account-exists message (unchanged)",
+        (await page.getByTestId("invite-error").innerText()).includes("An account with this email already exists") && (await invitationRow(i2.token)).status === "pending");
       await page.getByTestId("invite-login").click();
       await page.waitForURL(/\/login/);
       await page.fill("#email", existing.email);

@@ -73,6 +73,9 @@ export async function acceptPatientInvitationNewUserAction(formData: FormData) {
     user_metadata: { name },
   });
   if (createError || !created.user) {
+    // Supabase Auth's leaked-password (HIBP) check: a fixed, specific code —
+    // never Supabase's own message text.
+    if (createError?.code === "weak_password") backToInvite(token, "password_weak");
     const exists = /already|exists|registered/i.test(createError?.message ?? "");
     backToInvite(token, exists ? "account_exists" : "account_failed");
   }

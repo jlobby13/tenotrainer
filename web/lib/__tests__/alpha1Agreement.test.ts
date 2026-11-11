@@ -91,6 +91,22 @@ check("new-user action checks the agreement before creating the account", newUse
 check("existing-user action checks the agreement before accepting", existingUser.includes("requireAgreement(token, formData);") && existingUser.indexOf("requireAgreement(") < existingUser.indexOf("finishPatientAcceptance("));
 const staffActions = actions.slice(actions.indexOf("// Tester / clinician-admin invitations"));
 check("development-only staff/tester actions are unchanged (no agreement, still development-only)", !staffActions.includes("requireAgreement") && (staffActions.match(/refuseActionOutsideDevelopment\("\/invite\/accept"\)/g) ?? []).length === 2);
+// Stage 3B — Supabase Auth's leaked-password refusal gets its own message.
+const createBranch = newUser.match(/if \(createError \|\| !created\.user\) \{[\s\S]*?\n  \}/)?.[0] ?? "";
+check("weak_password from Supabase Auth maps to password_weak, before the duplicate / generic mapping",
+  /if \(createError\?\.code === "weak_password"\) backToInvite\(token, "password_weak"\);/.test(createBranch)
+    && createBranch.indexOf('"password_weak"') < createBranch.indexOf("const exists"), createBranch);
+check("duplicate-account and generic account errors are mapped exactly as before",
+  createBranch.includes('const exists = /already|exists|registered/i.test(createError?.message ?? "");')
+    && createBranch.includes('backToInvite(token, exists ? "account_exists" : "account_failed");'));
+check("no Supabase error text is ever passed to the page (fixed codes only)", !/backToInvite\([^)]*(message|createError)/.test(actions));
+const page = readFileSync("app/invite/accept/page.tsx", "utf8");
+check("the page shows the approved weak-password message",
+  page.includes(`password_weak: "That password isn't strong enough. Please choose a longer or less common one.",`));
+check("the page renders only fixed copy for an error code (never the URL value itself)",
+  page.includes("const errorMessage = error ? (ERROR_COPY[error] ?? ERROR_COPY.error) : null;"));
+check("password guidance keeps the requirement and adds the unique-password advice",
+  page.includes("{PASSWORD_POLICY_HINT} Use a unique password. Avoid common or previously leaked passwords.") && page.includes('aria-describedby="password-hint"'));
 const controls = readFileSync("app/invite/accept/AgreementAcceptControls.tsx", "utf8");
 check("checkbox is native, unchecked by default and required", /type="checkbox"/.test(controls) && /name="agreement"/.test(controls) && /value="accepted"/.test(controls) && /\brequired\b/.test(controls) && /useState\(false\)/.test(controls) && !/defaultChecked/.test(controls));
 

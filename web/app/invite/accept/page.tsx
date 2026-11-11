@@ -24,6 +24,8 @@ const ERROR_COPY: Record<string, string> = {
   password_too_long: PASSWORD_POLICY_COPY.too_long,
   password_blank: PASSWORD_POLICY_COPY.blank,
   password_same_as_email: PASSWORD_POLICY_COPY.same_as_email,
+  // Supabase Auth refused the password as common / previously leaked (weak_password).
+  password_weak: "That password isn't strong enough. Please choose a longer or less common one.",
   account_exists: "An account with this email already exists. Log in to accept the invitation.",
   account_failed: "Your account could not be created. Please try again.",
   wrong_account: "This invitation was sent to a different email address. Log out and sign in with the invited account.",
@@ -270,9 +272,12 @@ function PasswordField() {
         minLength={PASSWORD_MIN_LENGTH}
         maxLength={PASSWORD_MAX_BYTES}
         autoComplete="new-password"
+        aria-describedby="password-hint"
         className="w-full min-h-11 border border-gray-300 rounded-lg px-3 py-2 text-base focus:ring-2 focus:ring-brand-400 focus:border-brand-400 focus:outline-none"
       />
-      <p className="text-xs text-gray-400 mt-1">{PASSWORD_POLICY_HINT}</p>
+      <p id="password-hint" className="text-xs text-gray-400 mt-1" data-testid="password-hint">
+        {PASSWORD_POLICY_HINT} Use a unique password. Avoid common or previously leaked passwords.
+      </p>
     </div>
   );
 }
